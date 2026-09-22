@@ -8,6 +8,7 @@ export interface AiAssistantSummary {
   languages: string[]
   status: string
   demo_url: string
+  embed_snippet: string
   created_at: string
 }
 

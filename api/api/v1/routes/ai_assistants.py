@@ -41,6 +41,11 @@ def _demo_url(slug: str) -> str:
     return f"{base}/a/{slug}"
 
 
+def _embed_snippet(slug: str) -> str:
+    base = settings.demo_host_base_url.rstrip("/")
+    return f'<script src="{base}/ai-assistant.js" data-slug="{slug}" defer></script>'
+
+
 def _accent_color(knowledge: dict[str, Any] | None) -> str | None:
     palette = (knowledge or {}).get("palette")
     return palette.get("accent") if isinstance(palette, dict) else None
@@ -56,6 +61,7 @@ def _to_owner_response(assistant: AiAssistant) -> AiAssistantResponse:
         languages=assistant.languages or [],
         status=assistant.status,
         demo_url=_demo_url(assistant.slug),
+        embed_snippet=_embed_snippet(assistant.slug),
         created_at=assistant.created_at,
     )
 

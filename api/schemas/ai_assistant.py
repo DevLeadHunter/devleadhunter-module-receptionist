@@ -22,6 +22,7 @@ class AiAssistantResponse(BaseModel):
     languages: list[str] = Field(default_factory=list)
     status: str
     demo_url: str
+    embed_snippet: str
     created_at: datetime
 
 

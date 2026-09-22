@@ -116,7 +116,7 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, PropType, Ref } from 'vue'
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import type {
   AiAssistantConfig,
   AssistantChatMessage,
@@ -346,6 +346,13 @@ async function submitLead(): Promise<void> {
     isSubmittingLead.value = false
   }
 }
+
+// When embedded on a client's site, tell the loader iframe to resize between bubble and panel.
+watch(isOpen, (open: boolean): void => {
+  if (typeof window !== 'undefined' && window.parent !== window) {
+    window.parent.postMessage({ type: 'dlh-assistant-resize', open }, '*')
+  }
+})
 </script>
 
 <style scoped>
