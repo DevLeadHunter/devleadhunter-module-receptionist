@@ -1,6 +1,34 @@
-"""Schemas for the public AI assistant endpoints (widget config and chat)."""
+"""Schemas for the AI assistant endpoints (owner management, public widget config and chat)."""
+
+from datetime import datetime
 
 from pydantic import BaseModel, Field
+
+
+class AiAssistantCreateRequest(BaseModel):
+    """Request to generate an assistant for one of the caller's prospects."""
+
+    prospect_id: int
+
+
+class AiAssistantResponse(BaseModel):
+    """An assistant as seen by its owner in the dashboard."""
+
+    id: int
+    slug: str
+    prospect_id: int | None = None
+    business_name: str
+    assistant_name: str
+    languages: list[str] = Field(default_factory=list)
+    status: str
+    demo_url: str
+    created_at: datetime
+
+
+class AiAssistantListResponse(BaseModel):
+    """The caller's assistants."""
+
+    assistants: list[AiAssistantResponse] = Field(default_factory=list)
 
 
 class AiAssistantPublicResponse(BaseModel):

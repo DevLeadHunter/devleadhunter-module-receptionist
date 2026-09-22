@@ -1,18 +1,28 @@
-"""Public AI assistant routes: widget config and grounded chat, served by slug."""
+"""AI assistant routes: owner generation/management, and public widget config + grounded chat."""
 
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from core.config import settings
 from core.database import get_db
+from enums.ai_assistant_status import AiAssistantStatus
+from models.ai_assistant import AiAssistant
+from models.prospect_db import ProspectDB
+from models.user import User
 from schemas.ai_assistant import (
     AiAssistantChatRequest,
     AiAssistantChatResponse,
+    AiAssistantCreateRequest,
+    AiAssistantListResponse,
     AiAssistantPublicResponse,
+    AiAssistantResponse,
 )
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
+from services.auth_service import get_current_active_user
 
 router = APIRouter(prefix="/ai-assistants", tags=["ai-assistants"])
 
@@ -20,9 +30,76 @@ router = APIRouter(prefix="/ai-assistants", tags=["ai-assistants"])
 _MAX_INCOMING_MESSAGES = 40
 
 
+def _demo_url(slug: str) -> str:
+    base = settings.demo_host_base_url.rstrip("/")
+    return f"{base}/a/{slug}"
+
+
 def _accent_color(knowledge: dict[str, Any] | None) -> str | None:
     palette = (knowledge or {}).get("palette")
     return palette.get("accent") if isinstance(palette, dict) else None
+
+
+def _to_owner_response(assistant: AiAssistant) -> AiAssistantResponse:
+    return AiAssistantResponse(
+        id=assistant.id,
+        slug=assistant.slug,
+        prospect_id=assistant.prospect_id,
+        business_name=assistant.business_name,
+        assistant_name=assistant.assistant_name,
+        languages=assistant.languages or [],
+        status=assistant.status,
+        demo_url=_demo_url(assistant.slug),
+        created_at=assistant.created_at,
+    )
+
+
+@router.post("", response_model=AiAssistantResponse, status_code=status.HTTP_201_CREATED)
+async def create_assistant(
+    payload: AiAssistantCreateRequest,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """Generate an assistant for one of the caller's prospects."""
+    prospect = db.query(ProspectDB).filter(ProspectDB.id == payload.prospect_id, ProspectDB.user_id == user.id).first()
+    if not prospect:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prospect not found")
+    assistant = await ai_assistant_service.create_for_prospect(db, user_id=user.id, prospect=prospect)
+    return _to_owner_response(assistant)
+
+
+@router.get("", response_model=AiAssistantListResponse)
+async def list_assistants(
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantListResponse:
+    """List the caller's assistants, newest first."""
+    assistants = (
+        db.query(AiAssistant)
+        .filter(AiAssistant.user_id == user.id, AiAssistant.deleted_at.is_(None))
+        .order_by(AiAssistant.created_at.desc())
+        .all()
+    )
+    return AiAssistantListResponse(assistants=[_to_owner_response(assistant) for assistant in assistants])
+
+
+@router.delete("/{assistant_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_assistant(
+    assistant_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """Soft-delete one of the caller's assistants."""
+    assistant = (
+        db.query(AiAssistant)
+        .filter(AiAssistant.id == assistant_id, AiAssistant.user_id == user.id, AiAssistant.deleted_at.is_(None))
+        .first()
+    )
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
+    assistant.status = AiAssistantStatus.DELETED.value
+    assistant.deleted_at = datetime.utcnow()
+    db.commit()
 
 
 @router.get("/public/{slug}", response_model=AiAssistantPublicResponse)
