@@ -125,6 +125,7 @@ import type {
   AssistantWidgetLang,
 } from '~/types/AiAssistant'
 import type { AssistantChatProps } from '~/types/AssistantChat'
+import { captureDemoEvent } from '~/composables/useDemoTracking'
 
 const DEFAULT_LANG: AssistantWidgetLang = 'fr'
 const FALLBACK_ACCENT: string = '#a9793f'
@@ -256,6 +257,7 @@ const suggestions: ComputedRef<string[]> = computed(() => SUGGESTIONS[lang.value
 function open(): void {
   isOpen.value = true
   if (!messages.value.length) {
+    captureDemoEvent('assistant_opened')
     messages.value.push({ role: 'assistant', content: GREETINGS[lang.value] })
   }
 }
@@ -294,6 +296,7 @@ async function sendText(text: string): Promise<void> {
     return
   }
   messages.value.push({ role: 'user', content: trimmed })
+  captureDemoEvent('assistant_message_sent')
   draft.value = ''
   isBusy.value = true
   await scrollToLatest()
@@ -333,6 +336,7 @@ async function submitLead(): Promise<void> {
       body: { name: leadName.value, contact: leadContact.value, need: leadNeed.value, language: lang.value },
     })
     leadSent.value = true
+    captureDemoEvent('assistant_lead_submitted')
     showLeadForm.value = false
     messages.value.push({ role: 'assistant', content: LEAD_UI[lang.value].sent })
     await scrollToLatest()
