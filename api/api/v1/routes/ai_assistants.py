@@ -11,14 +11,17 @@ from core.config import settings
 from core.database import get_db
 from enums.ai_assistant_status import AiAssistantStatus
 from models.ai_assistant import AiAssistant
+from models.ai_assistant_lead import AiAssistantLead
 from models.prospect_db import ProspectDB
 from models.user import User
 from schemas.ai_assistant import (
     AiAssistantChatRequest,
     AiAssistantChatResponse,
     AiAssistantCreateRequest,
+    AiAssistantLeadItem,
     AiAssistantLeadRequest,
     AiAssistantLeadResponse,
+    AiAssistantLeadsResponse,
     AiAssistantListResponse,
     AiAssistantPublicResponse,
     AiAssistantResponse,
@@ -93,6 +96,38 @@ async def list_assistants(
         .all()
     )
     return AiAssistantListResponse(assistants=[_to_owner_response(assistant) for assistant in assistants])
+
+
+@router.get("/leads", response_model=AiAssistantLeadsResponse)
+async def list_assistant_leads(
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantLeadsResponse:
+    """List the leads captured across the caller's assistants, newest first."""
+    rows = (
+        db.query(AiAssistantLead, AiAssistant.business_name)
+        .join(AiAssistant, AiAssistant.id == AiAssistantLead.assistant_id)
+        .filter(AiAssistantLead.user_id == user.id)
+        .order_by(AiAssistantLead.created_at.desc())
+        .limit(500)
+        .all()
+    )
+    return AiAssistantLeadsResponse(
+        leads=[
+            AiAssistantLeadItem(
+                id=lead.id,
+                assistant_id=lead.assistant_id,
+                prospect_id=lead.prospect_id,
+                business_name=business_name,
+                name=lead.name,
+                contact=lead.contact,
+                need=lead.need,
+                language=lead.language,
+                created_at=lead.created_at,
+            )
+            for lead, business_name in rows
+        ]
+    )
 
 
 @router.delete("/{assistant_id}", status_code=status.HTTP_204_NO_CONTENT)

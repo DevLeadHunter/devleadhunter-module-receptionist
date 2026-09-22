@@ -1,5 +1,5 @@
 import { ApiClient } from '~/services/api'
-import type { AiAssistantListResponse, AiAssistantSummary } from '~/types/AiAssistant'
+import type { AiAssistantLeadsResponse, AiAssistantListResponse, AiAssistantSummary } from '~/types/AiAssistant'
 
 const BASE_URL: string = '/api/v1/ai-assistants'
 
@@ -22,6 +22,15 @@ export class AiAssistantService {
    */
   static list(): Promise<AiAssistantListResponse> {
     return ApiClient.get<AiAssistantListResponse>(BASE_URL)
+  }
+
+  /**
+   * List the leads captured across the user's assistants, newest first.
+   *
+   * @returns The captured leads.
+   */
+  static listLeads(): Promise<AiAssistantLeadsResponse> {
+    return ApiClient.get<AiAssistantLeadsResponse>(`${BASE_URL}/leads`)
   }
 
   /**

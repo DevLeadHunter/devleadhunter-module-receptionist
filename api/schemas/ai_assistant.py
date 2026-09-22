@@ -75,3 +75,23 @@ class AiAssistantLeadResponse(BaseModel):
     """Acknowledgement that a lead was recorded."""
 
     ok: bool
+
+
+class AiAssistantLeadItem(BaseModel):
+    """One lead captured by an assistant, for the owner's leads list."""
+
+    id: int
+    assistant_id: int
+    prospect_id: int | None = None
+    business_name: str
+    name: str
+    contact: str
+    need: str | None = None
+    language: str | None = None
+    created_at: datetime
+
+
+class AiAssistantLeadsResponse(BaseModel):
+    """The leads captured across the caller's assistants, newest first."""
+
+    leads: list[AiAssistantLeadItem] = Field(default_factory=list)
