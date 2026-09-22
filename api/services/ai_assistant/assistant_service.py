@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from enums.ai_assistant_status import AiAssistantStatus
 from models.ai_assistant import AiAssistant
+from models.ai_assistant_lead import AiAssistantLead
 from models.prospect_db import ProspectDB
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
@@ -135,6 +136,31 @@ class AiAssistantService:
             logo_url=(enrichment or {}).get("logo_url"),
             enrichment=enrichment,
         )
+
+    def record_lead(
+        self,
+        db: Session,
+        *,
+        assistant: AiAssistant,
+        name: str,
+        contact: str,
+        need: str | None = None,
+        language: str | None = None,
+    ) -> AiAssistantLead:
+        """Persist a lead a visitor left through an assistant, attached to its prospect."""
+        lead = AiAssistantLead(
+            user_id=assistant.user_id,
+            prospect_id=assistant.prospect_id,
+            assistant_id=assistant.id,
+            name=name.strip(),
+            contact=contact.strip(),
+            need=(need or "").strip() or None,
+            language=(language or "").strip() or None,
+        )
+        db.add(lead)
+        db.commit()
+        db.refresh(lead)
+        return lead
 
     def get_public_by_slug(self, db: Session, slug: str) -> AiAssistant | None:
         """Return the active, non-deleted assistant for a public slug, or None."""

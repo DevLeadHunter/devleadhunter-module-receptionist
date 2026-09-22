@@ -1,5 +1,6 @@
 """AI assistant routes: owner generation/management, and public widget config + grounded chat."""
 
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -16,6 +17,8 @@ from schemas.ai_assistant import (
     AiAssistantChatRequest,
     AiAssistantChatResponse,
     AiAssistantCreateRequest,
+    AiAssistantLeadRequest,
+    AiAssistantLeadResponse,
     AiAssistantListResponse,
     AiAssistantPublicResponse,
     AiAssistantResponse,
@@ -23,6 +26,9 @@ from schemas.ai_assistant import (
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
 from services.auth_service import get_current_active_user
+from services.notification_service import notification_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ai-assistants", tags=["ai-assistants"])
 
@@ -142,3 +148,41 @@ async def chat_with_assistant(
         history=history,
     )
     return AiAssistantChatResponse(reply=reply)
+
+
+@router.post("/public/{slug}/lead", response_model=AiAssistantLeadResponse, status_code=status.HTTP_201_CREATED)
+async def submit_assistant_lead(
+    slug: str,
+    payload: AiAssistantLeadRequest,
+    db: Session = Depends(get_db),
+) -> AiAssistantLeadResponse:
+    """Record a lead a visitor left through the assistant, then notify the owner."""
+    assistant = ai_assistant_service.get_public_by_slug(db, slug)
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found or inactive")
+    if not payload.name.strip() or not payload.contact.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name and contact are required")
+
+    try:
+        ai_assistant_service.record_lead(
+            db,
+            assistant=assistant,
+            name=payload.name,
+            contact=payload.contact,
+            need=payload.need,
+            language=payload.language,
+        )
+    except Exception:
+        # Losing the durable row must not swallow the strongest signal — still notify the owner.
+        db.rollback()
+        logger.warning("assistant lead persist failed (slug=%s)", slug)
+
+    await notification_service.notify_assistant_lead(
+        db,
+        user_id=assistant.user_id,
+        prospect_id=assistant.prospect_id,
+        fallback_name=assistant.business_name,
+        lead_name=payload.name.strip(),
+        need=payload.need or "",
+    )
+    return AiAssistantLeadResponse(ok=True)

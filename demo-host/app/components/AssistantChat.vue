@@ -62,6 +62,30 @@
         </button>
       </div>
 
+      <div v-if="!leadSent" class="ai-book">
+        <button v-if="!showLeadForm" type="button" class="ai-book__open" @click="showLeadForm = true">
+          {{ LEAD_UI[lang].open }}
+        </button>
+        <form v-else class="ai-leadform" @submit.prevent="submitLead">
+          <p class="ai-leadform__title">{{ LEAD_UI[lang].title }}</p>
+          <input v-model="leadName" class="ai-leadform__field" :placeholder="LEAD_UI[lang].name" />
+          <input v-model="leadContact" class="ai-leadform__field" :placeholder="LEAD_UI[lang].contact" />
+          <input v-model="leadNeed" class="ai-leadform__field" :placeholder="LEAD_UI[lang].need" />
+          <div class="ai-leadform__row">
+            <button
+              type="submit"
+              class="ai-leadform__send"
+              :disabled="isSubmittingLead || !leadName.trim() || !leadContact.trim()"
+            >
+              {{ LEAD_UI[lang].send }}
+            </button>
+            <button type="button" class="ai-leadform__cancel" @click="showLeadForm = false">
+              {{ LEAD_UI[lang].cancel }}
+            </button>
+          </div>
+        </form>
+      </div>
+
       <form class="ai-compose" @submit.prevent="send">
         <textarea
           v-model="draft"
@@ -97,6 +121,7 @@ import type {
   AiAssistantConfig,
   AssistantChatMessage,
   AssistantChatReply,
+  AssistantLeadLabels,
   AssistantWidgetLang,
 } from '~/types/AiAssistant'
 import type { AssistantChatProps } from '~/types/AssistantChat'
@@ -140,6 +165,48 @@ const FALLBACK_REPLY: Record<AssistantWidgetLang, string> = {
   de: 'Entschuldigung, es gab ein technisches Problem. Bitte versuchen Sie es gleich erneut.',
   lu: 'Pardon, et gouf e technescht Problem. Probéiert w.e.g. gläich nach eng Kéier.',
 }
+const LEAD_UI: Record<AssistantWidgetLang, AssistantLeadLabels> = {
+  fr: {
+    open: 'Être rappelé',
+    title: 'Laissez vos coordonnées',
+    name: 'Votre nom',
+    contact: 'Email ou téléphone',
+    need: 'Votre besoin (facultatif)',
+    send: 'Envoyer',
+    cancel: 'Annuler',
+    sent: 'Merci, vos coordonnées sont transmises. On vous recontacte très vite.',
+  },
+  en: {
+    open: 'Request a callback',
+    title: 'Leave your details',
+    name: 'Your name',
+    contact: 'Email or phone',
+    need: 'What you need (optional)',
+    send: 'Send',
+    cancel: 'Cancel',
+    sent: 'Thank you, your details have been sent. We will get back to you shortly.',
+  },
+  de: {
+    open: 'Rückruf anfragen',
+    title: 'Ihre Kontaktdaten',
+    name: 'Ihr Name',
+    contact: 'E-Mail oder Telefon',
+    need: 'Ihr Anliegen (optional)',
+    send: 'Senden',
+    cancel: 'Abbrechen',
+    sent: 'Danke, Ihre Daten wurden übermittelt. Wir melden uns in Kürze.',
+  },
+  lu: {
+    open: 'Réckruff ufroen',
+    title: 'Är Kontaktdaten',
+    name: 'Ären Numm',
+    contact: 'E-Mail oder Telefon',
+    need: 'Wat Dir braucht (fakultativ)',
+    send: 'Schécken',
+    cancel: 'Ofbriechen',
+    sent: 'Merci, Är Donnéeë sinn iwwerdroen. Mir mellen eis geschwënn.',
+  },
+}
 
 /**
  * The chat widget for a prospect's AI assistant, embedded on the demo page.
@@ -160,6 +227,12 @@ const draft: Ref<string> = ref('')
 const lang: Ref<AssistantWidgetLang> = ref(DEFAULT_LANG)
 const messages: Ref<AssistantChatMessage[]> = ref([])
 const messagesEl: Ref<HTMLElement | null> = ref(null)
+const showLeadForm: Ref<boolean> = ref(false)
+const leadSent: Ref<boolean> = ref(false)
+const isSubmittingLead: Ref<boolean> = ref(false)
+const leadName: Ref<string> = ref('')
+const leadContact: Ref<string> = ref('')
+const leadNeed: Ref<string> = ref('')
 
 const accentStyle: ComputedRef<Record<string, string>> = computed(() => ({
   '--ai-accent': props.config.accent_color || FALLBACK_ACCENT,
@@ -244,6 +317,30 @@ async function sendText(text: string): Promise<void> {
  */
 async function send(): Promise<void> {
   await sendText(draft.value)
+}
+
+/**
+ * Submit the visitor's contact details as a qualified lead.
+ *
+ * @returns A promise resolved once the lead is sent.
+ */
+async function submitLead(): Promise<void> {
+  if (isSubmittingLead.value || !leadName.value.trim() || !leadContact.value.trim()) return
+  isSubmittingLead.value = true
+  try {
+    await $fetch(`${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${props.config.slug}/lead`, {
+      method: 'POST',
+      body: { name: leadName.value, contact: leadContact.value, need: leadNeed.value, language: lang.value },
+    })
+    leadSent.value = true
+    showLeadForm.value = false
+    messages.value.push({ role: 'assistant', content: LEAD_UI[lang.value].sent })
+    await scrollToLatest()
+  } catch {
+    messages.value.push({ role: 'assistant', content: FALLBACK_REPLY[lang.value] })
+  } finally {
+    isSubmittingLead.value = false
+  }
 }
 </script>
 
@@ -493,6 +590,81 @@ async function send(): Promise<void> {
 .ai-chips button:hover {
   border-color: var(--ai-accent);
   color: var(--ai-accent);
+}
+.ai-book {
+  padding: 4px 15px 10px;
+  background: var(--ai-paper-2);
+}
+.ai-book__open {
+  width: 100%;
+  border: 1px solid var(--ai-line);
+  background: var(--ai-card);
+  color: var(--ai-ink);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 10px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.ai-book__open:hover {
+  border-color: var(--ai-accent);
+  color: var(--ai-accent);
+}
+.ai-leadform {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--ai-card);
+  border: 1px solid var(--ai-line-soft);
+  border-radius: 14px;
+  padding: 13px;
+}
+.ai-leadform__title {
+  margin: 0;
+  font-family: var(--ai-font-d);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.ai-leadform__field {
+  border: 1px solid var(--ai-line);
+  border-radius: 10px;
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 0.88rem;
+  background: var(--ai-paper-2);
+  color: var(--ai-ink);
+}
+.ai-leadform__field:focus {
+  outline: 2px solid var(--ai-accent);
+  outline-offset: 1px;
+}
+.ai-leadform__row {
+  display: flex;
+  gap: 8px;
+}
+.ai-leadform__send,
+.ai-leadform__cancel {
+  flex: 1;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ai-leadform__send {
+  background: var(--ai-accent);
+  color: var(--ai-accent-ink);
+}
+.ai-leadform__send:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ai-leadform__cancel {
+  background: transparent;
+  color: var(--ai-ink-dim);
+  border: 1px solid var(--ai-line);
 }
 .ai-compose {
   display: flex;

@@ -59,3 +59,18 @@ class AiAssistantChatResponse(BaseModel):
     """The assistant's reply to a chat request."""
 
     reply: str
+
+
+class AiAssistantLeadRequest(BaseModel):
+    """A lead a visitor submits through the assistant widget."""
+
+    name: str
+    contact: str
+    need: str | None = None
+    language: str | None = None
+
+
+class AiAssistantLeadResponse(BaseModel):
+    """Acknowledgement that a lead was recorded."""
+
+    ok: bool

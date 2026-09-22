@@ -19,5 +19,17 @@ export interface AssistantChatReply {
   reply: string
 }
 
+/** Localized labels for the lead-capture form. */
+export interface AssistantLeadLabels {
+  open: string
+  title: string
+  name: string
+  contact: string
+  need: string
+  send: string
+  cancel: string
+  sent: string
+}
+
 /** Languages the widget offers preset greetings and suggestions for. */
 export type AssistantWidgetLang = 'fr' | 'en' | 'de' | 'lu'

@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 
 import models
 from core.database import Base
+from models.ai_assistant_lead import AiAssistantLead
 from services.ai_assistant.assistant_service import ai_assistant_service
 
 # Load every model so SQLAlchemy can configure the mappers (relationships resolve across models).
@@ -78,3 +79,19 @@ def test_get_public_by_slug_returns_active_only(db) -> None:
     created.status = "expired"
     db.commit()
     assert ai_assistant_service.get_public_by_slug(db, created.slug) is None
+
+
+def test_record_lead_persists_a_lead_attached_to_the_prospect(db) -> None:
+    """A lead carries the assistant's owner and prospect, with trimmed fields."""
+    assistant = ai_assistant_service.create(
+        db, user_id=7, business_name="LUMA Immobilier", prospect_id=42, country="LU", use_brand_color=False
+    )
+    lead = ai_assistant_service.record_lead(
+        db, assistant=assistant, name="  Marc Weber  ", contact="marc@example.lu", need="  Visiter le penthouse  "
+    )
+    assert lead.user_id == 7
+    assert lead.prospect_id == 42
+    assert lead.assistant_id == assistant.id
+    assert lead.name == "Marc Weber"
+    assert lead.need == "Visiter le penthouse"
+    assert db.query(AiAssistantLead).count() == 1
