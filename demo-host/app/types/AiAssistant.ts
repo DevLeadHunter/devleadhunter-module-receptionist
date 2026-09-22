@@ -1,0 +1,23 @@
+/** Public configuration of a prospect's AI assistant, served by the API and consumed as-is. */
+export interface AiAssistantConfig {
+  slug: string
+  business_name: string
+  assistant_name: string
+  languages: string[]
+  accent_color: string | null
+  status: string
+}
+
+/** A single conversation turn exchanged with the assistant. */
+export interface AssistantChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/** The assistant's reply to a chat request. */
+export interface AssistantChatReply {
+  reply: string
+}
+
+/** Languages the widget offers preset greetings and suggestions for. */
+export type AssistantWidgetLang = 'fr' | 'en' | 'de' | 'lu'
