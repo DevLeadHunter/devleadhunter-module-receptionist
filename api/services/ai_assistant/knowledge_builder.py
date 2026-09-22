@@ -178,12 +178,14 @@ class AiAssistantKnowledgeBuilder:
 
     def _languages_line(self, languages: list[str] | None) -> str:
         names = [_LANGUAGE_NAMES.get(code, code) for code in (languages or []) if code]
+        base = (
+            "Détecte la langue du message du visiteur et réponds INTÉGRALEMENT dans cette seule langue, "
+            "sans jamais mélanger deux langues dans une même réponse."
+        )
         if names:
             offered = ", ".join(names)
-            return (
-                f"Réponds TOUJOURS dans la langue du visiteur (notamment : {offered}). Détecte sa langue à son message."
-            )
-        return "Réponds TOUJOURS dans la langue du visiteur. Détecte sa langue à son message."
+            return f"{base} Langues fréquentes ici : {offered}."
+        return base
 
     def _identity_lines(self, identity: dict[str, Any]) -> list[str]:
         lines = [f"ENTREPRISE : {identity.get('business_name', '')}."]
