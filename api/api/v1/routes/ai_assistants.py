@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from core.config import settings
@@ -30,6 +30,7 @@ from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
 from services.auth_service import get_current_active_user
 from services.notification_service import notification_service
+from services.rate_limiter import assistant_chat_limiter, assistant_lead_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,14 @@ def _demo_url(slug: str) -> str:
 def _embed_snippet(slug: str) -> str:
     base = settings.demo_host_base_url.rstrip("/")
     return f'<script src="{base}/ai-assistant.js" data-slug="{slug}" defer></script>'
+
+
+def _client_ip(request: Request) -> str:
+    """Best-effort visitor IP for rate limiting (honours the nginx ``X-Forwarded-For``)."""
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 
 def _accent_color(knowledge: dict[str, Any] | None) -> str | None:
@@ -169,9 +178,14 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
 async def chat_with_assistant(
     slug: str,
     payload: AiAssistantChatRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> AiAssistantChatResponse:
     """Answer a visitor's message as the prospect's grounded assistant."""
+    if not assistant_chat_limiter.allow(f"{slug}:{_client_ip(request)}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de messages, réessayez plus tard"
+        )
     assistant = ai_assistant_service.get_public_by_slug(db, slug)
     if not assistant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found or inactive")
@@ -195,9 +209,14 @@ async def chat_with_assistant(
 async def submit_assistant_lead(
     slug: str,
     payload: AiAssistantLeadRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> AiAssistantLeadResponse:
     """Record a lead a visitor left through the assistant, then notify the owner."""
+    if not assistant_lead_limiter.allow(f"{slug}:{_client_ip(request)}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de demandes, réessayez plus tard"
+        )
     assistant = ai_assistant_service.get_public_by_slug(db, slug)
     if not assistant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found or inactive")
