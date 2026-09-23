@@ -140,6 +140,17 @@ export class AiAssistantService {
   }
 
   /**
+   * Generate a Stripe subscription checkout link to send to a client (they subscribe on Stripe).
+   *
+   * @param assistantId - The assistant being sold.
+   * @param interval - `month` (29 €/mois) or `year` (290 €/an).
+   * @returns The hosted Stripe Checkout URL.
+   */
+  static createSubscriptionCheckout(assistantId: number, interval: 'month' | 'year'): Promise<{ url: string }> {
+    return ApiClient.post<{ url: string }>(`${BASE_URL}/${assistantId}/subscription/checkout?interval=${interval}`, {})
+  }
+
+  /**
    * Soft-delete one of the user's assistants.
    *
    * @param assistantId - The assistant to remove.
