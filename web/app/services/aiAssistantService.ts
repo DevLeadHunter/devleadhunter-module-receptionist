@@ -25,6 +25,19 @@ export class AiAssistantService {
   }
 
   /**
+   * Fetch the assistant generated for one prospect, if any.
+   *
+   * @param prospectId - The prospect to look up.
+   * @returns The prospect's assistant, or null when none exists.
+   */
+  static async getForProspect(prospectId: number): Promise<AiAssistantSummary | null> {
+    const response: AiAssistantListResponse = await ApiClient.get<AiAssistantListResponse>(
+      `${BASE_URL}?prospect_id=${prospectId}`,
+    )
+    return response.assistants[0] ?? null
+  }
+
+  /**
    * List the leads captured across the user's assistants, newest first.
    *
    * @returns The captured leads.

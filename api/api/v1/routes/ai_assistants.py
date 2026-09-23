@@ -94,16 +94,15 @@ async def create_assistant(
 
 @router.get("", response_model=AiAssistantListResponse)
 async def list_assistants(
+    prospect_id: int | None = None,
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> AiAssistantListResponse:
-    """List the caller's assistants, newest first."""
-    assistants = (
-        db.query(AiAssistant)
-        .filter(AiAssistant.user_id == user.id, AiAssistant.deleted_at.is_(None))
-        .order_by(AiAssistant.created_at.desc())
-        .all()
-    )
+    """List the caller's assistants, newest first (optionally filtered to one prospect)."""
+    query = db.query(AiAssistant).filter(AiAssistant.user_id == user.id, AiAssistant.deleted_at.is_(None))
+    if prospect_id is not None:
+        query = query.filter(AiAssistant.prospect_id == prospect_id)
+    assistants = query.order_by(AiAssistant.created_at.desc()).all()
     return AiAssistantListResponse(assistants=[_to_owner_response(assistant) for assistant in assistants])
 
 
