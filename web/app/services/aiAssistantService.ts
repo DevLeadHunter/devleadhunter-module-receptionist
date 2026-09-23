@@ -5,6 +5,8 @@ import type {
   AiAssistantSummary,
   AiAssistantUpdatePayload,
   AiAssistantVideoContext,
+  AssistantSubscription,
+  AssistantSubscriptionListResponse,
 } from '~/types/AiAssistant'
 
 const BASE_URL: string = '/api/v1/ai-assistants'
@@ -148,6 +150,32 @@ export class AiAssistantService {
    */
   static createSubscriptionCheckout(assistantId: number, interval: 'month' | 'year'): Promise<{ url: string }> {
     return ApiClient.post<{ url: string }>(`${BASE_URL}/${assistantId}/subscription/checkout?interval=${interval}`, {})
+  }
+
+  /**
+   * List the caller's assistant subscriptions + the headline KPIs (active count, MRR).
+   * @returns The subscriptions with the active count and monthly recurring revenue.
+   */
+  static listSubscriptions(): Promise<AssistantSubscriptionListResponse> {
+    return ApiClient.get<AssistantSubscriptionListResponse>(`${BASE_URL}/subscriptions`)
+  }
+
+  /**
+   * Cancel a subscription (immediately, on Stripe + locally).
+   * @param subscriptionId - The subscription to cancel.
+   * @returns The updated subscription.
+   */
+  static cancelSubscription(subscriptionId: number): Promise<AssistantSubscription> {
+    return ApiClient.post<AssistantSubscription>(`${BASE_URL}/subscriptions/${subscriptionId}/cancel`, {})
+  }
+
+  /**
+   * Refund a subscription's latest payment (« satisfait-remboursé »).
+   * @param subscriptionId - The subscription to refund.
+   * @returns Nothing.
+   */
+  static async refundSubscription(subscriptionId: number): Promise<void> {
+    await ApiClient.post(`${BASE_URL}/subscriptions/${subscriptionId}/refund`, {})
   }
 
   /**

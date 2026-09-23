@@ -26,6 +26,32 @@ export interface AiAssistantListResponse {
   assistants: AiAssistantSummary[]
 }
 
+/** A client's recurring subscription to a sold assistant, as the Abonnements page shows it. */
+export type AssistantSubscription = {
+  id: number
+  ai_assistant_id: number | null
+  prospect_id: number | null
+  business_name: string | null
+  assistant_name: string | null
+  client_name: string | null
+  client_email: string | null
+  interval: string
+  amount_cents: number
+  currency: string
+  status: string
+  current_period_end: string | null
+  canceled_at: string | null
+  stripe_subscription_id: string | null
+  created_at: string
+}
+
+/** The user's subscriptions plus the headline KPIs (active count + MRR). */
+export type AssistantSubscriptionListResponse = {
+  subscriptions: AssistantSubscription[]
+  active_count: number
+  mrr_cents: number
+}
+
 /** Everything the desktop sidecar needs to render an assistant's video locally. */
 export type AiAssistantVideoContext = {
   slug: string
