@@ -32,4 +32,4 @@ export interface AssistantLeadLabels {
 }
 
 /** Languages the widget offers preset greetings and suggestions for. */
-export type AssistantWidgetLang = 'fr' | 'en' | 'de' | 'lu'
+export type AssistantWidgetLang = 'fr' | 'nl' | 'en' | 'de' | 'lu'

@@ -116,7 +116,7 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, PropType, Ref } from 'vue'
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import type {
   AiAssistantConfig,
   AssistantChatMessage,
@@ -132,36 +132,42 @@ const FALLBACK_ACCENT: string = '#a9793f'
 
 const LANGUAGE_LABELS: Record<AssistantWidgetLang, string> = {
   fr: 'Français',
+  nl: 'Nederlands',
   en: 'English',
   de: 'Deutsch',
   lu: 'Lëtzebuergesch',
 }
 const LANGUAGE_NAMES: Record<AssistantWidgetLang, string> = {
   fr: 'français',
+  nl: 'Nederlands',
   en: 'English',
   de: 'Deutsch',
   lu: 'Lëtzebuergesch',
 }
 const GREETINGS: Record<AssistantWidgetLang, string> = {
   fr: 'Bonjour et bienvenue. Comment puis-je vous aider ?',
+  nl: 'Hallo en welkom. Hoe kan ik u helpen?',
   en: 'Hello and welcome. How can I help you?',
   de: 'Guten Tag und willkommen. Wie kann ich Ihnen helfen?',
   lu: 'Moien a wëllkomm. Wéi kann ech Iech hëllefen?',
 }
 const SUGGESTIONS: Record<AssistantWidgetLang, string[]> = {
   fr: ['Quels sont vos horaires ?', 'Quels services proposez-vous ?', 'Je souhaite être recontacté'],
+  nl: ['Wat zijn jullie openingstijden?', 'Welke diensten bieden jullie aan?', 'Ik wil graag teruggebeld worden'],
   en: ['What are your opening hours?', 'What services do you offer?', "I'd like to be contacted"],
   de: ['Wie sind Ihre Öffnungszeiten?', 'Welche Leistungen bieten Sie an?', 'Ich möchte zurückgerufen werden'],
   lu: ['Wéi sinn Är Ëffnungszäiten?', 'Wéi eng Servicer bitt Dir un?', 'Ech wëll zréckgeruff ginn'],
 }
 const UI_PLACEHOLDER: Record<AssistantWidgetLang, string> = {
   fr: 'Écrivez votre message…',
+  nl: 'Typ uw bericht…',
   en: 'Type your message…',
   de: 'Ihre Nachricht…',
   lu: 'Är Noriicht…',
 }
 const FALLBACK_REPLY: Record<AssistantWidgetLang, string> = {
   fr: 'Désolée, je rencontre un souci technique. Réessayez dans un instant.',
+  nl: 'Sorry, er is een technisch probleem. Probeer het zo meteen opnieuw.',
   en: 'Sorry, I hit a technical issue. Please try again in a moment.',
   de: 'Entschuldigung, es gab ein technisches Problem. Bitte versuchen Sie es gleich erneut.',
   lu: 'Pardon, et gouf e technescht Problem. Probéiert w.e.g. gläich nach eng Kéier.',
@@ -176,6 +182,16 @@ const LEAD_UI: Record<AssistantWidgetLang, AssistantLeadLabels> = {
     send: 'Envoyer',
     cancel: 'Annuler',
     sent: 'Merci, vos coordonnées sont transmises. On vous recontacte très vite.',
+  },
+  nl: {
+    open: 'Word teruggebeld',
+    title: 'Laat uw gegevens achter',
+    name: 'Uw naam',
+    contact: 'E-mail of telefoon',
+    need: 'Wat u nodig heeft (optioneel)',
+    send: 'Versturen',
+    cancel: 'Annuleren',
+    sent: 'Bedankt, uw gegevens zijn verzonden. We nemen snel contact met u op.',
   },
   en: {
     open: 'Request a callback',
@@ -260,6 +276,23 @@ function open(): void {
     captureDemoEvent('assistant_opened')
     messages.value.push({ role: 'assistant', content: GREETINGS[lang.value] })
   }
+}
+
+/**
+ * The visitor's browser language, when the assistant offers it, so the greeting and suggestions
+ * open in their own language (they can still switch, and the chat always replies in their language).
+ * @returns The matching offered language, or null when none of the visitor's languages is offered.
+ */
+function detectPreferredLang(): AssistantWidgetLang | null {
+  if (typeof navigator === 'undefined') return null
+  const offered: AssistantWidgetLang[] = offeredLanguages.value
+  const wanted: string[] = [navigator.language, ...(navigator.languages ?? [])]
+  for (const raw of wanted) {
+    const code: string = raw.slice(0, 2).toLowerCase()
+    const match: AssistantWidgetLang | undefined = offered.find((offer: AssistantWidgetLang): boolean => offer === code)
+    if (match) return match
+  }
+  return null
 }
 
 /**
@@ -352,6 +385,12 @@ watch(isOpen, (open: boolean): void => {
   if (typeof window !== 'undefined' && window.parent !== window) {
     window.parent.postMessage({ type: 'dlh-assistant-resize', open }, '*')
   }
+})
+
+// Open in the visitor's own language when the assistant offers it (before the panel is opened).
+onMounted((): void => {
+  const preferred: AssistantWidgetLang | null = detectPreferredLang()
+  if (preferred) lang.value = preferred
 })
 </script>
 
