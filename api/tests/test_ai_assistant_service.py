@@ -95,3 +95,36 @@ def test_record_lead_persists_a_lead_attached_to_the_prospect(db) -> None:
     assert lead.name == "Marc Weber"
     assert lead.need == "Visiter le penthouse"
     assert db.query(AiAssistantLead).count() == 1
+
+
+def test_update_edits_persona_languages_and_accent(db) -> None:
+    """update applies only the provided fields and reassigns the palette accent."""
+    assistant = ai_assistant_service.create(
+        db, user_id=1, business_name="LUMA Immobilier", country="LU", use_brand_color=False
+    )
+    updated = ai_assistant_service.update(
+        db,
+        assistant,
+        {"assistant_name": "Marc", "languages": ["fr", "en"], "tone": "direct", "accent_color": "#1e6fd8"},
+    )
+    assert updated.assistant_name == "Marc"
+    assert updated.languages == ["fr", "en"]
+    assert updated.tone == "direct"
+    assert updated.knowledge_json["palette"]["accent"] == "#1e6fd8"
+    # A field left out of the payload stays untouched.
+    assert updated.business_name == "LUMA Immobilier"
+
+
+def test_update_empty_accent_clears_to_neutral(db) -> None:
+    """An empty accent clears the widget colour back to neutral (None)."""
+    assistant = ai_assistant_service.create(db, user_id=1, business_name="X", country="FR")
+    updated = ai_assistant_service.update(db, assistant, {"accent_color": ""})
+    assert updated.knowledge_json["palette"]["accent"] is None
+
+
+def test_update_blank_name_keeps_previous(db) -> None:
+    """A blank assistant_name keeps the current persona rather than wiping it."""
+    assistant = ai_assistant_service.create(db, user_id=1, business_name="X", country="FR")
+    before = assistant.assistant_name
+    updated = ai_assistant_service.update(db, assistant, {"assistant_name": "   "})
+    assert updated.assistant_name == before
