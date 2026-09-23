@@ -131,17 +131,22 @@ class AssistantSubscriptionService:
         db.commit()
         return session.url
 
-    def activate_from_session(self, db: Session, session_obj: dict) -> None:
+    def activate_from_session(self, db: Session, session_obj: dict) -> AiAssistantSubscription | None:
         """
         Webhook ``checkout.session.completed`` (subscription mode): mark the record active.
 
         Args:
             db: Active database session.
             session_obj: The Stripe Checkout Session payload.
+
+        Returns:
+            The record when this call **freshly** activated it (so the caller notifies the seller once),
+            or None when there is no matching record or it was already active (idempotent retry).
         """
         record = self._record_from_metadata(db, session_obj.get("metadata"))
         if record is None:
-            return
+            return None
+        was_already_active = record.status == AssistantSubscriptionStatus.ACTIVE.value
         record.stripe_subscription_id = session_obj.get("subscription")
         record.stripe_customer_id = session_obj.get("customer")
         details = session_obj.get("customer_details") or {}
@@ -152,6 +157,7 @@ class AssistantSubscriptionService:
         self._mark_assistant_sold(db, record.ai_assistant_id)
         db.commit()
         logger.info("[AssistantSub] Activated subscription record %s (assistant %s)", record.id, record.ai_assistant_id)
+        return None if was_already_active else record
 
     @staticmethod
     def _mark_assistant_sold(db: Session, assistant_id: int | None) -> None:
@@ -192,6 +198,20 @@ class AssistantSubscriptionService:
             .first()
             is not None
         )
+
+    def active_by_assistant_ids(self, db: Session, assistant_ids: list[int]) -> dict[int, AiAssistantSubscription]:
+        """Active subscriptions for the given assistants, keyed by assistant id (for the dashboard list)."""
+        if not assistant_ids:
+            return {}
+        rows = (
+            db.query(AiAssistantSubscription)
+            .filter(
+                AiAssistantSubscription.ai_assistant_id.in_(assistant_ids),
+                AiAssistantSubscription.status == AssistantSubscriptionStatus.ACTIVE.value,
+            )
+            .all()
+        )
+        return {row.ai_assistant_id: row for row in rows if row.ai_assistant_id is not None}
 
     @staticmethod
     def _record_from_metadata(db: Session, metadata: dict | None) -> AiAssistantSubscription | None:

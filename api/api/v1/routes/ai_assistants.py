@@ -99,7 +99,7 @@ def _owner_public_fields(assistant: AiAssistant) -> dict[str, str | None]:
     return fields
 
 
-def _to_owner_response(assistant: AiAssistant) -> AiAssistantResponse:
+def _to_owner_response(assistant: AiAssistant, subscription: object | None = None) -> AiAssistantResponse:
     return AiAssistantResponse(
         id=assistant.id,
         slug=assistant.slug,
@@ -116,6 +116,9 @@ def _to_owner_response(assistant: AiAssistant) -> AiAssistantResponse:
         video_status=assistant.video_status,
         video_page_url=video_page_url(assistant.slug) if has_ready_video(assistant) else None,
         video_error=assistant.video_error,
+        subscription_status=getattr(subscription, "status", None),
+        subscription_amount_cents=getattr(subscription, "amount_cents", None),
+        subscription_interval=getattr(subscription, "interval", None),
         created_at=assistant.created_at,
     )
 
@@ -145,7 +148,10 @@ async def list_assistants(
     if prospect_id is not None:
         query = query.filter(AiAssistant.prospect_id == prospect_id)
     assistants = query.order_by(AiAssistant.created_at.desc()).all()
-    return AiAssistantListResponse(assistants=[_to_owner_response(assistant) for assistant in assistants])
+    subscriptions = assistant_subscription_service.active_by_assistant_ids(db, [a.id for a in assistants])
+    return AiAssistantListResponse(
+        assistants=[_to_owner_response(assistant, subscriptions.get(assistant.id)) for assistant in assistants]
+    )
 
 
 @router.get("/leads", response_model=AiAssistantLeadsResponse)

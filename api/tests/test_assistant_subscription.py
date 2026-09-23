@@ -107,19 +107,19 @@ def test_activate_from_session_marks_active_and_stores_ids(db: Session) -> None:
     db.add(row)
     db.commit()
 
-    service.activate_from_session(
-        db,
-        {
-            "metadata": {"assistant_subscription_id": str(row.id)},
-            "subscription": "sub_123",
-            "customer": "cus_123",
-            "customer_details": {"email": "client@shop.fr", "name": "Le Client"},
-        },
-    )
+    session_obj = {
+        "metadata": {"assistant_subscription_id": str(row.id)},
+        "subscription": "sub_123",
+        "customer": "cus_123",
+        "customer_details": {"email": "client@shop.fr", "name": "Le Client"},
+    }
+    fresh = service.activate_from_session(db, session_obj)
     db.refresh(row)
     assert row.status == AssistantSubscriptionStatus.ACTIVE.value
     assert row.stripe_subscription_id == "sub_123"
     assert row.client_email == "client@shop.fr"
+    assert fresh is not None and fresh.id == row.id  # returned on fresh activation → the seller is notified
+    assert service.activate_from_session(db, session_obj) is None  # idempotent retry → no second notification
 
 
 def test_update_from_stripe_subscription_syncs_status_and_cancel(db: Session) -> None:
@@ -171,3 +171,8 @@ def test_is_active_for_assistant(db: Session) -> None:
     assert service.is_active_for_assistant(db, 7) is True
     assert service.is_active_for_assistant(db, 8) is False
     assert service.is_active_for_assistant(db, 99) is False
+
+    by_id = service.active_by_assistant_ids(db, [7, 8, 99])
+    assert set(by_id) == {7}  # only the active one, keyed by assistant id
+    assert by_id[7].amount_cents == 2900
+    assert service.active_by_assistant_ids(db, []) == {}

@@ -41,6 +41,10 @@ class AiAssistantResponse(BaseModel):
     video_status: str | None = None
     video_page_url: str | None = None
     video_error: str | None = None
+    # Subscription state: NULL when no active subscription, else the locked plan the client pays.
+    subscription_status: str | None = None
+    subscription_amount_cents: int | None = None
+    subscription_interval: str | None = None
     created_at: datetime
 
 

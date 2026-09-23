@@ -15,6 +15,9 @@ export interface AiAssistantSummary {
   video_status: string | null
   video_page_url: string | null
   video_error: string | null
+  subscription_status: string | null
+  subscription_amount_cents: number | null
+  subscription_interval: string | null
   created_at: string
 }
 
