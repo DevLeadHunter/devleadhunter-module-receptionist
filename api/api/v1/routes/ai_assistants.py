@@ -1,15 +1,20 @@
 """AI assistant routes: owner generation/management, and public widget config + grounded chat."""
 
 import logging
-from datetime import datetime
+import shutil
+import tempfile
+import zipfile
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
 from core.config import settings
 from core.database import get_db
 from enums.ai_assistant_status import AiAssistantStatus
+from enums.demo_video_status import DemoVideoStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_lead import AiAssistantLead
 from models.prospect_db import ProspectDB
@@ -31,14 +36,19 @@ from schemas.ai_assistant import (
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
 from services.assistant_video_service import (
+    ASSISTANT_PRESENTER_MODULE,
     assistant_video_service,
     has_ready_video,
     public_thumbnail_url,
     public_video_file_url,
+    thumbnail_object_key,
+    video_object_key,
     video_page_url,
 )
 from services.auth_service import get_current_active_user
+from services.email_variables import EmailVariables
 from services.notification_service import notification_service
+from services.presenter_video_service import presenter_video_service
 from services.r2_storage_service import r2_storage
 from services.rate_limiter import assistant_chat_limiter, assistant_lead_limiter
 
@@ -239,6 +249,95 @@ async def generate_assistant_video(
         assistant_video_service.request_generation(db, assistant, user.id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    return _to_owner_response(assistant)
+
+
+@router.get("/{assistant_id}/video-context")
+async def get_assistant_video_context(
+    assistant_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """
+    Everything the desktop sidecar needs to render this assistant's video locally.
+
+    Unlike the site — whose editor sequence needs the owner's Storyblok session, forcing a desktop
+    build — the assistant video has no such dependency; the desktop path is preferred only to spare
+    the shared VPS. The sidecar records the public widget answering, montages it with its bundled
+    ffmpeg, and posts the finished clip back via ``POST /{id}/video-final``.
+    """
+    assistant = _owned_assistant_or_404(db, assistant_id, user.id)
+    if assistant.status != AiAssistantStatus.ACTIVE.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La vidéo ne peut être générée que pour un assistant actif.",
+        )
+    presenter = presenter_video_service.get_for_user(db, user.id, ASSISTANT_PRESENTER_MODULE)
+    if presenter is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Aucun clip de présentation « assistant » enregistré.",
+        )
+    total_seconds = presenter.duration_seconds - presenter.intro_seconds - presenter.outro_seconds
+    first_name: str | None = None
+    if assistant.prospect_id:
+        resolved_first, _last, _gender = EmailVariables.resolved_contact(db, assistant.prospect_id)
+        first_name = resolved_first or None
+    return {
+        "slug": assistant.slug,
+        "demo_url": _demo_url(assistant.slug),
+        "first_name": first_name,
+        "presenter_duration": presenter.duration_seconds,
+        "presenter_intro": presenter.intro_seconds,
+        "presenter_outro": presenter.outro_seconds,
+        "total_seconds": round(total_seconds, 2),
+        "out_width": 1280,
+        "out_height": 720,
+        "fps": 30,
+    }
+
+
+@router.post("/{assistant_id}/video-final", response_model=AiAssistantResponse)
+async def upload_assistant_video_final(
+    assistant_id: int,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """
+    Store a desktop-produced FINAL assistant video and mark it ready.
+
+    The sidecar montages the whole clip locally and returns a zip (``video.mp4`` + ``thumbnail.jpg``);
+    here we push both to R2 and flip the status — the VPS never touches ffmpeg for a desktop build.
+    """
+    assistant = _owned_assistant_or_404(db, assistant_id, user.id)
+
+    work_dir = Path(tempfile.mkdtemp(prefix=f"assistant-video-final-{assistant.slug}-"))
+    try:
+        zip_path = work_dir / "bundle.zip"
+        with zip_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        video_path = work_dir / "video.mp4"
+        thumbnail_path = work_dir / "thumbnail.jpg"
+        try:
+            with zipfile.ZipFile(zip_path) as archive:
+                video_path.write_bytes(archive.read("video.mp4"))
+                thumbnail_path.write_bytes(archive.read("thumbnail.jpg"))
+        except (zipfile.BadZipFile, KeyError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Archive vidéo invalide (video.mp4 + thumbnail.jpg attendus).",
+            ) from exc
+
+        await r2_storage.upload_file_async(video_path, video_object_key(assistant.slug), "video/mp4")
+        await r2_storage.upload_file_async(thumbnail_path, thumbnail_object_key(assistant.slug), "image/jpeg")
+        assistant.video_status = DemoVideoStatus.READY.value
+        assistant.video_error = None
+        assistant.video_generated_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(assistant)
+    finally:
+        shutil.rmtree(work_dir, ignore_errors=True)
     return _to_owner_response(assistant)
 
 

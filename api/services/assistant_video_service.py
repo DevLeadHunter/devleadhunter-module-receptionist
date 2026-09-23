@@ -43,7 +43,7 @@ from services.video_pipeline import (
 logger = logging.getLogger(__name__)
 
 # The presenter clip the assistant video uses (a speech about the assistant, not the site).
-_PRESENTER_MODULE = "ai-assistant"
+ASSISTANT_PRESENTER_MODULE = "ai-assistant"
 
 
 def video_object_key(slug: str) -> str:
@@ -111,7 +111,7 @@ class AssistantVideoService:
         if assistant.video_status in (DemoVideoStatus.PENDING.value, DemoVideoStatus.GENERATING.value):
             raise ValueError("Une génération est déjà en cours pour cet assistant.")
 
-        presenter = presenter_video_service.get_for_user(db, user_id, _PRESENTER_MODULE)
+        presenter = presenter_video_service.get_for_user(db, user_id, ASSISTANT_PRESENTER_MODULE)
         if presenter is None:
             raise ValueError(
                 "Aucun clip de présentation pour l'assistant. Enregistrez d'abord votre vidéo webcam "
@@ -167,7 +167,7 @@ class AssistantVideoService:
                 assistant = db.query(AiAssistant).filter(AiAssistant.id == assistant_id).first()
                 if assistant is None:
                     return
-                presenter = presenter_video_service.get_for_user(db, user_id, _PRESENTER_MODULE)
+                presenter = presenter_video_service.get_for_user(db, user_id, ASSISTANT_PRESENTER_MODULE)
                 if presenter is None:
                     assistant.video_status = DemoVideoStatus.FAILED.value
                     assistant.video_error = "Aucun clip de présentation « assistant » configuré."
