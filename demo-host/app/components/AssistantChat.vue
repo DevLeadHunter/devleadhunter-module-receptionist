@@ -129,6 +129,8 @@ import { captureDemoEvent } from '~/composables/useDemoTracking'
 
 const DEFAULT_LANG: AssistantWidgetLang = 'fr'
 const FALLBACK_ACCENT: string = '#a9793f'
+// Keep a returning visitor's conversation across page reloads, bounded so storage never grows unchecked.
+const MAX_STORED_MESSAGES: number = 40
 
 const LANGUAGE_LABELS: Record<AssistantWidgetLang, string> = {
   fr: 'Français',
@@ -295,6 +297,60 @@ function detectPreferredLang(): AssistantWidgetLang | null {
   return null
 }
 
+/** The per-assistant localStorage key holding this visitor's conversation. */
+function storageKey(): string {
+  return `dlh-assistant-${props.config.slug}`
+}
+
+/**
+ * Whether a value is a well-formed chat message (guards against corrupted stored data).
+ * @param value A parsed entry from storage.
+ * @returns True when it is a usable message.
+ */
+function isChatMessage(value: unknown): value is AssistantChatMessage {
+  if (typeof value !== 'object' || value === null) return false
+  const entry: Record<string, unknown> = value as Record<string, unknown>
+  return (entry.role === 'user' || entry.role === 'assistant') && typeof entry.content === 'string'
+}
+
+/**
+ * Restore this visitor's saved conversation and language for the assistant, when any.
+ * @returns True when a previous conversation was restored (so the widget skips the fresh greeting).
+ */
+function restoreConversation(): boolean {
+  if (typeof localStorage === 'undefined') return false
+  try {
+    const raw: string | null = localStorage.getItem(storageKey())
+    if (!raw) return false
+    const saved: { lang?: unknown; messages?: unknown } = JSON.parse(raw)
+    if (
+      typeof saved.lang === 'string' &&
+      offeredLanguages.value.some((code: AssistantWidgetLang): boolean => code === saved.lang)
+    ) {
+      lang.value = saved.lang as AssistantWidgetLang
+    }
+    const restored: AssistantChatMessage[] = Array.isArray(saved.messages) ? saved.messages.filter(isChatMessage) : []
+    if (!restored.length) return false
+    messages.value = restored.slice(-MAX_STORED_MESSAGES)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Persist this visitor's conversation and language, bounded to the most recent messages. */
+function persistConversation(): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(
+      storageKey(),
+      JSON.stringify({ lang: lang.value, messages: messages.value.slice(-MAX_STORED_MESSAGES) }),
+    )
+  } catch {
+    // Storage unavailable (private mode) or full: the widget keeps working from memory.
+  }
+}
+
 /**
  * Switch the widget's preset language (the assistant still replies in the visitor's own language).
  * @param code The language code to switch to.
@@ -387,11 +443,17 @@ watch(isOpen, (open: boolean): void => {
   }
 })
 
-// Open in the visitor's own language when the assistant offers it (before the panel is opened).
+// Restore a returning visitor's conversation; otherwise open in their browser language when offered.
 onMounted((): void => {
-  const preferred: AssistantWidgetLang | null = detectPreferredLang()
-  if (preferred) lang.value = preferred
+  const restored: boolean = restoreConversation()
+  if (!restored) {
+    const preferred: AssistantWidgetLang | null = detectPreferredLang()
+    if (preferred) lang.value = preferred
+  }
 })
+
+// Keep the stored conversation in step with what the visitor sees.
+watch([messages, lang], (): void => persistConversation(), { deep: true })
 </script>
 
 <style scoped>
