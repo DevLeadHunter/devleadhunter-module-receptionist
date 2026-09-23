@@ -172,6 +172,57 @@ class AiAssistantService:
             enrichment=enrichment,
         )
 
+    def regenerate(
+        self, db: Session, *, assistant: AiAssistant, prospect: ProspectDB, enrichment: dict[str, Any] | None
+    ) -> AiAssistant:
+        """Rebuild an assistant's knowledge from the prospect's latest data, keeping look and voice.
+
+        Regenerate answers « the prospect's data (or the knowledge engine) improved since I
+        generated this assistant ». It refreshes the grounding facts and contact details but never
+        the branding or persona: the displayed name, assistant name, tone, languages, accent colour
+        and slug are all preserved, so a link already sent keeps working and looking the same.
+
+        Args:
+            db: Active database session.
+            assistant: The assistant to rebuild.
+            prospect: The prospect it was generated from (source of the refreshed facts).
+            enrichment: The prospect's enrichment as a dict, or ``None``.
+
+        Returns:
+            The refreshed assistant row.
+        """
+        existing_accent = (dict((assistant.knowledge_json or {}).get("palette") or {})).get("accent")
+        fields = self.build_fields(
+            business_name=assistant.business_name,
+            city=prospect.city,
+            address=prospect.address,
+            phone=prospect.phone,
+            email=prospect.email,
+            country=prospect.country,
+            logo_url=(enrichment or {}).get("logo_url"),
+            enrichment=enrichment,
+            use_brand_color=assistant.use_brand_color,
+        )
+        knowledge = fields["knowledge_json"]
+        knowledge["palette"] = {"accent": existing_accent}
+        assistant.city = fields["city"]
+        assistant.phone = fields["phone"]
+        assistant.email = fields["email"]
+        assistant.description = fields["description"]
+        assistant.knowledge_json = knowledge
+        db.commit()
+        db.refresh(assistant)
+        return assistant
+
+    async def regenerate_for_prospect(
+        self, db: Session, *, assistant: AiAssistant, prospect: ProspectDB
+    ) -> AiAssistant:
+        """Re-enrich the prospect, then rebuild the assistant's knowledge from it (keeps branding)."""
+        enrichment = enrichment_service.to_dict(
+            await enrichment_service.ensure_enriched(db, assistant.user_id, prospect)
+        )
+        return self.regenerate(db, assistant=assistant, prospect=prospect, enrichment=enrichment)
+
     def record_lead(
         self,
         db: Session,

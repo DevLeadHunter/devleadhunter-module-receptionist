@@ -2,6 +2,7 @@
 
 import importlib
 import pkgutil
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine
@@ -128,3 +129,47 @@ def test_update_blank_name_keeps_previous(db) -> None:
     before = assistant.assistant_name
     updated = ai_assistant_service.update(db, assistant, {"assistant_name": "   "})
     assert updated.assistant_name == before
+
+
+def test_regenerate_refreshes_knowledge_but_keeps_branding_and_slug(db) -> None:
+    """Regenerate rebuilds grounding + contact from the prospect, preserving look, voice and slug."""
+    assistant = ai_assistant_service.create(
+        db,
+        user_id=1,
+        business_name="LUMA Immobilier",
+        prospect_id=42,
+        country="LU",
+        enrichment=_ENRICHMENT,
+        use_brand_color=False,
+    )
+    ai_assistant_service.update(
+        db,
+        assistant,
+        {"assistant_name": "Marc", "tone": "direct", "languages": ["fr", "de"], "accent_color": "#1e6fd8"},
+    )
+    original_slug = assistant.slug
+
+    prospect = SimpleNamespace(
+        city="Esch-sur-Alzette",
+        address="2 rue Neuve",
+        phone="+352 27 00 00 00",
+        email="hello@luma.lu",
+        country="LU",
+    )
+    refreshed_enrichment = {**_ENRICHMENT, "description": "Nouvelle description à jour."}
+    updated = ai_assistant_service.regenerate(
+        db, assistant=assistant, prospect=prospect, enrichment=refreshed_enrichment
+    )
+
+    # Grounding + contact refreshed from the prospect's latest data.
+    assert updated.description == "Nouvelle description à jour."
+    assert updated.knowledge_json["identity"]["description"] == "Nouvelle description à jour."
+    assert updated.phone == "+352 27 00 00 00"
+    assert updated.city == "Esch-sur-Alzette"
+    # Branding, persona and public slug all preserved.
+    assert updated.assistant_name == "Marc"
+    assert updated.tone == "direct"
+    assert updated.languages == ["fr", "de"]
+    assert updated.knowledge_json["palette"]["accent"] == "#1e6fd8"
+    assert updated.business_name == "LUMA Immobilier"
+    assert updated.slug == original_slug

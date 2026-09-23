@@ -63,6 +63,17 @@ export class AiAssistantService {
   }
 
   /**
+   * Rebuild an assistant's knowledge from its prospect's latest data. Branding and persona
+   * (name, tone, languages, accent) and the public link are preserved.
+   *
+   * @param assistantId - The assistant to regenerate.
+   * @returns The refreshed assistant.
+   */
+  static regenerate(assistantId: number): Promise<AiAssistantSummary> {
+    return ApiClient.post<AiAssistantSummary>(`${BASE_URL}/${assistantId}/regenerate`, {})
+  }
+
+  /**
    * Soft-delete one of the user's assistants.
    *
    * @param assistantId - The assistant to remove.

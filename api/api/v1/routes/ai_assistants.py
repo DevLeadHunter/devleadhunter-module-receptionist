@@ -161,6 +161,33 @@ async def update_assistant(
     return _to_owner_response(updated)
 
 
+@router.post("/{assistant_id}/regenerate", response_model=AiAssistantResponse)
+async def regenerate_assistant(
+    assistant_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """Rebuild an assistant's knowledge from its prospect's latest data (branding and persona kept)."""
+    assistant = (
+        db.query(AiAssistant)
+        .filter(AiAssistant.id == assistant_id, AiAssistant.user_id == user.id, AiAssistant.deleted_at.is_(None))
+        .first()
+    )
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
+    if assistant.prospect_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="This assistant has no prospect to regenerate from"
+        )
+    prospect = (
+        db.query(ProspectDB).filter(ProspectDB.id == assistant.prospect_id, ProspectDB.user_id == user.id).first()
+    )
+    if not prospect:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prospect not found for this assistant")
+    updated = await ai_assistant_service.regenerate_for_prospect(db, assistant=assistant, prospect=prospect)
+    return _to_owner_response(updated)
+
+
 @router.delete("/{assistant_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_assistant(
     assistant_id: int,
