@@ -30,6 +30,13 @@ from schemas.ai_assistant import (
 )
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
+from services.assistant_video_service import (
+    assistant_video_service,
+    has_ready_video,
+    public_thumbnail_url,
+    public_video_file_url,
+    video_page_url,
+)
 from services.auth_service import get_current_active_user
 from services.notification_service import notification_service
 from services.r2_storage_service import r2_storage
@@ -95,6 +102,9 @@ def _to_owner_response(assistant: AiAssistant) -> AiAssistantResponse:
         status=assistant.status,
         demo_url=_demo_url(assistant.slug),
         embed_snippet=_embed_snippet(assistant.slug),
+        video_status=assistant.video_status,
+        video_page_url=video_page_url(assistant.slug) if has_ready_video(assistant) else None,
+        video_error=assistant.video_error,
         created_at=assistant.created_at,
     )
 
@@ -205,6 +215,45 @@ async def regenerate_assistant(
     return _to_owner_response(updated)
 
 
+def _owned_assistant_or_404(db: Session, assistant_id: int, user_id: int) -> AiAssistant:
+    """Fetch a caller-owned, non-deleted assistant, or raise 404."""
+    assistant = (
+        db.query(AiAssistant)
+        .filter(AiAssistant.id == assistant_id, AiAssistant.user_id == user_id, AiAssistant.deleted_at.is_(None))
+        .first()
+    )
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
+    return assistant
+
+
+@router.post("/{assistant_id}/video", response_model=AiAssistantResponse)
+async def generate_assistant_video(
+    assistant_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """Start generating the assistant's prospection video (webcam speech + a recording of the widget)."""
+    assistant = _owned_assistant_or_404(db, assistant_id, user.id)
+    try:
+        assistant_video_service.request_generation(db, assistant, user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    return _to_owner_response(assistant)
+
+
+@router.delete("/{assistant_id}/video", response_model=AiAssistantResponse)
+async def clear_assistant_video(
+    assistant_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """Delete the assistant's generated video and reset its state."""
+    assistant = _owned_assistant_or_404(db, assistant_id, user.id)
+    assistant_video_service.clear_video(db, assistant)
+    return _to_owner_response(assistant)
+
+
 @router.delete("/{assistant_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_assistant(
     assistant_id: int,
@@ -230,6 +279,7 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
     assistant = ai_assistant_service.get_public_by_slug(db, slug)
     if not assistant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found or inactive")
+    video_ready = has_ready_video(assistant)
     return AiAssistantPublicResponse(
         slug=assistant.slug,
         business_name=assistant.business_name,
@@ -238,6 +288,9 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
         accent_color=_accent_color(assistant.knowledge_json),
         status=assistant.status,
         **_owner_public_fields(assistant),
+        video_available=video_ready,
+        video_url=public_video_file_url(assistant.slug) if video_ready else None,
+        video_thumbnail_url=public_thumbnail_url(assistant.slug, assistant.video_generated_at) if video_ready else None,
     )
 
 

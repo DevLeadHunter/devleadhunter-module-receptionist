@@ -10,6 +10,9 @@ export interface AiAssistantConfig {
   owner_profile_photo_url?: string | null
   owner_contact_phone?: string | null
   owner_contact_email?: string | null
+  video_available?: boolean
+  video_url?: string | null
+  video_thumbnail_url?: string | null
 }
 
 /** A single conversation turn exchanged with the assistant. */

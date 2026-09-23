@@ -37,6 +37,10 @@ class AiAssistantResponse(BaseModel):
     status: str
     demo_url: str
     embed_snippet: str
+    # Prospection video state: NULL when never requested, else pending/generating/ready/failed.
+    video_status: str | None = None
+    video_page_url: str | None = None
+    video_error: str | None = None
     created_at: datetime
 
 
@@ -60,6 +64,10 @@ class AiAssistantPublicResponse(BaseModel):
     owner_profile_photo_url: str | None = None
     owner_contact_phone: str | None = None
     owner_contact_email: str | None = None
+    # Prospection video (the /va/{slug} player + email thumbnail), present only when generated.
+    video_available: bool = False
+    video_url: str | None = None
+    video_thumbnail_url: str | None = None
 
 
 class AiAssistantInterestRequest(BaseModel):
