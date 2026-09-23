@@ -96,7 +96,7 @@
           </a>
         </div>
 
-        <div v-if="isActive" class="space-y-2 border-t border-[var(--app-line)] px-5 py-4">
+        <div v-if="canManageSubscription" class="space-y-2 border-t border-[var(--app-line)] px-5 py-4">
           <button
             type="button"
             class="btn-secondary h-9 w-full justify-center text-xs"
@@ -172,8 +172,10 @@ const isBusy: Ref<boolean> = ref(false)
 const cancelConfirmModal: Ref<{ open: () => void } | null> = ref(null)
 const refundConfirmModal: Ref<{ open: () => void } | null> = ref(null)
 
-/** Whether the subscription is currently active (only then are cancel/refund offered). */
-const isActive: ComputedRef<boolean> = computed((): boolean => props.subscription?.status === 'active')
+/** A subscription still live on Stripe (active or past-due) can be canceled or refunded from here. */
+const canManageSubscription: ComputedRef<boolean> = computed(
+  (): boolean => props.subscription?.status === 'active' || props.subscription?.status === 'past_due',
+)
 
 /** French label of the subscription status. */
 const statusLabel: ComputedRef<string> = computed((): string => {
