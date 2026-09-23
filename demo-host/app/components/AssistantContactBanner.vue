@@ -61,7 +61,7 @@ import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 const FALLBACK_ACCENT: string = '#a9793f'
 
 /**
- * « Cet assistant vous plaît ? » banner overlaid on the assistant sales page (/a/{slug}).
+ * « Cet assistant vous plaît ? » banner overlaid on the assistant sales page (/ia/{slug}).
  * Lets the prospect (the business owner) raise their hand towards the seller — a hot buy signal,
  * beaconed to the assistant interest endpoint which notifies the owner in real time.
  * @param slug The assistant's public slug.

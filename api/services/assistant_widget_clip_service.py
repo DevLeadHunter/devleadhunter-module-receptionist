@@ -6,7 +6,7 @@ This is the desktop counterpart of :meth:`assistant_video_service.AssistantVideo
 Playwright's ``record_video`` (whose bundled ffmpeg the frozen sidecar has no copy of).
 
 Unlike the site background, this needs **no authenticated session**: the widget is public, so the capture
-is a plain headless recording of ``/a/{slug}?internal=1`` opening, answering a suggested question, and
+is a plain headless recording of ``/ia/{slug}?internal=1`` opening, answering a suggested question, and
 revealing the lead form. The VPS montage later overlays the webcam PiP and the « Bonjour {Prénom} » pill.
 """
 
@@ -57,7 +57,7 @@ class AssistantWidgetClipService:
         """Record the widget answering to ``output_path`` and grab the product screenshot.
 
         Args:
-            demo_url: The assistant page (``/a/{slug}``); visited with ``?internal=1``.
+            demo_url: The assistant page (``/ia/{slug}``); visited with ``?internal=1``.
             output_path: Where the assembled middle-segment mp4 is written.
             screenshot_path: Where the widget-open screenshot (thumbnail base) is written.
             executable_path: Chrome binary to drive (the sidecar's bundled/installed one).

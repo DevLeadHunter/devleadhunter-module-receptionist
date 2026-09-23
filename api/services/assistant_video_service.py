@@ -250,7 +250,7 @@ class AssistantVideoService:
         work_dir = Path(tempfile.mkdtemp(prefix=f"assistant-video-{assistant.slug}-"))
         try:
             guard_memory(MIN_FREE_MEMORY_MB_FOR_CAPTURE, "générer")
-            demo_url = f"{settings.demo_host_base_url.rstrip('/')}/a/{assistant.slug}"
+            demo_url = f"{settings.demo_host_base_url.rstrip('/')}/ia/{assistant.slug}"
             capture_path, scroll_offset, screenshot_path = await asyncio.to_thread(
                 self._capture_assistant_sync, demo_url, middle_seconds, work_dir
             )
@@ -291,7 +291,7 @@ class AssistantVideoService:
         the browser works on every platform — same reason as the site capture).
 
         Args:
-            url: The assistant demo page (``/a/{slug}``); visited with ``?internal=1``.
+            url: The assistant demo page (``/ia/{slug}``); visited with ``?internal=1``.
             seconds: The middle-segment duration to fill with the interaction.
             work_dir: Temp directory receiving the recording + screenshot.
 

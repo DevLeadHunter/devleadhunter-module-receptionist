@@ -173,7 +173,7 @@ const playLabelDurationSuffix: ComputedRef<string> = computed((): string =>
 )
 
 /** Link to try the live assistant (the /a/ demo page). */
-const demoHref: ComputedRef<string> = computed((): string => `/a/${slug.value}`)
+const demoHref: ComputedRef<string> = computed((): string => `/ia/${slug.value}`)
 
 /** Owner name for the signature line (empty when the owner set no name). */
 const ownerNameLabel: ComputedRef<string> = computed((): string => (assistant.value?.owner_name ?? '').trim())

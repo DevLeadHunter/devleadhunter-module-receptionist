@@ -65,7 +65,7 @@ _MAX_INCOMING_MESSAGES = 40
 
 def _demo_url(slug: str) -> str:
     base = settings.demo_host_base_url.rstrip("/")
-    return f"{base}/a/{slug}"
+    return f"{base}/ia/{slug}"
 
 
 def _embed_snippet(slug: str) -> str:
@@ -474,8 +474,8 @@ async def create_assistant_subscription_checkout(
             user_id=user.id,
             assistant=assistant,
             interval=interval,
-            success_url=f"{demo}/a/{assistant.slug}?subscribed=1",
-            cancel_url=f"{demo}/a/{assistant.slug}",
+            success_url=f"{demo}/ia/{assistant.slug}?subscribed=1",
+            cancel_url=f"{demo}/ia/{assistant.slug}",
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
