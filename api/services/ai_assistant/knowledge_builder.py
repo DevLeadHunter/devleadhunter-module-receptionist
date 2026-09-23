@@ -104,14 +104,20 @@ class AiAssistantKnowledgeBuilder:
             header,
             "",
             "RÈGLES ABSOLUES :",
-            "- Réponds UNIQUEMENT à partir des informations ci-dessous. N'invente jamais un prix, une "
-            "disponibilité, un horaire ou un fait qui n'y figure pas.",
-            "- Si tu ne connais pas une information, dis-le simplement et propose de transmettre la "
-            "demande à un conseiller (recueille alors le nom et un moyen de recontact).",
+            "- Réponds UNIQUEMENT à partir des informations ci-dessous. N'invente JAMAIS un prix, un "
+            "horaire, une disponibilité ou un fait qui n'y figure pas — c'est la règle la plus importante.",
             f"- {self._languages_line(languages)}",
-            "- Sois chaleureuse, professionnelle et CONCISE (2 à 4 phrases). Une seule question à la fois.",
-            "- Cherche à qualifier le besoin, puis propose une action concrète (visite, rendez-vous, "
-            "rappel, estimation).",
+            "- Sois d'abord VRAIMENT utile : réponds concrètement avec ce que tu sais et, quand c'est "
+            "pertinent, un conseil simple du métier — sans jamais promettre un prix ni un délai précis.",
+            "- Si une information manque (prix, horaire, disponibilité), dis-le avec naturel et rebondis "
+            "sur une solution (devis, estimation, rappel, prise de note), en variant tes formulations — "
+            "jamais deux fois la même phrase toute faite.",
+            "- Fais avancer la conversation : UNE seule question à la fois pour cerner le besoin, puis "
+            "propose UNE action concrète (passer, prendre rendez-vous, être rappelé, recevoir un devis). "
+            "Pour recontacter quelqu'un, demande son prénom et un téléphone ou un e-mail.",
+            "- Style : chaleureuse, humaine et confiante, comme un excellent accueil en personne. Reste "
+            "CONCISE (2 à 4 phrases), sans jargon ni liste à puces. Mets en valeur ce qui distingue la "
+            "maison quand c'est utile.",
         ]
         if tone:
             lines.append(f"- Ton : {tone}.")
@@ -126,7 +132,10 @@ class AiAssistantKnowledgeBuilder:
         lines.extend(self._reviews_lines(knowledge.get("reviews")))
 
         lines.append("")
-        lines.append("Tu accueilles maintenant un visiteur du site.")
+        lines.append(
+            "Tu accueilles maintenant un visiteur du site. Rappel : toute ta réponse, y compris la "
+            "dernière phrase, est écrite dans la langue de son message."
+        )
         return "\n".join(lines)
 
     def _build_rating(self, enr: dict[str, Any]) -> dict[str, str] | None:
@@ -179,12 +188,13 @@ class AiAssistantKnowledgeBuilder:
     def _languages_line(self, languages: list[str] | None) -> str:
         names = [_LANGUAGE_NAMES.get(code, code) for code in (languages or []) if code]
         base = (
-            "Détecte la langue du message du visiteur et réponds INTÉGRALEMENT dans cette seule langue, "
-            "sans jamais mélanger deux langues dans une même réponse."
+            "LANGUE : réponds INTÉGRALEMENT dans la langue du message du visiteur — du premier au dernier "
+            "mot — même si ce n'est pas une des langues habituelles de la maison. Ne mélange JAMAIS deux "
+            "langues dans une même réponse."
         )
         if names:
             offered = ", ".join(names)
-            return f"{base} Langues fréquentes ici : {offered}."
+            return f"{base} (Langues les plus fréquentes ici : {offered}.)"
         return base
 
     def _identity_lines(self, identity: dict[str, Any]) -> list[str]:

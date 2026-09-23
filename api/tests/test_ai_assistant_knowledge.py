@@ -73,7 +73,7 @@ def test_render_system_prompt_grounds_on_knowledge() -> None:
 
     assert "Sofia" in prompt
     assert "LUMA Immobilier" in prompt
-    assert "N'invente jamais" in prompt
+    assert "N'invente JAMAIS" in prompt
     assert "français, anglais, allemand" in prompt
     assert "4,9/5" in prompt
     assert "Vente" in prompt
