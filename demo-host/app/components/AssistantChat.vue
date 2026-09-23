@@ -10,25 +10,12 @@
       <span class="ai-launcher__say">
         Une question&nbsp;? <strong>{{ config.assistant_name }}</strong> vous répond, 24h/24.
       </span>
-      <span class="ai-launcher__orb" aria-hidden="true">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 8.5-8.5 8.38 8.38 0 0 1 8.5 8.5z"
-          />
-        </svg>
-      </span>
+      <span class="ai-launcher__orb" aria-hidden="true"><AssistantAvatar /></span>
     </button>
 
     <section v-else class="ai-panel" :aria-label="config.assistant_name">
       <header class="ai-head">
-        <span class="ai-head__av">{{ assistantInitial }}</span>
+        <span class="ai-head__av"><AssistantAvatar /></span>
         <span class="ai-head__who">
           <b>{{ config.assistant_name }}</b>
           <span>Assistante {{ config.business_name }} · en ligne</span>
@@ -256,9 +243,6 @@ const leadNeed: Ref<string> = ref('')
 const accentStyle: ComputedRef<Record<string, string>> = computed(() => ({
   '--ai-accent': props.config.accent_color || FALLBACK_ACCENT,
 }))
-const assistantInitial: ComputedRef<string> = computed(() =>
-  (props.config.assistant_name.trim()[0] || 'A').toUpperCase(),
-)
 const offeredLanguages: ComputedRef<AssistantWidgetLang[]> = computed(() => {
   const codes: AssistantWidgetLang[] = props.config.languages.filter(
     (code: string): code is AssistantWidgetLang => code in LANGUAGE_LABELS,
@@ -504,16 +488,9 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 .ai-launcher__orb {
   width: 60px;
   height: 60px;
-  border-radius: 18px;
-  background: var(--ai-accent);
-  color: var(--ai-accent-ink);
-  display: grid;
-  place-items: center;
+  border-radius: 16px;
+  overflow: hidden;
   box-shadow: 0 10px 28px -12px rgba(23, 19, 13, 0.5);
-}
-.ai-launcher__orb svg {
-  width: 27px;
-  height: 27px;
 }
 
 .ai-panel {
@@ -544,14 +521,9 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   width: 44px;
   height: 44px;
   border-radius: 14px;
-  background: var(--ai-accent-ink);
-  color: var(--ai-accent);
-  display: grid;
-  place-items: center;
-  font-family: var(--ai-font-d);
-  font-size: 1.3rem;
-  font-weight: 600;
+  overflow: hidden;
   flex: none;
+  box-shadow: 0 2px 8px rgba(23, 19, 13, 0.18);
 }
 .ai-head__who {
   flex: 1;
@@ -743,7 +715,8 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   border-radius: 10px;
   padding: 9px 11px;
   font: inherit;
-  font-size: 0.88rem;
+  /* 16px minimum: stops iOS Safari from zooming the page on focus. */
+  font-size: 16px;
   background: var(--ai-paper-2);
   color: var(--ai-ink);
 }
@@ -793,7 +766,8 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   border-radius: 13px;
   padding: 11px 13px;
   font: inherit;
-  font-size: 0.92rem;
+  /* 16px minimum: below it, iOS Safari zooms the whole page when the field is focused. */
+  font-size: 16px;
   background: var(--ai-card);
   color: var(--ai-ink);
   max-height: 96px;
