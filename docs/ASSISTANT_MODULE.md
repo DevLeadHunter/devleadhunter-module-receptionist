@@ -14,7 +14,8 @@
 - **À la marque du prospect** : nom d'assistant, ton, couleur d'accent tirée du logo. Tout est
   personnalisable et **régénérable** sans changer le lien public ni la marque.
 - **Se vend par campagne** : la variable `{lien_assistant}` existe en email (ancre tracée) et en SMS
-  (lien nu), en miroir de `{lien_demo}`.
+  (lien nu), en miroir de `{lien_demo}`. Une **vidéo de prospection** optionnelle (générée sur le PC
+  comme le site, fallback VPS) se joue sur `/va/{slug}`.
 - **Cible** : commerces avec site (BE / LU / CH / FR) — vente par **abonnement** (increment C3, voir
   plus bas, **en attente de la décision prix**).
 
@@ -74,10 +75,15 @@ plutôt que d'échouer. Modèle via `llm_service` (Groq).
 | `GET` | `/ai-assistants/leads` | Lister les contacts captés (join assistant) |
 | `PATCH` | `/ai-assistants/{id}` | Personnaliser (nom, persona, langues, accent) |
 | `POST` | `/ai-assistants/{id}/regenerate` | Régénérer la connaissance (garde marque + slug) |
+| `POST` | `/ai-assistants/{id}/video` | Générer la vidéo de prospection (fond serveur / VPS) |
+| `GET` | `/ai-assistants/{id}/video-context` | Contexte pour le build desktop (sidecar) |
+| `POST` | `/ai-assistants/{id}/video-final` | Recevoir la vidéo montée sur le PC → R2 |
+| `DELETE` | `/ai-assistants/{id}/video` | Supprimer la vidéo générée |
 | `DELETE` | `/ai-assistants/{id}` | Supprimer (soft-delete) |
-| `GET` | `/ai-assistants/public/{slug}` | Config publique du widget |
+| `GET` | `/ai-assistants/public/{slug}` | Config publique du widget (+ vidéo si prête) |
 | `POST` | `/ai-assistants/public/{slug}/chat` | Réponse groundée à un message |
 | `POST` | `/ai-assistants/public/{slug}/lead` | Capturer un contact |
+| `POST` | `/ai-assistants/public/{slug}/interest` | Signaler l'intérêt de l'owner (pop-up « me contacter ») |
 
 Les 3 endpoints publics sont **rate-limités par IP** (`services/rate_limiter.py`) : chat 30 / 300 s,
 lead 8 / 300 s (fenêtre glissante en mémoire).
@@ -119,9 +125,33 @@ Le script monte un iframe transparent (bas-droite) vers `/embed/{slug}`, se redi
 
 - **Email** — `EmailVariables.resolve_assistant_link` : ancre tracée (comme `{lien_demo}`).
 - **SMS** — `SmsVariables` : lien nu sans schéma (`EmailVariables.resolve_assistant_url` + `as_sms_link`).
+- **Vidéo** — `{lien_video_assistant}` / `{vignette_video_assistant}` (email + SMS) : dégradent en vide
+  si la vidéo n'est pas prête (le CTA reste `{lien_assistant}` live), pas de garde à l'enqueue.
 
-Modèles fournis : 4 emails (`seeders/email_template_seeder.py`) et 4 SMS
-(`services/sms/templates.py`, famille `assistant-*`, 1 segment GSM-7).
+Le contact du prospect (email/SMS) bloque l'autre module **45 j** (`services/contact_lock_service.py`),
+pour ne pas démarcher deux fois le même prospect entre le site et l'assistant.
+
+Modèles fournis : 5 emails (`seeders/email_template_seeder.py`) et 5 SMS
+(`services/sms/templates.py`, famille `assistant-*`, 1 segment GSM-7), dont un modèle **« prix cash »**
+franc (prix annoncé, sans engagement).
+
+## Vidéo de prospection
+
+Chaque assistant peut avoir une **vidéo courte** — clip webcam du vendeur en intro/outro, capture du
+widget qui répond au milieu — montée par ffmpeg, hébergée sur R2 (`videos/assistant/{slug}.mp4`) et
+jouée sur `/va/{slug}` (`demo-host/app/pages/va/[slug].vue`, à l'accent du prospect).
+
+- **Desktop d'abord** (comme le site) : le dashboard build tout sur le PC via le sidecar
+  (`/video/build-assistant-full` → `services/assistant_widget_clip_service.py`, capture image-par-image
+  avec le Chrome + ffmpeg bundlés), puis `POST /video-final` pousse le résultat sur R2. Le VPS n'est
+  jamais touché ; le desktop se release seul (CI Tauri à chaque push).
+- **Fallback serveur** (`services/assistant_video_service.py`, Playwright headless) hors desktop ou sur
+  échec — l'assistant n'a **aucune** dépendance Storyblok, donc le VPS génère seul.
+- **Clip présentateur par module** (`presenter_videos.module = 'ai-assistant'`) : un discours webcam
+  « assistant » distinct de celui des sites (Paramètres → Vidéo), avec option de **génération auto** à
+  la création de l'assistant (opt-in).
+- **Mécanique partagée** avec le site : montage (`services/video_montage.py`), primitives communes
+  (`services/video_pipeline.py`), poll/fetch sidecar (`web/app/services/sidecarVideoBuild.ts`).
 
 ## Dashboard (module Atelier)
 
@@ -131,14 +161,17 @@ Carte, **Assistants IA**, Campagnes, emails, sms, Ventes (pas de Sites démo ni 
 
 La page **Assistants IA** (`web/app/pages/dashboard/ai-assistants.vue`) : KPIs (assistants actifs,
 contacts captés, dernier contact), cartes par assistant (langues, badge de contacts captés, Voir la
-démo, Copier le script, Personnaliser, Régénérer, Supprimer) et la liste des contacts. Le
-`ProspectDrawer` génère / ouvre l'assistant depuis un prospect selon le module actif.
+démo, Copier le script, Personnaliser, Régénérer, Supprimer, **Générer / Voir la vidéo**) et la liste
+des contacts. Le clip présentateur « assistant » s'enregistre dans **Paramètres → Vidéo**
+(`web/app/components/settings/AssistantPresenterClipCard.vue`). Le `ProspectDrawer` génère / ouvre
+l'assistant depuis un prospect selon le module actif.
 
 ## Tracking (PostHog, côté demo-host)
 
-Émis par le widget : `assistant_opened`, `assistant_message_sent`, `assistant_lead_submitted` (plus
-le tracking de visite de démo partagé, `useDemoTracking`). **Aucun** event PostHog côté dashboard
-(le dashboard n'est pas instrumenté — voir la mémoire projet).
+Émis par le widget : `assistant_opened`, `assistant_message_sent`, `assistant_lead_submitted` ; la page
+vidéo `/va/{slug}` émet `assistant_video_play` / `assistant_video_cta_click`. Tous portent la
+super-propriété **`surface: 'assistant'`** (le site porte `surface: 'demo'`), pour distinguer les
+modules dans le même projet PostHog. **Aucun** event côté dashboard (non instrumenté — voir la mémoire).
 
 ## Carte des fichiers
 
@@ -152,17 +185,23 @@ le tracking de visite de démo partagé, `useDemoTracking`). **Aucun** event Pos
 | Routes | `api/api/v1/routes/ai_assistants.py` |
 | Rate limiter | `api/services/rate_limiter.py` |
 | Variables campagne | `api/services/email_variables.py`, `api/services/sms_variables.py` |
+| Verrou inter-modules | `api/services/contact_lock_service.py` |
+| Vidéo (serveur / VPS) | `api/services/assistant_video_service.py` |
+| Vidéo (capture desktop) | `api/services/assistant_widget_clip_service.py`, `api/scraper_sidecar.py` |
+| Vidéo (commun site + assistant) | `api/services/video_pipeline.py`, `api/services/video_montage.py`, `web/app/services/sidecarVideoBuild.ts` |
 | Widget | `demo-host/app/components/AssistantChat.vue` |
 | Page de démo | `demo-host/app/pages/a/[slug].vue` |
+| Page vidéo | `demo-host/app/pages/va/[slug].vue` |
 | Page embed | `demo-host/app/pages/embed/[slug].vue` |
 | Loader embed | `demo-host/public/ai-assistant.js` |
 | Dashboard | `web/app/pages/dashboard/ai-assistants.vue`, `web/app/utils/dashboardModules.ts` |
+| Clip présentateur (réglages) | `web/app/components/settings/AssistantPresenterClipCard.vue` |
 
 ## Vente par abonnement (increment C3) — À DÉCIDER
 
 La vente du module est un **abonnement récurrent** (Stripe subscription), distinct de la vente de site
 à 500 € en une fois (`docs/STRIPE_SETUP.md`). **Non implémenté** : à cadrer une fois le **prix et
-l'essai** tranchés par Léo. À décider avant de coder :
+l'essai** tranchés côté produit. À décider avant de coder :
 
 - **Prix** mensuel (et éventuel annuel remisé).
 - **Essai** : gratuit N jours ? démo live limitée dans le temps (colonnes `expires_at` /
@@ -171,4 +210,4 @@ l'essai** tranchés par Léo. À décider avant de coder :
   conversations ?
 
 Le reste du module est **prêt à vendre** : génération, personnalisation, régénération, démo, widget
-multilingue, capture de leads, campagnes (email + SMS) et suivi.
+multilingue, capture de leads, vidéo de prospection (desktop + serveur), campagnes (email + SMS) et suivi.
