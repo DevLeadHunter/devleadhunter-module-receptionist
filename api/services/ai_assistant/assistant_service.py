@@ -153,6 +153,14 @@ class AiAssistantService:
         db.add(assistant)
         db.commit()
         db.refresh(assistant)
+
+        # Prospection video: auto-generate in the background as soon as the assistant is active, if the
+        # user configured their « assistant » webcam clip with the option on (covers single + bulk).
+        if assistant.status == AiAssistantStatus.ACTIVE.value:
+            from services.assistant_video_service import assistant_video_service
+
+            assistant_video_service.maybe_start_auto_generation(db, assistant, user_id)
+
         return assistant
 
     async def create_for_prospect(self, db: Session, *, user_id: int, prospect: ProspectDB) -> AiAssistant:

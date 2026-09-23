@@ -132,6 +132,37 @@ class AssistantVideoService:
         asyncio.create_task(self._run_generation(assistant.id, user_id))
         return assistant
 
+    def maybe_start_auto_generation(self, db: Session, assistant: AiAssistant, user_id: int) -> bool:
+        """
+        Best-effort auto-generation hook, called right after an assistant is created.
+
+        Fires only when the user has an assistant-module presenter clip with ``auto_generate``
+        enabled; never raises (a video failure must not fail assistant creation).
+
+        Args:
+            db: Active database session.
+            assistant: The freshly created assistant.
+            user_id: Owner (used to fetch the assistant-module presenter clip).
+
+        Returns:
+            True when a generation was started.
+        """
+        from services.presenter_video_service import presenter_video_service
+
+        try:
+            presenter = presenter_video_service.get_for_user(db, user_id, ASSISTANT_PRESENTER_MODULE)
+            if presenter is None or not presenter.auto_generate:
+                return False
+            self.request_generation(db, assistant, user_id)
+            logger.info("Auto assistant video generation started for slug=%s", assistant.slug)
+            return True
+        except ValueError as exc:
+            logger.info("Auto assistant video generation skipped for slug=%s: %s", assistant.slug, exc)
+            return False
+        except Exception:
+            logger.exception("Auto assistant video generation hook failed for slug=%s", assistant.slug)
+            return False
+
     def reconcile_orphaned(self, db: Session) -> int:
         """Mark assistants left mid-generation as failed (called once at startup)."""
         orphaned = (
@@ -243,6 +274,7 @@ class AssistantVideoService:
                     output_video=output_path,
                     output_thumbnail=thumbnail_path,
                     presenter_photo_path=presenter_photo_path,
+                    thumbnail_label=video_montage.THUMBNAIL_LABEL_ASSISTANT,
                 )
             except video_montage.VideoMontageError as exc:
                 raise VideoGenerationError(str(exc)) from exc
