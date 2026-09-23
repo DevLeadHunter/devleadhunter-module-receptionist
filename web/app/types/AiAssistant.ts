@@ -6,6 +6,9 @@ export interface AiAssistantSummary {
   business_name: string
   assistant_name: string
   languages: string[]
+  tone: string | null
+  accent_color: string | null
+  use_brand_color: boolean
   status: string
   demo_url: string
   embed_snippet: string
@@ -15,6 +18,25 @@ export interface AiAssistantSummary {
 /** The current user's assistants. */
 export interface AiAssistantListResponse {
   assistants: AiAssistantSummary[]
+}
+
+/** Owner edits to an assistant's branding and persona (partial update). */
+export type AiAssistantUpdatePayload = {
+  assistant_name?: string
+  business_name?: string
+  languages?: string[]
+  tone?: string
+  use_brand_color?: boolean
+  accent_color?: string
+}
+
+/** The assistant customization form state (all fields present for v-model). */
+export type AiAssistantEditForm = {
+  assistant_name: string
+  business_name: string
+  tone: string
+  accent_color: string
+  languages: string[]
 }
 
 /** One lead a visitor left through an assistant, as seen by its owner. */

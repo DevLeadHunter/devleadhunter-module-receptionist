@@ -74,6 +74,41 @@ class AiAssistantService:
             "use_brand_color": use_brand_color,
         }
 
+    def update(self, db: Session, assistant: AiAssistant, fields: dict[str, Any]) -> AiAssistant:
+        """Apply owner edits (branding/persona) to an assistant, then persist.
+
+        Only keys present in ``fields`` are touched, so a partial edit never wipes the rest.
+        The accent lives in ``knowledge_json['palette']``, reassigned as a new dict so SQLAlchemy
+        detects the JSON change. An empty string clears a value (neutral accent, default persona).
+
+        Args:
+            db: Active database session.
+            assistant: The row to edit.
+            fields: The provided fields (from ``model_dump(exclude_unset=True)``).
+
+        Returns:
+            The refreshed assistant row.
+        """
+        if "assistant_name" in fields:
+            assistant.assistant_name = (fields["assistant_name"] or "").strip() or assistant.assistant_name
+        if "business_name" in fields:
+            assistant.business_name = (fields["business_name"] or "").strip() or assistant.business_name
+        if "languages" in fields:
+            assistant.languages = fields["languages"] or []
+        if "tone" in fields:
+            assistant.tone = (fields["tone"] or "").strip() or None
+        if "use_brand_color" in fields:
+            assistant.use_brand_color = bool(fields["use_brand_color"])
+        if "accent_color" in fields:
+            knowledge = dict(assistant.knowledge_json or {})
+            palette = dict(knowledge.get("palette") or {})
+            palette["accent"] = (fields["accent_color"] or "").strip() or None
+            knowledge["palette"] = palette
+            assistant.knowledge_json = knowledge
+        db.commit()
+        db.refresh(assistant)
+        return assistant
+
     def create(
         self,
         db: Session,

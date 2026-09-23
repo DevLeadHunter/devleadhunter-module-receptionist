@@ -25,6 +25,7 @@ from schemas.ai_assistant import (
     AiAssistantListResponse,
     AiAssistantPublicResponse,
     AiAssistantResponse,
+    AiAssistantUpdateRequest,
 )
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
@@ -71,6 +72,9 @@ def _to_owner_response(assistant: AiAssistant) -> AiAssistantResponse:
         business_name=assistant.business_name,
         assistant_name=assistant.assistant_name,
         languages=assistant.languages or [],
+        tone=assistant.tone,
+        accent_color=_accent_color(assistant.knowledge_json),
+        use_brand_color=assistant.use_brand_color,
         status=assistant.status,
         demo_url=_demo_url(assistant.slug),
         embed_snippet=_embed_snippet(assistant.slug),
@@ -136,6 +140,25 @@ async def list_assistant_leads(
             for lead, business_name in rows
         ]
     )
+
+
+@router.patch("/{assistant_id}", response_model=AiAssistantResponse)
+async def update_assistant(
+    assistant_id: int,
+    payload: AiAssistantUpdateRequest,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """Edit one of the caller's assistants (name, persona, languages, accent)."""
+    assistant = (
+        db.query(AiAssistant)
+        .filter(AiAssistant.id == assistant_id, AiAssistant.user_id == user.id, AiAssistant.deleted_at.is_(None))
+        .first()
+    )
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
+    updated = ai_assistant_service.update(db, assistant, payload.model_dump(exclude_unset=True))
+    return _to_owner_response(updated)
 
 
 @router.delete("/{assistant_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -1,5 +1,10 @@
 import { ApiClient } from '~/services/api'
-import type { AiAssistantLeadsResponse, AiAssistantListResponse, AiAssistantSummary } from '~/types/AiAssistant'
+import type {
+  AiAssistantLeadsResponse,
+  AiAssistantListResponse,
+  AiAssistantSummary,
+  AiAssistantUpdatePayload,
+} from '~/types/AiAssistant'
 
 const BASE_URL: string = '/api/v1/ai-assistants'
 
@@ -44,6 +49,17 @@ export class AiAssistantService {
    */
   static listLeads(): Promise<AiAssistantLeadsResponse> {
     return ApiClient.get<AiAssistantLeadsResponse>(`${BASE_URL}/leads`)
+  }
+
+  /**
+   * Edit one of the user's assistants (name, persona, languages, accent).
+   *
+   * @param assistantId - The assistant to edit.
+   * @param payload - The fields to change.
+   * @returns The updated assistant.
+   */
+  static update(assistantId: number, payload: AiAssistantUpdatePayload): Promise<AiAssistantSummary> {
+    return ApiClient.patch<AiAssistantSummary>(`${BASE_URL}/${assistantId}`, payload)
   }
 
   /**

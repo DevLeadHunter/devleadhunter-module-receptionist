@@ -11,6 +11,17 @@ class AiAssistantCreateRequest(BaseModel):
     prospect_id: int
 
 
+class AiAssistantUpdateRequest(BaseModel):
+    """Owner edits to an assistant's branding and persona (all optional, partial update)."""
+
+    assistant_name: str | None = None
+    business_name: str | None = None
+    languages: list[str] | None = None
+    tone: str | None = None
+    use_brand_color: bool | None = None
+    accent_color: str | None = None
+
+
 class AiAssistantResponse(BaseModel):
     """An assistant as seen by its owner in the dashboard."""
 
@@ -20,6 +31,9 @@ class AiAssistantResponse(BaseModel):
     business_name: str
     assistant_name: str
     languages: list[str] = Field(default_factory=list)
+    tone: str | None = None
+    accent_color: str | None = None
+    use_brand_color: bool = True
     status: str
     demo_url: str
     embed_snippet: str
