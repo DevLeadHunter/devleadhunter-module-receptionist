@@ -12,6 +12,9 @@ export interface AiAssistantSummary {
   status: string
   demo_url: string
   embed_snippet: string
+  video_status: string | null
+  video_page_url: string | null
+  video_error: string | null
   created_at: string
 }
 

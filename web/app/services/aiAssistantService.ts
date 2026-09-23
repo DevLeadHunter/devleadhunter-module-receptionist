@@ -74,6 +74,26 @@ export class AiAssistantService {
   }
 
   /**
+   * Start generating the assistant's prospection video (webcam speech + a recording of the widget).
+   *
+   * @param assistantId - The assistant to make a video for.
+   * @returns The assistant with its video generation started.
+   */
+  static generateVideo(assistantId: number): Promise<AiAssistantSummary> {
+    return ApiClient.post<AiAssistantSummary>(`${BASE_URL}/${assistantId}/video`, {})
+  }
+
+  /**
+   * Delete the assistant's generated video and reset its state.
+   *
+   * @param assistantId - The assistant whose video to clear.
+   * @returns The assistant with its video state reset.
+   */
+  static clearVideo(assistantId: number): Promise<AiAssistantSummary> {
+    return ApiClient.delete<AiAssistantSummary>(`${BASE_URL}/${assistantId}/video`)
+  }
+
+  /**
    * Soft-delete one of the user's assistants.
    *
    * @param assistantId - The assistant to remove.
