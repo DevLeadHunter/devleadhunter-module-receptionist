@@ -18,6 +18,7 @@ from schemas.ai_assistant import (
     AiAssistantChatRequest,
     AiAssistantChatResponse,
     AiAssistantCreateRequest,
+    AiAssistantInterestRequest,
     AiAssistantLeadItem,
     AiAssistantLeadRequest,
     AiAssistantLeadResponse,
@@ -31,6 +32,7 @@ from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
 from services.auth_service import get_current_active_user
 from services.notification_service import notification_service
+from services.r2_storage_service import r2_storage
 from services.rate_limiter import assistant_chat_limiter, assistant_lead_limiter
 
 logger = logging.getLogger(__name__)
@@ -62,6 +64,21 @@ def _client_ip(request: Request) -> str:
 def _accent_color(knowledge: dict[str, Any] | None) -> str | None:
     palette = (knowledge or {}).get("palette")
     return palette.get("accent") if isinstance(palette, dict) else None
+
+
+def _owner_public_fields(assistant: AiAssistant) -> dict[str, str | None]:
+    """Owner contact shown in the « me contacter » banner (photo guarded on the R2 base)."""
+    user = assistant.user
+    if user is None:
+        return {}
+    fields: dict[str, str | None] = {
+        "owner_name": user.name,
+        "owner_contact_phone": user.contact_phone,
+        "owner_contact_email": user.contact_email,
+    }
+    if user.profile_photo_path and (settings.r2_public_base_url or "").strip():
+        fields["owner_profile_photo_url"] = r2_storage.public_url(user.profile_photo_path)
+    return fields
 
 
 def _to_owner_response(assistant: AiAssistant) -> AiAssistantResponse:
@@ -220,6 +237,7 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
         languages=assistant.languages or [],
         accent_color=_accent_color(assistant.knowledge_json),
         status=assistant.status,
+        **_owner_public_fields(assistant),
     )
 
 
@@ -295,3 +313,27 @@ async def submit_assistant_lead(
         need=payload.need or "",
     )
     return AiAssistantLeadResponse(ok=True)
+
+
+@router.post("/public/{slug}/interest", status_code=status.HTTP_204_NO_CONTENT)
+async def submit_assistant_interest(
+    slug: str,
+    payload: AiAssistantInterestRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> None:
+    """The prospect raised their hand on the assistant sales page — notify the owner (hot lead)."""
+    if not assistant_lead_limiter.allow(f"interest:{slug}:{_client_ip(request)}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de demandes, réessayez plus tard"
+        )
+    assistant = ai_assistant_service.get_public_by_slug(db, slug)
+    if not assistant:
+        return  # Unknown or inactive slug: ignore, like the public demo-events beacon.
+    await notification_service.notify_assistant_interest(
+        db,
+        user_id=assistant.user_id,
+        prospect_id=assistant.prospect_id,
+        fallback_name=assistant.business_name,
+        message=(payload.message or "").strip(),
+    )

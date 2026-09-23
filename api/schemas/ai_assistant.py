@@ -55,6 +55,17 @@ class AiAssistantPublicResponse(BaseModel):
     languages: list[str] = Field(default_factory=list)
     accent_color: str | None = None
     status: str
+    # Owner contact, shown in the « me contacter » banner so the prospect can reach the seller.
+    owner_name: str | None = None
+    owner_profile_photo_url: str | None = None
+    owner_contact_phone: str | None = None
+    owner_contact_email: str | None = None
+
+
+class AiAssistantInterestRequest(BaseModel):
+    """A prospect raising their hand from the assistant sales page (« me contacter » banner)."""
+
+    message: str | None = Field(None, max_length=2000)
 
 
 class AiAssistantChatMessage(BaseModel):

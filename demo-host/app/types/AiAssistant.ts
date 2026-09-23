@@ -6,6 +6,10 @@ export interface AiAssistantConfig {
   languages: string[]
   accent_color: string | null
   status: string
+  owner_name?: string | null
+  owner_profile_photo_url?: string | null
+  owner_contact_phone?: string | null
+  owner_contact_email?: string | null
 }
 
 /** A single conversation turn exchanged with the assistant. */
