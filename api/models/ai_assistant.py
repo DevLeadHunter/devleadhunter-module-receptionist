@@ -61,6 +61,11 @@ class AiAssistant(Base):
     demo_link_sent_at: Mapped[datetime | None] = mapped_column(nullable=True)
     # Countdown end, set from ``demo_link_sent_at``; NULL while the link has not been sent.
     expires_at: Mapped[datetime | None] = mapped_column(nullable=True, index=True)
+    # Prospection video (webcam speech + a recording of the widget answering) — its own pipeline,
+    # distinct from the site video. NULL when no video was ever requested for this assistant.
+    video_status: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    video_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    video_generated_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(onupdate=datetime.utcnow, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)
