@@ -4,6 +4,7 @@ import type {
   AiAssistantListResponse,
   AiAssistantSummary,
   AiAssistantUpdatePayload,
+  AiAssistantVideoContext,
 } from '~/types/AiAssistant'
 
 const BASE_URL: string = '/api/v1/ai-assistants'
@@ -81,6 +82,51 @@ export class AiAssistantService {
    */
   static generateVideo(assistantId: number): Promise<AiAssistantSummary> {
     return ApiClient.post<AiAssistantSummary>(`${BASE_URL}/${assistantId}/video`, {})
+  }
+
+  /**
+   * Fetch the context the desktop sidecar needs to build the assistant video locally.
+   *
+   * @param assistantId - The assistant to render.
+   * @returns The demo url, presenter timings and output size.
+   */
+  static getVideoContext(assistantId: number): Promise<AiAssistantVideoContext> {
+    return ApiClient.get<AiAssistantVideoContext>(`${BASE_URL}/${assistantId}/video-context`)
+  }
+
+  /**
+   * Upload a desktop-produced FINAL video bundle (zip: video.mp4 + thumbnail.jpg).
+   *
+   * The sidecar does the whole montage locally; the API just stores it and marks the assistant
+   * ready. Multipart, so it bypasses the JSON api client.
+   * @param assistantId - The assistant the video belongs to.
+   * @param bundle - The zip produced by the sidecar.
+   * @returns The updated assistant.
+   * @throws When the upload fails (message from the API when available).
+   */
+  static async uploadFinalVideo(assistantId: number, bundle: Blob): Promise<AiAssistantSummary> {
+    const userStore: ReturnType<typeof useUserStore> = useUserStore()
+    const config: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
+    const formData: FormData = new FormData()
+    formData.append('file', bundle, `${assistantId}-video.zip`)
+    const response: Response = await fetch(`${config.public.apiBase}${BASE_URL}/${assistantId}/video-final`, {
+      method: 'POST',
+      headers: userStore.token ? { Authorization: `Bearer ${userStore.token}` } : {},
+      body: formData,
+    })
+    if (!response.ok) {
+      const errorText: string = await response.text().catch(() => '')
+      let errorMessage: string = `Envoi de la vidéo échoué : ${response.statusText}`
+      if (errorText) {
+        try {
+          errorMessage = (JSON.parse(errorText).detail as string) || errorMessage
+        } catch {
+          errorMessage = errorText
+        }
+      }
+      throw new Error(errorMessage)
+    }
+    return (await response.json()) as AiAssistantSummary
   }
 
   /**

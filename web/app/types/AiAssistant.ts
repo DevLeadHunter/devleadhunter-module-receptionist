@@ -23,6 +23,20 @@ export interface AiAssistantListResponse {
   assistants: AiAssistantSummary[]
 }
 
+/** Everything the desktop sidecar needs to render an assistant's video locally. */
+export type AiAssistantVideoContext = {
+  slug: string
+  demo_url: string
+  first_name: string | null
+  presenter_duration: number
+  presenter_intro: number
+  presenter_outro: number
+  total_seconds: number
+  out_width: number
+  out_height: number
+  fps: number
+}
+
 /** Owner edits to an assistant's branding and persona (partial update). */
 export type AiAssistantUpdatePayload = {
   assistant_name?: string

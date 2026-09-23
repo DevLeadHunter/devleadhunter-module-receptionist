@@ -3,9 +3,9 @@
 The assistant's video is its own thing (a *different* recording from the site video, per the module
 brief): the user's assistant-module presenter clip full-screen for the intro/outro, and in the middle
 a screen capture of the widget **answering** — it opens, a question is asked, the grounded reply
-writes itself, and the lead form appears. It reuses the site pipeline where nothing differs: the
-picture-in-picture ffmpeg montage (:mod:`services.video_montage`), the « Bonjour {Prénom} » overlay,
-R2 hosting and the shared generation semaphore. Only the *capture* and the *storage namespace* change.
+writes itself, and the lead form appears. It reuses the shared primitives both modules build on: the
+picture-in-picture ffmpeg montage (:mod:`services.video_montage`) and the presenter/memory/semaphore
+helpers (:mod:`services.video_pipeline`). Only the *capture* and the *storage namespace* change.
 
 Rendering happens in a temp dir, then the mp4 + jpg go to Cloudflare R2
 (``videos/assistant/{slug}.mp4`` / ``images/assistant/{slug}.jpg``); the player page is the demo host's
