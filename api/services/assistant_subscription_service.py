@@ -20,6 +20,7 @@ import stripe
 from sqlalchemy.orm import Session
 
 from core.config import settings
+from enums.ai_assistant_status import AiAssistantStatus
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_subscription import AiAssistantSubscription
@@ -147,8 +148,19 @@ class AssistantSubscriptionService:
         record.client_email = details.get("email") or record.client_email
         record.client_name = details.get("name") or record.client_name
         record.status = AssistantSubscriptionStatus.ACTIVE.value
+        # The client is now paying: mark the assistant SOLD so the demo TTL never takes it down.
+        self._mark_assistant_sold(db, record.ai_assistant_id)
         db.commit()
         logger.info("[AssistantSub] Activated subscription record %s (assistant %s)", record.id, record.ai_assistant_id)
+
+    @staticmethod
+    def _mark_assistant_sold(db: Session, assistant_id: int | None) -> None:
+        """Promote a subscribed assistant to DELIVERED (excluded from the demo TTL cleanup)."""
+        if not assistant_id:
+            return
+        assistant = db.get(AiAssistant, assistant_id)
+        if assistant is not None and assistant.status == AiAssistantStatus.ACTIVE.value:
+            assistant.status = AiAssistantStatus.DELIVERED.value
 
     def update_from_stripe_subscription(self, db: Session, sub_obj: dict) -> None:
         """

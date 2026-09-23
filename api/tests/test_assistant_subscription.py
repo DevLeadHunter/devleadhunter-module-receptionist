@@ -9,7 +9,9 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from enums.ai_assistant_status import AiAssistantStatus
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
+from models.ai_assistant import AiAssistant
 from models.ai_assistant_subscription import AiAssistantSubscription
 from services import assistant_subscription_service as sub_module
 from services.assistant_subscription_service import AssistantSubscriptionService
@@ -31,6 +33,7 @@ def db() -> Iterator[Session]:
     _import_all_models()
     engine = create_engine("sqlite:///:memory:")
     AiAssistantSubscription.__table__.create(engine)
+    AiAssistant.__table__.create(engine)
     session = sessionmaker(bind=engine)()
     try:
         yield session
@@ -139,6 +142,23 @@ def test_update_from_stripe_subscription_syncs_status_and_cancel(db: Session) ->
     assert row.status == AssistantSubscriptionStatus.CANCELED.value
     assert row.canceled_at is not None
     assert row.current_period_end is not None
+
+
+def test_activation_marks_the_sold_assistant_delivered(db: Session) -> None:
+    service = AssistantSubscriptionService()
+    assistant = AiAssistant(
+        id=7, user_id=1, slug="barbershop-63", business_name="Barbershop 63", status=AiAssistantStatus.ACTIVE.value
+    )
+    db.add(assistant)
+    row = AiAssistantSubscription(
+        user_id=1, ai_assistant_id=7, interval="month", amount_cents=2900, status="incomplete"
+    )
+    db.add(row)
+    db.commit()
+
+    service.activate_from_session(db, {"metadata": {"assistant_subscription_id": str(row.id)}, "subscription": "sub_1"})
+    db.refresh(assistant)
+    assert assistant.status == AiAssistantStatus.DELIVERED.value  # protected from the demo TTL
 
 
 def test_is_active_for_assistant(db: Session) -> None:

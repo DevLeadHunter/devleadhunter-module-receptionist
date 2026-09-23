@@ -197,17 +197,31 @@ modules dans le même projet PostHog. **Aucun** event côté dashboard (non inst
 | Dashboard | `web/app/pages/dashboard/ai-assistants.vue`, `web/app/utils/dashboardModules.ts` |
 | Clip présentateur (réglages) | `web/app/components/settings/AssistantPresenterClipCard.vue` |
 
-## Vente par abonnement (increment C3) — À DÉCIDER
+## Vente par abonnement (increment C3)
 
-La vente du module est un **abonnement récurrent** (Stripe subscription), distinct de la vente de site
-à 500 € en une fois (`docs/STRIPE_SETUP.md`). **Non implémenté** : à cadrer une fois le **prix et
-l'essai** tranchés côté produit. À décider avant de coder :
+La vente du module est un **abonnement Stripe récurrent**, distinct de la vente de site à 500 € en une
+fois (`docs/STRIPE_SETUP.md`). Décidé + implémenté :
 
-- **Prix** mensuel (et éventuel annuel remisé).
-- **Essai** : gratuit N jours ? démo live limitée dans le temps (colonnes `expires_at` /
-  `demo_link_sent_at` déjà prêtes sur le modèle) ?
-- **Ce que déclenche le paiement** : activation du script embed chez le client, domaine, quota de
-  conversations ?
+- **Prix configurable** par utilisateur : mensuel (`users.assistant_monthly_price_cents`, défaut 29 €)
+  + mois offerts sur l'annuel (`assistant_annual_free_months`, défaut 2 → 290 €/an). `AssistantPricingService`,
+  éditable dans **Paramètres → Facturation**, affiché via `{prix_assistant}`.
+- **Grandfathering** : le prix est **verrouillé** sur la ligne `ai_assistant_subscriptions.amount_cents`
+  à la souscription — monter le prix configuré ne touche jamais un abonné existant.
+- **Checkout** : l'owner génère un lien Stripe (`POST /ai-assistants/{id}/subscription/checkout?interval=month|year`,
+  `mode=subscription`, compte Stripe **plateforme**) depuis le dashboard et l'envoie au client, qui
+  s'abonne sur la page hébergée Stripe. Le webhook (`/payments/webhook`) active la ligne sur
+  `checkout.session.completed` et synchronise le statut sur `customer.subscription.updated/deleted`.
+- **À l'activation** : l'assistant passe `DELIVERED` (sorti du TTL démo, jamais coupé tant que le client paie).
+- **Essai** = la démo (déjà limitée par `expires_at`) ; pas d'essai gratuit du produit. Résiliation libre,
+  zéro frais ; satisfait-remboursé 1er mois = politique (remboursement manuel Stripe).
+
+⚠️ **À vérifier en Stripe test mode avant la prod** (non testable hors ligne) : le flux checkout + webhook
+de bout en bout, et **ajouter les événements** `customer.subscription.updated` / `customer.subscription.deleted`
+à l'endpoint webhook Stripe. Multi-tenant plus tard → passer du compte plateforme au compte **connecté**
+de chaque user (Stripe Connect + application fee), comme la facture du site.
+
+Fichiers : `api/services/assistant_subscription_service.py`, `api/models/ai_assistant_subscription.py`,
+`api/enums/assistant_subscription_status.py`, `api/services/assistant_pricing_service.py`.
 
 Le reste du module est **prêt à vendre** : génération, personnalisation, régénération, démo, widget
 multilingue, capture de leads, vidéo de prospection (desktop + serveur), campagnes (email + SMS) et suivi.
