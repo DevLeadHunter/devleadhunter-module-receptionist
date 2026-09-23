@@ -54,6 +54,34 @@ class AiAssistantListResponse(BaseModel):
     assistants: list[AiAssistantResponse] = Field(default_factory=list)
 
 
+class AssistantSubscriptionItem(BaseModel):
+    """One assistant subscription, as the Ventes/Abonnements page shows it."""
+
+    id: int
+    ai_assistant_id: int | None = None
+    prospect_id: int | None = None
+    business_name: str | None = None
+    assistant_name: str | None = None
+    client_name: str | None = None
+    client_email: str | None = None
+    interval: str
+    amount_cents: int
+    currency: str
+    status: str
+    current_period_end: datetime | None = None
+    canceled_at: datetime | None = None
+    stripe_subscription_id: str | None = None
+    created_at: datetime
+
+
+class AssistantSubscriptionListResponse(BaseModel):
+    """The caller's subscriptions plus the headline KPIs (active count + MRR)."""
+
+    subscriptions: list[AssistantSubscriptionItem] = Field(default_factory=list)
+    active_count: int = 0
+    mrr_cents: int = 0
+
+
 class AiAssistantPublicResponse(BaseModel):
     """The configuration the chat widget needs to render itself for a prospect's assistant."""
 

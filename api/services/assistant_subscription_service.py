@@ -213,6 +213,96 @@ class AssistantSubscriptionService:
         )
         return {row.ai_assistant_id: row for row in rows if row.ai_assistant_id is not None}
 
+    def list_for_user(self, db: Session, user_id: int) -> list[tuple[AiAssistantSubscription, str | None, str | None]]:
+        """All of the user's subscriptions (newest first) with their assistant's names, for the Ventes page."""
+        return (
+            db.query(AiAssistantSubscription, AiAssistant.business_name, AiAssistant.assistant_name)
+            .outerjoin(AiAssistant, AiAssistant.id == AiAssistantSubscription.ai_assistant_id)
+            .filter(AiAssistantSubscription.user_id == user_id)
+            .order_by(AiAssistantSubscription.created_at.desc())
+            .all()
+        )
+
+    def stats_for_user(self, db: Session, user_id: int) -> tuple[int, int]:
+        """
+        Return ``(active_count, mrr_cents)`` — the MRR normalises an annual plan to its monthly share.
+
+        Args:
+            db: Active database session.
+            user_id: Owner of the subscriptions.
+
+        Returns:
+            The active-subscription count and the monthly recurring revenue in cents.
+        """
+        active = (
+            db.query(AiAssistantSubscription)
+            .filter(
+                AiAssistantSubscription.user_id == user_id,
+                AiAssistantSubscription.status == AssistantSubscriptionStatus.ACTIVE.value,
+            )
+            .all()
+        )
+        mrr_cents = sum((row.amount_cents // 12 if row.interval == "year" else row.amount_cents) for row in active)
+        return len(active), mrr_cents
+
+    def get_owned(self, db: Session, subscription_id: int, user_id: int) -> AiAssistantSubscription | None:
+        """Fetch a subscription that belongs to the user (for a detail/cancel/refund action)."""
+        return (
+            db.query(AiAssistantSubscription)
+            .filter(AiAssistantSubscription.id == subscription_id, AiAssistantSubscription.user_id == user_id)
+            .first()
+        )
+
+    def cancel(self, db: Session, subscription: AiAssistantSubscription) -> AiAssistantSubscription:
+        """
+        Cancel the subscription on Stripe (immediately) and mark the local row canceled.
+
+        A row that never reached Stripe (``INCOMPLETE``) is just closed locally. Raises when the Stripe
+        cancel fails, so the operator sees it rather than a silently-inconsistent state.
+
+        Args:
+            db: Active database session.
+            subscription: The subscription to cancel.
+
+        Returns:
+            The updated subscription.
+
+        Raises:
+            ValueError: when Stripe is needed but not configured.
+        """
+        if subscription.stripe_subscription_id:
+            if not settings.stripe_secret_key:
+                raise ValueError("Stripe non configuré.")
+            self._stripe.Subscription.cancel(subscription.stripe_subscription_id)
+        subscription.status = AssistantSubscriptionStatus.CANCELED.value
+        subscription.canceled_at = subscription.canceled_at or datetime.now(UTC)
+        db.commit()
+        db.refresh(subscription)
+        return subscription
+
+    def refund_last_payment(self, db: Session, subscription: AiAssistantSubscription) -> None:
+        """
+        Refund the subscription's latest payment (the « satisfait-remboursé » gesture).
+
+        Args:
+            db: Active database session (unused, kept for a consistent signature).
+            subscription: The subscription whose last invoice to refund.
+
+        Raises:
+            ValueError: when there is no Stripe payment to refund.
+        """
+        if not subscription.stripe_subscription_id or not settings.stripe_secret_key:
+            raise ValueError("Aucun paiement Stripe à rembourser.")
+        sub = self._stripe.Subscription.retrieve(
+            subscription.stripe_subscription_id, expand=["latest_invoice.payment_intent"]
+        )
+        invoice = sub.get("latest_invoice") or {}
+        payment_intent = invoice.get("payment_intent")
+        payment_intent_id = payment_intent.get("id") if isinstance(payment_intent, dict) else payment_intent
+        if not payment_intent_id:
+            raise ValueError("Aucun paiement à rembourser.")
+        self._stripe.Refund.create(payment_intent=payment_intent_id)
+
     @staticmethod
     def _record_from_metadata(db: Session, metadata: dict | None) -> AiAssistantSubscription | None:
         """Resolve a local subscription row from a Stripe object's ``metadata.assistant_subscription_id``."""

@@ -176,3 +176,68 @@ def test_is_active_for_assistant(db: Session) -> None:
     assert set(by_id) == {7}  # only the active one, keyed by assistant id
     assert by_id[7].amount_cents == 2900
     assert service.active_by_assistant_ids(db, []) == {}
+
+
+def test_stats_normalizes_annual_to_monthly_mrr(db: Session) -> None:
+    service = AssistantSubscriptionService()
+    db.add(AiAssistantSubscription(user_id=1, ai_assistant_id=1, interval="month", amount_cents=2900, status="active"))
+    db.add(AiAssistantSubscription(user_id=1, ai_assistant_id=2, interval="year", amount_cents=29000, status="active"))
+    db.add(
+        AiAssistantSubscription(user_id=1, ai_assistant_id=3, interval="month", amount_cents=2900, status="canceled")
+    )
+    db.commit()
+
+    active_count, mrr_cents = service.stats_for_user(db, 1)
+    assert active_count == 2  # the canceled one is excluded
+    assert mrr_cents == 2900 + 29000 // 12  # annual normalised to its monthly share
+
+
+def test_cancel_incomplete_row_closes_locally_without_stripe(db: Session) -> None:
+    service = AssistantSubscriptionService()
+    row = AiAssistantSubscription(
+        user_id=1, ai_assistant_id=1, interval="month", amount_cents=2900, status="incomplete"
+    )
+    db.add(row)
+    db.commit()
+
+    service.cancel(db, row)  # no stripe_subscription_id → no Stripe call
+    db.refresh(row)
+    assert row.status == AssistantSubscriptionStatus.CANCELED.value
+    assert row.canceled_at is not None
+
+
+def test_cancel_active_calls_stripe(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    service = AssistantSubscriptionService()
+    monkeypatch.setattr(sub_module.settings, "stripe_secret_key", "sk_test_x", raising=False)
+    cancelled: list[str] = []
+    monkeypatch.setattr(service._stripe.Subscription, "cancel", lambda sub_id: cancelled.append(sub_id), raising=False)
+    row = AiAssistantSubscription(
+        user_id=1,
+        ai_assistant_id=1,
+        interval="month",
+        amount_cents=2900,
+        status="active",
+        stripe_subscription_id="sub_9",
+    )
+    db.add(row)
+    db.commit()
+
+    service.cancel(db, row)
+    db.refresh(row)
+    assert cancelled == ["sub_9"]  # Stripe was told to cancel
+    assert row.status == AssistantSubscriptionStatus.CANCELED.value
+
+
+def test_list_for_user_returns_rows_with_names(db: Session) -> None:
+    service = AssistantSubscriptionService()
+    db.add(
+        AiAssistant(id=1, user_id=1, slug="s1", business_name="Barbershop 63", status=AiAssistantStatus.DELIVERED.value)
+    )
+    db.add(AiAssistantSubscription(user_id=1, ai_assistant_id=1, interval="month", amount_cents=2900, status="active"))
+    db.commit()
+
+    rows = service.list_for_user(db, 1)
+    assert len(rows) == 1
+    subscription, business_name, _assistant_name = rows[0]
+    assert subscription.amount_cents == 2900
+    assert business_name == "Barbershop 63"
