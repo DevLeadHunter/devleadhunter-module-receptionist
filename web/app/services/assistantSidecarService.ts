@@ -15,14 +15,11 @@ import { AiAssistantService } from '~/services/aiAssistantService'
 import { DemoSiteService } from '~/services/demoSiteService'
 import { ProfilePhotoService } from '~/services/profilePhotoService'
 import { getScraperSidecarInfo } from '~/services/scraperSidecarService'
-import type { VideoBuildProgress } from '~/services/storyblokSidecarService'
+import { pollAndFetchBuild, readSidecarError, type SidecarBuildOutcome } from '~/services/sidecarVideoBuild'
 import type { AiAssistantSummary } from '~/types/AiAssistant'
 
 /** The presenter clip the assistant video uses (a speech about the assistant, not the site). */
 const ASSISTANT_PRESENTER_MODULE: string = 'ai-assistant'
-
-/** Ceiling for a detached local build — capture + montage can take several minutes. */
-const BUILD_WAIT_LIMIT_MS: number = 20 * 60 * 1000
 
 /**
  * Outcome of a full desktop assistant-video build.
@@ -68,7 +65,7 @@ export class AssistantSidecarService {
    * Run the sidecar's full desktop build (widget capture + montage) for an assistant.
    *
    * The build is DETACHED sidecar-side (a single multi-minute response gets killed by the webview):
-   * start it, poll its progress, then fetch the produced file.
+   * start it, then follow it through the shared poll/fetch helper.
    * @param assistantId - The assistant to render.
    * @returns The produced zip blob, or the failure status.
    */
@@ -112,88 +109,12 @@ export class AssistantSidecarService {
       return { status: 'failed', message: 'Le générateur local ne répond pas.' }
     }
     if (!startResponse.ok) {
-      return { status: 'failed', message: await AssistantSidecarService.readSidecarError(startResponse) }
+      return { status: 'failed', message: await readSidecarError(startResponse) }
     }
 
-    // The build runs detached — follow it through the progress endpoint, then fetch the result.
-    const startedAtMs: number = Date.now()
-    const deadlineMs: number = startedAtMs + BUILD_WAIT_LIMIT_MS
-    while (Date.now() < deadlineMs) {
-      await new Promise<void>((resolve: () => void): void => {
-        window.setTimeout(resolve, 2000)
-      })
-      const progress: VideoBuildProgress | null = await AssistantSidecarService.getBuildProgress(info, context.slug)
-      if (!progress || progress.updatedAt * 1000 < startedAtMs - 2000) continue
-      if (progress.step === 'error') {
-        return { status: 'failed', message: progress.message || 'Échec de la génération locale.' }
-      }
-      if (progress.step === 'done') {
-        let resultResponse: Response
-        try {
-          resultResponse = await fetch(
-            `http://127.0.0.1:${info.port}/video/build-result?slug=${encodeURIComponent(context.slug)}`,
-            { headers: { 'X-Sidecar-Token': info.token } },
-          )
-        } catch {
-          return { status: 'failed', message: 'Résultat de la génération inaccessible.' }
-        }
-        if (!resultResponse.ok) {
-          return { status: 'failed', message: await AssistantSidecarService.readSidecarError(resultResponse) }
-        }
-        try {
-          return { status: 'done', blob: await resultResponse.blob() }
-        } catch (error) {
-          return {
-            status: 'failed',
-            message: error instanceof Error ? error.message : 'Lecture du résultat impossible.',
-          }
-        }
-      }
-    }
-    return { status: 'failed', message: 'Génération trop longue — réessayez.' }
-  }
-
-  /**
-   * Current phase of a local build (polled by the progress modal). Shared build endpoint, keyed by slug.
-   * @param info - The sidecar coordinates.
-   * @param slug - Slug of the assistant being rendered.
-   * @returns The reported phase, or null when unreachable.
-   */
-  private static async getBuildProgress(
-    info: NonNullable<Awaited<ReturnType<typeof getScraperSidecarInfo>>>,
-    slug: string,
-  ): Promise<VideoBuildProgress | null> {
-    try {
-      const response: Response = await fetch(
-        `http://127.0.0.1:${info.port}/video/build-progress?slug=${encodeURIComponent(slug)}`,
-        { headers: { 'X-Sidecar-Token': info.token } },
-      )
-      if (!response.ok) return null
-      const body: { step?: string; message?: string; reason?: string | null; updated_at?: number } =
-        await response.json()
-      return {
-        step: body.step ?? 'unknown',
-        message: body.message ?? '',
-        reason: body.reason ?? null,
-        updatedAt: body.updated_at ?? 0,
-      }
-    } catch {
-      return null
-    }
-  }
-
-  /**
-   * Extract the most precise message a failed sidecar response offers.
-   * @param response - The failed response.
-   * @returns The sidecar `detail` field, or the raw body / status text.
-   */
-  private static async readSidecarError(response: Response): Promise<string> {
-    const raw: string = await response.text().catch((): string => '')
-    if (!raw) return `Génération locale : erreur ${response.status}`
-    try {
-      return (JSON.parse(raw).detail as string) || raw
-    } catch {
-      return raw
-    }
+    const outcome: SidecarBuildOutcome = await pollAndFetchBuild(info.port, info.token, context.slug, Date.now())
+    if (outcome.kind === 'done') return { status: 'done', blob: outcome.blob }
+    if (outcome.kind === 'timeout') return { status: 'failed', message: 'Génération trop longue — réessayez.' }
+    return { status: 'failed', message: outcome.message }
   }
 }
