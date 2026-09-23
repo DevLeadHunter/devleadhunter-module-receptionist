@@ -35,6 +35,7 @@ from schemas.ai_assistant import (
 )
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
+from services.assistant_subscription_service import assistant_subscription_service
 from services.assistant_video_service import (
     ASSISTANT_PRESENTER_MODULE,
     assistant_video_service,
@@ -351,6 +352,44 @@ async def clear_assistant_video(
     assistant = _owned_assistant_or_404(db, assistant_id, user.id)
     assistant_video_service.clear_video(db, assistant)
     return _to_owner_response(assistant)
+
+
+@router.post("/{assistant_id}/subscription/checkout")
+async def create_assistant_subscription_checkout(
+    assistant_id: int,
+    interval: str = "month",
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    """
+    Generate a Stripe subscription checkout link for a client to subscribe to this assistant.
+
+    The owner generates the link (monthly or annual) and sends it to the client, who subscribes on
+    Stripe's hosted page. The price is locked at creation (grandfathering).
+    """
+    assistant = _owned_assistant_or_404(db, assistant_id, user.id)
+    if assistant.status != AiAssistantStatus.ACTIVE.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="L'assistant doit être actif.")
+    if interval not in ("month", "year"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Intervalle invalide (month ou year).")
+    demo = settings.demo_host_base_url.rstrip("/")
+    try:
+        url = assistant_subscription_service.create_checkout_session(
+            db,
+            user_id=user.id,
+            assistant=assistant,
+            interval=interval,
+            success_url=f"{demo}/a/{assistant.slug}?subscribed=1",
+            cancel_url=f"{demo}/a/{assistant.slug}",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Assistant subscription checkout failed for assistant %s", assistant_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="Stripe indisponible pour le moment."
+        ) from exc
+    return {"url": url}
 
 
 @router.delete("/{assistant_id}", status_code=status.HTTP_204_NO_CONTENT)
