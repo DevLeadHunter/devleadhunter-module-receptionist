@@ -29,16 +29,16 @@ from enums.ai_assistant_status import AiAssistantStatus
 from enums.demo_video_status import DemoVideoStatus
 from models.ai_assistant import AiAssistant
 from models.presenter_video import PresenterVideo
-from services import video_montage
-from services.demo_video_service import (
-    _MIN_FREE_MEMORY_MB_FOR_CAPTURE,
-    _MIN_FREE_MEMORY_MB_FOR_MONTAGE,
-    _MIN_SCROLL_SECONDS,
-    DemoVideoGenerationError,
-    _available_memory_mb,
-    _generation_semaphore,
-)
+from services import video_montage, video_pipeline
 from services.r2_storage_service import r2_storage
+from services.video_pipeline import (
+    MIN_FREE_MEMORY_MB_FOR_CAPTURE,
+    MIN_FREE_MEMORY_MB_FOR_MONTAGE,
+    MIN_SCROLL_SECONDS,
+    VideoGenerationError,
+    generation_semaphore,
+    guard_memory,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -118,10 +118,10 @@ class AssistantVideoService:
                 "« assistant » dans les paramètres."
             )
         middle_seconds = presenter.duration_seconds - presenter.intro_seconds - presenter.outro_seconds
-        if middle_seconds < _MIN_SCROLL_SECONDS:
+        if middle_seconds < MIN_SCROLL_SECONDS:
             raise ValueError(
                 "Intro + outro trop longues : il reste "
-                f"{middle_seconds:.0f}s pour montrer l'assistant (minimum {_MIN_SCROLL_SECONDS:.0f}s)."
+                f"{middle_seconds:.0f}s pour montrer l'assistant (minimum {MIN_SCROLL_SECONDS:.0f}s)."
             )
 
         assistant.video_status = DemoVideoStatus.PENDING.value
@@ -159,10 +159,9 @@ class AssistantVideoService:
     async def _run_generation(self, assistant_id: int, user_id: int) -> None:
         """Background task: own DB session, serialized by the shared generation semaphore."""
         from core.database import SessionLocal
-        from services.demo_video_service import demo_video_service
         from services.presenter_video_service import presenter_video_service
 
-        async with _generation_semaphore:
+        async with generation_semaphore:
             db: Session = SessionLocal()
             try:
                 assistant = db.query(AiAssistant).filter(AiAssistant.id == assistant_id).first()
@@ -178,14 +177,13 @@ class AssistantVideoService:
                 assistant.video_status = DemoVideoStatus.GENERATING.value
                 db.commit()
 
-                first_name = self._resolve_first_name(db, assistant)
+                first_name = video_pipeline.resolve_first_name(db, assistant.prospect_id)
                 source_dir = Path(tempfile.mkdtemp(prefix=f"assistant-presenter-src-{user_id}-"))
                 try:
-                    # Reuse the site pipeline's presenter/photo materialisation — identical mechanics.
-                    presenter_path = await demo_video_service._resolve_presenter_file(presenter, source_dir)
-                    photo_path = await demo_video_service._resolve_presenter_photo(db, user_id, source_dir)
+                    presenter_path = await video_pipeline.resolve_presenter_file(presenter, source_dir)
+                    photo_path = await video_pipeline.resolve_presenter_photo(db, user_id, source_dir)
                     await self._generate(assistant, presenter, presenter_path, first_name, photo_path)
-                except DemoVideoGenerationError as exc:
+                except VideoGenerationError as exc:
                     assistant.video_status = DemoVideoStatus.FAILED.value
                     assistant.video_error = str(exc)[:1000]
                     db.commit()
@@ -208,16 +206,6 @@ class AssistantVideoService:
             finally:
                 db.close()
 
-    @staticmethod
-    def _resolve_first_name(db: Session, assistant: AiAssistant) -> str | None:
-        """First name of the resolved decision-maker (None when unknown)."""
-        if not assistant.prospect_id:
-            return None
-        from services.email_variables import EmailVariables
-
-        first, _last, _gender = EmailVariables.resolved_contact(db, assistant.prospect_id)
-        return first or None
-
     async def _generate(
         self,
         assistant: AiAssistant,
@@ -230,7 +218,7 @@ class AssistantVideoService:
         middle_seconds = presenter.duration_seconds - presenter.intro_seconds - presenter.outro_seconds
         work_dir = Path(tempfile.mkdtemp(prefix=f"assistant-video-{assistant.slug}-"))
         try:
-            self._guard_memory(_MIN_FREE_MEMORY_MB_FOR_CAPTURE, "générer")
+            guard_memory(MIN_FREE_MEMORY_MB_FOR_CAPTURE, "générer")
             demo_url = f"{settings.demo_host_base_url.rstrip('/')}/a/{assistant.slug}"
             capture_path, scroll_offset, screenshot_path = await asyncio.to_thread(
                 self._capture_assistant_sync, demo_url, middle_seconds, work_dir
@@ -238,7 +226,7 @@ class AssistantVideoService:
 
             output_path = work_dir / "output.mp4"
             thumbnail_path = work_dir / "thumbnail.jpg"
-            self._guard_memory(_MIN_FREE_MEMORY_MB_FOR_MONTAGE, "assembler")
+            guard_memory(MIN_FREE_MEMORY_MB_FOR_MONTAGE, "assembler")
             try:
                 await asyncio.to_thread(
                     video_montage.compose_final,
@@ -257,21 +245,12 @@ class AssistantVideoService:
                     presenter_photo_path=presenter_photo_path,
                 )
             except video_montage.VideoMontageError as exc:
-                raise DemoVideoGenerationError(str(exc)) from exc
+                raise VideoGenerationError(str(exc)) from exc
 
             await r2_storage.upload_file_async(output_path, video_object_key(assistant.slug), "video/mp4")
             await r2_storage.upload_file_async(thumbnail_path, thumbnail_object_key(assistant.slug), "image/jpeg")
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)
-
-    @staticmethod
-    def _guard_memory(floor_mb: float, verb: str) -> None:
-        """Refuse the capture/montage when the box is low on memory (an OOM kill takes down the API)."""
-        available = _available_memory_mb()
-        if available is not None and available < floor_mb:
-            raise DemoVideoGenerationError(
-                f"Serveur momentanément trop chargé pour {verb} la vidéo ({available:.0f} Mo libres). Réessayez."
-            )
 
     def _capture_assistant_sync(self, url: str, seconds: float, work_dir: Path) -> tuple[Path, float, Path]:
         """Blocking Playwright capture: the widget opening, answering a question, and the lead form.
@@ -288,12 +267,12 @@ class AssistantVideoService:
             (capture webm path, offset of the interaction start inside the recording, screenshot path).
 
         Raises:
-            DemoVideoGenerationError: when the page cannot be captured.
+            VideoGenerationError: when the page cannot be captured.
         """
         try:
             from playwright.sync_api import sync_playwright
         except ImportError as exc:  # pragma: no cover — dependency guard
-            raise DemoVideoGenerationError(
+            raise VideoGenerationError(
                 "Playwright n'est pas installé (pip install playwright && playwright install chromium)."
             ) from exc
 
@@ -323,7 +302,7 @@ class AssistantVideoService:
                     page.click(".ai-launcher", timeout=8000)
                     page.wait_for_selector(".ai-panel", timeout=8000)
                 except Exception as exc:
-                    raise DemoVideoGenerationError(f"Le widget ne s'est pas ouvert : {exc}") from exc
+                    raise VideoGenerationError(f"Le widget ne s'est pas ouvert : {exc}") from exc
                 page.wait_for_timeout(900)
                 page.screenshot(path=str(screenshot_path))
 
@@ -358,15 +337,15 @@ class AssistantVideoService:
                 context.close()
                 browser.close()
                 if video is None:
-                    raise DemoVideoGenerationError("Playwright n'a pas produit d'enregistrement vidéo.")
+                    raise VideoGenerationError("Playwright n'a pas produit d'enregistrement vidéo.")
                 capture_path = Path(video.path())
-        except DemoVideoGenerationError:
+        except VideoGenerationError:
             raise
         except Exception as exc:
-            raise DemoVideoGenerationError(f"Échec de la capture de l'assistant ({url}) : {exc}") from exc
+            raise VideoGenerationError(f"Échec de la capture de l'assistant ({url}) : {exc}") from exc
 
         if not screenshot_path.is_file():
-            raise DemoVideoGenerationError("La capture d'écran de l'assistant est introuvable.")
+            raise VideoGenerationError("La capture d'écran de l'assistant est introuvable.")
         return capture_path, scroll_offset, screenshot_path
 
 
