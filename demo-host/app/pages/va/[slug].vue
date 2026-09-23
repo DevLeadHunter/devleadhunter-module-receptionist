@@ -51,9 +51,10 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, Ref } from 'vue'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type { AiAssistantConfig } from '~/types/AiAssistant'
-import { captureDemoEvent } from '~/composables/useDemoTracking'
+import { captureDemoEvent, useDemoTracking } from '~/composables/useDemoTracking'
+import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 
 const FALLBACK_ACCENT: string = '#a9793f'
 
@@ -109,6 +110,14 @@ function onPlay(): void {
 function trackCta(): void {
   captureDemoEvent('assistant_video_cta_click')
 }
+
+const { init: initTracking }: ReturnType<typeof useDemoTracking> = useDemoTracking()
+
+onMounted((): void => {
+  const current: AiAssistantConfig | null | undefined = assistant.value
+  if (!current) return
+  void initTracking(current.slug, current.status, null, DemoBeaconUtils.channelFromQuery(route.query.src), 'assistant')
+})
 
 useHead({
   title: computed((): string => `${assistant.value?.business_name ?? 'Assistant'} — vidéo`),
