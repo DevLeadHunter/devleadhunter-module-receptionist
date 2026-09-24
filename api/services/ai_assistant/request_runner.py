@@ -13,8 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 class AiAssistantRequestRunner:
-    """Every few minutes: lost announcements, held SMS, J+1 reminders, the operator's 48 h warnings, and the
-    visitors' appointment confirmations (lost ones) and J-1 reminders."""
+    """
+    The requests' background pass, every few minutes.
+
+    It covers the lost announcements, the held SMS, the J+1 reminders, the operator's 48 h warnings, and the
+    visitors' appointment confirmations (lost ones) and J-1 reminders.
+    """
 
     @staticmethod
     async def run_loop(interval_seconds: int = 300) -> None:
@@ -34,8 +38,3 @@ class AiAssistantRequestRunner:
             await ai_assistant_request_alerts.run_pass()
             await ai_assistant_appointment_notices.run_pass_in_background()
             await asyncio.sleep(interval_seconds)
-
-
-async def run_ai_assistant_request_loop(interval_seconds: int = 300) -> None:
-    """Entrypoint registered by the API lifespan."""
-    await AiAssistantRequestRunner.run_loop(interval_seconds)
