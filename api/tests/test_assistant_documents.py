@@ -148,9 +148,6 @@ def test_a_pdf_is_read_in_a_separate_process_stopped_when_too_long_and_one_at_a_
     assert document.pages == 1 and not document.truncated
 
 
-# --- The prompt's budget --------------------------------------------------------------------------------------
-
-
 def _source(kind: AssistantKnowledgeSource, title: str, text: str, url: str | None = None) -> KnowledgeSourceText:
     return KnowledgeSourceText(kind=kind, title=title, url=url, text=text)
 
@@ -199,9 +196,6 @@ def test_without_a_question_the_site_comes_before_the_documents() -> None:
     kept = AiAssistantKnowledgeBudget.select([page, document], question=None, max_chars=900)
 
     assert {passage.source.title for passage in kept} == {"Accueil"}
-
-
-# --- Documents, website re-reads and source switches ------------------------------------------------------------
 
 
 @pytest.fixture
@@ -452,9 +446,6 @@ def test_the_upload_route_checks_the_size_before_reading_and_explains_a_refused_
     assert heavy.value.status_code == 413
 
 
-# --- The prompt: sources framed as data, links, switches, budget -----------------------------------------------
-
-
 def _knowledge() -> dict[str, Any]:
     """A garage with its listing, two website pages, the site prepared for it and one enabled document."""
     knowledge = ai_assistant_knowledge_builder.build_knowledge(
@@ -665,9 +656,6 @@ def test_a_document_that_cannot_be_saved_leaves_no_file(
 
     assert storage.files == {}
     assert db.query(AiAssistantDocument).count() == 0
-
-
-# --- Review follow-ups: charset, ranking, incomplete reads, storage ---------------------------------------------
 
 
 def test_a_follow_up_question_keeps_the_subject_and_every_source_keeps_its_opening(
