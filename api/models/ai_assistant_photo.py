@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import JSON, Boolean, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from core.database import Base
+from core.database import UTF8MB4_TABLE_OPTIONS, Base
 
 
 class AiAssistantPhoto(Base):
@@ -17,7 +17,10 @@ class AiAssistantPhoto(Base):
     """
 
     __tablename__ = "ai_assistant_photos"
-    __table_args__ = (Index("ix_ai_assistant_photos_assistant_session", "assistant_id", "session_id"),)
+    __table_args__ = (
+        Index("ix_ai_assistant_photos_assistant_session", "assistant_id", "session_id"),
+        UTF8MB4_TABLE_OPTIONS,
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)

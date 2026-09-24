@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from core.database import Base
+from core.database import UTF8MB4_TABLE_OPTIONS, Base
 from models.ai_assistant_conversation import AiAssistantConversation
 
 
@@ -13,6 +13,7 @@ class AiAssistantMessage(Base):
     """The visitor's message or the assistant's reply, in the order it was exchanged."""
 
     __tablename__ = "ai_assistant_messages"
+    __table_args__ = (UTF8MB4_TABLE_OPTIONS,)
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
     conversation_id: Mapped[int] = mapped_column(

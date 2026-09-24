@@ -6,7 +6,7 @@ from sqlalchemy import Boolean, Integer, String, Text
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.orm import Mapped, mapped_column
 
-from core.database import Base
+from core.database import UTF8MB4_TABLE_OPTIONS, Base
 
 
 class AiAssistantDocument(Base):
@@ -17,8 +17,7 @@ class AiAssistantDocument(Base):
     """
 
     __tablename__ = "ai_assistant_documents"
-    # utf8mb4 whatever the schema's default: PDF text holds emoji, ligatures (« ﬁ ») and Word bullets.
-    __table_args__ = ({"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},)
+    __table_args__ = (UTF8MB4_TABLE_OPTIONS,)
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)

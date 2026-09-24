@@ -5,14 +5,17 @@ from datetime import datetime
 from sqlalchemy import Boolean, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from core.database import Base
+from core.database import UTF8MB4_TABLE_OPTIONS, Base
 
 
 class AiAssistantConversation(Base):
     """One visitor's conversation with an assistant, identified by the session id the widget generates."""
 
     __tablename__ = "ai_assistant_conversations"
-    __table_args__ = (Index("ix_ai_assistant_conversations_assistant_session", "assistant_id", "session_id"),)
+    __table_args__ = (
+        Index("ix_ai_assistant_conversations_assistant_session", "assistant_id", "session_id"),
+        UTF8MB4_TABLE_OPTIONS,
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)

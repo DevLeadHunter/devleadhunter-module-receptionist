@@ -254,9 +254,9 @@ class AssistantSubscriptionService:
         record.cancel_at_period_end = bool(sub_obj.get("cancel_at_period_end") or sub_obj.get("cancel_at"))
         period_end = sub_obj.get("current_period_end")
         if period_end:
-            record.current_period_end = datetime.fromtimestamp(int(period_end), UTC)
+            record.current_period_end = datetime.fromtimestamp(int(period_end), UTC).replace(tzinfo=None)
         if record.status == AssistantSubscriptionStatus.CANCELED.value and record.canceled_at is None:
-            record.canceled_at = datetime.now(UTC)
+            record.canceled_at = datetime.now(UTC).replace(tzinfo=None)
         db.commit()
 
     def is_active_for_assistant(self, db: Session, assistant_id: int) -> bool:
@@ -347,7 +347,7 @@ class AssistantSubscriptionService:
                 raise ValueError("Stripe non configuré.")
             self._stripe.Subscription.cancel(subscription.stripe_subscription_id)
         subscription.status = AssistantSubscriptionStatus.CANCELED.value
-        subscription.canceled_at = subscription.canceled_at or datetime.now(UTC)
+        subscription.canceled_at = subscription.canceled_at or datetime.now(UTC).replace(tzinfo=None)
         db.commit()
         db.refresh(subscription)
         return subscription

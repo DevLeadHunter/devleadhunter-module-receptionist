@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import JSON, Boolean, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from core.database import Base
+from core.database import UTF8MB4_TABLE_OPTIONS, Base
 
 
 class AiAssistantReport(Base):
@@ -16,7 +16,10 @@ class AiAssistantReport(Base):
     """
 
     __tablename__ = "ai_assistant_reports"
-    __table_args__ = (UniqueConstraint("assistant_id", "month", name="uq_ai_assistant_reports_assistant_month"),)
+    __table_args__ = (
+        UniqueConstraint("assistant_id", "month", name="uq_ai_assistant_reports_assistant_month"),
+        UTF8MB4_TABLE_OPTIONS,
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)

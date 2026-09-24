@@ -479,6 +479,14 @@ Aucune fonctionnalité nouvelle : une passe par commit (ou par écran pour l'int
     - le `state` OAuth Google n'est pas lié au navigateur. Un client pourrait brancher l'agenda d'un tiers sur son propre assistant, à condition que ce tiers accepte l'écran de consentement Google. Risque jugé faible.
     - les liens client ne sont pas révocables (question 15).
     - le lecteur de site suit les redirections sans écarter les adresses internes. C'est déjà le cas sur `main` et ce n'est pas dans le périmètre de la branche.
+- **Jeu de caractères et dates** (`fix: declare utf8mb4 on every receptionist table`) :
+  - Changé :
+    - les 8 tables de la réceptionniste (conversations, messages, demandes, photos, rapports, agendas, rendez-vous, documents) sont déclarées en `utf8mb4_unicode_ci` par une constante commune, `UTF8MB4_TABLE_OPTIONS`. Un test vérifie le DDL MySQL de chacune ;
+    - les dates d'abonnement reçues de Stripe (`current_period_end`, `canceled_at`) sont enregistrées en UTC naïf, comme les autres dates.
+  - Vu et laissé :
+    - la déclaration ne joue qu'à la création d'une table. Les 6 tables nouvelles de la branche naîtront donc en utf8mb4. Les conversations et les messages, déjà en prod, ne sont pas convertis : la vérification de la question 24 reste valable pour elles.
+    - Relu sans changement : les migrations sont idempotentes (checkfirst, colonnes nullables, recopie des leads en `NOT EXISTS`) et `MIGRATION_MODULES` est complet et dans l'ordre.
+    - Relu sans changement : le fuseau de Paris est lu par zoneinfo avec un repli UTC, mais en double (`opening_hours`, `knowledge_builder`). Ce doublon est traité en passe 3.
 
 ## Questions pour Léo
 

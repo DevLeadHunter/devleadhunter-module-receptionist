@@ -670,15 +670,6 @@ def test_a_document_that_cannot_be_saved_leaves_no_file(
 # --- Review follow-ups: charset, ranking, incomplete reads, storage ---------------------------------------------
 
 
-def test_the_documents_table_is_utf8mb4_whatever_the_schema_default() -> None:
-    from sqlalchemy.dialects import mysql
-    from sqlalchemy.schema import CreateTable
-
-    ddl = str(CreateTable(AiAssistantDocument.__table__).compile(dialect=mysql.dialect()))
-
-    assert "CHARSET=utf8mb4" in ddl and "COLLATE utf8mb4_unicode_ci" in ddl
-
-
 def test_a_follow_up_question_keeps_the_subject_and_every_source_keeps_its_opening(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import JSON, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from core.database import Base
+from core.database import UTF8MB4_TABLE_OPTIONS, Base
 from enums.assistant_calendar_status import AssistantCalendarStatus
 
 
@@ -17,7 +17,10 @@ class AiAssistantCalendar(Base):
     """
 
     __tablename__ = "ai_assistant_calendars"
-    __table_args__ = (UniqueConstraint("assistant_id", name="uq_ai_assistant_calendars_assistant"),)
+    __table_args__ = (
+        UniqueConstraint("assistant_id", name="uq_ai_assistant_calendars_assistant"),
+        UTF8MB4_TABLE_OPTIONS,
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
