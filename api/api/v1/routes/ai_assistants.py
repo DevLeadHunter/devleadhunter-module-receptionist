@@ -26,6 +26,8 @@ from models.prospect_db import ProspectDB
 from models.user import User
 from schemas.ai_assistant import (
     AiAssistantAlertSettings,
+    AiAssistantAppointmentDay,
+    AiAssistantAppointmentSlotsResponse,
     AiAssistantChatRequest,
     AiAssistantChatResponse,
     AiAssistantConversationItem,
@@ -49,6 +51,7 @@ from schemas.ai_assistant import (
     AssistantSubscriptionListResponse,
 )
 from schemas.ai_assistant_client_space import AiAssistantClientLinkRequest, AiAssistantClientLinkResponse
+from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentSlot
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
 from services.ai_assistant.client_space_service import ai_assistant_client_space_service
@@ -214,6 +217,7 @@ def _to_request_item(request: AiAssistantRequest, business_name: str) -> AiAssis
         is_test=request.is_test,
         owner_note=request.owner_note,
         photo_urls=ai_assistant_request_service.photo_urls(request),
+        appointment_slots=AiAssistantAppointmentSlots.labels(request.appointment_slots_json),
         created_at=request.created_at,
         handled_at=request.handled_at,
     )
@@ -801,6 +805,27 @@ async def chat_with_assistant(
     return AiAssistantChatResponse(reply=reply)
 
 
+@router.get("/public/{slug}/appointment-slots", response_model=AiAssistantAppointmentSlotsResponse)
+async def get_assistant_appointment_slots(
+    slug: str,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> AiAssistantAppointmentSlotsResponse:
+    """The next open half-days a visitor may wish an appointment in (read from the business's hours)."""
+    if not assistant_chat_limiter.allow(f"slots:{slug}:{client_ip(request)}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de demandes, réessayez plus tard"
+        )
+    assistant = ai_assistant_service.get_public_by_slug(db, slug)
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found or inactive")
+    days = AiAssistantAppointmentSlots.offer_for(assistant)
+    return AiAssistantAppointmentSlotsResponse(
+        days=[AiAssistantAppointmentDay(date=item.day, periods=list(item.periods)) for item in days],
+        max_chosen=AiAssistantAppointmentSlots.MAX_CHOSEN,
+    )
+
+
 @router.post("/public/{slug}/lead", response_model=AiAssistantLeadResponse, status_code=status.HTTP_201_CREATED)
 async def submit_assistant_lead(
     slug: str,
@@ -829,7 +854,11 @@ async def submit_assistant_lead(
             language=payload.language,
             session_id=payload.session_id,
             is_test=payload.internal,
+            appointment_slots=[AppointmentSlot(day=slot.date, period=slot.period) for slot in payload.slots],
         )
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     except Exception:
         # Losing the durable row must not swallow the strongest signal — still notify the owner.
         db.rollback()

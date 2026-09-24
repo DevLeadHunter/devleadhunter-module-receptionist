@@ -12,7 +12,10 @@ conflit. Rien n'est mergé, `main` n'a pas été poussé.
 | R4 — Mistral d'abord, secours Groq journalisé, « EU only » | 1218810158843341 | `0a65ac3` | livré ; en attente de la clé Mistral et des CGU |
 | R11 — 79 €, 5 emails + 5 SMS de prospection, textes de /ia | 1218810139755803 | `e46cf0a` | livré (périmètre prix / modèles / page) |
 | R9 — rapport mensuel au client + drapeau churn | 1218810013839351 | `d38c6fa` | livré (sans la page espace client) |
-| R8, R2, R1 | — | — | non commencés (voir la fin) |
+| R8 — espace client par lien magique | 1218821404873061 | `2fafebd` | livré |
+| R2 — rendez-vous : demande de créneaux sans agenda (R2a) | 1218810064722315 | voir la section | livré |
+| R2 — rendez-vous : Google Agenda (R2b) | 1218810064722315 | — | à venir |
+| R1 — base de connaissance complète | 1218810139188474 | — | non commencé |
 
 Chaque ticket a reçu sur Asana un commentaire « fait / reste / comment tester ». La documentation
 fonctionnelle à jour est dans `docs/ASSISTANT_MODULE.md` (sections Journal des conversations, Demandes,
@@ -45,6 +48,7 @@ Migrations de la phase 1, dans l'ordre de `MIGRATION_MODULES` :
 8. `add_assistant_subscription_activated_at` (R9) : colonne `ai_assistant_subscriptions.activated_at`.
 9. `add_ai_assistant_reports_table` (R9) : table `ai_assistant_reports`.
 10. `add_assistant_subscription_cancel_at_period_end` (R8) : colonne `ai_assistant_subscriptions.cancel_at_period_end`.
+11. `add_ai_assistant_request_appointment_slots` (R2a) : colonne `ai_assistant_requests.appointment_slots_json`.
 
 Tests par ticket (depuis `api/`, avec `python -m pytest -q`) :
 
@@ -56,6 +60,8 @@ Tests par ticket (depuis `api/`, avec `python -m pytest -q`) :
 | R4 | `tests/test_assistant_llm_router.py tests/test_ai_assistant_chat.py` | 15 + 6 |
 | R11 | `tests/test_assistant_sales_copy.py tests/test_sms_templates.py tests/test_assistant_pricing.py` | 8 + 23 + 5 |
 | R9 | `tests/test_assistant_reports.py tests/test_ai_assistant_conversations.py` | 26 + 5 |
+| R8 | `tests/test_assistant_client_space.py` | 14 |
+| R2a | `tests/test_assistant_appointments.py` | 16 |
 
 Échecs et erreurs **préexistants**, identiques sur `main` à `a0e6205` (revérifié sur un worktree de
 `main`) :
@@ -295,6 +301,37 @@ relus dans le code, pas cliqués.
 
 ---
 
+## R2a — Rendez-vous sans agenda : les créneaux souhaités
+
+**Fichiers**
+- API :
+  - `services/ai_assistant/appointment_slots.py` : `AiAssistantAppointmentSlots` (offre, contrôle, libellés « lun. 28/09, matin »), `enums/ai_assistant_request.py` (`AiAssistantDayPeriod`)
+  - `models/ai_assistant_request.py` (`appointment_slots_json`) + `migrations/add_ai_assistant_request_appointment_slots.py`
+  - `request_service.capture` (contrôle, enregistrement, type rendez-vous dès la capture) et `follow_up` (type rendez-vous gardé, sauf urgence)
+  - `request_email.py` (bloc « Créneaux souhaités (à confirmer) »), `request_alerts.py` (`AlertSms` : créneaux juste après le contact, jamais coupés)
+  - route publique `GET /ai-assistants/public/{slug}/appointment-slots` ; champ `slots` de `POST …/lead` (422 si un créneau n'est plus proposé) ; `appointment_slots` dans les demandes du dashboard et de l'espace client
+- Widget : `AssistantChat.vue` (chip « 📅 Prendre rendez-vous », bouton calendrier, panneau des créneaux, textes en 5 langues), `types/AiAssistant.ts`.
+- Demo-host : `ClientSpaceRequests.vue` affiche les créneaux.
+- Web : créneaux sous le résumé dans la liste des demandes.
+
+**Vérifié**
+- Tests (16) : offre suivant les horaires (demi-journées ouvertes, jours fermés, à partir de demain, 6 jours) ; horaires inconnus = lundi-vendredi ; commerce fermé toute la semaine = rien ; contrôle (2 au plus, dédoublonnés, triés ; refus d'un créneau non proposé, du jour même, d'un jour fermé ou trop loin) ; libellés ; capture (enregistrée, refusée sans rien enregistrer, la même visite garde ses créneaux ou en ajoute) ; suivi (rendez-vous malgré le modèle, urgence gardée, email avec le bloc, SMS d'un segment avec le créneau) ; SMS avec le vrai lien, un long résumé et un nom long (les deux créneaux restent entiers), contact de 60 caractères (un seul créneau, ou aucun) ; routes publiques (offre, 404, 422) ; charge utile (3 créneaux ou période inconnue refusés) ; migration rejouable.
+- Navigateur (Chromium, API locale sur SQLite + `nuxt dev`) : parcours complet dans l'iframe de 440 × 680 et sur mobile 390 × 844 (5 langues offertes, le pire cas), un 3ᵉ choix remplace le plus ancien, confirmation au visiteur, parcours en allemand, demande affichée avec ses créneaux dans l'espace client. Pas de débordement horizontal, pas d'erreur console.
+
+**Non vérifié** : email et SMS réels.
+
+**Décisions prises seul**
+- Pas de réservation : le visiteur choisit 1 ou 2 demi-journées (matin, après-midi), le commerce rappelle pour confirmer. 6 jours proposés, à partir de demain, sur 3 semaines au plus.
+- Une demi-journée est ouverte si le commerce l'est à l'une des heures sondées (8 h 30 → 11 h 30, 13 h 30 → 17 h 30, heure de Paris). Jour sans horaire lisible : du lundi au vendredi.
+- Un 3ᵉ choix remplace le plus ancien, sans message d'erreur.
+- Une demande avec créneaux est un rendez-vous, sauf si l'analyse ou une photo y lit une urgence.
+- SMS : les créneaux passent avant le résumé et le lien de l'espace client (jamais coupés) ; faute de place, le nom est raccourci, puis seul le premier créneau reste.
+- Un 422 n'est lu comme « créneau retiré » que s'il porte une phrase (un champ refusé en porte une liste) ; les champs du formulaire ont la longueur maximale de l'API.
+- Le serveur revérifie les créneaux à l'envoi : minuit passé, un créneau du lendemain devient « du jour » et n'est plus proposé (422, le widget recharge l'offre).
+- Pendant le choix et le formulaire, les suggestions et « Être rappelé » s'effacent pour que tout tienne dans 440 × 680 (le formulaire « Être rappelé » débordait déjà avec 5 langues).
+
+---
+
 ## Questions pour Léo
 
 1. **Mistral** :
@@ -315,6 +352,7 @@ relus dans le code, pas cliqués.
 14. **Portail Stripe** : l'enregistrer une fois dans Stripe (Settings → Billing → Customer portal : factures, carte, résiliation immédiate ou en fin de période). Sans cette configuration, le bouton de l'espace client affiche « indisponible ».
 15. **Lien de l'espace client** : pas de révocation individuelle (un lien fuité reste valable jusqu'à son expiration, 30 jours). Faut-il un bouton « révoquer les liens » (une version par assistant dans la signature) ?
 16. **Standards du demo-host** : l'espace client y vit (demande du prompt) avec des appels publics par lien signé. À acter comme exception à la règle « pas d'appels API authentifiés / privés ».
+17. **Créneaux sans agenda** : faut-il proposer le jour même (l'après-midi, le matin) ? Aujourd'hui l'offre commence le lendemain.
 
 ## Petits points laissés en l'état
 
@@ -322,10 +360,9 @@ relus dans le code, pas cliqués.
 - `api/.env.example` (ligne existante, non modifiée) propose `GROQ_MODEL=llama-3.3-70b-versatile`, un modèle retiré le 2026-06-17 selon `core/config.py`. Il faut le supprimer ou le remplacer par `openai/gpt-oss-120b`.
 - `HTTP_413_REQUEST_ENTITY_TOO_LARGE` (route photo) est déprécié à partir de Starlette 0.48 (simple avertissement). Tout le code l'utilise encore ; le remplacer partout d'un coup.
 - Le journal des conversations n'affiche pas la marque « test ».
+- Créneaux ajoutés après l'annonce : un visiteur qui recharge la page et choisit des créneaux dans les 24 h met à jour sa demande déjà annoncée ; le commerçant les voit dans le dashboard et l'espace client, pas dans un nouvel email ni un nouveau SMS (seulement dans le rappel J+1).
 
 ## Non commencés
 
-- **R2** — prise de rendez-vous : OAuth Google Calendar, créneaux, confirmation et rappel SMS.
+- **R2b** — prise de rendez-vous dans Google Agenda : OAuth, créneaux libres, événement, confirmation et rappel SMS.
 - **R1** — base de connaissance complète : documents, re-crawl, sources, navigation du site.
-
-Ces tickets demandent chacun une vraie session (OAuth, ingestion de documents).

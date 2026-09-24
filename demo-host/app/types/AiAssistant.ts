@@ -65,3 +65,52 @@ export type AssistantPhotoLabels = {
   tooLarge: string
   quota: string
 }
+
+/** A half-day of an appointment request. */
+export type AssistantDayPeriod = 'morning' | 'afternoon'
+
+/** An open day (ISO date, the business's day) and the half-days a visitor may pick in it. */
+export type AssistantAppointmentDay = {
+  date: string
+  periods: AssistantDayPeriod[]
+}
+
+/** The next open half-days served by the API, and how many a visitor may pick. */
+export type AssistantAppointmentSlots = {
+  days: AssistantAppointmentDay[]
+  max_chosen: number
+}
+
+/** A half-day the visitor picked. */
+export type AssistantSlotChoice = {
+  date: string
+  period: AssistantDayPeriod
+}
+
+/** Where the slot panel's data stands. */
+export type AssistantSlotsState = 'idle' | 'loading' | 'ready' | 'error'
+
+/**
+ * Localized texts of the appointment chip, button and slot panel. `periods` label the buttons, `periodsInline`
+ * the half-days inside a sentence; `sent` carries a `{slots}` placeholder.
+ */
+export type AssistantAppointmentLabels = {
+  chip: string
+  button: string
+  title: string
+  periods: Record<AssistantDayPeriod, string>
+  periodsInline: Record<AssistantDayPeriod, string>
+  next: string
+  loading: string
+  none: string
+  error: string
+  chosen: string
+  unavailable: string
+  sent: string
+}
+
+/** An API error as `$fetch` throws it: the HTTP status, and FastAPI's `detail` (a sentence, or a list of field errors). */
+export type AssistantApiRefusal = {
+  statusCode?: number
+  data?: { detail?: unknown }
+}

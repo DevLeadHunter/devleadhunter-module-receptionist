@@ -56,8 +56,9 @@
         <div v-if="isBusy" class="ai-typing" aria-label="Rédaction en cours"><i /><i /><i /></div>
       </div>
 
-      <div v-if="messages.length <= 1" class="ai-chips">
+      <div v-if="messages.length <= 1 && !isSlotPanelOpen && !showLeadForm" class="ai-chips">
         <button type="button" @click="openPhotoPanel">{{ PHOTO_UI[lang].chip }}</button>
+        <button type="button" @click="openSlotPanel">{{ APPOINTMENT_UI[lang].chip }}</button>
         <button v-for="suggestion in suggestions" :key="suggestion" type="button" @click="sendText(suggestion)">
           {{ suggestion }}
         </button>
@@ -76,15 +77,61 @@
         <input ref="photoInputEl" type="file" accept="image/*" class="ai-photo__input" @change="onPhotoPicked" />
       </div>
 
-      <div v-if="!leadSent" class="ai-book">
+      <div v-if="isSlotPanelOpen" ref="slotPanelEl" class="ai-photo ai-slots" tabindex="-1">
+        <p class="ai-photo__note">{{ APPOINTMENT_UI[lang].title }}</p>
+        <p v-if="slotsState === 'loading'" class="ai-photo__note">{{ APPOINTMENT_UI[lang].loading }}</p>
+        <p v-else-if="slotsState === 'error'" class="ai-photo__note">{{ APPOINTMENT_UI[lang].error }}</p>
+        <p v-else-if="slotDays.length === 0" class="ai-photo__note">{{ APPOINTMENT_UI[lang].none }}</p>
+        <ul v-else class="ai-slots__days">
+          <li v-for="day in slotDays" :key="day.date" class="ai-slots__day">
+            <span class="ai-slots__date">{{ dayLabel(day.date) }}</span>
+            <button
+              v-for="period in DAY_PERIODS"
+              :key="period"
+              type="button"
+              class="ai-slots__slot"
+              :disabled="!day.periods.includes(period)"
+              :aria-pressed="isChosen(day.date, period)"
+              :aria-label="slotLabel({ date: day.date, period })"
+              @click="toggleSlot(day.date, period)"
+            >
+              {{ APPOINTMENT_UI[lang].periods[period] }}
+            </button>
+          </li>
+        </ul>
+        <div class="ai-leadform__row">
+          <button type="button" class="ai-leadform__send" :disabled="chosenSlots.length === 0" @click="confirmSlots">
+            {{ APPOINTMENT_UI[lang].next }}
+          </button>
+          <button type="button" class="ai-leadform__cancel" @click="closeSlotPanel">
+            {{ LEAD_UI[lang].cancel }}
+          </button>
+        </div>
+      </div>
+
+      <div v-if="!leadSent && !isSlotPanelOpen" class="ai-book">
         <button v-if="!showLeadForm" type="button" class="ai-book__open" @click="showLeadForm = true">
           {{ LEAD_UI[lang].open }}
         </button>
         <form v-else class="ai-leadform" @submit.prevent="submitLead">
           <p class="ai-leadform__title">{{ LEAD_UI[lang].title }}</p>
-          <input v-model="leadName" class="ai-leadform__field" :placeholder="LEAD_UI[lang].name" />
-          <input v-model="leadContact" class="ai-leadform__field" :placeholder="LEAD_UI[lang].contact" />
-          <input v-model="leadNeed" class="ai-leadform__field" :placeholder="LEAD_UI[lang].need" />
+          <p v-if="chosenSlots.length > 0" class="ai-photo__note">
+            {{ APPOINTMENT_UI[lang].chosen }} : {{ chosenSlotsLine }}
+          </p>
+          <input
+            ref="leadNameEl"
+            v-model="leadName"
+            class="ai-leadform__field"
+            maxlength="255"
+            :placeholder="LEAD_UI[lang].name"
+          />
+          <input
+            v-model="leadContact"
+            class="ai-leadform__field"
+            maxlength="255"
+            :placeholder="LEAD_UI[lang].contact"
+          />
+          <input v-model="leadNeed" class="ai-leadform__field" maxlength="2000" :placeholder="LEAD_UI[lang].need" />
           <div class="ai-leadform__row">
             <button
               type="submit"
@@ -93,7 +140,7 @@
             >
               {{ LEAD_UI[lang].send }}
             </button>
-            <button type="button" class="ai-leadform__cancel" @click="showLeadForm = false">
+            <button type="button" class="ai-leadform__cancel" @click="cancelLeadForm">
               {{ LEAD_UI[lang].cancel }}
             </button>
           </div>
@@ -121,6 +168,28 @@
           >
             <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
             <circle cx="12" cy="13" r="3" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="ai-compose__photo"
+          :aria-label="APPOINTMENT_UI[lang].button"
+          :title="APPOINTMENT_UI[lang].button"
+          :disabled="isBusy || leadSent"
+          @click="openSlotPanel"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3.5" y="5" width="17" height="15" rx="2" />
+            <path d="M3.5 10h17M8 3v4M16 3v4" />
           </svg>
         </button>
         <textarea
@@ -155,11 +224,18 @@ import type { ComputedRef, PropType, Ref } from 'vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type {
   AiAssistantConfig,
+  AssistantApiRefusal,
+  AssistantAppointmentDay,
+  AssistantAppointmentLabels,
+  AssistantAppointmentSlots,
   AssistantChatMessage,
   AssistantChatReply,
+  AssistantDayPeriod,
   AssistantLeadLabels,
   AssistantPhotoLabels,
   AssistantPhotoReply,
+  AssistantSlotChoice,
+  AssistantSlotsState,
   AssistantWidgetLang,
 } from '~/types/AiAssistant'
 import type { AssistantChatProps } from '~/types/AssistantChat'
@@ -275,6 +351,89 @@ const LEAD_UI: Record<AssistantWidgetLang, AssistantLeadLabels> = {
   },
 }
 
+const DAY_PERIODS: AssistantDayPeriod[] = ['morning', 'afternoon']
+// Locales for the slot dates (Luxembourgish is « lb » in the browsers' date formats).
+const DATE_LOCALES: Record<AssistantWidgetLang, string> = {
+  fr: 'fr-FR',
+  nl: 'nl-BE',
+  en: 'en-GB',
+  de: 'de-DE',
+  lu: 'lb',
+}
+
+const APPOINTMENT_UI: Record<AssistantWidgetLang, AssistantAppointmentLabels> = {
+  fr: {
+    chip: '📅 Prendre rendez-vous',
+    button: 'Prendre rendez-vous',
+    title: 'Choisissez 1 ou 2 créneaux qui vous arrangent : on vous confirme l’un des deux.',
+    periods: { morning: 'Matin', afternoon: 'Après-midi' },
+    periodsInline: { morning: 'matin', afternoon: 'après-midi' },
+    next: 'Continuer',
+    loading: 'Chargement des disponibilités…',
+    none: 'Aucun créneau à proposer pour l’instant : laissez vos coordonnées, on vous rappelle.',
+    error: 'Les créneaux ne sont pas disponibles pour le moment : laissez vos coordonnées, on vous rappelle.',
+    chosen: 'Créneaux souhaités',
+    unavailable: 'Ce créneau vient d’être retiré. Choisissez-en un autre.',
+    sent: 'Merci ! Votre demande de rendez-vous est transmise ({slots}). On vous recontacte pour confirmer.',
+  },
+  nl: {
+    chip: '📅 Afspraak maken',
+    button: 'Afspraak maken',
+    title: 'Kies 1 of 2 momenten die u passen: we bevestigen er één.',
+    periods: { morning: 'Ochtend', afternoon: 'Namiddag' },
+    periodsInline: { morning: 'ochtend', afternoon: 'namiddag' },
+    next: 'Verder',
+    loading: 'Beschikbaarheden laden…',
+    none: 'Er zijn nu geen momenten beschikbaar: laat uw gegevens achter, we bellen u terug.',
+    error: 'De momenten zijn nu niet beschikbaar: laat uw gegevens achter, we bellen u terug.',
+    chosen: 'Gewenste momenten',
+    unavailable: 'Dit moment is net weggevallen. Kies een ander.',
+    sent: 'Bedankt! Uw afspraakverzoek is doorgegeven ({slots}). We nemen contact op om te bevestigen.',
+  },
+  en: {
+    chip: '📅 Book an appointment',
+    button: 'Book an appointment',
+    title: 'Pick 1 or 2 times that suit you: we will confirm one of them.',
+    periods: { morning: 'Morning', afternoon: 'Afternoon' },
+    periodsInline: { morning: 'morning', afternoon: 'afternoon' },
+    next: 'Continue',
+    loading: 'Loading availability…',
+    none: 'No time to offer right now: leave your details and we will call you back.',
+    error: 'Times are not available right now: leave your details and we will call you back.',
+    chosen: 'Preferred times',
+    unavailable: 'This time was just taken off. Please pick another one.',
+    sent: 'Thank you! Your appointment request has been sent ({slots}). We will contact you to confirm.',
+  },
+  de: {
+    chip: '📅 Termin vereinbaren',
+    button: 'Termin vereinbaren',
+    title: 'Wählen Sie 1 oder 2 passende Zeitfenster: Wir bestätigen eines davon.',
+    periods: { morning: 'Vormittag', afternoon: 'Nachmittag' },
+    periodsInline: { morning: 'Vormittag', afternoon: 'Nachmittag' },
+    next: 'Weiter',
+    loading: 'Verfügbarkeiten werden geladen…',
+    none: 'Derzeit kein Zeitfenster frei: Hinterlassen Sie Ihre Daten, wir rufen zurück.',
+    error: 'Die Zeitfenster sind gerade nicht verfügbar: Hinterlassen Sie Ihre Daten, wir rufen zurück.',
+    chosen: 'Gewünschte Zeitfenster',
+    unavailable: 'Dieses Zeitfenster ist gerade weggefallen. Bitte wählen Sie ein anderes.',
+    sent: 'Danke! Ihre Terminanfrage wurde übermittelt ({slots}). Wir melden uns zur Bestätigung.',
+  },
+  lu: {
+    chip: '📅 Rendez-vous huelen',
+    button: 'Rendez-vous huelen',
+    title: 'Wielt 1 oder 2 Zäitfënsteren, déi Iech passen: mir confirméieren eng dovun.',
+    periods: { morning: 'Moies', afternoon: 'Mëttes' },
+    periodsInline: { morning: 'moies', afternoon: 'mëttes' },
+    next: 'Weider',
+    loading: 'Disponibilitéite gi gelueden…',
+    none: 'Momentan keng Zäitfënster: loosst Är Kontaktdaten do, mir ruffen Iech zréck.',
+    error: 'D’Zäitfënstere sinn de Moment net disponibel: loosst Är Kontaktdaten do, mir ruffen Iech zréck.',
+    chosen: 'Gewënschten Zäitfënsteren',
+    unavailable: 'Dës Zäitfënster ass grad ewechgefall. Wielt w.e.g. eng aner.',
+    sent: 'Merci! Är Rendez-vous-Ufro ass iwwerdroen ({slots}). Mir mellen eis fir ze confirméieren.',
+  },
+}
+
 const PHOTO_UI: Record<AssistantWidgetLang, AssistantPhotoLabels> = {
   fr: {
     chip: '📷 Envoyer une photo pour un devis',
@@ -357,6 +516,13 @@ const leadContact: Ref<string> = ref('')
 const leadNeed: Ref<string> = ref('')
 const launcherEl: Ref<HTMLElement | null> = ref(null)
 const isPhotoPanelOpen: Ref<boolean> = ref(false)
+const isSlotPanelOpen: Ref<boolean> = ref(false)
+const slotPanelEl: Ref<HTMLElement | null> = ref(null)
+const leadNameEl: Ref<HTMLInputElement | null> = ref(null)
+const slotsState: Ref<AssistantSlotsState> = ref('idle')
+const slotDays: Ref<AssistantAppointmentDay[]> = ref([])
+const maxChosenSlots: Ref<number> = ref(2)
+const chosenSlots: Ref<AssistantSlotChoice[]> = ref([])
 const photoInputEl: Ref<HTMLInputElement | null> = ref(null)
 const photosRemaining: Ref<number> = ref(MAX_PHOTOS)
 // Thumbnail of each photo sent in this visit, by message index — kept out of the stored conversation.
@@ -380,6 +546,9 @@ const languagesLine: ComputedRef<string> = computed(
 )
 const roleLabel: ComputedRef<string> = computed(() => AssistantPersonaUtils.roleLabel(props.config.assistant_gender))
 const suggestions: ComputedRef<string[]> = computed(() => SUGGESTIONS[lang.value])
+const chosenSlotsLine: ComputedRef<string> = computed((): string =>
+  chosenSlots.value.map((slot: AssistantSlotChoice): string => slotLabel(slot)).join(' · '),
+)
 const isMobileLayout: ComputedRef<boolean> = computed(
   (): boolean => viewportWidth.value !== null && viewportWidth.value < MOBILE_MAX_WIDTH,
 )
@@ -540,8 +709,115 @@ async function send(): Promise<void> {
 /** Show the photo panel: its privacy note comes before the file picker. */
 function openPhotoPanel(): void {
   if (photosRemaining.value <= 0 || isBusy.value) return
+  isSlotPanelOpen.value = false
   isPhotoPanelOpen.value = true
   void scrollToLatest()
+}
+
+/**
+ * Show the appointment panel and load the business's next open half-days (once per visit).
+ * @returns A promise resolved once the half-days are shown (or their failure).
+ */
+async function openSlotPanel(): Promise<void> {
+  if (isBusy.value || leadSent.value) return
+  isPhotoPanelOpen.value = false
+  isSlotPanelOpen.value = true
+  void scrollToLatest()
+  // The chip that opened it disappears: keyboard focus moves into the panel.
+  await nextTick()
+  slotPanelEl.value?.focus()
+  if (slotsState.value !== 'ready') await loadSlots()
+}
+
+/**
+ * Fetch the next open half-days of the business.
+ * @returns A promise resolved once loaded or failed.
+ */
+async function loadSlots(): Promise<void> {
+  slotsState.value = 'loading'
+  try {
+    const offer: AssistantAppointmentSlots = await $fetch<AssistantAppointmentSlots>(
+      `${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${props.config.slug}/appointment-slots`,
+    )
+    slotDays.value = offer.days
+    maxChosenSlots.value = offer.max_chosen
+    slotsState.value = 'ready'
+  } catch {
+    slotsState.value = 'error'
+  }
+}
+
+/**
+ * Whether a half-day is among the visitor's picks.
+ * @param date - The ISO day.
+ * @param period - The half-day.
+ * @returns True when picked.
+ */
+function isChosen(date: string, period: AssistantDayPeriod): boolean {
+  return chosenSlots.value.some((slot: AssistantSlotChoice): boolean => slot.date === date && slot.period === period)
+}
+
+/**
+ * Pick or drop a half-day; past the maximum, the oldest pick makes room.
+ * @param date - The ISO day.
+ * @param period - The half-day.
+ */
+function toggleSlot(date: string, period: AssistantDayPeriod): void {
+  if (isChosen(date, period)) {
+    chosenSlots.value = chosenSlots.value.filter(
+      (slot: AssistantSlotChoice): boolean => slot.date !== date || slot.period !== period,
+    )
+    return
+  }
+  chosenSlots.value = [...chosenSlots.value, { date, period }].slice(-maxChosenSlots.value)
+}
+
+/**
+ * Move on to the contact form with the picked half-days.
+ * @returns A promise resolved once the name field has the focus.
+ */
+async function confirmSlots(): Promise<void> {
+  if (chosenSlots.value.length === 0) return
+  isSlotPanelOpen.value = false
+  showLeadForm.value = true
+  void scrollToLatest()
+  await nextTick()
+  leadNameEl.value?.focus()
+}
+
+/** Close the appointment panel and forget the picks. */
+function closeSlotPanel(): void {
+  isSlotPanelOpen.value = false
+  chosenSlots.value = []
+}
+
+/** Close the contact form; an appointment's picks go with it. */
+function cancelLeadForm(): void {
+  showLeadForm.value = false
+  chosenSlots.value = []
+}
+
+/**
+ * A day in the widget language (« ven. 25 sept. »).
+ * @param date - The ISO day.
+ * @returns The short localized day.
+ */
+function dayLabel(date: string): string {
+  const format: Intl.DateTimeFormat = new Intl.DateTimeFormat(DATE_LOCALES[lang.value], {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  })
+  return format.format(new Date(`${date}T12:00:00`))
+}
+
+/**
+ * A picked half-day in the widget language, as said in a sentence (« ven. 25 sept., matin »).
+ * @param slot - The pick.
+ * @returns Its label.
+ */
+function slotLabel(slot: AssistantSlotChoice): string {
+  return `${dayLabel(slot.date)}, ${APPOINTMENT_UI[lang.value].periodsInline[slot.period]}`
 }
 
 /**
@@ -634,15 +910,30 @@ async function submitLead(): Promise<void> {
         language: lang.value,
         session_id: sessionId.value,
         internal: DemoBeaconUtils.isInternalVisit(),
+        slots: chosenSlots.value,
       },
     })
     leadSent.value = true
     captureDemoEvent('assistant_lead_submitted')
     showLeadForm.value = false
-    messages.value.push({ role: 'assistant', content: LEAD_UI[lang.value].sent })
+    const confirmation: string =
+      chosenSlots.value.length > 0
+        ? APPOINTMENT_UI[lang.value].sent.replace('{slots}', chosenSlotsLine.value)
+        : LEAD_UI[lang.value].sent
+    messages.value.push({ role: 'assistant', content: confirmation })
     await scrollToLatest()
-  } catch {
-    messages.value.push({ role: 'assistant', content: FALLBACK_REPLY[lang.value] })
+  } catch (error: unknown) {
+    // A withdrawn half-day answers 422 with a sentence; a refused field answers 422 with a list.
+    const refusal: AssistantApiRefusal | null = error as AssistantApiRefusal | null
+    if (refusal?.statusCode === 422 && typeof refusal.data?.detail === 'string' && chosenSlots.value.length > 0) {
+      messages.value.push({ role: 'assistant', content: APPOINTMENT_UI[lang.value].unavailable })
+      chosenSlots.value = []
+      showLeadForm.value = false
+      isSlotPanelOpen.value = true
+      await loadSlots()
+    } else {
+      messages.value.push({ role: 'assistant', content: FALLBACK_REPLY[lang.value] })
+    }
   } finally {
     isSubmittingLead.value = false
   }
@@ -1115,6 +1406,52 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 }
 .ai-photo__input {
   display: none;
+}
+/* Bounded in the panel: the days scroll, the note and the buttons stay in view. */
+.ai-slots {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 64%;
+}
+.ai-slots__days {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  overflow-y: auto;
+}
+.ai-slots__day {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+}
+.ai-slots__date {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ai-ink);
+}
+.ai-slots__slot {
+  border: 1px solid var(--ai-line);
+  background: var(--ai-paper-2);
+  color: var(--ai-ink);
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.ai-slots__slot[aria-pressed='true'] {
+  border-color: var(--ai-accent);
+  background: var(--ai-accent);
+  color: var(--ai-accent-ink);
+}
+.ai-slots__slot:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 .ai-m--photo {
   padding: 4px;

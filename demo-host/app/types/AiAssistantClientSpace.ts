@@ -6,7 +6,10 @@ export type AiAssistantClientRequestType = 'question' | 'quote' | 'appointment' 
 /** Where the business is with a request. */
 export type AiAssistantClientRequestStatus = 'new' | 'handled' | 'dropped'
 
-/** One request as its client sees it; `received_label` is already in business time (« 14/09 à 10:05 »). */
+/**
+ * One request as its client sees it; `received_label` is already in business time (« 14/09 à 10:05 ») and
+ * `appointment_slots` are the wished half-days of an appointment request (« lun. 28/09, matin »), to confirm.
+ */
 export type AiAssistantClientRequest = {
   id: number
   type: AiAssistantClientRequestType
@@ -17,6 +20,7 @@ export type AiAssistantClientRequest = {
   received_label: string
   received_outside_hours: boolean | null
   photo_urls: string[]
+  appointment_slots: string[]
 }
 
 /** The latest monthly report of the assistant; its sentences come ready-made, like in the report email. */

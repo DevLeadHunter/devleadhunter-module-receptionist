@@ -29,6 +29,7 @@ from models.ai_assistant_request import AiAssistantRequest
 from models.ai_assistant_subscription import AiAssistantSubscription
 from models.prospect_db import ProspectDB
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
+from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
 from services.ai_assistant.client_links import AiAssistantClientLinks
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_analyzer import TranscriptLine, ai_assistant_request_analyzer
@@ -182,6 +183,8 @@ class AlertSms:
     _CONTACT_MAX_CHARS = 60
     # The summary comes before the client-space link: the link goes when it would leave less than this.
     _MIN_SUMMARY_WITH_LINK = 30
+    # The shorter name tried before giving up the second wished half-day.
+    _SHORT_NAME_MAX_CHARS = 15
 
     @classmethod
     def new_request(
@@ -193,9 +196,10 @@ class AlertSms:
         summary: str | None,
         has_photos: bool,
         link: str | None = None,
+        slots: tuple[str, ...] = (),
     ) -> str:
         """
-        The SMS announcing a request (« Nouvelle demande de devis (photo) de Marc, 06… : … Vos demandes : … »).
+        The SMS announcing a request (« Nouvelle demande de devis (photo) de Marc, 06… : … Suivi : … »).
 
         Args:
             request_type: Its type.
@@ -204,13 +208,18 @@ class AlertSms:
             summary: What they need.
             has_photos: Whether they sent photos.
             link: The client space, without scheme; dropped when it cannot fit.
+            slots: Wished half-days (« mar. 22/09 après-midi »), kept before the summary and never cut.
 
         Returns:
             A one-segment GSM-7 text.
         """
         photos = " (photo)" if has_photos else ""
-        head = f"{cls.LABELS[request_type]}{photos} de {cls._clip(name, cls._NAME_MAX_CHARS)}, "
-        return cls._fit(head + cls._clip(contact, cls._CONTACT_MAX_CHARS), summary, link)
+        heads = [
+            f"{cls.LABELS[request_type]}{photos} de {cls._clip(name, max_chars)}, "
+            f"{cls._clip(contact, cls._CONTACT_MAX_CHARS)}"
+            for max_chars in (cls._NAME_MAX_CHARS, cls._SHORT_NAME_MAX_CHARS)
+        ]
+        return cls._fit(cls._with_slots(heads, slots), summary, link)
 
     @classmethod
     def reminder(
@@ -222,6 +231,7 @@ class AlertSms:
         summary: str | None,
         received_local: datetime,
         link: str | None = None,
+        slots: tuple[str, ...] = (),
     ) -> str:
         """
         The SMS reminding a request still waiting (« Rappel, en attente depuis le 23/09 : demande de devis… »).
@@ -233,15 +243,31 @@ class AlertSms:
             summary: What they need.
             received_local: When it came in, local time.
             link: The client space, without scheme; dropped when it cannot fit.
+            slots: Wished half-days (« mar. 22/09 après-midi »), kept before the summary and never cut.
 
         Returns:
             A one-segment GSM-7 text.
         """
-        head = (
+        heads = [
             f"Rappel, en attente depuis le {received_local:%d/%m} : {cls.REMINDER_LABELS[request_type]} de "
-            f"{cls._clip(name, cls._NAME_MAX_CHARS)}, {cls._clip(contact, cls._CONTACT_MAX_CHARS)}"
-        )
-        return cls._fit(head, summary, link)
+            f"{cls._clip(name, max_chars)}, {cls._clip(contact, cls._CONTACT_MAX_CHARS)}"
+            for max_chars in (cls._NAME_MAX_CHARS, cls._SHORT_NAME_MAX_CHARS)
+        ]
+        return cls._fit(cls._with_slots(heads, slots), summary, link)
+
+    @classmethod
+    def _with_slots(cls, heads: list[str], slots: tuple[str, ...]) -> str:
+        """
+        The first head (full name, then a shorter one) that carries the wished half-days in one segment.
+
+        Both half-days first, then only the first one; without them when even that overflows (the email has them).
+        """
+        for wished in (slots[:2], slots[:1]) if slots else ():
+            for head in heads:
+                candidate = f"{head}, pour {' ou '.join(wished)}"
+                if segment_count(cls._gsm7(candidate) + ".") <= 1:
+                    return candidate
+        return heads[0]
 
     @staticmethod
     def _gsm7(text: str) -> str:
@@ -428,6 +454,7 @@ class AiAssistantRequestAlerts:
                     summary=request.need_summary or request.need,
                     received_local=OpeningHoursCalendar.to_business_time(request.created_at),
                     link=AiAssistantClientLinks.sms_link(assistant.id),
+                    slots=tuple(AiAssistantAppointmentSlots.short_labels(request.appointment_slots_json)),
                 )
                 await self._send_sms(db, assistant, settings.phone_e164, text)
         return reminded
@@ -528,6 +555,7 @@ class AiAssistantRequestAlerts:
             summary=request.need_summary or request.need,
             has_photos=bool(ai_assistant_request_service.photo_urls(request)),
             link=AiAssistantClientLinks.sms_link(assistant.id),
+            slots=tuple(AiAssistantAppointmentSlots.short_labels(request.appointment_slots_json)),
         )
         return await self._send_sms(db, assistant, settings.phone_e164, text)
 
@@ -606,6 +634,7 @@ class AiAssistantRequestAlerts:
                     photo_urls=tuple(ai_assistant_request_service.photo_urls(request)),
                     is_reminder=is_reminder,
                     client_space_url=AiAssistantClientLinks.url(assistant.id),
+                    appointment_slots=tuple(AiAssistantAppointmentSlots.labels(request.appointment_slots_json)),
                 )
             )
             result = await EmailSendingService(db).send_via_user_identity(

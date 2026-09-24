@@ -27,3 +27,10 @@ class AiAssistantRequestChannel(str, Enum):
     SITE = "site"
     EMAIL = "email"
     PHOTO = "photo"
+
+
+class AiAssistantDayPeriod(str, Enum):
+    """A half-day a visitor wishes an appointment in (no agenda connected: the business confirms one)."""
+
+    MORNING = "morning"
+    AFTERNOON = "afternoon"

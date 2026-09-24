@@ -28,6 +28,7 @@ from models.ai_assistant import AiAssistant
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_message import AiAssistantMessage
 from models.ai_assistant_request import AiAssistantRequest
+from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentSlot
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.photo_service import ai_assistant_photo_service
 from services.ai_assistant.request_alerts import ai_assistant_request_alerts
@@ -79,6 +80,7 @@ class AiAssistantRequestService:
         session_id: str | None,
         is_test: bool = False,
         channel: AiAssistantRequestChannel = AiAssistantRequestChannel.SITE,
+        appointment_slots: list[AppointmentSlot] | None = None,
         now: datetime | None = None,
     ) -> tuple[AiAssistantRequest, bool]:
         """
@@ -94,11 +96,24 @@ class AiAssistantRequestService:
             session_id: The widget session — one request per session.
             is_test: The operator testing (``?internal=1``): recorded, never announced.
             channel: Where the request came in.
+            appointment_slots: The half-days the visitor wishes an appointment in (at most two, still offered).
             now: Local time of the business (tests); defaults to now.
 
         Returns:
             ``(request, created)`` — ``created`` is False when an existing request was updated.
+
+        Raises:
+            ValueError: When a wished half-day is not offered (nothing is saved).
         """
+        hours = AiAssistantAppointmentSlots.opening_hours_of(assistant)
+        local_now = now or OpeningHoursCalendar.business_now()
+        slots_json = (
+            AiAssistantAppointmentSlots.to_json(
+                AiAssistantAppointmentSlots.check(hours, appointment_slots, today=local_now.date())
+            )
+            if appointment_slots
+            else None
+        )
         normalized_session = (session_id or "").strip()[:SESSION_ID_MAX_CHARS] or None
         conversation_id = self._conversation_id(db, assistant.id, normalized_session)
         clean_need = (need or "").strip()[:NEED_MAX_CHARS] or None
@@ -111,29 +126,31 @@ class AiAssistantRequestService:
             existing.need = clean_need or existing.need
             existing.language = clean_language or existing.language
             existing.conversation_id = conversation_id or existing.conversation_id
+            if slots_json:
+                existing.appointment_slots_json = slots_json
+                if existing.type != AiAssistantRequestType.URGENT.value:
+                    existing.type = AiAssistantRequestType.APPOINTMENT.value
             ai_assistant_photo_service.attach_to_request(db, existing)
             db.commit()
             db.refresh(existing)
             return existing, False
 
-        opening_hours = (assistant.knowledge_json or {}).get("opening_hours")
         request = AiAssistantRequest(
             user_id=assistant.user_id,
             prospect_id=assistant.prospect_id,
             assistant_id=assistant.id,
             conversation_id=conversation_id,
             session_id=normalized_session,
-            type=AiAssistantRequestType.OTHER.value,
+            # Half-days picked in the widget: an appointment request from the start (an urgency read later wins).
+            type=(AiAssistantRequestType.APPOINTMENT if slots_json else AiAssistantRequestType.OTHER).value,
             status=AiAssistantRequestStatus.NEW.value,
             channel=channel.value,
             name=name.strip()[:NAME_MAX_CHARS],
             contact=contact.strip()[:NAME_MAX_CHARS],
             need=clean_need,
             language=clean_language,
-            received_outside_hours=OpeningHoursCalendar.received_outside_hours(
-                opening_hours if isinstance(opening_hours, list) else None,
-                now or OpeningHoursCalendar.business_now(),
-            ),
+            received_outside_hours=OpeningHoursCalendar.received_outside_hours(hours, local_now),
+            appointment_slots_json=slots_json,
             is_test=is_test,
         )
         db.add(request)
@@ -194,7 +211,13 @@ class AiAssistantRequestService:
             transcript=transcript,
             eu_only=bool(assistant.eu_only),
         )
-        request_type = self._type_with_photos(analysis.type, request)
+        # Half-days picked in the widget make it an appointment request, unless the words say it is urgent.
+        analyzed = (
+            AiAssistantRequestType.APPOINTMENT
+            if request.appointment_slots_json and analysis.type != AiAssistantRequestType.URGENT
+            else analysis.type
+        )
+        request_type = self._type_with_photos(analyzed, request)
         request.type = request_type.value
         request.need_summary = analysis.summary or request.need
         db.commit()

@@ -140,7 +140,10 @@ export type AiAssistantRequestStatus = 'new' | 'handled' | 'dropped'
 /** Where a request came in. */
 export type AiAssistantRequestChannel = 'site' | 'email' | 'photo'
 
-/** A request a visitor left through an assistant, typed and summarized for the owner. */
+/**
+ * A request a visitor left through an assistant, typed and summarized for the owner; `appointment_slots` are the
+ * wished half-days of an appointment request, in French (« lun. 28/09, matin »).
+ */
 export type AiAssistantRequestItem = {
   id: number
   assistant_id: number
@@ -158,6 +161,7 @@ export type AiAssistantRequestItem = {
   is_test: boolean
   owner_note: string | null
   photo_urls: string[]
+  appointment_slots: string[]
   created_at: string
   handled_at: string | null
 }

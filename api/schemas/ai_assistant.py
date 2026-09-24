@@ -1,11 +1,16 @@
 """Schemas for the AI assistant endpoints (owner management, public widget config and chat)."""
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
 from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus, AiAssistantRequestType
+from enums.ai_assistant_request import (
+    AiAssistantDayPeriod,
+    AiAssistantRequestChannel,
+    AiAssistantRequestStatus,
+    AiAssistantRequestType,
+)
 
 
 class AiAssistantCreateRequest(BaseModel):
@@ -175,6 +180,27 @@ class AiAssistantChatResponse(BaseModel):
     reply: str
 
 
+class AiAssistantSlotChoice(BaseModel):
+    """A half-day a visitor picked for an appointment."""
+
+    date: date
+    period: AiAssistantDayPeriod
+
+
+class AiAssistantAppointmentDay(BaseModel):
+    """An open day and the half-days a visitor may pick in it."""
+
+    date: date
+    periods: list[AiAssistantDayPeriod]
+
+
+class AiAssistantAppointmentSlotsResponse(BaseModel):
+    """The next open half-days, from tomorrow (the business confirms one; no agenda is booked)."""
+
+    days: list[AiAssistantAppointmentDay] = Field(default_factory=list)
+    max_chosen: int
+
+
 class AiAssistantLeadRequest(BaseModel):
     """A visitor's details submitted through the assistant widget — it becomes a request."""
 
@@ -186,6 +212,8 @@ class AiAssistantLeadRequest(BaseModel):
     session_id: str | None = Field(default=None, max_length=64)
     # Set by the widget on a « ?internal=1 » visit (the operator testing): recorded, never announced.
     internal: bool = False
+    # Half-days picked for an appointment: the request becomes an appointment request.
+    slots: list[AiAssistantSlotChoice] = Field(default_factory=list, max_length=2)
 
 
 class AiAssistantPhotoResponse(BaseModel):
@@ -245,6 +273,8 @@ class AiAssistantRequestItem(BaseModel):
     is_test: bool = False
     owner_note: str | None = None
     photo_urls: list[str] = Field(default_factory=list)
+    # Wished half-days of an appointment request, in French (« lun. 28/09, matin »).
+    appointment_slots: list[str] = Field(default_factory=list)
     created_at: datetime
     handled_at: datetime | None = None
 

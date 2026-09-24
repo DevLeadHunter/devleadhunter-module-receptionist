@@ -38,6 +38,8 @@ class RequestEmailContent:
     is_reminder: bool = False
     # The client space of a sold assistant (every request, the monthly report, the settings).
     client_space_url: str | None = None
+    # Half-days wished for an appointment, in French (« lun. 28/09, matin »).
+    appointment_slots: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -102,6 +104,9 @@ class AiAssistantRequestEmail:
         ]
         if summary:
             sections.append(cls._block("Ce qu'il faut savoir", html.escape(summary)))
+        if content.appointment_slots:
+            wished = "<br/>".join(html.escape(label) for label in content.appointment_slots)
+            sections.append(cls._block("Créneaux souhaités (à confirmer)", wished))
         sections.append(cls._block("Coordonnées", cls._contact_html(content.visitor_name, content.contact)))
         if own_words and own_words != summary:
             sections.append(cls._block("Ses mots", html.escape(own_words)))

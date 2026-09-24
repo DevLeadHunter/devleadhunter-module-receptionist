@@ -39,6 +39,8 @@ class AiAssistantRequest(Base):
     need_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     language: Mapped[str | None] = mapped_column(String(8), nullable=True)
     photos_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Half-days wished for an appointment (« [{"date": "2026-09-28", "period": "morning"}] »), picked in the widget.
+    appointment_slots_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
     # NULL when the business hours are unknown — never counted as « hors horaires » by default.
     received_outside_hours: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     # Left from a « ?internal=1 » visit (the operator testing): recorded, never announced, out of the KPIs.

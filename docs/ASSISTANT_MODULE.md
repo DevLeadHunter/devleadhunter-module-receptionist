@@ -97,7 +97,8 @@ est exposé dans la config publique (`assistant_gender`) pour les textes du widg
 | `DELETE` | `/ai-assistants/{id}` | Supprimer (soft-delete) |
 | `GET` | `/ai-assistants/public/{slug}` | Config publique du widget (+ vidéo si prête) |
 | `POST` | `/ai-assistants/public/{slug}/chat` | Réponse groundée à un message |
-| `POST` | `/ai-assistants/public/{slug}/lead` | Capturer une demande (coordonnées + `session_id` + `internal`) |
+| `GET` | `/ai-assistants/public/{slug}/appointment-slots` | Demi-journées ouvertes proposées pour un rendez-vous (`days`, `max_chosen`) |
+| `POST` | `/ai-assistants/public/{slug}/lead` | Capturer une demande (coordonnées + `session_id` + `internal` + `slots` : 2 demi-journées au plus ; 422 si l'une n'est plus proposée) |
 | `POST` | `/ai-assistants/public/{slug}/photo` | Photo pour un devis (multipart : `file`, `session_id`, `language`, `internal`) |
 | `GET` | `/ai-assistants/public/requests/{id}/handled` | Lien signé de l'email de résumé : page de confirmation (ne change rien) |
 | `POST` | `/ai-assistants/public/requests/{id}/handled` | Même lien signé : marque la demande traitée (bouton de la page) |
@@ -110,7 +111,8 @@ est exposé dans la config publique (`assistant_gender`) pour les textes du widg
 | `POST` | `/ai-assistants/client/{token}/renew` | Depuis un lien expiré : nouveau lien envoyé à l'adresse du commerçant |
 
 Les endpoints publics du widget sont **rate-limités par IP** (`services/rate_limiter.py`) : chat
-30 / 300 s, lead 8 / 300 s, photo 6 / 600 s (fenêtre glissante en mémoire). Le lien « traitée » n'a pas de limite : sans
+30 / 300 s, créneaux 30 / 300 s (compteur à part), lead 8 / 300 s, photo 6 / 600 s (fenêtre glissante en
+mémoire). Le lien « traitée » n'a pas de limite : sans
 signature valide et non expirée, il ne fait rien. L'espace client : 120 appels / 300 s par IP (la page se charge
 dans le navigateur du visiteur, jamais depuis le serveur du demo-host), et 3 nouveaux liens par heure et 6 par jour
 et par assistant. Ses routes publiques vivent dans `api/api/v1/routes/ai_assistant_client_space.py`.
@@ -136,6 +138,15 @@ C'est le **produit** que le client colle sur son site. Il porte :
   dans la conversation stockée ni envoyée au chat (seule la ligne « 📷 Photo envoyée » l'est). La réponse
   de l'assistante s'affiche, puis le formulaire de coordonnées s'ouvre avec le besoin pré-rempli.
   3 photos par visite ; event PostHog `assistant_photo_sent`.
+- **Demande de rendez-vous** (sans agenda connecté) : chip « 📅 Prendre rendez-vous » (avant le premier
+  échange) et bouton calendrier dans la barre de saisie. Le panneau charge les demi-journées ouvertes
+  (`GET /public/{slug}/appointment-slots`) et le visiteur en coche 1 ou 2 (matin / après-midi, pas de saisie
+  libre ; une troisième remplace la plus ancienne), puis laisse ses coordonnées. La demande part avec
+  `slots` et devient une demande de rendez-vous ; la confirmation au visiteur reprend ses créneaux et dit
+  que le commerce confirmera l'un des deux. Si un créneau n'est plus proposé à l'envoi (passage de minuit),
+  le widget le dit et recharge les créneaux. Dates dans la langue du widget (`Intl.DateTimeFormat`).
+  Pendant le choix des créneaux et le formulaire, les suggestions et « Être rappelé » s'effacent : le
+  panneau tient dans l'iframe de 440 × 680 (la liste des jours défile, les boutons restent visibles).
 - **Embarqué** : quand il tourne en iframe, il envoie `postMessage` pour se redimensionner entre la
   bulle fermée et le panneau ouvert.
 
@@ -213,6 +224,19 @@ leads y ont été recopiés une fois (`legacy_lead_id`, statut `handled`) et leu
   30 jours (`request_links.py`). Le
   `GET` du lien n'affiche qu'une page de confirmation (les antivirus de messagerie ouvrent les liens) ;
   c'est son bouton (`POST` sur la même URL) qui marque la demande traitée.
+- **Créneaux souhaités** (`services/ai_assistant/appointment_slots.py`, colonne
+  `appointment_slots_json` : `[{"date": "2026-09-28", "period": "morning"}]`) : sans agenda connecté,
+  l'assistant ne réserve rien. Il propose les 6 prochains jours ouverts à partir de demain (sur 21 jours),
+  chacun avec ses demi-journées ouvertes d'après `knowledge_json['opening_hours']` : le matin est ouvert si
+  le commerce l'est à 8 h 30, 9 h 30, 10 h 30 ou 11 h 30, l'après-midi à 13 h 30, 14 h 30, 15 h 30, 16 h 30 ou
+  17 h 30 (heure de Paris). Jour sans horaire lisible : du lundi au vendredi. À la capture, les demi-journées
+  choisies (2 au plus, dédoublonnées, triées) doivent être encore proposées, sinon 422 et rien n'est
+  enregistré. Une demande avec créneaux est typée `appointment` dès la capture, sauf urgence (lue par
+  l'analyse, ou sur une photo). L'email de résumé ajoute un bloc « Créneaux souhaités (à confirmer) »
+  (« mar. 22/09, après-midi ») ; le SMS les porte juste après le contact, jamais coupés (« …, 06 11 22 33 44,
+  pour mar. 22/09 après-midi ou ven. 25/09 matin : Fuite… ») : si la place manque, le nom est raccourci, puis
+  seul le premier créneau reste (l'email les a tous). Le dashboard et l'espace client les affichent sous le
+  résumé.
 - **Visite interne** (`internal: true`) : la demande est enregistrée avec `is_test`, typée, jamais
   annoncée, exclue des compteurs et de l'onglet « À traiter » (visible sous « Toutes », badge Test).
 - **Statuts** : `new` → `handled` (ou `dropped`), `handled_at` suit ; note libre de l'owner.
@@ -307,7 +331,8 @@ Seulement pour un assistant **vendu** (`delivered`) ; une démo n'alerte que l'o
 - **Email** : toutes les demandes (le résumé décrit plus haut), à toute heure.
 - **SMS** : 1 segment GSM-7, sans mention STOP (message de service, pas de prospection) mais la liste
   STOP de l'owner est respectée. Texte : « Nouvelle demande de devis (photo) de Marc, 06… : résumé.
-  Suivi : demo.dibodev.fr/client/… » ; le contact reste entier, le résumé est coupé au mot, et le lien
+  Suivi : demo.dibodev.fr/client/… » (les créneaux souhaités d'un rendez-vous suivent le contact : « 06…, pour
+  mar. 22/09 après-midi ») ; le contact reste entier, le résumé est coupé au mot, et le lien
   de l'espace client n'est ajouté que s'il laisse au moins 30 caractères de résumé (le résumé passe avant). Envoyé par le nom d'expéditeur SMS de
   l'owner (Paramètres → Relance SMS) et enregistré dans `sms_messages` sans prospect, avec
   `kind = service` (`SmsService.send_service_message`) : coût suivi sur la page SMS, prospect jamais marqué
@@ -500,6 +525,7 @@ modules dans le même projet PostHog. **Aucun** event côté dashboard (non inst
 | Bench des modèles | `api/scripts/bench_assistant_llm.py` |
 | Alertes au commerçant (email, SMS, rappel, signal 48 h) | `api/services/ai_assistant/request_alerts.py` |
 | Horaires d'ouverture (hors horaires) | `api/services/ai_assistant/opening_hours.py` |
+| Créneaux d'une demande de rendez-vous (sans agenda) | `api/services/ai_assistant/appointment_slots.py` |
 | Service génération / edit / régé | `api/services/ai_assistant/assistant_service.py` |
 | Config (accent, langues, persona) | `api/services/ai_assistant/config_builder.py` |
 | Fiche de connaissance | `api/services/ai_assistant/knowledge_builder.py` |

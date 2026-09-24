@@ -22,6 +22,8 @@ class AiAssistantClientRequestItem(BaseModel):
     received_label: str
     received_outside_hours: bool | None = None
     photo_urls: list[str] = Field(default_factory=list)
+    # Wished half-days of an appointment request (« lun. 28/09, matin »).
+    appointment_slots: list[str] = Field(default_factory=list)
 
 
 class AiAssistantClientReport(BaseModel):

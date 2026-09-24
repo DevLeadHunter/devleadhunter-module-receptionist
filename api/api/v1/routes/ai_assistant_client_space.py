@@ -27,6 +27,7 @@ from schemas.ai_assistant_client_space import (
     AiAssistantClientSpaceResponse,
     AiAssistantClientSubscription,
 )
+from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
 from services.ai_assistant.client_space_service import ClientSpaceAccessError, ai_assistant_client_space_service
@@ -83,6 +84,7 @@ def _to_request_item(record: AiAssistantRequest) -> AiAssistantClientRequestItem
         received_label=_business_label(record.created_at, "%d/%m à %H:%M"),
         received_outside_hours=record.received_outside_hours,
         photo_urls=ai_assistant_request_service.photo_urls(record),
+        appointment_slots=AiAssistantAppointmentSlots.labels(record.appointment_slots_json),
     )
 
 
