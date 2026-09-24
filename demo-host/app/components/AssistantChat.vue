@@ -70,53 +70,53 @@
       </div>
 
       <div v-if="messages.length <= 1 && !isSlotPanelOpen && !showLeadForm" class="ai-chips">
-        <button type="button" @click="openPhotoPanel">{{ PHOTO_UI[lang].chip }}</button>
-        <button type="button" @click="openSlotPanel">{{ APPOINTMENT_UI[lang].chip }}</button>
+        <button type="button" @click="openPhotoPanel">{{ PHOTO_LABELS[lang].chip }}</button>
+        <button type="button" @click="openSlotPanel">{{ APPOINTMENT_LABELS[lang].chip }}</button>
         <button v-for="suggestion in suggestions" :key="suggestion" type="button" @click="sendText(suggestion)">
           {{ suggestion }}
         </button>
       </div>
 
-      <div v-if="isPhotoPanelOpen" class="ai-photo">
-        <p class="ai-photo__note">{{ PHOTO_UI[lang].note }}</p>
-        <div class="ai-leadform__row">
-          <button type="button" class="ai-leadform__send" :disabled="isBusy" @click="photoInputEl?.click()">
-            {{ PHOTO_UI[lang].pick }}
+      <div v-if="isPhotoPanelOpen" class="ai-sheet ai-photo">
+        <p class="ai-sheet__note">{{ PHOTO_LABELS[lang].note }}</p>
+        <div class="ai-actions">
+          <button type="button" class="ai-actions__primary" :disabled="isBusy" @click="photoInputEl?.click()">
+            {{ PHOTO_LABELS[lang].pick }}
           </button>
-          <button type="button" class="ai-leadform__cancel" @click="isPhotoPanelOpen = false">
-            {{ LEAD_UI[lang].cancel }}
+          <button type="button" class="ai-actions__secondary" @click="isPhotoPanelOpen = false">
+            {{ LEAD_LABELS[lang].cancel }}
           </button>
         </div>
         <input ref="photoInputEl" type="file" accept="image/*" class="ai-photo__input" @change="onPhotoPicked" />
       </div>
 
-      <div v-if="isSlotPanelOpen" ref="slotPanelEl" class="ai-photo ai-slots" tabindex="-1">
-        <p class="ai-photo__note">
-          {{ bookingMode === 'calendar' ? APPOINTMENT_UI[lang].titleCalendar : APPOINTMENT_UI[lang].title }}
+      <div v-if="isSlotPanelOpen" ref="slotPanelEl" class="ai-sheet ai-slots" tabindex="-1">
+        <p class="ai-sheet__note">
+          {{ bookingMode === 'calendar' ? APPOINTMENT_LABELS[lang].titleCalendar : APPOINTMENT_LABELS[lang].title }}
         </p>
-        <p v-if="slotsState === 'loading'" class="ai-photo__note">{{ APPOINTMENT_UI[lang].loading }}</p>
-        <p v-else-if="slotsState === 'error'" class="ai-photo__note">{{ APPOINTMENT_UI[lang].error }}</p>
+        <p v-if="slotsState === 'loading'" class="ai-sheet__note">{{ APPOINTMENT_LABELS[lang].loading }}</p>
+        <p v-else-if="slotsState === 'error'" class="ai-sheet__note">{{ APPOINTMENT_LABELS[lang].error }}</p>
         <template v-else-if="bookingMode === 'calendar'">
           <div
             v-if="appointmentKinds.length > 0"
             class="ai-slots__kinds"
             role="group"
-            :aria-label="APPOINTMENT_UI[lang].kind"
+            :aria-label="APPOINTMENT_LABELS[lang].kind"
           >
-            <span class="ai-slots__date">{{ APPOINTMENT_UI[lang].kind }}</span>
+            <span class="ai-slots__label">{{ APPOINTMENT_LABELS[lang].kind }}</span>
             <button
               v-for="kind in appointmentKinds"
               :key="kind"
               type="button"
-              class="ai-slots__slot"
+              class="ai-slots__chip"
               :aria-pressed="chosenKind === kind"
               @click="chosenKind = kind"
             >
               {{ kind }}
             </button>
           </div>
-          <p v-if="slotTimes.length === 0" class="ai-photo__note">{{ APPOINTMENT_UI[lang].none }}</p>
-          <ul v-else class="ai-slots__days">
+          <p v-if="slotTimes.length === 0" class="ai-sheet__note">{{ APPOINTMENT_LABELS[lang].none }}</p>
+          <ul v-else class="ai-slots__list">
             <li v-for="time in slotTimes" :key="time.start">
               <button
                 type="button"
@@ -130,14 +130,14 @@
           </ul>
           <div class="ai-slots__pages">
             <button v-if="slotsAfter !== null" type="button" class="ai-slots__more" @click="loadSlots(null)">
-              {{ APPOINTMENT_UI[lang].first }}
+              {{ APPOINTMENT_LABELS[lang].first }}
             </button>
             <button v-if="hasMoreTimes" type="button" class="ai-slots__more" @click="showMoreTimes">
-              {{ APPOINTMENT_UI[lang].more }}
+              {{ APPOINTMENT_LABELS[lang].more }}
             </button>
           </div>
         </template>
-        <p v-else-if="slotDays.length === 0" class="ai-photo__note">{{ APPOINTMENT_UI[lang].none }}</p>
+        <p v-else-if="slotDays.length === 0" class="ai-sheet__note">{{ APPOINTMENT_LABELS[lang].none }}</p>
         <ul v-else class="ai-slots__days">
           <li v-for="day in slotDays" :key="day.date" class="ai-slots__day">
             <span class="ai-slots__date">{{ dayLabel(day.date) }}</span>
@@ -151,56 +151,56 @@
               :aria-label="slotLabel({ date: day.date, period })"
               @click="toggleSlot(day.date, period)"
             >
-              {{ APPOINTMENT_UI[lang].periods[period] }}
+              {{ APPOINTMENT_LABELS[lang].periods[period] }}
             </button>
           </li>
         </ul>
-        <div class="ai-leadform__row">
-          <button type="button" class="ai-leadform__send" :disabled="!canContinue" @click="confirmSlots">
-            {{ APPOINTMENT_UI[lang].next }}
+        <div class="ai-actions">
+          <button type="button" class="ai-actions__primary" :disabled="!canContinue" @click="confirmSlots">
+            {{ APPOINTMENT_LABELS[lang].next }}
           </button>
-          <button type="button" class="ai-leadform__cancel" @click="closeSlotPanel">
-            {{ LEAD_UI[lang].cancel }}
+          <button type="button" class="ai-actions__secondary" @click="closeSlotPanel">
+            {{ LEAD_LABELS[lang].cancel }}
           </button>
         </div>
       </div>
 
       <div v-if="!leadSent && !isSlotPanelOpen" class="ai-book">
         <button v-if="!showLeadForm" type="button" class="ai-book__open" @click="showLeadForm = true">
-          {{ LEAD_UI[lang].open }}
+          {{ LEAD_LABELS[lang].open }}
         </button>
         <form v-else class="ai-leadform" @submit.prevent="submitLead">
-          <p class="ai-leadform__title">{{ LEAD_UI[lang].title }}</p>
-          <p v-if="chosenSlots.length > 0" class="ai-photo__note">
-            {{ APPOINTMENT_UI[lang].chosen }} : {{ chosenSlotsLine }}
+          <p class="ai-leadform__title">{{ LEAD_LABELS[lang].title }}</p>
+          <p v-if="chosenSlots.length > 0" class="ai-leadform__note">
+            {{ APPOINTMENT_LABELS[lang].chosen }} : {{ chosenSlotsLine }}
           </p>
-          <p v-else-if="chosenTime" class="ai-photo__note">
-            {{ APPOINTMENT_UI[lang].appointment }} : {{ chosenTimeLine }}
+          <p v-else-if="chosenTime" class="ai-leadform__note">
+            {{ APPOINTMENT_LABELS[lang].appointment }} : {{ chosenTimeLine }}
           </p>
           <input
             ref="leadNameEl"
             v-model="leadName"
             class="ai-leadform__field"
             maxlength="255"
-            :placeholder="LEAD_UI[lang].name"
+            :placeholder="LEAD_LABELS[lang].name"
           />
           <input
             v-model="leadContact"
             class="ai-leadform__field"
             maxlength="255"
-            :placeholder="LEAD_UI[lang].contact"
+            :placeholder="LEAD_LABELS[lang].contact"
           />
-          <input v-model="leadNeed" class="ai-leadform__field" maxlength="2000" :placeholder="LEAD_UI[lang].need" />
+          <input v-model="leadNeed" class="ai-leadform__field" maxlength="2000" :placeholder="LEAD_LABELS[lang].need" />
           <div class="ai-leadform__row">
             <button
               type="submit"
               class="ai-leadform__send"
               :disabled="isSubmittingLead || !leadName.trim() || !leadContact.trim()"
             >
-              {{ LEAD_UI[lang].send }}
+              {{ LEAD_LABELS[lang].send }}
             </button>
             <button type="button" class="ai-leadform__cancel" @click="cancelLeadForm">
-              {{ LEAD_UI[lang].cancel }}
+              {{ LEAD_LABELS[lang].cancel }}
             </button>
           </div>
         </form>
@@ -209,9 +209,9 @@
       <form class="ai-compose" @submit.prevent="send">
         <button
           type="button"
-          class="ai-compose__photo"
-          :aria-label="PHOTO_UI[lang].button"
-          :title="PHOTO_UI[lang].button"
+          class="ai-compose__tool"
+          :aria-label="PHOTO_LABELS[lang].button"
+          :title="PHOTO_LABELS[lang].button"
           :disabled="isBusy || photosRemaining <= 0"
           @click="openPhotoPanel"
         >
@@ -231,9 +231,9 @@
         </button>
         <button
           type="button"
-          class="ai-compose__photo"
-          :aria-label="APPOINTMENT_UI[lang].button"
-          :title="APPOINTMENT_UI[lang].button"
+          class="ai-compose__tool"
+          :aria-label="APPOINTMENT_LABELS[lang].button"
+          :title="APPOINTMENT_LABELS[lang].button"
           :disabled="isBusy || leadSent"
           @click="openSlotPanel"
         >
@@ -284,7 +284,6 @@ import type { ComputedRef, PropType, Ref } from 'vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type {
   AiAssistantConfig,
-  AssistantApiRefusal,
   AssistantAppointmentDay,
   AssistantAppointmentLabels,
   AssistantAppointmentSlots,
@@ -293,9 +292,7 @@ import type {
   AssistantChatMessage,
   AssistantChatReply,
   AssistantDayPeriod,
-  AssistantLeadLabels,
   AssistantLeadReply,
-  AssistantPhotoLabels,
   AssistantPhotoReply,
   AssistantSlotChoice,
   AssistantSlotsState,
@@ -303,13 +300,26 @@ import type {
 } from '~/types/AiAssistant'
 import type { AssistantChatProps } from '~/types/AssistantChat'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
+import {
+  APPOINTMENT_LABELS,
+  DATE_LOCALES,
+  FALLBACK_REPLY,
+  GREETINGS,
+  LANGUAGE_LABELS,
+  LANGUAGE_NAMES,
+  LEAD_LABELS,
+  PHOTO_LABELS,
+  SUGGESTIONS,
+  UI_PLACEHOLDER,
+} from '~/constants/AssistantWidgetLabels'
+import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
+import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { AssistantPersonaUtils } from '~/utils/AssistantPersonaUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 import { MessageLinkUtils } from '~/utils/MessageLinkUtils'
 import { PhotoCompressionUtils } from '~/utils/PhotoCompressionUtils'
 
 const DEFAULT_LANG: AssistantWidgetLang = 'fr'
-const FALLBACK_ACCENT: string = '#a9793f'
 // Below this viewport width the panel goes full screen and the launcher drops its bubble.
 const MOBILE_MAX_WIDTH: number = 560
 // Distance from the launcher to the viewport edge (mirrors the CSS) and room for its shadow.
@@ -320,283 +330,9 @@ const MAX_STORED_MESSAGES: number = 40
 // Photos a visitor may send for one quote request (the API enforces the same quota per session).
 const MAX_PHOTOS: number = 3
 
-const LANGUAGE_LABELS: Record<AssistantWidgetLang, string> = {
-  fr: 'Français',
-  nl: 'Nederlands',
-  en: 'English',
-  de: 'Deutsch',
-  lu: 'Lëtzebuergesch',
-}
-const LANGUAGE_NAMES: Record<AssistantWidgetLang, string> = {
-  fr: 'français',
-  nl: 'Nederlands',
-  en: 'English',
-  de: 'Deutsch',
-  lu: 'Lëtzebuergesch',
-}
-const GREETINGS: Record<AssistantWidgetLang, string> = {
-  fr: 'Bonjour et bienvenue. Comment puis-je vous aider ?',
-  nl: 'Hallo en welkom. Hoe kan ik u helpen?',
-  en: 'Hello and welcome. How can I help you?',
-  de: 'Guten Tag und willkommen. Wie kann ich Ihnen helfen?',
-  lu: 'Moien a wëllkomm. Wéi kann ech Iech hëllefen?',
-}
-const SUGGESTIONS: Record<AssistantWidgetLang, string[]> = {
-  fr: ['Quels sont vos horaires ?', 'Quels services proposez-vous ?', 'Je souhaite être recontacté'],
-  nl: ['Wat zijn jullie openingstijden?', 'Welke diensten bieden jullie aan?', 'Ik wil graag teruggebeld worden'],
-  en: ['What are your opening hours?', 'What services do you offer?', "I'd like to be contacted"],
-  de: ['Wie sind Ihre Öffnungszeiten?', 'Welche Leistungen bieten Sie an?', 'Ich möchte zurückgerufen werden'],
-  lu: ['Wéi sinn Är Ëffnungszäiten?', 'Wéi eng Servicer bitt Dir un?', 'Ech wëll zréckgeruff ginn'],
-}
-const UI_PLACEHOLDER: Record<AssistantWidgetLang, string> = {
-  fr: 'Écrivez votre message…',
-  nl: 'Typ uw bericht…',
-  en: 'Type your message…',
-  de: 'Ihre Nachricht…',
-  lu: 'Är Noriicht…',
-}
-const FALLBACK_REPLY: Record<AssistantWidgetLang, string> = {
-  fr: 'Je rencontre un souci technique. Réessayez dans un instant.',
-  nl: 'Sorry, er is een technisch probleem. Probeer het zo meteen opnieuw.',
-  en: 'Sorry, I hit a technical issue. Please try again in a moment.',
-  de: 'Entschuldigung, es gab ein technisches Problem. Bitte versuchen Sie es gleich erneut.',
-  lu: 'Pardon, et gouf e technescht Problem. Probéiert w.e.g. gläich nach eng Kéier.',
-}
-const LEAD_UI: Record<AssistantWidgetLang, AssistantLeadLabels> = {
-  fr: {
-    open: 'Être rappelé',
-    title: 'Laissez vos coordonnées',
-    name: 'Votre nom',
-    contact: 'Email ou téléphone',
-    need: 'Votre besoin (facultatif)',
-    send: 'Envoyer',
-    cancel: 'Annuler',
-    sent: 'Merci, vos coordonnées sont transmises. On vous recontacte très vite.',
-  },
-  nl: {
-    open: 'Word teruggebeld',
-    title: 'Laat uw gegevens achter',
-    name: 'Uw naam',
-    contact: 'E-mail of telefoon',
-    need: 'Wat u nodig heeft (optioneel)',
-    send: 'Versturen',
-    cancel: 'Annuleren',
-    sent: 'Bedankt, uw gegevens zijn verzonden. We nemen snel contact met u op.',
-  },
-  en: {
-    open: 'Request a callback',
-    title: 'Leave your details',
-    name: 'Your name',
-    contact: 'Email or phone',
-    need: 'What you need (optional)',
-    send: 'Send',
-    cancel: 'Cancel',
-    sent: 'Thank you, your details have been sent. We will get back to you shortly.',
-  },
-  de: {
-    open: 'Rückruf anfragen',
-    title: 'Ihre Kontaktdaten',
-    name: 'Ihr Name',
-    contact: 'E-Mail oder Telefon',
-    need: 'Ihr Anliegen (optional)',
-    send: 'Senden',
-    cancel: 'Abbrechen',
-    sent: 'Danke, Ihre Daten wurden übermittelt. Wir melden uns in Kürze.',
-  },
-  lu: {
-    open: 'Réckruff ufroen',
-    title: 'Är Kontaktdaten',
-    name: 'Ären Numm',
-    contact: 'E-Mail oder Telefon',
-    need: 'Wat Dir braucht (fakultativ)',
-    send: 'Schécken',
-    cancel: 'Ofbriechen',
-    sent: 'Merci, Är Donnéeë sinn iwwerdroen. Mir mellen eis geschwënn.',
-  },
-}
-
 const DAY_PERIODS: AssistantDayPeriod[] = ['morning', 'afternoon']
 // Every targeted country (FR, BE, LU, CH) keeps Paris time: slots always read in the business's time.
 const BUSINESS_TIME_ZONE: string = 'Europe/Paris'
-// Locales for the slot dates (Luxembourgish is « lb » in the browsers' date formats).
-const DATE_LOCALES: Record<AssistantWidgetLang, string> = {
-  fr: 'fr-FR',
-  nl: 'nl-BE',
-  en: 'en-GB',
-  de: 'de-DE',
-  lu: 'lb',
-}
-
-const APPOINTMENT_UI: Record<AssistantWidgetLang, AssistantAppointmentLabels> = {
-  fr: {
-    chip: '📅 Prendre rendez-vous',
-    button: 'Prendre rendez-vous',
-    title: 'Choisissez 1 ou 2 créneaux qui vous arrangent : on vous confirme l’un des deux.',
-    titleCalendar: 'Choisissez un créneau libre : il est réservé tout de suite.',
-    kind: 'Pour quoi ?',
-    more: 'Autres créneaux',
-    appointment: 'Rendez-vous',
-    booked: 'C’est réservé : {slots}.',
-    bookedSms: ' Vous recevez une confirmation par SMS.',
-    bookedEmail: ' Vous recevez une confirmation par email.',
-    first: 'Premiers créneaux',
-    taken: 'Ce créneau vient d’être pris. Choisissez-en un autre.',
-    periods: { morning: 'Matin', afternoon: 'Après-midi' },
-    periodsInline: { morning: 'matin', afternoon: 'après-midi' },
-    next: 'Continuer',
-    loading: 'Chargement des disponibilités…',
-    none: 'Aucun créneau à proposer pour l’instant : laissez vos coordonnées, on vous rappelle.',
-    error: 'Les créneaux ne sont pas disponibles pour le moment : laissez vos coordonnées, on vous rappelle.',
-    chosen: 'Créneaux souhaités',
-    unavailable: 'Ce créneau vient d’être retiré. Choisissez-en un autre.',
-    sent: 'Merci ! Votre demande de rendez-vous est transmise ({slots}). On vous recontacte pour confirmer.',
-  },
-  nl: {
-    chip: '📅 Afspraak maken',
-    button: 'Afspraak maken',
-    title: 'Kies 1 of 2 momenten die u passen: we bevestigen er één.',
-    titleCalendar: 'Kies een vrij moment: het wordt meteen gereserveerd.',
-    kind: 'Waarvoor?',
-    more: 'Andere momenten',
-    appointment: 'Afspraak',
-    booked: 'Gereserveerd: {slots}.',
-    bookedSms: ' U ontvangt een bevestiging per sms.',
-    bookedEmail: ' U ontvangt een bevestiging per e-mail.',
-    first: 'Eerste momenten',
-    taken: 'Dit moment is net ingenomen. Kies een ander.',
-    periods: { morning: 'Ochtend', afternoon: 'Namiddag' },
-    periodsInline: { morning: 'ochtend', afternoon: 'namiddag' },
-    next: 'Verder',
-    loading: 'Beschikbaarheden laden…',
-    none: 'Er zijn nu geen momenten beschikbaar: laat uw gegevens achter, we bellen u terug.',
-    error: 'De momenten zijn nu niet beschikbaar: laat uw gegevens achter, we bellen u terug.',
-    chosen: 'Gewenste momenten',
-    unavailable: 'Dit moment is net weggevallen. Kies een ander.',
-    sent: 'Bedankt! Uw afspraakverzoek is doorgegeven ({slots}). We nemen contact op om te bevestigen.',
-  },
-  en: {
-    chip: '📅 Book an appointment',
-    button: 'Book an appointment',
-    title: 'Pick 1 or 2 times that suit you: we will confirm one of them.',
-    titleCalendar: 'Pick a free slot: it is booked right away.',
-    kind: 'What for?',
-    more: 'Other times',
-    appointment: 'Appointment',
-    booked: 'Booked: {slots}.',
-    bookedSms: ' You will get a confirmation by text message.',
-    bookedEmail: ' You will get a confirmation by email.',
-    first: 'Earliest times',
-    taken: 'This slot was just taken. Please pick another one.',
-    periods: { morning: 'Morning', afternoon: 'Afternoon' },
-    periodsInline: { morning: 'morning', afternoon: 'afternoon' },
-    next: 'Continue',
-    loading: 'Loading availability…',
-    none: 'No time to offer right now: leave your details and we will call you back.',
-    error: 'Times are not available right now: leave your details and we will call you back.',
-    chosen: 'Preferred times',
-    unavailable: 'This time was just taken off. Please pick another one.',
-    sent: 'Thank you! Your appointment request has been sent ({slots}). We will contact you to confirm.',
-  },
-  de: {
-    chip: '📅 Termin vereinbaren',
-    button: 'Termin vereinbaren',
-    title: 'Wählen Sie 1 oder 2 passende Zeitfenster: Wir bestätigen eines davon.',
-    titleCalendar: 'Wählen Sie einen freien Termin: Er wird sofort gebucht.',
-    kind: 'Wofür?',
-    more: 'Weitere Termine',
-    appointment: 'Termin',
-    booked: 'Gebucht: {slots}.',
-    bookedSms: ' Sie erhalten eine Bestätigung per SMS.',
-    bookedEmail: ' Sie erhalten eine Bestätigung per E-Mail.',
-    first: 'Früheste Termine',
-    taken: 'Dieser Termin wurde gerade vergeben. Bitte wählen Sie einen anderen.',
-    periods: { morning: 'Vormittag', afternoon: 'Nachmittag' },
-    periodsInline: { morning: 'Vormittag', afternoon: 'Nachmittag' },
-    next: 'Weiter',
-    loading: 'Verfügbarkeiten werden geladen…',
-    none: 'Derzeit kein Zeitfenster frei: Hinterlassen Sie Ihre Daten, wir rufen zurück.',
-    error: 'Die Zeitfenster sind gerade nicht verfügbar: Hinterlassen Sie Ihre Daten, wir rufen zurück.',
-    chosen: 'Gewünschte Zeitfenster',
-    unavailable: 'Dieses Zeitfenster ist gerade weggefallen. Bitte wählen Sie ein anderes.',
-    sent: 'Danke! Ihre Terminanfrage wurde übermittelt ({slots}). Wir melden uns zur Bestätigung.',
-  },
-  lu: {
-    chip: '📅 Rendez-vous huelen',
-    button: 'Rendez-vous huelen',
-    title: 'Wielt 1 oder 2 Zäitfënsteren, déi Iech passen: mir confirméieren eng dovun.',
-    titleCalendar: 'Wielt eng fräi Zäit: si gëtt direkt reservéiert.',
-    kind: 'Fir wat?',
-    more: 'Aner Zäiten',
-    appointment: 'Rendez-vous',
-    booked: 'Reservéiert: {slots}.',
-    bookedSms: ' Dir kritt eng Confirmatioun per SMS.',
-    bookedEmail: ' Dir kritt eng Confirmatioun per E-Mail.',
-    first: 'Éischt Zäiten',
-    taken: 'Dës Zäit ass grad fortgaang. Wielt w.e.g. eng aner.',
-    periods: { morning: 'Moies', afternoon: 'Mëttes' },
-    periodsInline: { morning: 'moies', afternoon: 'mëttes' },
-    next: 'Weider',
-    loading: 'Disponibilitéite gi gelueden…',
-    none: 'Momentan keng Zäitfënster: loosst Är Kontaktdaten do, mir ruffen Iech zréck.',
-    error: 'D’Zäitfënstere sinn de Moment net disponibel: loosst Är Kontaktdaten do, mir ruffen Iech zréck.',
-    chosen: 'Gewënschten Zäitfënsteren',
-    unavailable: 'Dës Zäitfënster ass grad ewechgefall. Wielt w.e.g. eng aner.',
-    sent: 'Merci! Är Rendez-vous-Ufro ass iwwerdroen ({slots}). Mir mellen eis fir ze confirméieren.',
-  },
-}
-
-const PHOTO_UI: Record<AssistantWidgetLang, AssistantPhotoLabels> = {
-  fr: {
-    chip: '📷 Envoyer une photo pour un devis',
-    button: 'Envoyer une photo',
-    note: "Votre photo sert uniquement à préparer votre devis et elle est supprimée au bout de 90 jours. Évitez d'y montrer des personnes.",
-    pick: 'Choisir une photo',
-    sent: '📷 Photo envoyée',
-    invalid: 'Je ne peux pas lire ce fichier. Envoyez une photo au format JPEG ou PNG.',
-    tooLarge: 'Cette photo est trop lourde (8 Mo maximum).',
-    quota: "Vous avez déjà envoyé 3 photos : c'est suffisant pour préparer le devis.",
-  },
-  nl: {
-    chip: '📷 Stuur een foto voor een offerte',
-    button: 'Foto sturen',
-    note: 'Uw foto dient alleen om uw offerte voor te bereiden en wordt na 90 dagen verwijderd. Zet er liefst geen personen op.',
-    pick: 'Foto kiezen',
-    sent: '📷 Foto verzonden',
-    invalid: 'Ik kan dit bestand niet lezen. Stuur een foto in JPEG- of PNG-formaat.',
-    tooLarge: 'Deze foto is te groot (max. 8 MB).',
-    quota: "U hebt al 3 foto's gestuurd: dat volstaat voor de offerte.",
-  },
-  en: {
-    chip: '📷 Send a photo for a quote',
-    button: 'Send a photo',
-    note: 'Your photo is only used to prepare your quote and is deleted after 90 days. Please avoid showing people.',
-    pick: 'Choose a photo',
-    sent: '📷 Photo sent',
-    invalid: "I can't read this file. Please send a JPEG or PNG photo.",
-    tooLarge: 'This photo is too large (8 MB max).',
-    quota: "You've already sent 3 photos, that's enough to prepare the quote.",
-  },
-  de: {
-    chip: '📷 Foto für ein Angebot senden',
-    button: 'Foto senden',
-    note: 'Ihr Foto dient nur zur Vorbereitung Ihres Angebots und wird nach 90 Tagen gelöscht. Bitte keine Personen zeigen.',
-    pick: 'Foto auswählen',
-    sent: '📷 Foto gesendet',
-    invalid: 'Diese Datei kann ich nicht lesen. Bitte senden Sie ein JPEG- oder PNG-Foto.',
-    tooLarge: 'Dieses Foto ist zu groß (max. 8 MB).',
-    quota: 'Sie haben bereits 3 Fotos gesendet, das reicht für das Angebot.',
-  },
-  lu: {
-    chip: '📷 Eng Foto fir en Devis schécken',
-    button: 'Foto schécken',
-    note: 'Är Foto déngt nëmme fir Ären Devis virzebereeden a gëtt no 90 Deeg geläscht. Weist w.e.g. keng Persounen drop.',
-    pick: 'Foto auswielen',
-    sent: '📷 Foto geschéckt',
-    invalid: 'Ech kann dëse Fichier net liesen. Schéckt w.e.g. eng JPEG- oder PNG-Foto.',
-    tooLarge: 'Dës Foto ass ze grouss (max. 8 MB).',
-    quota: 'Dir hutt schonn 3 Fotoe geschéckt, dat geet duer fir den Devis.',
-  },
-}
 
 /**
  * The chat widget for a prospect's AI assistant, embedded on the demo page.
@@ -610,6 +346,9 @@ const props: AssistantChatProps = defineProps({
 })
 
 const runtimeConfig: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
+const publicEndpoint: ComputedRef<string> = computed(
+  (): string => `${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${props.config.slug}`,
+)
 
 const isOpen: Ref<boolean> = ref(false)
 const isBusy: Ref<boolean> = ref(false)
@@ -653,7 +392,7 @@ const viewportWidth: Ref<number | null> = ref(null)
 let launcherObserver: ResizeObserver | null = null
 
 const accentStyle: ComputedRef<Record<string, string>> = computed(() => ({
-  '--ai-accent': props.config.accent_color || FALLBACK_ACCENT,
+  '--ai-accent': props.config.accent_color || AssistantAccentUtils.FALLBACK_ACCENT,
 }))
 const offeredLanguages: ComputedRef<AssistantWidgetLang[]> = computed(() => {
   const codes: AssistantWidgetLang[] = props.config.languages.filter(
@@ -809,18 +548,15 @@ async function sendText(text: string): Promise<void> {
   await scrollToLatest()
   let offerBooking: boolean = false
   try {
-    const answer: AssistantChatReply = await $fetch<AssistantChatReply>(
-      `${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${props.config.slug}/chat`,
-      {
-        method: 'POST',
-        body: {
-          messages: messages.value.slice(-MAX_STORED_MESSAGES),
-          session_id: sessionId.value,
-          language: lang.value,
-          internal: DemoBeaconUtils.isInternalVisit(),
-        },
+    const answer: AssistantChatReply = await $fetch<AssistantChatReply>(`${publicEndpoint.value}/chat`, {
+      method: 'POST',
+      body: {
+        messages: messages.value.slice(-MAX_STORED_MESSAGES),
+        session_id: sessionId.value,
+        language: lang.value,
+        internal: DemoBeaconUtils.isInternalVisit(),
       },
-    )
+    })
     messages.value.push({ role: 'assistant', content: answer.reply })
     offerBooking = answer.offer_booking
   } catch {
@@ -874,7 +610,7 @@ async function loadSlots(after: string | null = null): Promise<void> {
   slotsState.value = 'loading'
   try {
     const offer: AssistantAppointmentSlots = await $fetch<AssistantAppointmentSlots>(
-      `${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${props.config.slug}/appointment-slots`,
+      `${publicEndpoint.value}/appointment-slots`,
       { query: after ? { after } : {} },
     )
     bookingMode.value = offer.mode
@@ -996,7 +732,7 @@ function dayLabel(date: string): string {
  * @returns Its label.
  */
 function slotLabel(slot: AssistantSlotChoice): string {
-  return `${dayLabel(slot.date)}, ${APPOINTMENT_UI[lang.value].periodsInline[slot.period]}`
+  return `${dayLabel(slot.date)}, ${APPOINTMENT_LABELS[lang.value].periodsInline[slot.period]}`
 }
 
 /**
@@ -1005,13 +741,13 @@ function slotLabel(slot: AssistantSlotChoice): string {
  * @returns A message in the widget language.
  */
 function photoErrorMessage(error: unknown): string {
-  const status: number | undefined = (error as { statusCode?: number } | null)?.statusCode
+  const status: number | undefined = ApiRefusalUtils.status(error)
   if (status === 409) {
     photosRemaining.value = 0
-    return PHOTO_UI[lang.value].quota
+    return PHOTO_LABELS[lang.value].quota
   }
-  if (status === 413) return PHOTO_UI[lang.value].tooLarge
-  if (status === 415) return PHOTO_UI[lang.value].invalid
+  if (status === 413) return PHOTO_LABELS[lang.value].tooLarge
+  if (status === 415) return PHOTO_LABELS[lang.value].invalid
   return FALLBACK_REPLY[lang.value]
 }
 
@@ -1029,7 +765,7 @@ async function onPhotoPicked(event: Event): Promise<void> {
   isPhotoPanelOpen.value = false
   if (!file || isBusy.value) return
   if (!PhotoCompressionUtils.isPhoto(file)) {
-    messages.value.push({ role: 'assistant', content: PHOTO_UI[lang.value].invalid })
+    messages.value.push({ role: 'assistant', content: PHOTO_LABELS[lang.value].invalid })
     await scrollToLatest()
     return
   }
@@ -1038,11 +774,11 @@ async function onPhotoPicked(event: Event): Promise<void> {
   const upload: Blob = await PhotoCompressionUtils.prepare(file)
   if (upload.size > PhotoCompressionUtils.MAX_BYTES) {
     isBusy.value = false
-    messages.value.push({ role: 'assistant', content: PHOTO_UI[lang.value].tooLarge })
+    messages.value.push({ role: 'assistant', content: PHOTO_LABELS[lang.value].tooLarge })
     await scrollToLatest()
     return
   }
-  messages.value.push({ role: 'user', content: PHOTO_UI[lang.value].sent })
+  messages.value.push({ role: 'user', content: PHOTO_LABELS[lang.value].sent })
   photoPreviews.value = { ...photoPreviews.value, [messages.value.length - 1]: URL.createObjectURL(upload) }
   captureDemoEvent('assistant_photo_sent')
   await scrollToLatest()
@@ -1052,10 +788,10 @@ async function onPhotoPicked(event: Event): Promise<void> {
     form.append('session_id', sessionId.value)
     form.append('language', lang.value)
     form.append('internal', String(DemoBeaconUtils.isInternalVisit()))
-    const answer: AssistantPhotoReply = await $fetch<AssistantPhotoReply>(
-      `${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${props.config.slug}/photo`,
-      { method: 'POST', body: form },
-    )
+    const answer: AssistantPhotoReply = await $fetch<AssistantPhotoReply>(`${publicEndpoint.value}/photo`, {
+      method: 'POST',
+      body: form,
+    })
     messages.value.push({ role: 'assistant', content: answer.reply })
     photosRemaining.value = answer.remaining
     if (answer.accepted && !leadSent.value) {
@@ -1081,22 +817,19 @@ async function submitLead(): Promise<void> {
   isSubmittingLead.value = true
   const booking: AssistantAppointmentTime | null = bookingMode.value === 'calendar' ? chosenTime.value : null
   try {
-    const reply: AssistantLeadReply = await $fetch<AssistantLeadReply>(
-      `${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${props.config.slug}/lead`,
-      {
-        method: 'POST',
-        body: {
-          name: leadName.value,
-          contact: leadContact.value,
-          need: leadNeed.value,
-          language: lang.value,
-          session_id: sessionId.value,
-          internal: DemoBeaconUtils.isInternalVisit(),
-          slots: booking ? [] : chosenSlots.value,
-          booking: booking ? { start: booking.start, type: chosenKind.value } : null,
-        },
+    const reply: AssistantLeadReply = await $fetch<AssistantLeadReply>(`${publicEndpoint.value}/lead`, {
+      method: 'POST',
+      body: {
+        name: leadName.value,
+        contact: leadContact.value,
+        need: leadNeed.value,
+        language: lang.value,
+        session_id: sessionId.value,
+        internal: DemoBeaconUtils.isInternalVisit(),
+        slots: booking ? [] : chosenSlots.value,
+        booking: booking ? { start: booking.start, type: chosenKind.value } : null,
       },
-    )
+    })
     leadSent.value = true
     captureDemoEvent('assistant_lead_submitted')
     showLeadForm.value = false
@@ -1104,12 +837,12 @@ async function submitLead(): Promise<void> {
     await scrollToLatest()
   } catch (error: unknown) {
     // A slot taken meanwhile answers 409; a withdrawn one 422 with a sentence (a refused field: a list).
-    const refusal: AssistantApiRefusal | null = error as AssistantApiRefusal | null
+    const status: number | undefined = ApiRefusalUtils.status(error)
     const hasPick: boolean = booking !== null || chosenSlots.value.length > 0
-    const isTaken: boolean = refusal?.statusCode === 409
-    const isWithdrawn: boolean = refusal?.statusCode === 422 && typeof refusal.data?.detail === 'string'
+    const isTaken: boolean = status === 409
+    const isWithdrawn: boolean = status === 422 && ApiRefusalUtils.detail(error) !== null
     if (hasPick && (isTaken || isWithdrawn)) {
-      const notice: string = isTaken ? APPOINTMENT_UI[lang.value].taken : APPOINTMENT_UI[lang.value].unavailable
+      const notice: string = isTaken ? APPOINTMENT_LABELS[lang.value].taken : APPOINTMENT_LABELS[lang.value].unavailable
       messages.value.push({ role: 'assistant', content: notice })
       forgetPicks()
       showLeadForm.value = false
@@ -1130,7 +863,7 @@ async function submitLead(): Promise<void> {
  * @returns The booked slot, the half-days (or the slot) the business will confirm, or the call-back promise.
  */
 function leadConfirmation(reply: AssistantLeadReply, booking: AssistantAppointmentTime | null): string {
-  const labels: AssistantAppointmentLabels = APPOINTMENT_UI[lang.value]
+  const labels: AssistantAppointmentLabels = APPOINTMENT_LABELS[lang.value]
   if (reply.booked_start) {
     const when: string = timeLabel(reply.booked_start)
     const booked: string = labels.booked.replace('{slots}', chosenKind.value ? `${when} (${chosenKind.value})` : when)
@@ -1140,7 +873,7 @@ function leadConfirmation(reply: AssistantLeadReply, booking: AssistantAppointme
   }
   if (booking) return labels.sent.replace('{slots}', timeLabel(booking.start))
   if (chosenSlots.value.length > 0) return labels.sent.replace('{slots}', chosenSlotsLine.value)
-  return LEAD_UI[lang.value].sent
+  return LEAD_LABELS[lang.value].sent
 }
 
 /**
@@ -1525,12 +1258,15 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   outline: 2px solid var(--ai-accent);
   outline-offset: 1px;
 }
-.ai-leadform__row {
+.ai-leadform__row,
+.ai-actions {
   display: flex;
   gap: 8px;
 }
 .ai-leadform__send,
-.ai-leadform__cancel {
+.ai-leadform__cancel,
+.ai-actions__primary,
+.ai-actions__secondary {
   flex: 1;
   border: 0;
   border-radius: 10px;
@@ -1539,15 +1275,18 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   font-weight: 600;
   cursor: pointer;
 }
-.ai-leadform__send {
+.ai-leadform__send,
+.ai-actions__primary {
   background: var(--ai-accent);
   color: var(--ai-accent-ink);
 }
-.ai-leadform__send:disabled {
+.ai-leadform__send:disabled,
+.ai-actions__primary:disabled {
   opacity: 0.45;
   cursor: default;
 }
-.ai-leadform__cancel {
+.ai-leadform__cancel,
+.ai-actions__secondary {
   background: transparent;
   color: var(--ai-ink-dim);
   border: 1px solid var(--ai-line);
@@ -1579,7 +1318,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   outline: 2px solid var(--ai-accent);
   outline-offset: 1px;
 }
-.ai-compose__photo {
+.ai-compose__tool {
   flex: none;
   width: 44px;
   height: 44px;
@@ -1591,15 +1330,15 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   display: grid;
   place-items: center;
 }
-.ai-compose__photo:hover {
+.ai-compose__tool:hover {
   border-color: var(--ai-accent);
   color: var(--ai-accent);
 }
-.ai-compose__photo:disabled {
+.ai-compose__tool:disabled {
   opacity: 0.45;
   cursor: default;
 }
-.ai-photo {
+.ai-sheet {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1609,7 +1348,8 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   border: 1px solid var(--ai-line-soft);
   border-radius: 14px;
 }
-.ai-photo__note {
+.ai-sheet__note,
+.ai-leadform__note {
   margin: 0;
   font-size: 0.8rem;
   line-height: 1.45;
@@ -1624,7 +1364,8 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   min-height: 0;
   max-height: 64%;
 }
-.ai-slots__days {
+.ai-slots__days,
+.ai-slots__list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1640,12 +1381,14 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   align-items: center;
   gap: 6px;
 }
-.ai-slots__date {
+.ai-slots__date,
+.ai-slots__label {
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--ai-ink);
 }
-.ai-slots__slot {
+.ai-slots__slot,
+.ai-slots__chip {
   border: 1px solid var(--ai-line);
   background: var(--ai-paper-2);
   color: var(--ai-ink);
@@ -1655,7 +1398,8 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   border-radius: 999px;
   cursor: pointer;
 }
-.ai-slots__slot[aria-pressed='true'] {
+.ai-slots__slot[aria-pressed='true'],
+.ai-slots__chip[aria-pressed='true'] {
   border-color: var(--ai-accent);
   background: var(--ai-accent);
   color: var(--ai-accent-ink);

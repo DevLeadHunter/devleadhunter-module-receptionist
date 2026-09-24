@@ -162,9 +162,3 @@ export type AssistantAppointmentLabels = {
   unavailable: string
   sent: string
 }
-
-/** An API error as `$fetch` throws it: the HTTP status, and FastAPI's `detail` (a sentence, or a list of field errors). */
-export type AssistantApiRefusal = {
-  statusCode?: number
-  data?: { detail?: unknown }
-}
