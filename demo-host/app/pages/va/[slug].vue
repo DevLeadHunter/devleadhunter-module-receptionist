@@ -134,9 +134,9 @@ import { computed, onMounted, ref } from 'vue'
 import type { AiAssistantConfig } from '~/types/AiAssistant'
 import { captureDemoEvent, useDemoTracking } from '~/composables/useDemoTracking'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
+import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { AssistantPersonaUtils } from '~/utils/AssistantPersonaUtils'
-
-const FALLBACK_ACCENT: string = '#a9793f'
+import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 
 const route: ReturnType<typeof useRoute> = useRoute()
 const config: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
@@ -159,14 +159,12 @@ const { data: assistant, pending }: Awaited<ReturnType<typeof useAsyncData<AiAss
     },
   )
 
-/** Short business name: the part before the descriptive « - » of the Maps listing. */
-const shortBusinessName: ComputedRef<string> = computed((): string => {
-  const name: string = assistant.value?.business_name ?? ''
-  return name.split(/\s+[-–—]\s+/)[0]?.trim() || name
-})
+const shortBusinessName: ComputedRef<string> = computed((): string =>
+  BusinessNameUtils.short(assistant.value?.business_name ?? ''),
+)
 
 const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<string, string> => ({
-  '--av-accent': assistant.value?.accent_color || FALLBACK_ACCENT,
+  '--av-accent': assistant.value?.accent_color || AssistantAccentUtils.FALLBACK_ACCENT,
 }))
 
 const playLabelDurationSuffix: ComputedRef<string> = computed((): string =>
@@ -246,7 +244,6 @@ useHead({
 <style scoped>
 /* DevLeadHunter editorial DA; --av-accent is injected from the prospect's brand colour. */
 .av {
-  --av-accent: #a9793f;
   --av-paper: #f7f3ec;
   --av-ink: #17130d;
   --av-ink-dim: #6d665b;

@@ -56,9 +56,8 @@
 import type { ComputedRef, PropType, Ref } from 'vue'
 import { computed, onMounted, ref } from 'vue'
 import type { AssistantContactBannerProps, AssistantContactBannerState } from '~/types/AssistantContactBanner'
+import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
-
-const FALLBACK_ACCENT: string = '#a9793f'
 
 /**
  * « Cet assistant vous plaît ? » banner overlaid on the assistant sales page (/ia/{slug}).
@@ -94,7 +93,7 @@ const hasError: Ref<boolean> = ref(false)
 const isClientReady: Ref<boolean> = ref(false)
 
 const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<string, string> => ({
-  '--ac-accent': props.accentColor || FALLBACK_ACCENT,
+  '--ac-accent': props.accentColor || AssistantAccentUtils.FALLBACK_ACCENT,
 }))
 
 const ownerPhotoUrl: ComputedRef<string> = computed((): string => (props.ownerPhotoUrl ?? '').trim())

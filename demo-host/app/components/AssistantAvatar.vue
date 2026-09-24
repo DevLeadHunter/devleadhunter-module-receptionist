@@ -6,7 +6,7 @@
     <g clip-path="url(#assistant-avatar-clip)">
       <rect width="48" height="48" fill="#f4ecdf" />
       <!-- shoulders / top, tinted with the brand accent -->
-      <path d="M4 48c0-9.5 8-14.5 20-14.5S44 38.5 44 48Z" fill="var(--ai-accent, #a9793f)" opacity="0.9" />
+      <path d="M4 48c0-9.5 8-14.5 20-14.5S44 38.5 44 48Z" :fill="ACCENT_FILL" opacity="0.9" />
       <path d="M20 32h8v6l-4 2-4-2Z" fill="#eab68d" />
       <!-- hair (back) -->
       <path d="M11 26c0-11.6 5.4-17 13-17s13 5.4 13 17v8c-2.4-3.4-5-2-5-2H16s-2.6-1.4-5 2Z" fill="#4a3a2e" />
@@ -40,7 +40,11 @@
   </svg>
 </template>
 
-<script lang="ts" setup></script>
+<script lang="ts" setup>
+import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
+
+const ACCENT_FILL: string = `var(--ai-accent, ${AssistantAccentUtils.FALLBACK_ACCENT})`
+</script>
 
 <style scoped>
 .assistant-avatar {
