@@ -27,10 +27,10 @@ from models.ai_assistant_request import AiAssistantRequest
 from models.ai_assistant_subscription import AiAssistantSubscription
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
 from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
 from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
 from services.ai_assistant.client_space_email import AiAssistantClientSpaceEmail
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.request_alerts import AiAssistantRequestAlerts
 from services.ai_assistant.request_email import RenderedEmail
 from services.ai_assistant.request_service import ai_assistant_request_service
 from services.assistant_subscription_service import assistant_subscription_service
@@ -339,27 +339,13 @@ class AiAssistantClientSpaceService:
         db: Session, assistant: AiAssistant, rendered: RenderedEmail
     ) -> tuple[str | None, str | None]:
         """Email the business from the operator's identity; returns (address, None) or (None, why not)."""
-        from services.email_sending_service import EmailSendingService
-
-        recipient = AiAssistantRequestAlerts.business_email(db, assistant)
+        recipient = AiAssistantBusinessMailer.business_email(db, assistant)
         if not recipient:
             return None, "Aucune adresse email du commerçant."
-        try:
-            result = await EmailSendingService(db).send_via_user_identity(
-                user_id=assistant.user_id,
-                recipient_email=recipient,
-                recipient_name=assistant.business_name,
-                subject=rendered.subject,
-                body_html=rendered.html,
-                is_transactional=True,
-            )
-        except Exception as exc:
-            logger.warning("Client-space email of assistant %s could not be sent", assistant.id, exc_info=True)
-            db.rollback()
-            return None, str(exc) or type(exc).__name__
-        if not result.get("success"):
-            return None, str(result.get("error") or "Échec de l'envoi.")
-        return recipient, None
+        failure = await AiAssistantBusinessMailer.send(
+            db, assistant, rendered, recipient=recipient, recipient_name=assistant.business_name
+        )
+        return (recipient, None) if failure is None else (None, failure)
 
 
 ai_assistant_client_space_service = AiAssistantClientSpaceService()

@@ -37,6 +37,7 @@ from models.prospect_db import ProspectDB
 from models.user import User
 from schemas.ai_assistant import AiAssistantChatMessage, AiAssistantChatRequest
 from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
 from services.ai_assistant.report_email import AiAssistantReportEmail, LanguageShare, MonthlyStats, ReportEmailContent
 from services.ai_assistant.report_service import AiAssistantReportService, ReportPeriod
 from services.assistant_subscription_service import AssistantSubscriptionService
@@ -502,15 +503,14 @@ def test_a_report_is_claimed_once(db: Session, outbox: dict[str, Any]) -> None:
 
 
 def test_the_business_address_falls_back_on_the_paying_client_of_a_running_subscription(db: Session) -> None:
-    from services.ai_assistant.request_alerts import AiAssistantRequestAlerts
 
     running = _assistant(db, business_name="Client Actif", email=None)
     cancelled = _assistant(db, business_name="Client Parti", email=None, subscription_status="canceled")
     db.query(AiAssistantSubscription).update({AiAssistantSubscription.client_email: " gerant@client.fr "})
     db.commit()
 
-    assert AiAssistantRequestAlerts.business_email(db, running) == "gerant@client.fr"
-    assert AiAssistantRequestAlerts.business_email(db, cancelled) is None
+    assert AiAssistantBusinessMailer.business_email(db, running) == "gerant@client.fr"
+    assert AiAssistantBusinessMailer.business_email(db, cancelled) is None
 
 
 def test_without_a_business_address_the_paying_client_then_the_operator_get_it(

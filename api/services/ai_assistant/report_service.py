@@ -40,13 +40,13 @@ from models.prospect_db import ProspectDB
 from models.user import User
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
 from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
 from services.ai_assistant.client_links import AiAssistantClientLinks
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.llm_router import assistant_llm_router
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.photo_service import PHOTO_JOURNAL_MARKER
 from services.ai_assistant.report_email import AiAssistantReportEmail, LanguageShare, MonthlyStats, ReportEmailContent
-from services.ai_assistant.request_alerts import AiAssistantRequestAlerts
 from services.french_date_formatter import FrenchDateFormatter
 from services.notification_service import notification_service
 
@@ -571,32 +571,20 @@ class AiAssistantReportService:
         Returns:
             None when the email left, else why it did not (it never raises).
         """
-        from services.email_sending_service import EmailSendingService
-
-        business = AiAssistantRequestAlerts.business_email(db, assistant)
+        business = AiAssistantBusinessMailer.business_email(db, assistant)
         operator = db.query(User.email).filter(User.id == assistant.user_id).scalar()
         recipient = business or operator
         if not recipient:
             return "Aucune adresse : ni celle du commerçant, ni celle de l'owner."
         bcc = [operator] if business and operator and operator.strip().lower() != business.lower() else None
-        rendered = AiAssistantReportEmail.render(content)
-        try:
-            result = await EmailSendingService(db).send_via_user_identity(
-                user_id=assistant.user_id,
-                recipient_email=recipient,
-                recipient_name=assistant.business_name if business else None,
-                subject=rendered.subject,
-                body_html=rendered.html,
-                bcc=bcc,
-                is_transactional=True,
-            )
-        except Exception as exc:
-            logger.warning("Monthly report of assistant %s could not be sent", assistant.id, exc_info=True)
-            db.rollback()
-            return str(exc) or type(exc).__name__
-        if not result.get("success"):
-            return str(result.get("error") or "Échec de l'envoi.")
-        return None
+        return await AiAssistantBusinessMailer.send(
+            db,
+            assistant,
+            AiAssistantReportEmail.render(content),
+            recipient=recipient,
+            recipient_name=assistant.business_name if business else None,
+            bcc=bcc,
+        )
 
     @staticmethod
     def _log_failure(assistant: AiAssistant, row: AiAssistantReport, reason: str, *, will_retry: bool) -> None:

@@ -23,13 +23,11 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 from core.database import SessionLocal
 from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
 from enums.ai_assistant_status import AiAssistantStatus
-from enums.assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_request import AiAssistantRequest
-from models.ai_assistant_subscription import AiAssistantSubscription
-from models.prospect_db import ProspectDB
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
+from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
 from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
 from services.ai_assistant.client_links import AiAssistantClientLinks
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
@@ -625,10 +623,9 @@ class AiAssistantRequestAlerts:
     ) -> None:
         """Send the request summary (or its reminder) to the business, from the operator's identity; never raises."""
         from services.ai_assistant.request_service import ai_assistant_request_service
-        from services.email_sending_service import EmailSendingService
 
         try:
-            recipient = self.business_email(db, assistant)
+            recipient = AiAssistantBusinessMailer.business_email(db, assistant)
             if not recipient:
                 logger.info("Assistant %s: no business email for request %s", assistant.id, request.id)
                 return
@@ -652,52 +649,15 @@ class AiAssistantRequestAlerts:
                     appointment_booked=ai_assistant_calendar_booking.booked_labels(db, [request.id]).get(request.id),
                 )
             )
-            result = await EmailSendingService(db).send_via_user_identity(
-                user_id=assistant.user_id,
-                recipient_email=recipient,
-                recipient_name=assistant.business_name,
-                subject=rendered.subject,
-                body_html=rendered.html,
-                is_transactional=True,
-            )
         except Exception:
-            logger.warning("Request %s email could not be sent", request.id, exc_info=True)
+            logger.warning("Request %s email could not be written", request.id, exc_info=True)
             db.rollback()
             return
-        if not result.get("success"):
-            logger.warning("Request %s email failed: %s", request.id, result.get("error"))
-
-    @staticmethod
-    def business_email(db: Session, assistant: AiAssistant) -> str | None:
-        """
-        The business's contact address: the assistant's own, else its prospect's, else the one the paying
-        client gave at the Stripe checkout of its running subscription.
-
-        Args:
-            db: Active database session.
-            assistant: The assistant.
-
-        Returns:
-            The address, or None when the business has none.
-        """
-        if assistant.email and assistant.email.strip():
-            return assistant.email.strip()
-        if assistant.prospect_id is not None:
-            email = db.query(ProspectDB.email).filter(ProspectDB.id == assistant.prospect_id).scalar()
-            if email and email.strip():
-                return email.strip()
-        client_email = (
-            db.query(AiAssistantSubscription.client_email)
-            .filter(
-                AiAssistantSubscription.ai_assistant_id == assistant.id,
-                AiAssistantSubscription.status.in_(LIVE_SUBSCRIPTION_STATUSES),
-                AiAssistantSubscription.client_email.is_not(None),
-            )
-            .order_by(AiAssistantSubscription.created_at.desc())
-            .limit(1)
-            .scalar()
+        failure = await AiAssistantBusinessMailer.send(
+            db, assistant, rendered, recipient=recipient, recipient_name=assistant.business_name
         )
-        return client_email.strip() if client_email and client_email.strip() else None
+        if failure is not None:
+            logger.warning("Request %s email failed: %s", request.id, failure)
 
     @staticmethod
     def claim(db: Session, request: AiAssistantRequest, column: InstrumentedAttribute[datetime | None]) -> bool:
