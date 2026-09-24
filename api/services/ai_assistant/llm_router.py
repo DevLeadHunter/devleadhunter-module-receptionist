@@ -36,8 +36,8 @@ _USAGE_LABELS: dict[AssistantLlmUsage, str] = {
 _OUTAGE_MESSAGES: dict[AssistantLlmOutage, str] = {
     AssistantLlmOutage.FALLBACK: "Mistral indisponible : {usage} basculé sur Groq",
     AssistantLlmOutage.NO_ANSWER: "Mistral et Groq indisponibles : {usage} sans réponse",
-    AssistantLlmOutage.EU_ONLY_NO_ANSWER: "Mistral indisponible : {usage} sans réponse pour les assistants « EU only »",
-    AssistantLlmOutage.EU_ONLY_NO_KEY: "Assistant « EU only » sans clé Mistral (MISTRAL_API_KEY) : {usage} sans réponse",
+    AssistantLlmOutage.EU_ONLY_NO_ANSWER: "Mistral indisponible : {usage} sans réponse pour les assistants « IA hébergée en Europe »",
+    AssistantLlmOutage.EU_ONLY_NO_KEY: "Assistant « IA hébergée en Europe » sans clé Mistral (MISTRAL_API_KEY) : {usage} sans réponse",
 }
 
 

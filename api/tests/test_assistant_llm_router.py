@@ -144,7 +144,7 @@ def test_an_eu_only_assistant_never_reaches_groq(providers: dict[str, Any], usag
     # Nothing else can answer an EU-only call: the whole budget and one quick retry.
     assert (providers["mistral"].calls[0]["timeout"], providers["mistral"].calls[0]["retries"]) == (40.0, 1)
     assert len(providers["alerts"].messages) == 1
-    assert "EU only" in providers["alerts"].messages[0]
+    assert "IA hébergée en Europe" in providers["alerts"].messages[0]
 
 
 def test_eu_only_and_fallback_outages_are_both_reported(providers: dict[str, Any]) -> None:
@@ -155,7 +155,7 @@ def test_eu_only_and_fallback_outages_are_both_reported(providers: dict[str, Any
     _chat(router)
 
     assert len(providers["alerts"].messages) == 2
-    assert "EU only" in providers["alerts"].messages[0]
+    assert "IA hébergée en Europe" in providers["alerts"].messages[0]
     assert "basculé sur Groq" in providers["alerts"].messages[1]
 
 
@@ -178,7 +178,7 @@ def test_without_a_mistral_key_the_calls_stay_on_groq_except_for_eu_only(
     assert providers["mistral"].calls == []
     assert len(providers["groq"].calls) == 1
     assert providers["alerts"].messages == [
-        "Assistant « EU only » sans clé Mistral (MISTRAL_API_KEY) : chat de l'assistant sans réponse"
+        "Assistant « IA hébergée en Europe » sans clé Mistral (MISTRAL_API_KEY) : chat de l'assistant sans réponse"
     ]
 
 
@@ -204,7 +204,7 @@ def test_eu_only_cannot_be_turned_on_without_a_mistral_key(monkeypatch: pytest.M
 
     monkeypatch.setattr(router_module.settings, "mistral_api_key", None)
 
-    with pytest.raises(ValueError, match="EU only"):
+    with pytest.raises(ValueError, match="IA hébergée en Europe"):
         ai_assistant_service.update(None, _Assistant(), {"eu_only": True})  # type: ignore[arg-type]
 
 

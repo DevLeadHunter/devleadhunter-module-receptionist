@@ -122,7 +122,7 @@ class AiAssistantService:
                 Mistral key (nothing is saved).
         """
         if fields.get("eu_only") and not mistral_service.is_configured:
-            raise ValueError("« EU only » impossible : la clé Mistral (MISTRAL_API_KEY) n'est pas configurée")
+            raise ValueError("« IA hébergée en Europe » impossible : la clé Mistral n'est pas configurée sur le serveur")
         if "alert_phone" in fields:
             raw_phone = (fields["alert_phone"] or "").strip()
             phone = to_e164_mobile(raw_phone, country=self.business_country(db, assistant)) if raw_phone else None
