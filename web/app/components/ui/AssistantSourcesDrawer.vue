@@ -224,12 +224,14 @@ const emit: EmitFn<UiAssistantSourcesDrawerEmits> = defineEmits<UiAssistantSourc
 
 const toast: UseToastReturn = useToast()
 const sources: Ref<AiAssistantSources | null> = ref(null)
-const isLoading: Ref<boolean> = ref(false)
+const loadingAssistantId: Ref<number | null> = ref(null)
 const isRefreshing: Ref<boolean> = ref(false)
 const isUploading: Ref<boolean> = ref(false)
 const isSaving: Ref<boolean> = ref(false)
 const confirmDeleteId: Ref<number | null> = ref(null)
 const fileInput: Ref<HTMLInputElement | null> = ref(null)
+
+const isLoading: ComputedRef<boolean> = computed((): boolean => loadingAssistantId.value !== null)
 
 const isBusy: ComputedRef<boolean> = computed(
   (): boolean => isLoading.value || isRefreshing.value || isUploading.value || isSaving.value,
@@ -289,18 +291,28 @@ function documentMeta(document: AiAssistantDocumentItem): string {
 }
 
 /**
+ * Whether a reply still belongs to the drawer on screen: not closed, not switched to another assistant meanwhile.
+ * @param assistantId - The assistant the request was made for.
+ * @returns True when the reply may update the drawer.
+ */
+function isShowing(assistantId: number): boolean {
+  return props.open && props.assistant?.id === assistantId
+}
+
+/**
  * Load the assistant's sources.
  * @param assistantId - The assistant.
  * @returns A promise resolved once loaded.
  */
 async function loadSources(assistantId: number): Promise<void> {
-  isLoading.value = true
+  loadingAssistantId.value = assistantId
   try {
-    sources.value = await AiAssistantService.getSources(assistantId)
+    const loaded: AiAssistantSources = await AiAssistantService.getSources(assistantId)
+    if (isShowing(assistantId)) sources.value = loaded
   } catch {
-    toast.error('Sources indisponibles pour le moment.')
+    if (isShowing(assistantId)) toast.error('Sources indisponibles pour le moment.')
   } finally {
-    isLoading.value = false
+    if (loadingAssistantId.value === assistantId) loadingAssistantId.value = null
   }
 }
 
@@ -312,9 +324,11 @@ async function loadSources(assistantId: number): Promise<void> {
  */
 async function toggleSource(key: keyof AiAssistantSourcesUpdate, enabled: boolean): Promise<void> {
   if (!props.assistant) return
+  const assistantId: number = props.assistant.id
   isSaving.value = true
   try {
-    sources.value = await AiAssistantService.updateSources(props.assistant.id, { [key]: enabled })
+    const updated: AiAssistantSources = await AiAssistantService.updateSources(assistantId, { [key]: enabled })
+    if (isShowing(assistantId)) sources.value = updated
   } catch {
     toast.error('Changement impossible, réessayez.')
   } finally {
@@ -328,10 +342,13 @@ async function toggleSource(key: keyof AiAssistantSourcesUpdate, enabled: boolea
  */
 async function refreshWebsite(): Promise<void> {
   if (!props.assistant) return
+  const assistantId: number = props.assistant.id
   isRefreshing.value = true
   try {
-    sources.value = await AiAssistantService.refreshWebsite(props.assistant.id)
-    if (sources.value.sync?.error) toast.error(syncLine.value)
+    const refreshed: AiAssistantSources = await AiAssistantService.refreshWebsite(assistantId)
+    if (!isShowing(assistantId)) return
+    sources.value = refreshed
+    if (refreshed.sync?.error) toast.error(syncLine.value)
     else toast.success(syncLine.value)
   } catch {
     toast.error('Lecture du site impossible pour le moment.')
@@ -350,10 +367,13 @@ async function uploadDocument(event: Event): Promise<void> {
   const file: File | undefined = input.files?.[0]
   input.value = ''
   if (!file || !props.assistant || !sources.value) return
+  const assistantId: number = props.assistant.id
   isUploading.value = true
   try {
-    const document: AiAssistantDocumentItem = await AiAssistantService.uploadDocument(props.assistant.id, file)
-    sources.value = { ...sources.value, documents: [...sources.value.documents, document] }
+    const document: AiAssistantDocumentItem = await AiAssistantService.uploadDocument(assistantId, file)
+    if (isShowing(assistantId) && sources.value) {
+      sources.value = { ...sources.value, documents: [...sources.value.documents, document] }
+    }
     toast.success(`« ${document.name} » est lu par l'assistant.`)
   } catch (error: unknown) {
     toast.error(error instanceof Error ? error.message : 'Envoi du document impossible.')
@@ -370,13 +390,15 @@ async function uploadDocument(event: Event): Promise<void> {
  */
 async function toggleDocument(document: AiAssistantDocumentItem, enabled: boolean): Promise<void> {
   if (!props.assistant || !sources.value) return
+  const assistantId: number = props.assistant.id
   isSaving.value = true
   try {
     const updated: AiAssistantDocumentItem = await AiAssistantService.setDocumentEnabled(
-      props.assistant.id,
+      assistantId,
       document.id,
       enabled,
     )
+    if (!isShowing(assistantId) || !sources.value) return
     sources.value = {
       ...sources.value,
       documents: sources.value.documents.map(
@@ -397,9 +419,11 @@ async function toggleDocument(document: AiAssistantDocumentItem, enabled: boolea
  */
 async function deleteDocument(document: AiAssistantDocumentItem): Promise<void> {
   if (!props.assistant || !sources.value) return
+  const assistantId: number = props.assistant.id
   isSaving.value = true
   try {
-    await AiAssistantService.deleteDocument(props.assistant.id, document.id)
+    await AiAssistantService.deleteDocument(assistantId, document.id)
+    if (!isShowing(assistantId) || !sources.value) return
     sources.value = {
       ...sources.value,
       documents: sources.value.documents.filter((item: AiAssistantDocumentItem): boolean => item.id !== document.id),
