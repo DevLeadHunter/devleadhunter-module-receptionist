@@ -487,6 +487,76 @@ Aucune fonctionnalité nouvelle : une passe par commit (ou par écran pour l'int
     - la déclaration ne joue qu'à la création d'une table. Les 6 tables nouvelles de la branche naîtront donc en utf8mb4. Les conversations et les messages, déjà en prod, ne sont pas convertis : la vérification de la question 24 reste valable pour elles.
     - Relu sans changement : les migrations sont idempotentes (checkfirst, colonnes nullables, recopie des leads en `NOT EXISTS`) et `MIGRATION_MODULES` est complet et dans l'ordre.
     - Relu sans changement : le fuseau de Paris est lu par zoneinfo avec un repli UTC, mais en double (`opening_hours`, `knowledge_builder`). Ce doublon est traité en passe 3.
+- **Relecture du diff** (`2ec40bb` → `95ae98e` : 6 `fix`, 18 `refactor`). Le skill `relecture` n'existe pas dans cet environnement : cinq relectures en parallèle ont lu le diff fichier par fichier contre les trois `STANDARDS_CODE_ET_ARCHITECTURE.md`.
+  - Bugs corrigés, chacun avec un test ou une vérification Chromium avant / après :
+    - volet Sources qui écrivait après sa fermeture (erreur « Cannot read properties of null », PDF ajouté à un autre assistant) ;
+    - réglages non enregistrés de l'espace client effacés au retour de l'onglet Google ;
+    - « urgency » en liste renvoyée par le modèle vision (erreur 500) ;
+    - historique de chat finissant par un tour de l'assistante, journalisé comme message du visiteur ;
+    - SMS de confirmation ou de rappel refusé dès que le nom du commerce contient un caractère hors GSM-7 (« N°1 ») ;
+    - lien client expiré depuis plus de 90 jours qui proposait un renouvellement impossible.
+  - Nettoyé :
+    - fuseau de Paris et dates courtes en un seul endroit (`OpeningHoursCalendar`, `FrenchDateFormatter`) ;
+    - signature HMAC commune aux trois liens signés, formats inchangés (un test les fige) ;
+    - `calendar_service.py` (1133 lignes) découpé en réglages, grille des créneaux, accès Google, réservation et connexion ;
+    - routes de `ai_assistants.py` (1143 lignes) découpées en propriétaire, demandes, abonnements et widget, plus `ai_assistant_common.py`. Mêmes 42 routes, dans le même ordre de correspondance ;
+    - envoi au commerçant par un seul `AiAssistantBusinessMailer` ;
+    - fixtures et doublures de test partagées (`tests/conftest.py`, `tests/assistant_fakes.py`) ;
+    - web : `UiChipToggleGroup`, `postMultipart`, formateur de date partagé ;
+    - demo-host : utilitaires de refus API, de nom court et d'accent, libellés du widget en constantes, composants communs de l'espace client.
+  - Vu et laissé :
+    - le `_utc_now()` par module est la convention du dépôt (`_utcnow` dans trois services de `main`) ;
+    - les bandeaux `# ── … ─` de `sms/templates.py` sont ceux du fichier sur `main` ;
+    - les points d'interface (états vides et d'erreur, boutons, badge, emoji) sont traités en passe 4 ;
+    - la suppression des bandeaux de `test_assistant_calendar.py` est partie avec `2db1158` ;
+    - le reste est listé juste en dessous.
+
+### Relecture : points laissés pour plus tard
+
+🟡 À faire dans une passe dédiée (plus gros, ou discutable) :
+- **Fichiers encore longs** :
+  - `appointment_notices.py` (674 lignes) : sortir les textes et l'ICS dans `appointment_texts.py` ;
+  - `request_alerts.py` : sortir `AlertSms` et `AlertSettings` ;
+  - `report_service.py` : sortir les chiffres dans `report_stats.py` ;
+  - `photo_service.py` : sortir la vision dans `photo_vision.py` ;
+  - `request_service.py` : sortir l'annonce dans `request_follow_up.py`, ce qui casse le cycle d'import avec `request_alerts` ;
+  - `knowledge_builder.py` : sortir les sources ;
+  - `calendar_booking.py` : 434 lignes, surtout des docstrings ;
+  - `test_assistant_calendar.py` : 1 250 lignes, à découper par thème.
+- **Doublons restants** :
+  - troisième client OAuth Google, avec Postmaster et Gmail : un `GoogleOAuthClient` commun ;
+  - construction des appels Mistral et Groq : un `LlmCompletion.from_response` ;
+  - `_claim`, `_send_sms` et le journal d'activité, copiés entre `appointment_notices`, `request_alerts`, `report_service` et `client_space_service` ;
+  - garde-fous de `send_service_message`, repris de `send_manual`.
+- **`client_ip`** prend la première adresse de `X-Forwarded-For`. Si nginx ajoute l'adresse réelle à la fin, un visiteur peut contourner les limites par IP. À vérifier dans la config nginx (hors dépôt) ; sinon, passer à `request.client.host`, uvicorn tournant avec `--proxy-headers`.
+- **Contrats** :
+  - le widget reconnaît un créneau retiré à n'importe quel 422 à détail texte : un code d'erreur dédié serait plus sûr ;
+  - les limites 255 / 2000 / 64 sont écrites à la fois dans les schémas et les services ;
+  - les noms d'enums mélangent `AiAssistant*` et `Assistant*` ;
+  - les types de stockage de la page admin n'ont pas d'enum.
+- **Web** :
+  - `ai-assistants.vue` fait encore environ 1 100 lignes : sortir la boîte des demandes en composant, la modale Personnaliser en drawer, les KPI en `UiMiniStat` ;
+  - l'onglet « À traiter » compte la liste, bornée à 300, et le KPI compte l'API ;
+  - les photos s'ouvrent dans un onglet au lieu de `UiImageLightbox` ;
+  - `aria-pressed` manque sur les puces ;
+  - l'en-tête de drawer est copié entre les volets.
+- **Demo-host** :
+  - `AssistantChat.vue` fait encore environ 1 470 lignes : sortir le panneau de créneaux et le panneau photo, et un `useAssistantBooking` ;
+  - la section Abonnement de l'espace client n'est pas encore un composant ;
+  - « Enregistré. » reste affiché après déconnexion puis reconnexion de l'agenda ;
+  - la section Connexions montre « Bientôt » et l'identifiant « primary » à un client payant ;
+  - « 8 Mo », « 3 photos » et « 90 jours » sont écrits dans les textes au lieu de venir des constantes.
+- **Rappel J-1** : sa fenêtre est 9 h – 19 h à la réservation et 9 h – 20 h à l'envoi. L'écart laisse une marge à la boucle, mais la règle vit dans deux classes.
+
+⚪ Détails notés :
+- quelques noms vagues restent (`result`, `data`, `item` dans `mistral_service`, `document_service`, `appointment_notices`) ;
+- des booléens n'ont pas de préfixe `is_` : `PhotoAnalysis.relevant`, `ExtractedDocument.truncated`, `shrank()` ;
+- des `isnot` sont à remplacer par `is_not` ;
+- `init_db()` ne liste que 3 des 6 nouveaux modèles, et `models.__all__` n'a ni conversation ni message ; sans effet, `models/__init__` les importe tous ;
+- la conversion latin1 → utf8mb4 de la migration des documents est devenue inutile ;
+- les docstrings de `cleanup_service` ne parlent que des démos ;
+- la carte des clés R2 (`r2_storage_service`) n'a pas la ligne des documents ;
+- côté `main`, hors branche : le lecteur de site ne filtre pas les adresses internes (une tâche est proposée).
 
 ## Questions pour Léo
 
