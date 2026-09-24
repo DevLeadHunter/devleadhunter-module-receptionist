@@ -14,7 +14,8 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from enums.ai_assistant_request import AiAssistantRequestType
-from services.llm_service import llm_service
+from enums.assistant_llm import AssistantLlmUsage
+from services.ai_assistant.llm_router import assistant_llm_router
 from services.text_normalizer import TextNormalizer
 
 logger = logging.getLogger(__name__)
@@ -72,7 +73,7 @@ class AiAssistantRequestAnalyzer:
     )
 
     async def analyze(
-        self, *, business_name: str, need: str | None, transcript: list[TranscriptLine]
+        self, *, business_name: str, need: str | None, transcript: list[TranscriptLine], eu_only: bool = False
     ) -> RequestAnalysis:
         """
         Type and summarize a request.
@@ -81,6 +82,7 @@ class AiAssistantRequestAnalyzer:
             business_name: The business the visitor wrote to.
             need: What the visitor typed in the contact form, if anything.
             transcript: The session's conversation, oldest first.
+            eu_only: The assistant only allows Mistral (no Groq fallback).
 
         Returns:
             The model's analysis, or the rule-based one when the model is off or off-contract.
@@ -89,11 +91,13 @@ class AiAssistantRequestAnalyzer:
         if not (need or "").strip() and not transcript:
             return fallback
         try:
-            answer = await llm_service.complete_json(
+            answer = await assistant_llm_router.complete_json(
+                AssistantLlmUsage.REQUEST,
                 [
                     {"role": "system", "content": self._SYSTEM_PROMPT},
                     {"role": "user", "content": self._user_prompt(business_name, need, transcript)},
                 ],
+                eu_only=eu_only,
                 max_tokens=400,
                 temperature=0.1,
                 timeout=self.ANALYSIS_TIMEOUT_SECONDS,

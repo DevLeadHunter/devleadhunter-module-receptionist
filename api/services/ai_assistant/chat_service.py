@@ -7,8 +7,9 @@ the model is unavailable, a safe fallback keeps the conversation alive instead o
 
 from typing import Any
 
+from enums.assistant_llm import AssistantLlmUsage
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
-from services.llm_service import llm_service
+from services.ai_assistant.llm_router import assistant_llm_router
 
 MAX_HISTORY_MESSAGES = 12
 MAX_MESSAGE_CHARS = 2000
@@ -31,6 +32,7 @@ class AiAssistantChatService:
         history: list[dict[str, Any]],
         languages: list[str] | None = None,
         tone: str | None = None,
+        eu_only: bool = False,
     ) -> str:
         """Answer the latest visitor message, grounded strictly on ``knowledge``.
 
@@ -40,6 +42,7 @@ class AiAssistantChatService:
             history: The conversation so far as ``{"role", "content"}`` turns, ending on the visitor.
             languages: Active language ISO codes; the assistant still replies in the visitor's language.
             tone: Optional persona tone.
+            eu_only: The assistant only allows Mistral (no Groq fallback).
 
         Returns:
             The assistant's reply, or a safe fallback when the model is unavailable.
@@ -47,9 +50,12 @@ class AiAssistantChatService:
         system_prompt = ai_assistant_knowledge_builder.render_system_prompt(
             knowledge, assistant_name=assistant_name, languages=languages, tone=tone
         )
-        messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
-        messages.extend(self._bounded_history(history))
-        reply = await llm_service.chat(messages)
+        turns = self._bounded_history(history)
+        # Only a conversation ending on the visitor's message is a question to answer (the models refuse others).
+        if not turns or turns[-1]["role"] != "user":
+            return _FALLBACK_REPLY
+        messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}, *turns]
+        reply = await assistant_llm_router.chat(AssistantLlmUsage.CHAT, messages, eu_only=eu_only)
         return (reply or "").strip() or _FALLBACK_REPLY
 
     @staticmethod

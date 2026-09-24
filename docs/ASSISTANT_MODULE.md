@@ -88,7 +88,7 @@ est exposé dans la config publique (`assistant_gender`) pour les textes du widg
 | `GET` | `/ai-assistants/leads` | Anciens contacts captés (lecture seule, historique) |
 | `GET` | `/ai-assistants/requests` | Lister les demandes (`?assistant_id=`, `?status=`) + `pending_count` |
 | `PATCH` | `/ai-assistants/requests/{id}` | Changer le statut (`new` / `handled` / `dropped`) ou la note d'une demande |
-| `PATCH` | `/ai-assistants/{id}` | Personnaliser (nom, persona, langues, accent, alertes au commerçant) |
+| `PATCH` | `/ai-assistants/{id}` | Personnaliser (nom, persona, langues, accent, alertes au commerçant, EU only) |
 | `POST` | `/ai-assistants/{id}/regenerate` | Régénérer la connaissance (garde marque + slug) |
 | `POST` | `/ai-assistants/{id}/video` | Générer la vidéo de prospection (fond serveur / VPS) |
 | `GET` | `/ai-assistants/{id}/video-context` | Contexte pour le build desktop (sidecar) |
@@ -206,6 +206,39 @@ leads y ont été recopiés une fois (`legacy_lead_id`, statut `handled`) et leu
 
 La liste des assistants porte `requests_7d`, `requests_30d` et `requests_outside_hours_pct` (part des
 demandes des 30 derniers jours reçues hors horaires, parmi celles dont les horaires sont connus).
+
+## Modèles IA : Mistral d'abord, Groq en secours (`services/ai_assistant/llm_router.py`)
+
+Les appels qui touchent aux visiteurs passent par `assistant_llm_router` : le **chat** du widget
+(`AssistantLlmUsage.CHAT`), les **photos de devis** (`VISION`) et l'**analyse des demandes** (`REQUEST`).
+Le reste du produit (génération de la fiche, emails, relances…) reste sur Groq (`llm_service`).
+
+- **Mistral** (`services/mistral_service.py`, La Plateforme, API compatible OpenAI) : `MISTRAL_API_KEY`,
+  `MISTRAL_CHAT_MODEL` et `MISTRAL_VISION_MODEL` (défaut `mistral-small-latest`, qui lit aussi les images).
+  Avec un secours possible, Mistral a la moitié du temps de l'appelant et un seul essai ; un appel « EU
+  only » a tout le temps et une relance rapide (429 / 5xx, `retry-after` plafonné à 3 s). Une requête que
+  Mistral refuse comme mal formée (400 / 422) n'est pas une panne : pas d'alerte, le secours répond.
+- **Secours Groq** : Mistral en panne → l'appel part chez Groq (modèle par défaut, ou le modèle vision
+  vérifié pour les photos ; aucun modèle vision → pas de réponse), avec un avertissement dans le log et une
+  notification aux admins envoyée en tâche de fond (une au plus par usage et par type de panne toutes les
+  30 min : bascule sur Groq, Groq aussi en panne, EU only sans réponse, EU only sans clé). Jamais l'inverse.
+  Sans `MISTRAL_API_KEY`, tout reste sur Groq, sans alerte.
+- **« EU only »** (`ai_assistants.eu_only`, NULL = non, interrupteur dans « Personnaliser », refusé en 422
+  tant que `MISTRAL_API_KEY` n'est pas configurée) : l'assistant ne part **jamais** chez Groq ; en panne,
+  l'appel rend « pas de réponse » et chaque appelant garde sa réponse sûre (chat : proposer de laisser ses
+  coordonnées ; photo : réponse neutre ; analyse : mots-clés).
+- **Chat** : seule une conversation qui se termine par un message du visiteur part au modèle ; sinon la
+  réponse sûre, sans appel.
+- **Journal** : chaque appel servi écrit une ligne `assistant_llm_call` (usage, fournisseur, modèle,
+  latence totale en ms — tentative Mistral ratée comprise —, tokens, coût estimé en €, secours oui/non, EU
+  only), en INFO : `main._configure_logging` garde ce logger au niveau INFO en production. Prix par million
+  de tokens réglables (`MISTRAL_EUR_PER_MTOK_IN/OUT`, `GROQ_EUR_PER_MTOK_IN/OUT`, prix du modèle de chat :
+  une photo lue par un autre modèle est une estimation).
+- **Bench** : `python scripts/bench_assistant_llm.py [slugs…]` pose 20 questions (FR / DE / NL / EN) à
+  3 assistants sur chaque fournisseur configuré : latence moyenne et p95, tokens, coût par réponse et
+  par conversation (4 réponses), réponses citant un prix ; les réponses vont dans un fichier Markdown.
+- **Argument « données en Europe »** : ne l'afficher (page `/ia`, emails) qu'une fois vérifiées les
+  conditions de Mistral (région d'hébergement, rétention, non-entraînement sur les données API, DPA).
 
 ## Devis par photo (`services/ai_assistant/photo_service.py`)
 
@@ -360,6 +393,8 @@ modules dans le même projet PostHog. **Aucun** event côté dashboard (non inst
 | Email de résumé + lien signé | `api/services/ai_assistant/request_email.py`, `api/services/ai_assistant/request_links.py` |
 | Reprise des annonces perdues + alertes différées (boucle) | `api/services/ai_assistant/request_runner.py` |
 | Devis par photo (réception, vision, rattachement, purge) | `api/services/ai_assistant/photo_service.py` |
+| Routage des modèles (Mistral, secours Groq, EU only, coûts) | `api/services/ai_assistant/llm_router.py`, `api/services/mistral_service.py` |
+| Bench des modèles | `api/scripts/bench_assistant_llm.py` |
 | Alertes au commerçant (email, SMS, rappel, signal 48 h) | `api/services/ai_assistant/request_alerts.py` |
 | Horaires d'ouverture (hors horaires) | `api/services/ai_assistant/opening_hours.py` |
 | Service génération / edit / régé | `api/services/ai_assistant/assistant_service.py` |

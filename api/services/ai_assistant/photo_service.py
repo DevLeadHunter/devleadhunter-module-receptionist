@@ -24,12 +24,13 @@ from sqlalchemy.orm import Session
 
 from enums.ai_assistant_photo import AiAssistantPhotoRejection, AiAssistantPhotoUrgency
 from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus
+from enums.assistant_llm import AssistantLlmUsage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_photo import AiAssistantPhoto
 from models.ai_assistant_request import AiAssistantRequest
 from models.prospect_db import ProspectDB
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
-from services.llm_service import llm_service
+from services.ai_assistant.llm_router import assistant_llm_router
 from services.r2_storage_service import r2_storage
 
 logger = logging.getLogger(__name__)
@@ -137,32 +138,28 @@ class AiAssistantPhotoVision:
     }
     # A figure with a currency, either way round (« 250 € », « EUR 250 », « 250,- Euro », « CHF 90 »):
     # nothing shown to the visitor may carry a price.
-    _PRICE_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
+    PRICE_PATTERN: ClassVar[re.Pattern[str]] = re.compile(
         r"(?:€|\bchf|\beur(?:os?)?)\s?\d|\d[\d\s.,]*-?\s?(?:€|\b(?:eur|euros?|chf)\b)", re.IGNORECASE
     )
     _YES: ClassVar[frozenset[bool | int | str]] = frozenset({True, "true", "yes", "oui", "1"})
     _NO: ClassVar[frozenset[bool | int | str]] = frozenset({False, "false", "no", "non", "0"})
 
-    async def describe(self, *, url: str, business_name: str, trade: str | None, language: str | None) -> PhotoAnalysis:
+    async def describe(
+        self, *, url: str, business_name: str, trade: str | None, language: str | None, eu_only: bool = False
+    ) -> PhotoAnalysis:
         """
-        Ask the vision model about a photo.
+        Ask the vision model about a photo (Mistral first, see ``llm_router``).
 
         Args:
             url: Public URL of the stored photo.
             business_name: The business the visitor asks.
             trade: Its trade (the prospect category), to judge what is on-topic.
             language: The widget language, for the reply.
+            eu_only: The assistant only allows Mistral (no Groq fallback).
 
         Returns:
-            The analysis; a neutral one (``relevant`` None) when the model is unavailable.
+            The analysis; a neutral one (``relevant`` None) when no model is available.
         """
-        try:
-            model = await llm_service.resolve_vision_model()
-        except Exception:
-            logger.warning("Vision model unavailable for a photo", exc_info=True)
-            model = None
-        if not model:
-            return self.fallback(language)
         context = (
             f"Entreprise : {business_name}" + (f" ({trade})" if trade else "") + ". "
             f"Réponds au visiteur en {self.LANGUAGE_NAMES[self._lang(language)]}."
@@ -175,8 +172,8 @@ class AiAssistantPhotoVision:
             },
         ]
         try:
-            answer = await llm_service.complete_json(
-                messages, max_tokens=700, temperature=0.2, model=model, timeout=60.0
+            answer = await assistant_llm_router.complete_json(
+                AssistantLlmUsage.VISION, messages, eu_only=eu_only, max_tokens=700, temperature=0.2, timeout=60.0
             )
         except Exception:
             logger.warning("Vision call failed for a photo", exc_info=True)
@@ -202,7 +199,7 @@ class AiAssistantPhotoVision:
         relevant = cls._verdict(answer.get("relevant"))
         if relevant is False:
             reply = cls._text(answer.get("reply"), _MAX_REPLY_CHARS)
-            safe = reply if reply and not cls._PRICE_PATTERN.search(reply) else cls.OFF_TOPIC_REPLIES[lang]
+            safe = reply if reply and not cls.PRICE_PATTERN.search(reply) else cls.OFF_TOPIC_REPLIES[lang]
             return PhotoAnalysis(False, None, None, None, (), safe)
         urgency_value = answer.get("urgency")
         urgency = (
@@ -214,9 +211,9 @@ class AiAssistantPhotoVision:
         questions = (
             cls._text(item, _MAX_FIELD_CHARS) for item in (raw_questions if isinstance(raw_questions, list) else [])
         )
-        missing = tuple(question for question in questions if question and not cls._PRICE_PATTERN.search(question))[:2]
+        missing = tuple(question for question in questions if question and not cls.PRICE_PATTERN.search(question))[:2]
         reply = cls._text(answer.get("reply"), _MAX_REPLY_CHARS)
-        if not reply or cls._PRICE_PATTERN.search(reply):
+        if not reply or cls.PRICE_PATTERN.search(reply):
             reply = cls.FALLBACK_REPLIES[lang]
         return PhotoAnalysis(
             relevant=relevant,
@@ -249,7 +246,7 @@ class AiAssistantPhotoVision:
     @classmethod
     def _without_price(cls, text: str | None) -> str | None:
         """A description, dropped when it slips in a price."""
-        return None if text and cls._PRICE_PATTERN.search(text) else text
+        return None if text and cls.PRICE_PATTERN.search(text) else text
 
     @classmethod
     def _verdict(cls, value: Any) -> bool | None:
@@ -316,6 +313,7 @@ class AiAssistantPhotoService:
         # Decoding is CPU work: off the event loop, so the API keeps serving meanwhile.
         jpeg = await asyncio.to_thread(self.normalize, data)
         business_name = assistant.business_name
+        eu_only = bool(assistant.eu_only)
         trade = self._trade(db, assistant)
         # The row comes first: a restart mid-way leaves a known key for the purge, the quota sees the
         # photo at once, and the commit hands the connection back during the slow storage and vision calls.
@@ -340,7 +338,9 @@ class AiAssistantPhotoService:
             raise PhotoRejectedError(
                 AiAssistantPhotoRejection.UNAVAILABLE, "Envoi de photo indisponible pour le moment."
             ) from exc
-        analysis = await self._vision.describe(url=url, business_name=business_name, trade=trade, language=language)
+        analysis = await self._vision.describe(
+            url=url, business_name=business_name, trade=trade, language=language, eu_only=eu_only
+        )
         photo.url = url
         photo.relevant = analysis.relevant
         photo.object_label = analysis.object_label

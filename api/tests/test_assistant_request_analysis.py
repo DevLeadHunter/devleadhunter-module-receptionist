@@ -23,11 +23,11 @@ _TRANSCRIPT = [
 
 
 def _analyze(monkeypatch: pytest.MonkeyPatch, answer: dict[str, Any] | None, need: str | None = None) -> Any:
-    async def fake_complete_json(messages: list[dict[str, Any]], **_: object) -> dict[str, Any] | None:
+    async def fake_complete_json(_usage: object, messages: list[dict[str, Any]], **_: object) -> dict[str, Any] | None:
         fake_complete_json.messages = messages  # type: ignore[attr-defined]
         return answer
 
-    monkeypatch.setattr(analyzer_module.llm_service, "complete_json", fake_complete_json)
+    monkeypatch.setattr(analyzer_module.assistant_llm_router, "complete_json", fake_complete_json)
     result = asyncio.run(
         AiAssistantRequestAnalyzer().analyze(business_name="Toitures Morel", need=need, transcript=_TRANSCRIPT)
     )
@@ -61,9 +61,9 @@ def test_no_model_answer_uses_the_visitor_words(monkeypatch: pytest.MonkeyPatch)
 
 def test_a_failing_model_never_loses_the_request(monkeypatch: pytest.MonkeyPatch) -> None:
     async def broken(*_: object, **__: object) -> None:
-        raise RuntimeError("groq down")
+        raise RuntimeError("model down")
 
-    monkeypatch.setattr(analyzer_module.llm_service, "complete_json", broken)
+    monkeypatch.setattr(analyzer_module.assistant_llm_router, "complete_json", broken)
 
     result = asyncio.run(AiAssistantRequestAnalyzer().analyze(business_name="X", need="Un rdv lundi ?", transcript=[]))
 

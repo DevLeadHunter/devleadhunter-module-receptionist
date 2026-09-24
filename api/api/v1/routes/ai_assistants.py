@@ -164,6 +164,7 @@ def _to_owner_response(
         requests_30d=requests.last_30_days if requests else 0,
         requests_outside_hours_pct=requests.outside_hours_pct if requests else None,
         alerts=_alert_settings(assistant),
+        eu_only=bool(assistant.eu_only),
         created_at=assistant.created_at,
     )
 
@@ -445,7 +446,7 @@ async def update_assistant(
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> AiAssistantResponse:
-    """Edit one of the caller's assistants (name, persona, languages, accent, owner alerts)."""
+    """Edit one of the caller's assistants (name, persona, languages, accent, owner alerts, EU only)."""
     assistant = (
         db.query(AiAssistant)
         .filter(AiAssistant.id == assistant_id, AiAssistant.user_id == user.id, AiAssistant.deleted_at.is_(None))
@@ -753,6 +754,7 @@ async def chat_with_assistant(
         languages=assistant.languages,
         tone=assistant.tone,
         history=history,
+        eu_only=bool(assistant.eu_only),
     )
     # The journal must never cost the visitor their answer.
     try:

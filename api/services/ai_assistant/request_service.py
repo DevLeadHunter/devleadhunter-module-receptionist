@@ -189,7 +189,10 @@ class AiAssistantRequestService:
         """
         transcript = self.transcript(db, request)
         analysis = await ai_assistant_request_analyzer.analyze(
-            business_name=assistant.business_name, need=request.need, transcript=transcript
+            business_name=assistant.business_name,
+            need=request.need,
+            transcript=transcript,
+            eu_only=bool(assistant.eu_only),
         )
         request_type = self._type_with_photos(analysis.type, request)
         request.type = request_type.value

@@ -30,6 +30,8 @@ class AiAssistantUpdateRequest(BaseModel):
     alert_sms_types: list[AiAssistantRequestType] | None = None
     alert_quiet_start_hour: int | None = Field(default=None, ge=0, le=23)
     alert_quiet_end_hour: int | None = Field(default=None, ge=0, le=23)
+    # The client requires its visitors' data to stay with Mistral: no Groq fallback.
+    eu_only: bool | None = None
 
 
 class AiAssistantAlertSettings(BaseModel):
@@ -79,6 +81,7 @@ class AiAssistantResponse(BaseModel):
     requests_30d: int = 0
     requests_outside_hours_pct: int | None = None
     alerts: AiAssistantAlertSettings
+    eu_only: bool = False
     created_at: datetime
 
 

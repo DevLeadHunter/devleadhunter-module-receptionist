@@ -24,6 +24,7 @@ import services.email_sending_service as email_sending_module
 from core.database import Base
 from enums.ai_assistant_photo import AiAssistantPhotoRejection, AiAssistantPhotoUrgency
 from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestType
+from enums.assistant_llm import AssistantLlmUsage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_photo import AiAssistantPhoto
@@ -79,14 +80,16 @@ class _Recorder:
 
 
 class _Model:
-    """The shared LLM client: answers the vision calls (a photo in the message), not the request analysis."""
+    """The assistant model router: answers the vision calls, not the request analysis."""
 
     def __init__(self, vision_result: dict[str, Any] | None) -> None:
         self.result = vision_result
         self.vision_calls: list[list[dict[str, Any]]] = []
 
-    async def __call__(self, messages: list[dict[str, Any]], **_: Any) -> dict[str, Any] | None:
-        if isinstance(messages[-1]["content"], list):
+    async def __call__(
+        self, usage: AssistantLlmUsage, messages: list[dict[str, Any]], **_: Any
+    ) -> dict[str, Any] | None:
+        if usage is AssistantLlmUsage.VISION:
             self.vision_calls.append(messages)
             return self.result
         return None
@@ -115,8 +118,7 @@ def cloud(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     vision = _Model(dict(_SCRATCH))
     monkeypatch.setattr(photo_module.r2_storage, "upload_bytes_async", storage.upload)
     monkeypatch.setattr(photo_module.r2_storage, "delete_async", storage.delete)
-    monkeypatch.setattr(photo_module.llm_service, "resolve_vision_model", _Recorder("vision-model"))
-    monkeypatch.setattr(photo_module.llm_service, "complete_json", vision)
+    monkeypatch.setattr(photo_module.assistant_llm_router, "complete_json", vision)
     monkeypatch.setattr(
         email_sending_module.EmailSendingService, "send_via_user_identity", _Recorder({"success": True})
     )
@@ -200,10 +202,8 @@ def test_the_vision_reply_never_carries_a_price() -> None:
     assert analysis.object_label == "aile avant gauche d'une voiture"
 
 
-def test_without_the_vision_model_the_photo_is_kept_with_a_neutral_reply(
-    db: Session, cloud: dict[str, Any], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(photo_module.llm_service, "resolve_vision_model", _Recorder(None))
+def test_without_the_vision_model_the_photo_is_kept_with_a_neutral_reply(db: Session, cloud: dict[str, Any]) -> None:
+    cloud["vision"].result = None
     assistant = _assistant(db)
 
     photo = _receive(db, assistant, language="de")

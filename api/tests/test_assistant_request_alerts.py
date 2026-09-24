@@ -97,7 +97,7 @@ def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     waiting = _Recorder()
     sms_event = _Recorder()
     provider = _Provider()
-    monkeypatch.setattr(analyzer_module.llm_service, "complete_json", model)
+    monkeypatch.setattr(analyzer_module.assistant_llm_router, "complete_json", model)
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
     monkeypatch.setattr(request_module.notification_service, "notify_assistant_lead", push)
     monkeypatch.setattr(alerts_module.notification_service, "notify_assistant_requests_waiting", waiting)

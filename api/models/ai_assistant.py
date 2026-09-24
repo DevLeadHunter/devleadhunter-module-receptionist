@@ -75,6 +75,8 @@ class AiAssistant(Base):
     alert_sms_types: Mapped[list | None] = mapped_column(JSON, nullable=True)
     alert_quiet_start_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
     alert_quiet_end_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # The client requires its visitors' data to stay with Mistral (EU): no Groq fallback. NULL = False.
+    eu_only: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(onupdate=datetime.utcnow, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)

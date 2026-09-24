@@ -24,6 +24,7 @@ from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.website_crawler import ai_assistant_website_crawler
 from services.enrichment_service import enrichment_service
+from services.mistral_service import mistral_service
 from services.sms.phone_normalizer import to_e164_mobile
 
 logger = logging.getLogger(__name__)
@@ -100,7 +101,7 @@ class AiAssistantService:
         }
 
     def update(self, db: Session, assistant: AiAssistant, fields: dict[str, Any]) -> AiAssistant:
-        """Apply owner edits (branding/persona/alerts) to an assistant, then persist.
+        """Apply owner edits (branding/persona/alerts/EU only) to an assistant, then persist.
 
         Only keys present in ``fields`` are touched, so a partial edit never wipes the rest.
         The accent lives in ``knowledge_json['palette']``, reassigned as a new dict so SQLAlchemy
@@ -116,8 +117,11 @@ class AiAssistantService:
             The refreshed assistant row.
 
         Raises:
-            ValueError: When the alert number cannot receive an SMS (nothing is saved).
+            ValueError: When the alert number cannot receive an SMS, or « EU only » is asked without a
+                Mistral key (nothing is saved).
         """
+        if fields.get("eu_only") and not mistral_service.is_configured:
+            raise ValueError("« EU only » impossible : la clé Mistral (MISTRAL_API_KEY) n'est pas configurée")
         if "alert_phone" in fields:
             raw_phone = (fields["alert_phone"] or "").strip()
             phone = to_e164_mobile(raw_phone, country=self._business_country(db, assistant)) if raw_phone else None
@@ -136,6 +140,8 @@ class AiAssistantService:
         for hour in ("alert_quiet_start_hour", "alert_quiet_end_hour"):
             if hour in fields and fields[hour] is not None:
                 setattr(assistant, hour, int(fields[hour]))
+        if "eu_only" in fields and fields["eu_only"] is not None:
+            assistant.eu_only = bool(fields["eu_only"])
         if "assistant_name" in fields:
             assistant.assistant_name = (fields["assistant_name"] or "").strip() or assistant.assistant_name
         if "business_name" in fields:

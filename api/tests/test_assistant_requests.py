@@ -215,7 +215,7 @@ def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, _Recorder]:
     model = _Recorder({"type": "quote", "summary": "Tuiles déplacées côté rue, devis demandé."})
     email = _Recorder({"success": True})
     push = _Recorder()
-    monkeypatch.setattr(analyzer_module.llm_service, "complete_json", model)
+    monkeypatch.setattr(analyzer_module.assistant_llm_router, "complete_json", model)
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
     monkeypatch.setattr(request_module.notification_service, "notify_assistant_lead", push)
     return {"model": model, "email": email, "push": push}

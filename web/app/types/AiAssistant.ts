@@ -29,6 +29,7 @@ export interface AiAssistantSummary {
   requests_30d: number
   requests_outside_hours_pct: number | null
   alerts: AiAssistantAlertSettings
+  eu_only: boolean
   created_at: string
 }
 
@@ -108,6 +109,7 @@ export type AiAssistantUpdatePayload = {
   alert_sms_types?: AiAssistantRequestType[]
   alert_quiet_start_hour?: number
   alert_quiet_end_hour?: number
+  eu_only?: boolean
 }
 
 /** The assistant customization form state (all fields present for v-model). */
@@ -123,6 +125,7 @@ export type AiAssistantEditForm = {
   alert_sms_types: AiAssistantRequestType[]
   alert_quiet_start_hour: number
   alert_quiet_end_hour: number
+  eu_only: boolean
 }
 
 /** What a visitor wants — drives the owner's triage. */
