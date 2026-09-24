@@ -13,6 +13,14 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
+from api.v1.routes.ai_assistant_common import (
+    client_ip,
+    confirmation_response,
+    demo_url,
+    owned_assistant_or_404,
+    public_assistant_or_404,
+    require_declared_length,
+)
 from core.config import settings
 from core.database import get_db
 from enums.ai_assistant_photo import AiAssistantPhotoRejection
@@ -72,7 +80,6 @@ from services.ai_assistant.photo_service import (
 )
 from services.ai_assistant.report_service import ai_assistant_report_service
 from services.ai_assistant.request_alerts import AlertSettings
-from services.ai_assistant.request_email import AiAssistantRequestEmail
 from services.ai_assistant.request_links import AiAssistantRequestLinks
 from services.ai_assistant.request_service import RequestCounts, ai_assistant_request_service
 from services.ai_assistant.request_volume import AiAssistantRequestVolume
@@ -109,25 +116,11 @@ router = APIRouter(prefix="/ai-assistants", tags=["ai-assistants"])
 _MAX_INCOMING_MESSAGES = 40
 # Shown to a visitor for a refusal whose reason is not written for them.
 _INVALID_REQUEST = "Demande invalide : vérifiez vos informations et réessayez."
-_TOO_MANY_LINK_OPENINGS = "Trop de tentatives"
-
-
-def _demo_url(slug: str) -> str:
-    base = settings.demo_host_base_url.rstrip("/")
-    return f"{base}/ia/{slug}"
 
 
 def _embed_snippet(slug: str) -> str:
     base = settings.demo_host_base_url.rstrip("/")
     return f'<script src="{base}/ai-assistant.js" data-slug="{slug}" defer></script>'
-
-
-def client_ip(request: Request) -> str:
-    """Best-effort visitor IP for rate limiting (honours the nginx ``X-Forwarded-For``)."""
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
 
 
 def _owner_public_fields(assistant: AiAssistant) -> dict[str, str | None]:
@@ -162,7 +155,7 @@ def _to_owner_response(
         accent_color=ai_assistant_service.accent_color(assistant),
         use_brand_color=assistant.use_brand_color,
         status=assistant.status,
-        demo_url=_demo_url(assistant.slug),
+        demo_url=demo_url(assistant.slug),
         embed_snippet=_embed_snippet(assistant.slug),
         demo_link_sent_at=assistant.demo_link_sent_at,
         expires_at=assistant.expires_at,
@@ -286,7 +279,7 @@ async def list_assistant_conversations(
     db: Session = Depends(get_db),
 ) -> AiAssistantConversationsResponse:
     """The latest conversations visitors had with one of the caller's assistants (read-only journal)."""
-    assistant = _owned_assistant_or_404(db, assistant_id, user.id)
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
     conversations = ai_assistant_conversation_service.recent_for_assistant(db, assistant.id)
     return AiAssistantConversationsResponse(
         assistant_id=assistant.id,
@@ -514,14 +507,6 @@ async def regenerate_assistant(
     return _to_full_owner_response(db, updated)
 
 
-def _owned_assistant_or_404(db: Session, assistant_id: int, user_id: int) -> AiAssistant:
-    """Fetch a caller-owned, non-deleted assistant, or raise 404."""
-    assistant = ai_assistant_service.get_for_owner(db, assistant_id, user_id)
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
-    return assistant
-
-
 @router.post("/{assistant_id}/client-link", response_model=AiAssistantClientLinkResponse)
 async def issue_assistant_client_link(
     assistant_id: int,
@@ -530,7 +515,7 @@ async def issue_assistant_client_link(
     db: Session = Depends(get_db),
 ) -> AiAssistantClientLinkResponse:
     """A fresh client-space link for one of the caller's sold assistants, emailed to the business on demand."""
-    assistant = _owned_assistant_or_404(db, assistant_id, user.id)
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
     if assistant.status != AiAssistantStatus.DELIVERED.value:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="L'espace client s'ouvre une fois l'assistant vendu."
@@ -548,7 +533,7 @@ async def generate_assistant_video(
     db: Session = Depends(get_db),
 ) -> AiAssistantResponse:
     """Start generating the assistant's prospection video (webcam speech + a recording of the widget)."""
-    assistant = _owned_assistant_or_404(db, assistant_id, user.id)
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
     try:
         assistant_video_service.request_generation(db, assistant, user.id)
     except ValueError as exc:
@@ -570,7 +555,7 @@ async def get_assistant_video_context(
     the shared VPS. The sidecar records the public widget answering, montages it with its bundled
     ffmpeg, and posts the finished clip back via ``POST /{id}/video-final``.
     """
-    assistant = _owned_assistant_or_404(db, assistant_id, user.id)
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
     if assistant.status != AiAssistantStatus.ACTIVE.value:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -589,7 +574,7 @@ async def get_assistant_video_context(
         first_name = resolved_first or None
     return {
         "slug": assistant.slug,
-        "demo_url": _demo_url(assistant.slug),
+        "demo_url": demo_url(assistant.slug),
         "first_name": first_name,
         "presenter_duration": presenter.duration_seconds,
         "presenter_intro": presenter.intro_seconds,
@@ -614,7 +599,7 @@ async def upload_assistant_video_final(
     The sidecar montages the whole clip locally and returns a zip (``video.mp4`` + ``thumbnail.jpg``);
     here we push both to R2 and flip the status — the VPS never touches ffmpeg for a desktop build.
     """
-    assistant = _owned_assistant_or_404(db, assistant_id, user.id)
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
 
     work_dir = Path(tempfile.mkdtemp(prefix=f"assistant-video-final-{assistant.slug}-"))
     try:
@@ -652,7 +637,7 @@ async def clear_assistant_video(
     db: Session = Depends(get_db),
 ) -> AiAssistantResponse:
     """Delete the assistant's generated video and reset its state."""
-    assistant = _owned_assistant_or_404(db, assistant_id, user.id)
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
     assistant_video_service.clear_video(db, assistant)
     return _to_full_owner_response(db, assistant)
 
@@ -670,7 +655,7 @@ async def get_assistant_subscription_link(
     It never expires: each click opens a fresh Stripe Checkout on the public ``subscribe`` endpoint,
     at the price configured at that moment (locked once the client pays).
     """
-    assistant = _owned_assistant_or_404(db, assistant_id, user.id)
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
     if assistant.status == AiAssistantStatus.DELIVERED.value:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cet assistant est déjà vendu.")
     if assistant.status not in (AiAssistantStatus.ACTIVE.value, AiAssistantStatus.EXPIRED.value):
@@ -705,7 +690,7 @@ async def subscribe_to_assistant(
     ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
     if assistant.status == AiAssistantStatus.DELIVERED.value:
-        return RedirectResponse(url=_demo_url(assistant.slug), status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=demo_url(assistant.slug), status_code=status.HTTP_303_SEE_OTHER)
     if interval not in ("month", "year"):
         interval = "month"
     try:
@@ -714,8 +699,8 @@ async def subscribe_to_assistant(
             user_id=assistant.user_id,
             assistant=assistant,
             interval=interval,
-            success_url=f"{_demo_url(assistant.slug)}?subscribed=1",
-            cancel_url=_demo_url(assistant.slug),
+            success_url=f"{demo_url(assistant.slug)}?subscribed=1",
+            cancel_url=demo_url(assistant.slug),
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -749,9 +734,7 @@ async def delete_assistant(
 @router.get("/public/{slug}", response_model=AiAssistantPublicResponse)
 async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAssistantPublicResponse:
     """Public config consumed by the embedded chat widget."""
-    assistant = ai_assistant_service.get_public_by_slug(db, slug)
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found or inactive")
+    assistant = public_assistant_or_404(db, slug)
     video_ready = has_ready_video(assistant)
     return AiAssistantPublicResponse(
         slug=assistant.slug,
@@ -810,9 +793,7 @@ async def chat_with_assistant(
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de messages, réessayez plus tard"
         )
-    assistant = ai_assistant_service.get_public_by_slug(db, slug)
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found or inactive")
+    assistant = public_assistant_or_404(db, slug)
     # Only a visitor's message is a question: the journal must never file an assistant turn as theirs.
     if not payload.messages or payload.messages[-1].role != "user":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No message to answer")
@@ -858,9 +839,7 @@ async def get_assistant_appointment_slots(
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de demandes, réessayez plus tard"
         )
-    assistant = ai_assistant_service.get_public_by_slug(db, slug)
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found or inactive")
+    assistant = public_assistant_or_404(db, slug)
     offer = await ai_assistant_calendar_service.offer(db, assistant, after=after)
     if offer.slots is not None and offer.settings is not None:
         return AiAssistantAppointmentSlotsResponse(
@@ -890,9 +869,7 @@ async def submit_assistant_lead(
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de demandes, réessayez plus tard"
         )
-    assistant = ai_assistant_service.get_public_by_slug(db, slug)
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found or inactive")
+    assistant = public_assistant_or_404(db, slug)
     if not payload.name.strip() or not payload.contact.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name and contact are required")
 
@@ -985,16 +962,13 @@ async def submit_assistant_photo(
     """
     if not assistant_photo_limiter.allow(f"{slug}:{client_ip(request)}"):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de photos, réessayez plus tard")
-    declared_length = request.headers.get("content-length", "")
-    if not declared_length.isdigit():
-        raise HTTPException(status_code=status.HTTP_411_LENGTH_REQUIRED, detail="Taille de la photo inconnue")
-    if int(declared_length) > _PHOTO_REQUEST_MAX_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Photo trop lourde (8 Mo maximum)."
-        )
-    assistant = ai_assistant_service.get_public_by_slug(db, slug)
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found or inactive")
+    require_declared_length(
+        request,
+        max_bytes=_PHOTO_REQUEST_MAX_BYTES,
+        unknown_detail="Taille de la photo inconnue",
+        too_large_detail="Photo trop lourde (8 Mo maximum).",
+    )
+    assistant = public_assistant_or_404(db, slug)
     if not r2_storage.is_configured():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Envoi de photo indisponible pour le moment"
@@ -1035,32 +1009,30 @@ async def submit_assistant_photo(
     )
 
 
-def _handled_link_page(
+def _resolve_handled_link(
     db: Session, request_id: int, exp: int, token: str | None
-) -> tuple[AiAssistantRequest | None, HTMLResponse | None]:
-    """Check a « marquer traitée » link; returns the request, or the error page to show instead."""
+) -> AiAssistantRequest | HTMLResponse:
+    """The request a « marquer traitée » link names, or the page to show instead (invalid link, unknown request)."""
     if not AiAssistantRequestLinks.verify(request_id, exp, token):
-        return None, HTMLResponse(
-            AiAssistantRequestEmail.confirmation_page(
-                "Lien expiré ou invalide",
-                "Ce lien ne permet plus de traiter la demande. Utilisez le dernier email reçu.",
-            ),
+        return confirmation_response(
+            "Lien expiré ou invalide",
+            "Ce lien ne permet plus de traiter la demande. Utilisez le dernier email reçu.",
             status_code=status.HTTP_400_BAD_REQUEST,
         )
     record = db.get(AiAssistantRequest, request_id)
     if record is None:
-        return None, HTMLResponse(
-            AiAssistantRequestEmail.confirmation_page("Demande introuvable", "Cette demande n'existe plus."),
-            status_code=status.HTTP_404_NOT_FOUND,
+        return confirmation_response(
+            "Demande introuvable", "Cette demande n'existe plus.", status_code=status.HTTP_404_NOT_FOUND
         )
-    return record, None
+    return record
 
 
-def _too_many_link_openings() -> HTMLResponse:
-    """The page of a « marquer traitée » link opened too often from one address."""
-    return HTMLResponse(
-        AiAssistantRequestEmail.confirmation_page(_TOO_MANY_LINK_OPENINGS, "Réessayez dans quelques minutes."),
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+def _too_many_link_openings(request: Request) -> HTMLResponse | None:
+    """The page of a « marquer traitée » link opened too often from one address, else None."""
+    if assistant_request_link_limiter.allow(f"handled:{client_ip(request)}"):
+        return None
+    return confirmation_response(
+        "Trop de tentatives", "Réessayez dans quelques minutes.", status_code=status.HTTP_429_TOO_MANY_REQUESTS
     )
 
 
@@ -1073,23 +1045,18 @@ async def confirm_request_handled_page(
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     """The « marquer traitée » link of the summary email: shows the request and a confirm button, changes nothing."""
-    if not assistant_request_link_limiter.allow(f"handled:{client_ip(request)}"):
-        return _too_many_link_openings()
-    record, error_page = _handled_link_page(db, request_id, exp, token)
-    if error_page is not None or record is None:
-        return error_page or HTMLResponse(status_code=status.HTTP_404_NOT_FOUND)
+    refusal = _too_many_link_openings(request)
+    if refusal is not None:
+        return refusal
+    record = _resolve_handled_link(db, request_id, exp, token)
+    if isinstance(record, HTMLResponse):
+        return record
     if record.status != AiAssistantRequestStatus.NEW.value:
-        return HTMLResponse(
-            AiAssistantRequestEmail.confirmation_page(
-                "Demande déjà traitée", f"La demande de {record.name} n'est plus à traiter."
-            )
-        )
-    return HTMLResponse(
-        AiAssistantRequestEmail.confirmation_page(
-            f"Demande de {record.name}",
-            "Vous avez répondu à cette demande ? Marquez-la comme traitée pour ne plus qu'on vous la rappelle.",
-            action_label="Marquer comme traitée",
-        )
+        return confirmation_response("Demande déjà traitée", f"La demande de {record.name} n'est plus à traiter.")
+    return confirmation_response(
+        f"Demande de {record.name}",
+        "Vous avez répondu à cette demande ? Marquez-la comme traitée pour ne plus qu'on vous la rappelle.",
+        action_label="Marquer comme traitée",
     )
 
 
@@ -1102,18 +1069,15 @@ async def mark_request_handled_from_email(
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     """Confirm the « marquer traitée » link: a signed, expiring action, no account needed."""
-    if not assistant_request_link_limiter.allow(f"handled:{client_ip(request)}"):
-        return _too_many_link_openings()
-    record, error_page = _handled_link_page(db, request_id, exp, token)
-    if error_page is not None or record is None:
-        return error_page or HTMLResponse(status_code=status.HTTP_404_NOT_FOUND)
+    refusal = _too_many_link_openings(request)
+    if refusal is not None:
+        return refusal
+    record = _resolve_handled_link(db, request_id, exp, token)
+    if isinstance(record, HTMLResponse):
+        return record
     changed = ai_assistant_request_service.mark_handled(db, record)
     title = "Demande marquée comme traitée" if changed else "Demande déjà traitée"
-    return HTMLResponse(
-        AiAssistantRequestEmail.confirmation_page(
-            title, f"La demande de {record.name} ne vous sera plus rappelée. Merci !"
-        )
-    )
+    return confirmation_response(title, f"La demande de {record.name} ne vous sera plus rappelée. Merci !")
 
 
 @router.post("/public/{slug}/interest", status_code=status.HTTP_204_NO_CONTENT)

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from api.v1.routes.ai_assistants import client_ip
+from api.v1.routes.ai_assistant_common import client_ip, confirmation_response
 from core.database import get_db
 from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
@@ -46,7 +46,6 @@ from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.report_email import AiAssistantReportEmail, MonthlyStats
 from services.ai_assistant.request_alerts import AlertSettings
-from services.ai_assistant.request_email import AiAssistantRequestEmail
 from services.ai_assistant.request_service import ai_assistant_request_service
 from services.assistant_pricing_service import AssistantPricingService
 from services.french_date_formatter import FrenchDateFormatter
@@ -69,7 +68,7 @@ def _business_label(moment: datetime, pattern: str) -> str:
     return OpeningHoursCalendar.to_business_time(naive_utc).strftime(pattern)
 
 
-def _open(
+def _open_client_space(
     db: Session, token: str, request: Request, *, allow_expired: bool = False
 ) -> tuple[AiAssistant, ClientLinkToken]:
     """The assistant a client-space link opens, or the HTTP error the page shows (rate-limited per visitor)."""
@@ -177,7 +176,7 @@ async def get_client_space(
     token: str, request: Request, db: Session = Depends(get_db)
 ) -> AiAssistantClientSpaceResponse:
     """Everything the client-space page shows, for a valid link."""
-    assistant, link = _open(db, token, request)
+    assistant, link = _open_client_space(db, token, request)
     report = ai_assistant_client_space_service.latest_report(db, assistant)
     subscription = ai_assistant_client_space_service.current_subscription(db, assistant)
     records = ai_assistant_client_space_service.recent_requests(db, assistant)
@@ -209,7 +208,7 @@ async def mark_client_request_handled(
     token: str, request_id: int, request: Request, db: Session = Depends(get_db)
 ) -> AiAssistantClientRequestItem:
     """Mark one of the assistant's requests handled from the client space."""
-    assistant, _link = _open(db, token, request)
+    assistant, _link = _open_client_space(db, token, request)
     record = ai_assistant_client_space_service.mark_handled(db, assistant, request_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demande introuvable")
@@ -221,7 +220,7 @@ async def update_client_settings(
     token: str, payload: AiAssistantClientSettingsUpdate, request: Request, db: Session = Depends(get_db)
 ) -> AiAssistantClientSettings:
     """Change the assistant's first name, languages or alerts from the client space."""
-    assistant, _link = _open(db, token, request)
+    assistant, _link = _open_client_space(db, token, request)
     try:
         updated = await ai_assistant_client_space_service.update_settings(
             db, assistant, payload.model_dump(exclude_unset=True, mode="json")
@@ -236,7 +235,7 @@ async def open_client_billing_portal(
     token: str, request: Request, db: Session = Depends(get_db)
 ) -> AiAssistantClientPortalResponse:
     """A Stripe billing portal session for the client's subscription, returning to the client space."""
-    assistant, _link = _open(db, token, request)
+    assistant, _link = _open_client_space(db, token, request)
     try:
         url = ai_assistant_client_space_service.billing_portal_url(
             db, assistant, return_url=AiAssistantClientLinks.page_url(token)
@@ -259,7 +258,7 @@ async def renew_client_link(
     token: str, request: Request, db: Session = Depends(get_db)
 ) -> AiAssistantClientRenewResponse:
     """Email a fresh link to the business from an expired (but authentic) one; its address is never shown."""
-    assistant, _link = _open(db, token, request, allow_expired=True)
+    assistant, _link = _open_client_space(db, token, request, allow_expired=True)
     key = f"renew:{assistant.id}"
     if not assistant_client_renew_limiter.allow(key) or not assistant_client_renew_daily_limiter.allow(key):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=_TOO_MANY)
@@ -272,7 +271,7 @@ async def connect_client_calendar(
     token: str, request: Request, db: Session = Depends(get_db)
 ) -> AiAssistantClientCalendarConnect:
     """The Google consent page that connects the client's agenda (the page opens it in a new tab)."""
-    assistant, _link = _open(db, token, request)
+    assistant, _link = _open_client_space(db, token, request)
     try:
         url = ai_assistant_calendar_service.authorization_url(assistant)
     except ValueError as exc:
@@ -285,7 +284,7 @@ async def update_client_calendar(
     token: str, payload: AiAssistantClientCalendarUpdate, request: Request, db: Session = Depends(get_db)
 ) -> AiAssistantClientCalendar:
     """Change the booking settings: agenda, duration, minimum notice, kinds of appointment."""
-    assistant, _link = _open(db, token, request)
+    assistant, _link = _open_client_space(db, token, request)
     calendar = ai_assistant_calendar_access.calendar_of(db, assistant)
     if calendar is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucun agenda connecté")
@@ -301,7 +300,7 @@ async def disconnect_client_calendar(
     token: str, request: Request, db: Session = Depends(get_db)
 ) -> AiAssistantClientCalendar:
     """Disconnect the agenda (its tokens are deleted); appointments go back to wished half-days."""
-    assistant, _link = _open(db, token, request)
+    assistant, _link = _open_client_space(db, token, request)
     ai_assistant_calendar_service.disconnect(db, assistant)
     return _to_calendar(db, assistant)
 
@@ -316,32 +315,29 @@ async def google_calendar_callback(
 ) -> HTMLResponse:
     """Where Google sends the client back: the agenda is stored, then a page to close (it carries no link)."""
     if not assistant_client_limiter.allow(f"client:{client_ip(request)}"):
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=_TOO_MANY)
+        return confirmation_response(
+            "Trop de tentatives", "Réessayez dans quelques minutes.", status_code=status.HTTP_429_TOO_MANY_REQUESTS
+        )
     if error or not code:
-        return _calendar_page(
+        return confirmation_response(
             "Connexion annulée", "L'agenda n'est pas connecté. Fermez cet onglet et recommencez depuis votre espace."
         )
     try:
         assistant, calendar = await ai_assistant_calendar_service.connect(db, code=code, state=state)
     except ValueError as exc:
-        return _calendar_page("Connexion impossible", f"{exc}. Fermez cet onglet et recommencez depuis votre espace.")
+        return confirmation_response(
+            "Connexion impossible", f"{exc}. Fermez cet onglet et recommencez depuis votre espace."
+        )
     except GoogleCalendarError:
         logger.warning("Google refused an agenda consent code", exc_info=True)
-        return _calendar_page(
+        return confirmation_response(
             "Connexion impossible",
             "Google n'a pas confirmé la connexion. Fermez cet onglet et recommencez depuis votre espace.",
         )
     await ai_assistant_client_space_service.announce_calendar_connected(db, assistant, calendar.account_email)
     account = f" ({calendar.account_email})" if calendar.account_email else ""
-    return _calendar_page(
+    return confirmation_response(
         "Google Agenda est connecté",
         f"{assistant.assistant_name} réservera désormais les rendez-vous de {assistant.business_name} dans cet "
         f"agenda{account}. Vous pouvez fermer cet onglet et revenir à votre espace.",
-    )
-
-
-def _calendar_page(title: str, message: str) -> HTMLResponse:
-    """The small page shown after the Google consent (no token, nothing to leak)."""
-    return HTMLResponse(
-        AiAssistantRequestEmail.confirmation_page(title, message), headers={"Referrer-Policy": "no-referrer"}
     )

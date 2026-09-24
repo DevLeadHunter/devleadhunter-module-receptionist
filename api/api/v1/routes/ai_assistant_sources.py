@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
+from api.v1.routes.ai_assistant_common import owned_assistant_or_404, require_declared_length
 from core.database import get_db
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_document import AiAssistantDocument
@@ -34,14 +35,6 @@ router = APIRouter(prefix="/ai-assistants", tags=["ai-assistant-sources"])
 
 # Room for the multipart envelope around the file itself.
 _DOCUMENT_REQUEST_MAX_BYTES = AiAssistantDocumentText.MAX_BYTES + 64 * 1024
-
-
-def _owned(db: Session, assistant_id: int, user: User) -> AiAssistant:
-    """The caller's assistant, or 404."""
-    assistant = ai_assistant_service.get_for_owner(db, assistant_id, user.id)
-    if assistant is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
-    return assistant
 
 
 def _listing_facts(knowledge: dict[str, Any]) -> list[str]:
@@ -161,7 +154,7 @@ async def get_assistant_sources(
     assistant_id: int, user: User = Depends(get_current_active_user), db: Session = Depends(get_db)
 ) -> AiAssistantSourcesResponse:
     """What the assistant reads: website pages, Google listing, documents, and the last website read."""
-    return _to_sources(db, _owned(db, assistant_id, user))
+    return _to_sources(db, owned_assistant_or_404(db, assistant_id, user.id))
 
 
 @router.patch("/{assistant_id}/sources", response_model=AiAssistantSourcesResponse)
@@ -172,7 +165,7 @@ async def update_assistant_sources(
     db: Session = Depends(get_db),
 ) -> AiAssistantSourcesResponse:
     """Switch the website or the Google listing on or off."""
-    assistant = _owned(db, assistant_id, user)
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
     ai_assistant_source_service.set_toggles(db, assistant, site=payload.site_enabled, listing=payload.listing_enabled)
     return _to_sources(db, assistant)
 
@@ -182,7 +175,7 @@ async def refresh_assistant_website(
     assistant_id: int, user: User = Depends(get_current_active_user), db: Session = Depends(get_db)
 ) -> AiAssistantSourcesResponse:
     """Read the business's website again now (« Mettre à jour ») and tell what changed."""
-    assistant = _owned(db, assistant_id, user)
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
     await ai_assistant_source_service.refresh_website(db, assistant, force=True)
     return _to_sources(db, assistant)
 
@@ -195,14 +188,13 @@ async def upload_assistant_document(
     db: Session = Depends(get_db),
 ) -> AiAssistantDocumentItem:
     """A PDF for the assistant to read (multipart ``file``); the declared size is checked before reading."""
-    declared_length = request.headers.get("content-length", "")
-    if not declared_length.isdigit():
-        raise HTTPException(status_code=status.HTTP_411_LENGTH_REQUIRED, detail="Taille du fichier inconnue")
-    if int(declared_length) > _DOCUMENT_REQUEST_MAX_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Fichier trop lourd (10 Mo au plus)"
-        )
-    assistant = _owned(db, assistant_id, user)
+    require_declared_length(
+        request,
+        max_bytes=_DOCUMENT_REQUEST_MAX_BYTES,
+        unknown_detail="Taille du fichier inconnue",
+        too_large_detail="Fichier trop lourd (10 Mo au plus)",
+    )
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
     form = await request.form(max_files=1, max_fields=1)
     try:
         upload = form.get("file")
@@ -231,7 +223,7 @@ async def update_assistant_document(
     db: Session = Depends(get_db),
 ) -> AiAssistantDocumentItem:
     """Switch a document on or off for the assistant."""
-    assistant = _owned(db, assistant_id, user)
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
     document = ai_assistant_document_service.set_enabled(db, assistant, document_id, enabled=payload.enabled)
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document introuvable")
@@ -246,7 +238,7 @@ async def delete_assistant_document(
     db: Session = Depends(get_db),
 ) -> Response:
     """Delete a document and its file."""
-    assistant = _owned(db, assistant_id, user)
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
     if not await ai_assistant_document_service.delete(db, assistant, document_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document introuvable")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
