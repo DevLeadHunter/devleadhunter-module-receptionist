@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 from starlette.requests import Request
 
-import api.v1.routes.ai_assistants as routes
+import api.v1.routes.ai_assistant_widget as routes
 import migrations.add_ai_assistant_request_appointment_slots as slots_migration
 import models
 import services.ai_assistant.request_alerts as alerts_module

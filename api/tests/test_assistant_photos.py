@@ -339,7 +339,7 @@ def test_the_public_route_answers_counts_the_quota_and_maps_refusals(
 ) -> None:
     from fastapi import HTTPException
 
-    from api.v1.routes.ai_assistants import submit_assistant_photo
+    from api.v1.routes.ai_assistant_widget import submit_assistant_photo
 
     monkeypatch.setattr(photo_module.r2_storage, "is_configured", lambda: True)
     assistant = _assistant(db)

@@ -626,7 +626,7 @@ def test_the_assistant_list_carries_the_churn_flag(db: Session) -> None:
 
 
 def test_an_internal_chat_is_journaled_as_a_test(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    from api.v1.routes import ai_assistants as routes
+    from api.v1.routes import ai_assistant_widget as routes
 
     assistant = _assistant(db, status="active", paid_at=None)
     monkeypatch.setattr(routes.ai_assistant_chat_service, "answer", _Recorder("Oui, le samedi matin."))
@@ -647,7 +647,7 @@ def test_a_chat_not_ending_on_the_visitor_is_refused_and_never_journaled(
 ) -> None:
     from fastapi import HTTPException
 
-    from api.v1.routes import ai_assistants as routes
+    from api.v1.routes import ai_assistant_widget as routes
 
     assistant = _assistant(db, status="active", paid_at=None)
     monkeypatch.setattr(routes.ai_assistant_chat_service, "answer", _Recorder("Oui, le samedi matin."))

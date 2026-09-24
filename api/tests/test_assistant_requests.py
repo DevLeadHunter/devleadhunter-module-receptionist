@@ -328,7 +328,7 @@ def test_owner_updates_are_scoped_and_keep_handled_at_in_step(db: Session) -> No
 
 
 def test_the_handled_link_only_confirms_on_open_and_acts_on_a_signed_post(db: Session) -> None:
-    from api.v1.routes.ai_assistants import confirm_request_handled_page, mark_request_handled_from_email
+    from api.v1.routes.ai_assistant_requests import confirm_request_handled_page, mark_request_handled_from_email
 
     assistant = _assistant(db)
     request, _ = _capture(db, assistant)
@@ -358,7 +358,7 @@ def test_the_handled_link_only_confirms_on_open_and_acts_on_a_signed_post(db: Se
 
 
 def test_a_handled_link_opened_too_often_from_one_address_waits(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    import api.v1.routes.ai_assistants as routes
+    import api.v1.routes.ai_assistant_requests as routes
     from services.rate_limiter import SlidingWindowRateLimiter
 
     assistant = _assistant(db)

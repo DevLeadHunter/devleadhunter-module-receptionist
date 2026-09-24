@@ -1,0 +1,392 @@
+"""Public routes of an assistant's widget, by slug: its config, the chat, the appointment offer, the visitor's request,
+the photo for a quote, and the owner's « me contacter » on the demo page.
+"""
+
+import logging
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy.orm import Session
+from starlette.datastructures import UploadFile as StarletteUploadFile
+
+from api.v1.routes.ai_assistant_common import (
+    client_ip,
+    public_assistant_or_404,
+    require_declared_length,
+)
+from core.config import settings
+from core.database import get_db
+from enums.ai_assistant_photo import AiAssistantPhotoRejection
+from enums.ai_assistant_status import AiAssistantStatus
+from enums.assistant_visitor_channel import AssistantVisitorChannel
+from models.ai_assistant import AiAssistant
+from schemas.ai_assistant import (
+    AiAssistantAppointmentDay,
+    AiAssistantAppointmentSlotsResponse,
+    AiAssistantAppointmentTime,
+    AiAssistantChatRequest,
+    AiAssistantChatResponse,
+    AiAssistantClosedHours,
+    AiAssistantInterestRequest,
+    AiAssistantLeadRequest,
+    AiAssistantLeadResponse,
+    AiAssistantPhotoResponse,
+    AiAssistantPublicResponse,
+)
+from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
+from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentRefused, AppointmentSlot
+from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.calendar_booking import SlotTakenError, ai_assistant_calendar_booking
+from services.ai_assistant.calendar_service import ai_assistant_calendar_service
+from services.ai_assistant.chat_service import ai_assistant_chat_service
+from services.ai_assistant.config_builder import ai_assistant_config_builder
+from services.ai_assistant.conversation_service import ai_assistant_conversation_service
+from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from services.ai_assistant.photo_service import (
+    MAX_PHOTO_BYTES,
+    MAX_PHOTOS_PER_SESSION,
+    PhotoRejectedError,
+    ai_assistant_photo_service,
+)
+from services.ai_assistant.request_service import ai_assistant_request_service
+from services.ai_assistant.request_volume import AiAssistantRequestVolume
+from services.assistant_pricing_service import AssistantPricingService
+from services.assistant_video_service import (
+    has_ready_video,
+    public_thumbnail_url,
+    public_video_file_url,
+)
+from services.notification_service import notification_service
+from services.r2_storage_service import r2_storage
+from services.rate_limiter import (
+    assistant_chat_limiter,
+    assistant_lead_limiter,
+    assistant_photo_limiter,
+)
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/ai-assistants", tags=["ai-assistant-widget"])
+
+
+# Cap the history a public caller may submit, before the chat service bounds it further.
+_MAX_INCOMING_MESSAGES = 40
+
+
+# Shown to a visitor for a refusal whose reason is not written for them.
+_INVALID_REQUEST = "Demande invalide : vérifiez vos informations et réessayez."
+
+
+def _owner_public_fields(assistant: AiAssistant) -> dict[str, str | None]:
+    """Owner contact shown in the « me contacter » banner (photo guarded on the R2 base)."""
+    user = assistant.user
+    if user is None:
+        return {}
+    fields: dict[str, str | None] = {
+        "owner_name": user.name,
+        "owner_contact_phone": user.contact_phone,
+        "owner_contact_email": user.contact_email,
+    }
+    if user.profile_photo_path and (settings.r2_public_base_url or "").strip():
+        fields["owner_profile_photo_url"] = r2_storage.public_url(user.profile_photo_path)
+    return fields
+
+
+@router.get("/public/{slug}", response_model=AiAssistantPublicResponse)
+async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAssistantPublicResponse:
+    """Public config consumed by the embedded chat widget."""
+    assistant = public_assistant_or_404(db, slug)
+    video_ready = has_ready_video(assistant)
+    return AiAssistantPublicResponse(
+        slug=assistant.slug,
+        business_name=assistant.business_name,
+        assistant_name=assistant.assistant_name,
+        assistant_gender=ai_assistant_config_builder.resolve_persona_gender(assistant.assistant_name).value,
+        languages=assistant.languages or [],
+        accent_color=ai_assistant_service.accent_color(assistant),
+        status=assistant.status,
+        **_owner_public_fields(assistant),
+        video_available=video_ready,
+        video_url=public_video_file_url(assistant.slug) if video_ready else None,
+        video_thumbnail_url=public_thumbnail_url(assistant.slug, assistant.video_generated_at) if video_ready else None,
+        monthly_price_label=(
+            AssistantPricingService.format_price(AssistantPricingService.monthly_price_cents(db, assistant.user_id))
+            if assistant.status == AiAssistantStatus.ACTIVE.value
+            else None
+        ),
+        closed_hours=_closed_hours(db, assistant) if assistant.status == AiAssistantStatus.ACTIVE.value else None,
+    )
+
+
+def _closed_hours(db: Session, assistant: AiAssistant) -> AiAssistantClosedHours | None:
+    """The demo page's estimate of the requests that come in while the business is closed (see the service)."""
+    now = OpeningHoursCalendar.business_now()
+    offer = AiAssistantRequestVolume.closed_hours_offer(
+        AiAssistantAppointmentSlots.opening_hours_of(assistant),
+        ai_assistant_service.business_category(db, assistant),
+        year=now.year,
+        month=now.month,
+    )
+    if offer is None:
+        return None
+    return AiAssistantClosedHours(
+        open_hours_per_week=offer.closed_hours.open_hours_per_week,
+        closed_share_pct=offer.closed_hours.closed_share_pct,
+        closed_hours_in_month=offer.closed_hours.closed_hours_in_month,
+        month=offer.month,
+        trade_label=offer.trade.label,
+        monthly_requests=offer.trade.monthly_requests,
+        estimated_requests=offer.estimated_requests,
+    )
+
+
+@router.post("/public/{slug}/chat", response_model=AiAssistantChatResponse)
+async def chat_with_assistant(
+    slug: str,
+    payload: AiAssistantChatRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> AiAssistantChatResponse:
+    """Answer a visitor's message as the prospect's grounded assistant."""
+    if not assistant_chat_limiter.allow(f"{slug}:{client_ip(request)}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de messages, réessayez plus tard"
+        )
+    assistant = public_assistant_or_404(db, slug)
+    # Only a visitor's message is a question: the journal must never file an assistant turn as theirs.
+    if not payload.messages or payload.messages[-1].role != "user":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No message to answer")
+
+    history = [
+        {"role": message.role, "content": message.content} for message in payload.messages[-_MAX_INCOMING_MESSAGES:]
+    ]
+    reply = await ai_assistant_chat_service.answer(
+        knowledge=assistant.knowledge_json or {},
+        assistant_name=assistant.assistant_name,
+        languages=assistant.languages,
+        tone=assistant.tone,
+        history=history,
+        eu_only=bool(assistant.eu_only),
+    )
+    # The journal must never cost the visitor their answer.
+    try:
+        ai_assistant_conversation_service.record_turn(
+            db,
+            assistant=assistant,
+            session_id=payload.session_id,
+            language=payload.language,
+            visitor_message=history[-1]["content"],
+            reply=reply,
+            is_test=payload.internal,
+        )
+    except Exception:
+        logger.warning("Assistant conversation journal failed for slug %s", slug, exc_info=True)
+    return AiAssistantChatResponse(
+        reply=reply, offer_booking=ai_assistant_chat_service.asks_for_appointment(history[-1]["content"])
+    )
+
+
+@router.get("/public/{slug}/appointment-slots", response_model=AiAssistantAppointmentSlotsResponse)
+async def get_assistant_appointment_slots(
+    slug: str,
+    request: Request,
+    after: datetime | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> AiAssistantAppointmentSlotsResponse:
+    """What the appointment panel offers: the agenda's next free slots (3 at a time), else open half-days."""
+    if not assistant_chat_limiter.allow(f"slots:{slug}:{client_ip(request)}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de demandes, réessayez plus tard"
+        )
+    assistant = public_assistant_or_404(db, slug)
+    offer = await ai_assistant_calendar_service.offer(db, assistant, after=after)
+    if offer.slots is not None and offer.settings is not None:
+        return AiAssistantAppointmentSlotsResponse(
+            mode=offer.mode,
+            max_chosen=1,
+            times=[AiAssistantAppointmentTime(start=slot.start, end=slot.end) for slot in offer.slots.slots],
+            has_more=offer.slots.has_more,
+            types=list(offer.settings.appointment_types),
+            duration_minutes=offer.settings.duration_minutes,
+        )
+    return AiAssistantAppointmentSlotsResponse(
+        mode=offer.mode,
+        days=[AiAssistantAppointmentDay(date=item.day, periods=list(item.periods)) for item in offer.days],
+        max_chosen=AiAssistantAppointmentSlots.MAX_CHOSEN,
+    )
+
+
+@router.post("/public/{slug}/lead", response_model=AiAssistantLeadResponse, status_code=status.HTTP_201_CREATED)
+async def submit_assistant_lead(
+    slug: str,
+    payload: AiAssistantLeadRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> AiAssistantLeadResponse:
+    """Record the request a visitor left through the assistant; typing and announcing run in the background."""
+    if not assistant_lead_limiter.allow(f"{slug}:{client_ip(request)}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de demandes, réessayez plus tard"
+        )
+    assistant = public_assistant_or_404(db, slug)
+    if not payload.name.strip() or not payload.contact.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name and contact are required")
+
+    try:
+        captured, _created = ai_assistant_request_service.capture(
+            db,
+            assistant=assistant,
+            name=payload.name,
+            contact=payload.contact,
+            need=payload.need,
+            language=payload.language,
+            session_id=payload.session_id,
+            is_test=payload.internal,
+            appointment_slots=[AppointmentSlot(day=slot.date, period=slot.period) for slot in payload.slots],
+        )
+    except AppointmentRefused as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    except ValueError as exc:
+        db.rollback()
+        logger.warning("Assistant request of slug %s refused", slug, exc_info=True)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_INVALID_REQUEST) from exc
+    except Exception:
+        # Losing the durable row must not swallow the strongest signal — still notify the owner.
+        db.rollback()
+        logger.warning("assistant request persist failed (slug=%s)", slug, exc_info=True)
+        if not payload.internal:
+            await notification_service.notify_assistant_lead(
+                db,
+                user_id=assistant.user_id,
+                prospect_id=assistant.prospect_id,
+                fallback_name=assistant.business_name,
+                lead_name=payload.name.strip(),
+                need=payload.need or "",
+            )
+        return AiAssistantLeadResponse(ok=True)
+
+    booked_start: datetime | None = None
+    channel: AssistantVisitorChannel | None = None
+    if payload.booking is not None:
+        try:
+            outcome = await ai_assistant_calendar_booking.book_request(
+                db, assistant, captured, start=payload.booking.start, type_label=payload.booking.type
+            )
+        except SlotTakenError as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        except AppointmentRefused as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        except ValueError as exc:
+            logger.warning("Booking of slug %s refused", slug, exc_info=True)
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_INVALID_REQUEST) from exc
+        if outcome.appointment is not None:
+            ai_assistant_appointment_notices.schedule_confirmation(outcome.appointment.id)
+            booked_start = OpeningHoursCalendar.to_business_time(outcome.appointment.starts_at)
+            if outcome.appointment.visitor_phone_e164:
+                channel = AssistantVisitorChannel.SMS
+            elif outcome.appointment.visitor_email:
+                channel = AssistantVisitorChannel.EMAIL
+
+    ai_assistant_request_service.schedule_follow_up(captured.id)
+    return AiAssistantLeadResponse(ok=True, booked_start=booked_start, confirmation_channel=channel)
+
+
+# Room for the multipart envelope and the three text fields around the photo itself.
+_PHOTO_REQUEST_MAX_BYTES = MAX_PHOTO_BYTES + 64 * 1024
+
+
+def _photo_rejection_status(reason: AiAssistantPhotoRejection) -> int:
+    """HTTP status of a refused photo."""
+    if reason is AiAssistantPhotoRejection.TOO_LARGE:
+        return status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    if reason is AiAssistantPhotoRejection.UNREADABLE:
+        return status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+    if reason is AiAssistantPhotoRejection.QUOTA:
+        return status.HTTP_409_CONFLICT
+    return status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+@router.post("/public/{slug}/photo", response_model=AiAssistantPhotoResponse, status_code=status.HTTP_201_CREATED)
+async def submit_assistant_photo(
+    slug: str,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> AiAssistantPhotoResponse:
+    """A photo for a quote (multipart ``file``, ``session_id``, ``language``, ``internal``): stored,
+    described by the vision model (never a price), kept for the visitor's request.
+
+    The form is parsed by hand, after the rate limit and the declared size are checked: a public
+    upload must never write an unbounded body to disk first.
+    """
+    if not assistant_photo_limiter.allow(f"{slug}:{client_ip(request)}"):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de photos, réessayez plus tard")
+    require_declared_length(
+        request,
+        max_bytes=_PHOTO_REQUEST_MAX_BYTES,
+        unknown_detail="Taille de la photo inconnue",
+        too_large_detail="Photo trop lourde (8 Mo maximum).",
+    )
+    assistant = public_assistant_or_404(db, slug)
+    if not r2_storage.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Envoi de photo indisponible pour le moment"
+        )
+    form = await request.form(max_files=1, max_fields=3)
+    try:
+        upload = form.get("file")
+        raw_session = form.get("session_id")
+        raw_language = form.get("language")
+        raw_internal = form.get("internal")
+        session_id = raw_session.strip()[:64] if isinstance(raw_session, str) else ""
+        if not isinstance(upload, StarletteUploadFile) or not session_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Photo ou session manquante")
+        data = await upload.read(MAX_PHOTO_BYTES + 1)
+    finally:
+        await form.close()
+    try:
+        photo = await ai_assistant_photo_service.receive(
+            db,
+            assistant=assistant,
+            data=data,
+            session_id=session_id,
+            language=raw_language.strip()[:8] if isinstance(raw_language, str) else None,
+            is_test=isinstance(raw_internal, str) and raw_internal.strip().lower() in {"true", "1"},
+        )
+    except PhotoRejectedError as exc:
+        raise HTTPException(status_code=_photo_rejection_status(exc.reason), detail=exc.message) from exc
+    # A photo sent after the contact details joins the request already left in this visit.
+    if photo.relevant is not False:
+        ai_assistant_request_service.attach_late_photos(db, assistant_id=assistant.id, session_id=session_id)
+    kept = ai_assistant_photo_service.kept_count(db, assistant.id, session_id)
+    need = " — ".join(part for part in (photo.object_label, photo.damage) if part) or None
+    return AiAssistantPhotoResponse(
+        accepted=photo.relevant is not False,
+        reply=photo.reply or "",
+        need=need,
+        remaining=max(MAX_PHOTOS_PER_SESSION - kept, 0),
+    )
+
+
+@router.post("/public/{slug}/interest", status_code=status.HTTP_204_NO_CONTENT)
+async def submit_assistant_interest(
+    slug: str,
+    payload: AiAssistantInterestRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> None:
+    """The prospect raised their hand on the assistant sales page — notify the owner (hot lead)."""
+    if not assistant_lead_limiter.allow(f"interest:{slug}:{client_ip(request)}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de demandes, réessayez plus tard"
+        )
+    assistant = ai_assistant_service.get_public_by_slug(db, slug)
+    if not assistant:
+        return  # Unknown or inactive slug: ignore, like the public demo-events beacon.
+    await notification_service.notify_assistant_interest(
+        db,
+        user_id=assistant.user_id,
+        prospect_id=assistant.prospect_id,
+        fallback_name=assistant.business_name,
+        message=(payload.message or "").strip(),
+    )

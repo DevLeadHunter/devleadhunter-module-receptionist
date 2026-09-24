@@ -160,7 +160,7 @@ def test_every_assistant_sms_fits_one_segment_with_a_45_character_link() -> None
 
 
 def test_a_demo_page_shows_the_price_and_a_sold_assistant_does_not() -> None:
-    from api.v1.routes.ai_assistants import get_public_assistant
+    from api.v1.routes.ai_assistant_widget import get_public_assistant
 
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
@@ -182,7 +182,7 @@ def test_a_demo_page_shows_the_price_and_a_sold_assistant_does_not() -> None:
 
 
 def test_a_demo_page_estimates_the_closed_hours_from_the_google_hours(monkeypatch: pytest.MonkeyPatch) -> None:
-    import api.v1.routes.ai_assistants as routes
+    import api.v1.routes.ai_assistant_widget as routes
     from services.ai_assistant.opening_hours import OpeningHoursCalendar
 
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -263,7 +263,7 @@ def test_the_estimate_rounds_half_up_as_a_reader_does() -> None:
 
 
 def test_an_assistant_without_a_prospect_is_estimated_on_the_default_base(monkeypatch: pytest.MonkeyPatch) -> None:
-    import api.v1.routes.ai_assistants as routes
+    import api.v1.routes.ai_assistant_widget as routes
     from services.ai_assistant.opening_hours import OpeningHoursCalendar
 
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
