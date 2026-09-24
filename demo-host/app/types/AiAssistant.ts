@@ -44,3 +44,23 @@ export interface AssistantLeadLabels {
 
 /** Languages the widget offers preset greetings and suggestions for. */
 export type AssistantWidgetLang = 'fr' | 'nl' | 'en' | 'de' | 'lu'
+
+/** The assistant's answer to a photo sent for a quote. */
+export type AssistantPhotoReply = {
+  accepted: boolean
+  reply: string
+  need: string | null
+  remaining: number
+}
+
+/** Localized texts of the photo chip and button, their privacy note and their errors. */
+export type AssistantPhotoLabels = {
+  chip: string
+  button: string
+  note: string
+  pick: string
+  sent: string
+  invalid: string
+  tooLarge: string
+  quota: string
+}

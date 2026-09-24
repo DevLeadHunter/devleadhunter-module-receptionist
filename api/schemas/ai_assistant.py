@@ -178,6 +178,18 @@ class AiAssistantLeadRequest(BaseModel):
     internal: bool = False
 
 
+class AiAssistantPhotoResponse(BaseModel):
+    """The assistant's answer to a photo a visitor sent for a quote."""
+
+    # False when the photo was off-topic (refused politely, not kept).
+    accepted: bool
+    reply: str
+    # One line on what the photo shows, to prefill the need of the contact form.
+    need: str | None = None
+    # How many more photos this widget session may send.
+    remaining: int
+
+
 class AiAssistantLeadResponse(BaseModel):
     """Acknowledgement that a lead was recorded."""
 

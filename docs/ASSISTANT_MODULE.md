@@ -98,12 +98,13 @@ est exposé dans la config publique (`assistant_gender`) pour les textes du widg
 | `GET` | `/ai-assistants/public/{slug}` | Config publique du widget (+ vidéo si prête) |
 | `POST` | `/ai-assistants/public/{slug}/chat` | Réponse groundée à un message |
 | `POST` | `/ai-assistants/public/{slug}/lead` | Capturer une demande (coordonnées + `session_id` + `internal`) |
+| `POST` | `/ai-assistants/public/{slug}/photo` | Photo pour un devis (multipart : `file`, `session_id`, `language`, `internal`) |
 | `GET` | `/ai-assistants/public/requests/{id}/handled` | Lien signé de l'email de résumé : page de confirmation (ne change rien) |
 | `POST` | `/ai-assistants/public/requests/{id}/handled` | Même lien signé : marque la demande traitée (bouton de la page) |
 | `POST` | `/ai-assistants/public/{slug}/interest` | Signaler l'intérêt de l'owner (pop-up « me contacter ») |
 
 Les endpoints publics du widget sont **rate-limités par IP** (`services/rate_limiter.py`) : chat
-30 / 300 s, lead 8 / 300 s (fenêtre glissante en mémoire). Le lien « traitée » n'a pas de limite : sans
+30 / 300 s, lead 8 / 300 s, photo 6 / 600 s (fenêtre glissante en mémoire). Le lien « traitée » n'a pas de limite : sans
 signature valide et non expirée, il ne fait rien.
 
 ## Le widget (`demo-host/app/components/AssistantChat.vue`)
@@ -119,6 +120,14 @@ C'est le **produit** que le client colle sur son site. Il porte :
   son fil**. Écriture/lecture en `try/catch` (mode privé) : le widget marche sans.
 - **Capture de demande** : nom + contact + besoin + langue, avec l'identifiant de session du widget
   (la demande est liée à la conversation) et `internal: true` sur une visite `?internal=1`.
+- **Photo pour un devis** : bouton appareil photo dans la barre de saisie et chip « 📷 Envoyer une photo
+  pour un devis » (avant le premier échange). Un panneau affiche d'abord la mention RGPD (photo utilisée
+  pour le devis, supprimée après 90 jours, pas de personnes) puis ouvre le sélecteur (appareil photo ou
+  galerie). La photo est réduite en JPEG côté navigateur (`utils/PhotoCompressionUtils.ts`, 1600 px,
+  8 Mo max ; un HEIC que le navigateur ne sait pas lire part tel quel), montrée en vignette, jamais mise
+  dans la conversation stockée ni envoyée au chat (seule la ligne « 📷 Photo envoyée » l'est). La réponse
+  de l'assistante s'affiche, puis le formulaire de coordonnées s'ouvre avec le besoin pré-rempli.
+  3 photos par visite ; event PostHog `assistant_photo_sent`.
 - **Embarqué** : quand il tourne en iframe, il envoie `postMessage` pour se redimensionner entre la
   bulle fermée et le panneau ouvert.
 
@@ -197,6 +206,40 @@ leads y ont été recopiés une fois (`legacy_lead_id`, statut `handled`) et leu
 
 La liste des assistants porte `requests_7d`, `requests_30d` et `requests_outside_hours_pct` (part des
 demandes des 30 derniers jours reçues hors horaires, parmi celles dont les horaires sont connus).
+
+## Devis par photo (`services/ai_assistant/photo_service.py`)
+
+- **Réception** (`POST /public/{slug}/photo`) : le formulaire est lu à la main, **après** la limite de
+  débit et le contrôle du `Content-Length` (absent : 411 ; au-delà de 8 Mo + enveloppe : 413), pour
+  qu'aucun corps démesuré ne soit écrit sur disque. Image illisible ou corrompue : 415 (HEIC compris :
+  pas de décodeur HEIC côté serveur) ; plus de 50 mégapixels déclarés : 413 avant tout décodage ; session
+  vide : 400 ; stockage indisponible : 503. Quota : 3 photos par demande (409) — photos gardées de la
+  session sur 24 h, hors celles d'une demande déjà traitée. La photo est ré-encodée hors de la boucle
+  d'événements en JPEG 1600 px (orientation corrigée, **aucune métadonnée** : EXIF, position GPS,
+  commentaire) puis stockée sur R2 sous `images/assistant-photos/{yyyy}/{mm}/{uuid}.jpg` (clé non
+  devinable, URL publique). La ligne `ai_assistant_photos` est écrite avant l'envoi à R2 (une coupure en
+  cours de route laisse une clé connue de la purge) et la connexion à la base est rendue pendant les
+  appels lents (stockage, vision).
+- **Vision** (`AiAssistantPhotoVision`, modèle vision de `llm_service`) : JSON `relevant`, `object`,
+  `damage`, `urgency` (`low` / `medium` / `high`), `missing_questions` (2 max) et `reply` (2-3 phrases dans
+  la langue du widget : ce qui est visible, les questions manquantes, l'invitation à laisser prénom et
+  téléphone). Métier du prospect (catégorie) dans le contexte. **Jamais de prix** : une réponse ou une
+  question contenant un montant (« 250 € », « EUR 250 », « 250,- Euro », « CHF 90 ») est remplacée par
+  notre texte, un objet ou un dommage qui en contient est écarté. Verdict lu avec tolérance (`"false"`,
+  `0`…) ; absent = non jugé. Modèle indisponible : photo gardée, réponse neutre (`relevant` = `NULL`).
+- **Hors sujet** (`relevant` = false) : refus poli, image supprimée de R2 tout de suite (la ligne reste,
+  sans lien). Si la suppression échoue, le lien est masqué et la purge réessaie.
+- **Journal** : l'échange est ajouté à la conversation de la session (« 📷 Photo envoyée » + réponse),
+  donc à la transcription de l'email.
+- **Demande** : à la capture, les photos gardées de la visite (24 h) sont liées
+  (`ai_assistant_photos.request_id`) et listées dans `photos_json` (`url`, `object`, `damage`, `urgency`,
+  3 au plus) ; canal `photo`. Une photo envoyée **après** les coordonnées rejoint la demande encore ouverte
+  de la visite (elle apparaît au dashboard et dans le rappel ; l'alerte déjà partie n'est pas renvoyée). Une demande avec
+  photos est un **devis** (ou une **urgence** si une photo montre un risque immédiat, `urgency` = `high`) :
+  email avec les liens des photos, SMS « … (photo) … » selon les alertes, vignettes dans le dashboard.
+- **Rétention** : la boucle horaire de `cleanup_service.py` (étape isolée des autres) supprime de R2 les
+  photos de plus de 90 jours et retire leur lien des demandes (les descriptions restent). Page Stockage (admin) : catégorie « Photo de
+  devis (assistant) », jours restants avant suppression.
 
 ## Alertes au commerçant (`services/ai_assistant/request_alerts.py`)
 
@@ -311,11 +354,12 @@ modules dans le même projet PostHog. **Aucun** event côté dashboard (non inst
 
 | Rôle | Fichier |
 |---|---|
-| Modèle | `api/models/ai_assistant.py`, `api/models/ai_assistant_request.py` (+ `ai_assistant_lead.py` historique) |
+| Modèle | `api/models/ai_assistant.py`, `api/models/ai_assistant_request.py`, `api/models/ai_assistant_photo.py` (+ `ai_assistant_lead.py` historique) |
 | Demandes (capture, suivi, compteurs) | `api/services/ai_assistant/request_service.py` |
 | Typage + résumé d'une demande | `api/services/ai_assistant/request_analyzer.py` |
 | Email de résumé + lien signé | `api/services/ai_assistant/request_email.py`, `api/services/ai_assistant/request_links.py` |
 | Reprise des annonces perdues + alertes différées (boucle) | `api/services/ai_assistant/request_runner.py` |
+| Devis par photo (réception, vision, rattachement, purge) | `api/services/ai_assistant/photo_service.py` |
 | Alertes au commerçant (email, SMS, rappel, signal 48 h) | `api/services/ai_assistant/request_alerts.py` |
 | Horaires d'ouverture (hors horaires) | `api/services/ai_assistant/opening_hours.py` |
 | Service génération / edit / régé | `api/services/ai_assistant/assistant_service.py` |

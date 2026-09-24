@@ -8,6 +8,7 @@ import logging
 from core.database import SessionLocal
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
+from services.ai_assistant.photo_service import ai_assistant_photo_service
 from services.assistant_subscription_service import assistant_subscription_service
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,8 @@ class AiAssistantCleanupRunner:
     @staticmethod
     async def run_loop(interval_seconds: int = 3600) -> None:
         """
-        Periodically expire the demo assistants whose countdown ended, and drop stale unpaid checkouts.
+        Periodically expire the demo assistants whose countdown ended, drop stale unpaid checkouts, and
+        forget the conversations and visitor photos past their retention.
 
         Args:
             interval_seconds: Delay between expiry passes.
@@ -38,6 +40,14 @@ class AiAssistantCleanupRunner:
                     logger.info("Purged assistant conversations past retention: %s", forgotten)
             except Exception as exc:
                 logger.exception("Assistant demo expiry failed: %s", exc)
+                db.rollback()
+            # Its own step: the 90-day deletion promise must not depend on the expiry pass succeeding.
+            try:
+                photos: int = await ai_assistant_photo_service.purge_expired(db)
+                if photos:
+                    logger.info("Deleted assistant photos past retention or off-topic: %s", photos)
+            except Exception:
+                logger.exception("Assistant photo purge failed")
             finally:
                 db.close()
 

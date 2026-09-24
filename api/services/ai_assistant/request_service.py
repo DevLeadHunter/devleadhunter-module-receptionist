@@ -3,7 +3,8 @@ Structured requests captured by an assistant: one per widget session, typed and 
 
 A visitor who leaves their details through the widget becomes a request the business owner handles
 (new → handled or dropped). The request links the session's conversation journal, knows whether it
-came in outside the business hours, and is typed and summarized in the background (question, quote,
+came in outside the business hours, carries the photos sent during the session (a quote, urgent when a
+photo shows an immediate risk), and is typed and summarized in the background (question, quote,
 appointment, urgent) so the visitor is answered at once. It is announced once: a push to the
 operator and, when the assistant is sold, the owner's alerts (``request_alerts.py``: summary email,
 SMS); a demo never writes to the prospect. A visit flagged internal (the operator testing) is
@@ -21,12 +22,14 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from core.database import SessionLocal
+from enums.ai_assistant_photo import AiAssistantPhotoUrgency
 from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus, AiAssistantRequestType
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_message import AiAssistantMessage
 from models.ai_assistant_request import AiAssistantRequest
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from services.ai_assistant.photo_service import ai_assistant_photo_service
 from services.ai_assistant.request_alerts import ai_assistant_request_alerts
 from services.ai_assistant.request_analyzer import TranscriptLine, ai_assistant_request_analyzer
 from services.ai_assistant.request_email import AiAssistantRequestEmail
@@ -108,6 +111,7 @@ class AiAssistantRequestService:
             existing.need = clean_need or existing.need
             existing.language = clean_language or existing.language
             existing.conversation_id = conversation_id or existing.conversation_id
+            ai_assistant_photo_service.attach_to_request(db, existing)
             db.commit()
             db.refresh(existing)
             return existing, False
@@ -133,9 +137,35 @@ class AiAssistantRequestService:
             is_test=is_test,
         )
         db.add(request)
+        db.flush()
+        ai_assistant_photo_service.attach_to_request(db, request)
         db.commit()
         db.refresh(request)
         return request, True
+
+    def attach_late_photos(self, db: Session, *, assistant_id: int, session_id: str) -> AiAssistantRequest | None:
+        """
+        Add a photo sent after the contact details to the request this visit already left.
+
+        The request becomes a quote (or urgent) if it was not; the owner, already alerted, sees the photo
+        in the dashboard and in the reminder.
+
+        Args:
+            db: Active database session (committed).
+            assistant_id: The assistant.
+            session_id: The widget session.
+
+        Returns:
+            The updated request, or None when the visit has left none still open.
+        """
+        request = self._open_request_for_session(db, assistant_id, session_id.strip()[:SESSION_ID_MAX_CHARS])
+        if request is None:
+            return None
+        ai_assistant_photo_service.attach_to_request(db, request)
+        request.type = self._type_with_photos(AiAssistantRequestType(request.type), request).value
+        db.commit()
+        db.refresh(request)
+        return request
 
     def schedule_follow_up(self, request_id: int) -> None:
         """
@@ -161,7 +191,8 @@ class AiAssistantRequestService:
         analysis = await ai_assistant_request_analyzer.analyze(
             business_name=assistant.business_name, need=request.need, transcript=transcript
         )
-        request.type = analysis.type.value
+        request_type = self._type_with_photos(analysis.type, request)
+        request.type = request_type.value
         request.need_summary = analysis.summary or request.need
         db.commit()
         if request.is_test or not self._claim_announcement(db, request):
@@ -173,7 +204,7 @@ class AiAssistantRequestService:
             fallback_name=assistant.business_name,
             lead_name=request.name,
             need=request.need_summary or request.need or "",
-            request_label=AiAssistantRequestEmail.type_label(analysis.type),
+            request_label=AiAssistantRequestEmail.type_label(request_type),
             received_outside_hours=request.received_outside_hours,
         )
         await ai_assistant_request_alerts.alert_owner(db, request, assistant, transcript)
@@ -415,6 +446,22 @@ class AiAssistantRequestService:
             for photo in (request.photos_json or [])
             if isinstance(photo, dict) and isinstance(photo.get("url"), str)
         ]
+
+    @staticmethod
+    def _type_with_photos(analyzed: AiAssistantRequestType, request: AiAssistantRequest) -> AiAssistantRequestType:
+        """A request with photos asks for a quote — urgent when a photo shows an immediate risk."""
+        photos = [entry for entry in (request.photos_json or []) if isinstance(entry, dict)]
+        if not photos:
+            return analyzed
+        if any(entry.get("urgency") == AiAssistantPhotoUrgency.HIGH.value for entry in photos):
+            return AiAssistantRequestType.URGENT
+        if analyzed in (
+            AiAssistantRequestType.QUOTE,
+            AiAssistantRequestType.APPOINTMENT,
+            AiAssistantRequestType.URGENT,
+        ):
+            return analyzed
+        return AiAssistantRequestType.QUOTE
 
     @staticmethod
     def _set_status(request: AiAssistantRequest, status: AiAssistantRequestStatus) -> None:

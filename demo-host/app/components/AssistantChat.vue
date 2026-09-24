@@ -44,16 +44,36 @@
       </div>
 
       <div ref="messagesEl" class="ai-msgs">
-        <div v-for="(message, index) in messages" :key="index" class="ai-m" :class="`ai-m--${message.role}`">
-          {{ message.content }}
+        <div
+          v-for="(message, index) in messages"
+          :key="index"
+          class="ai-m"
+          :class="[`ai-m--${message.role}`, { 'ai-m--photo': photoPreviews[index] }]"
+        >
+          <img v-if="photoPreviews[index]" :src="photoPreviews[index]" :alt="message.content" class="ai-m__photo" />
+          <template v-else>{{ message.content }}</template>
         </div>
         <div v-if="isBusy" class="ai-typing" aria-label="Rédaction en cours"><i /><i /><i /></div>
       </div>
 
       <div v-if="messages.length <= 1" class="ai-chips">
+        <button type="button" @click="openPhotoPanel">{{ PHOTO_UI[lang].chip }}</button>
         <button v-for="suggestion in suggestions" :key="suggestion" type="button" @click="sendText(suggestion)">
           {{ suggestion }}
         </button>
+      </div>
+
+      <div v-if="isPhotoPanelOpen" class="ai-photo">
+        <p class="ai-photo__note">{{ PHOTO_UI[lang].note }}</p>
+        <div class="ai-leadform__row">
+          <button type="button" class="ai-leadform__send" :disabled="isBusy" @click="photoInputEl?.click()">
+            {{ PHOTO_UI[lang].pick }}
+          </button>
+          <button type="button" class="ai-leadform__cancel" @click="isPhotoPanelOpen = false">
+            {{ LEAD_UI[lang].cancel }}
+          </button>
+        </div>
+        <input ref="photoInputEl" type="file" accept="image/*" class="ai-photo__input" @change="onPhotoPicked" />
       </div>
 
       <div v-if="!leadSent" class="ai-book">
@@ -81,6 +101,28 @@
       </div>
 
       <form class="ai-compose" @submit.prevent="send">
+        <button
+          type="button"
+          class="ai-compose__photo"
+          :aria-label="PHOTO_UI[lang].button"
+          :title="PHOTO_UI[lang].button"
+          :disabled="isBusy || photosRemaining <= 0"
+          @click="openPhotoPanel"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+            <circle cx="12" cy="13" r="3" />
+          </svg>
+        </button>
         <textarea
           v-model="draft"
           rows="1"
@@ -116,12 +158,15 @@ import type {
   AssistantChatMessage,
   AssistantChatReply,
   AssistantLeadLabels,
+  AssistantPhotoLabels,
+  AssistantPhotoReply,
   AssistantWidgetLang,
 } from '~/types/AiAssistant'
 import type { AssistantChatProps } from '~/types/AssistantChat'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
 import { AssistantPersonaUtils } from '~/utils/AssistantPersonaUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
+import { PhotoCompressionUtils } from '~/utils/PhotoCompressionUtils'
 
 const DEFAULT_LANG: AssistantWidgetLang = 'fr'
 const FALLBACK_ACCENT: string = '#a9793f'
@@ -132,6 +177,8 @@ const LAUNCHER_EDGE_MARGIN: number = 22
 const LAUNCHER_SHADOW_ALLOWANCE: number = 12
 // Keep a returning visitor's conversation across page reloads, bounded so storage never grows unchecked.
 const MAX_STORED_MESSAGES: number = 40
+// Photos a visitor may send for one quote request (the API enforces the same quota per session).
+const MAX_PHOTOS: number = 3
 
 const LANGUAGE_LABELS: Record<AssistantWidgetLang, string> = {
   fr: 'Français',
@@ -228,6 +275,59 @@ const LEAD_UI: Record<AssistantWidgetLang, AssistantLeadLabels> = {
   },
 }
 
+const PHOTO_UI: Record<AssistantWidgetLang, AssistantPhotoLabels> = {
+  fr: {
+    chip: '📷 Envoyer une photo pour un devis',
+    button: 'Envoyer une photo',
+    note: "Votre photo sert uniquement à préparer votre devis et elle est supprimée au bout de 90 jours. Évitez d'y montrer des personnes.",
+    pick: 'Choisir une photo',
+    sent: '📷 Photo envoyée',
+    invalid: 'Je ne peux pas lire ce fichier. Envoyez une photo au format JPEG ou PNG.',
+    tooLarge: 'Cette photo est trop lourde (8 Mo maximum).',
+    quota: "Vous avez déjà envoyé 3 photos : c'est suffisant pour préparer le devis.",
+  },
+  nl: {
+    chip: '📷 Stuur een foto voor een offerte',
+    button: 'Foto sturen',
+    note: 'Uw foto dient alleen om uw offerte voor te bereiden en wordt na 90 dagen verwijderd. Zet er liefst geen personen op.',
+    pick: 'Foto kiezen',
+    sent: '📷 Foto verzonden',
+    invalid: 'Ik kan dit bestand niet lezen. Stuur een foto in JPEG- of PNG-formaat.',
+    tooLarge: 'Deze foto is te groot (max. 8 MB).',
+    quota: "U hebt al 3 foto's gestuurd: dat volstaat voor de offerte.",
+  },
+  en: {
+    chip: '📷 Send a photo for a quote',
+    button: 'Send a photo',
+    note: 'Your photo is only used to prepare your quote and is deleted after 90 days. Please avoid showing people.',
+    pick: 'Choose a photo',
+    sent: '📷 Photo sent',
+    invalid: "I can't read this file. Please send a JPEG or PNG photo.",
+    tooLarge: 'This photo is too large (8 MB max).',
+    quota: "You've already sent 3 photos, that's enough to prepare the quote.",
+  },
+  de: {
+    chip: '📷 Foto für ein Angebot senden',
+    button: 'Foto senden',
+    note: 'Ihr Foto dient nur zur Vorbereitung Ihres Angebots und wird nach 90 Tagen gelöscht. Bitte keine Personen zeigen.',
+    pick: 'Foto auswählen',
+    sent: '📷 Foto gesendet',
+    invalid: 'Diese Datei kann ich nicht lesen. Bitte senden Sie ein JPEG- oder PNG-Foto.',
+    tooLarge: 'Dieses Foto ist zu groß (max. 8 MB).',
+    quota: 'Sie haben bereits 3 Fotos gesendet, das reicht für das Angebot.',
+  },
+  lu: {
+    chip: '📷 Eng Foto fir en Devis schécken',
+    button: 'Foto schécken',
+    note: 'Är Foto déngt nëmme fir Ären Devis virzebereeden a gëtt no 90 Deeg geläscht. Weist w.e.g. keng Persounen drop.',
+    pick: 'Foto auswielen',
+    sent: '📷 Foto geschéckt',
+    invalid: 'Ech kann dëse Fichier net liesen. Schéckt w.e.g. eng JPEG- oder PNG-Foto.',
+    tooLarge: 'Dës Foto ass ze grouss (max. 8 MB).',
+    quota: 'Dir hutt schonn 3 Fotoe geschéckt, dat geet duer fir den Devis.',
+  },
+}
+
 /**
  * The chat widget for a prospect's AI assistant, embedded on the demo page.
  * @param config Public assistant configuration returned by the API.
@@ -256,6 +356,11 @@ const leadName: Ref<string> = ref('')
 const leadContact: Ref<string> = ref('')
 const leadNeed: Ref<string> = ref('')
 const launcherEl: Ref<HTMLElement | null> = ref(null)
+const isPhotoPanelOpen: Ref<boolean> = ref(false)
+const photoInputEl: Ref<HTMLInputElement | null> = ref(null)
+const photosRemaining: Ref<number> = ref(MAX_PHOTOS)
+// Thumbnail of each photo sent in this visit, by message index — kept out of the stored conversation.
+const photoPreviews: Ref<Record<number, string>> = ref({})
 const isEmbedded: Ref<boolean> = ref(false)
 const viewportWidth: Ref<number | null> = ref(null)
 let launcherObserver: ResizeObserver | null = null
@@ -424,6 +529,84 @@ async function send(): Promise<void> {
   await sendText(draft.value)
 }
 
+/** Show the photo panel: its privacy note comes before the file picker. */
+function openPhotoPanel(): void {
+  if (photosRemaining.value <= 0 || isBusy.value) return
+  isPhotoPanelOpen.value = true
+  void scrollToLatest()
+}
+
+/**
+ * The visitor-facing message for a photo the API refused (quota, size, format) or could not take.
+ * @param error - What the upload threw.
+ * @returns A message in the widget language.
+ */
+function photoErrorMessage(error: unknown): string {
+  const status: number | undefined = (error as { statusCode?: number } | null)?.statusCode
+  if (status === 409) {
+    photosRemaining.value = 0
+    return PHOTO_UI[lang.value].quota
+  }
+  if (status === 413) return PHOTO_UI[lang.value].tooLarge
+  if (status === 415) return PHOTO_UI[lang.value].invalid
+  return FALLBACK_REPLY[lang.value]
+}
+
+/**
+ * Send the picked photo: shown at once as a thumbnail, described by the assistant, then the contact
+ * form opens prefilled so the quote request can go out. The photo itself never enters the stored
+ * conversation (only a « photo sent » line does).
+ * @param event - The file input's change event.
+ * @returns A promise resolved once the assistant has answered.
+ */
+async function onPhotoPicked(event: Event): Promise<void> {
+  const input: HTMLInputElement = event.target as HTMLInputElement
+  const file: File | undefined = input.files?.[0]
+  input.value = ''
+  isPhotoPanelOpen.value = false
+  if (!file || isBusy.value) return
+  if (!PhotoCompressionUtils.isPhoto(file)) {
+    messages.value.push({ role: 'assistant', content: PHOTO_UI[lang.value].invalid })
+    await scrollToLatest()
+    return
+  }
+  // Busy from the start: a second photo picked while this one compresses would slip past the quota.
+  isBusy.value = true
+  const upload: Blob = await PhotoCompressionUtils.prepare(file)
+  if (upload.size > PhotoCompressionUtils.MAX_BYTES) {
+    isBusy.value = false
+    messages.value.push({ role: 'assistant', content: PHOTO_UI[lang.value].tooLarge })
+    await scrollToLatest()
+    return
+  }
+  messages.value.push({ role: 'user', content: PHOTO_UI[lang.value].sent })
+  photoPreviews.value = { ...photoPreviews.value, [messages.value.length - 1]: URL.createObjectURL(upload) }
+  captureDemoEvent('assistant_photo_sent')
+  await scrollToLatest()
+  try {
+    const form: FormData = new FormData()
+    form.append('file', upload, 'photo.jpg')
+    form.append('session_id', sessionId.value)
+    form.append('language', lang.value)
+    form.append('internal', String(DemoBeaconUtils.isInternalVisit()))
+    const answer: AssistantPhotoReply = await $fetch<AssistantPhotoReply>(
+      `${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${props.config.slug}/photo`,
+      { method: 'POST', body: form },
+    )
+    messages.value.push({ role: 'assistant', content: answer.reply })
+    photosRemaining.value = answer.remaining
+    if (answer.accepted && !leadSent.value) {
+      if (!leadNeed.value.trim() && answer.need) leadNeed.value = answer.need
+      showLeadForm.value = true
+    }
+  } catch (error: unknown) {
+    messages.value.push({ role: 'assistant', content: photoErrorMessage(error) })
+  } finally {
+    isBusy.value = false
+    await scrollToLatest()
+  }
+}
+
 /**
  * Submit the visitor's contact details: the API turns them into a request tied to this conversation.
  * An internal visit (the owner testing) is sent as such so it is recorded without alerting anyone.
@@ -538,6 +721,7 @@ onMounted((): void => {
 })
 
 onBeforeUnmount((): void => {
+  Object.values(photoPreviews.value).forEach((url: string): void => URL.revokeObjectURL(url))
   window.removeEventListener('message', onHostMessage)
   window.removeEventListener('resize', readOwnViewport)
   launcherObserver?.disconnect()
@@ -884,6 +1068,55 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 .ai-compose textarea:focus {
   outline: 2px solid var(--ai-accent);
   outline-offset: 1px;
+}
+.ai-compose__photo {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  border: 1px solid var(--ai-line);
+  background: var(--ai-card);
+  color: var(--ai-ink);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.ai-compose__photo:hover {
+  border-color: var(--ai-accent);
+  color: var(--ai-accent);
+}
+.ai-compose__photo:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ai-photo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 15px 10px;
+  padding: 13px;
+  background: var(--ai-card);
+  border: 1px solid var(--ai-line-soft);
+  border-radius: 14px;
+}
+.ai-photo__note {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--ai-ink-dim);
+}
+.ai-photo__input {
+  display: none;
+}
+.ai-m--photo {
+  padding: 4px;
+}
+.ai-m__photo {
+  display: block;
+  max-width: 180px;
+  max-height: 180px;
+  border-radius: 11px;
+  object-fit: cover;
 }
 .ai-compose__send {
   flex: none;

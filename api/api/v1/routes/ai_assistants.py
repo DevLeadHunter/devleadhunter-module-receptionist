@@ -11,9 +11,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
+from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from core.config import settings
 from core.database import get_db
+from enums.ai_assistant_photo import AiAssistantPhotoRejection
 from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.demo_video_status import DemoVideoStatus
@@ -36,6 +38,7 @@ from schemas.ai_assistant import (
     AiAssistantLeadResponse,
     AiAssistantLeadsResponse,
     AiAssistantListResponse,
+    AiAssistantPhotoResponse,
     AiAssistantPublicResponse,
     AiAssistantRequestItem,
     AiAssistantRequestsResponse,
@@ -49,6 +52,12 @@ from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ConversationCounts, ai_assistant_conversation_service
+from services.ai_assistant.photo_service import (
+    MAX_PHOTO_BYTES,
+    MAX_PHOTOS_PER_SESSION,
+    PhotoRejectedError,
+    ai_assistant_photo_service,
+)
 from services.ai_assistant.request_alerts import AlertSettings
 from services.ai_assistant.request_email import AiAssistantRequestEmail
 from services.ai_assistant.request_links import AiAssistantRequestLinks
@@ -69,7 +78,12 @@ from services.email_variables import EmailVariables
 from services.notification_service import notification_service
 from services.presenter_video_service import presenter_video_service
 from services.r2_storage_service import r2_storage
-from services.rate_limiter import assistant_chat_limiter, assistant_lead_limiter, assistant_subscribe_limiter
+from services.rate_limiter import (
+    assistant_chat_limiter,
+    assistant_lead_limiter,
+    assistant_photo_limiter,
+    assistant_subscribe_limiter,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -801,6 +815,85 @@ async def submit_assistant_lead(
 
     ai_assistant_request_service.schedule_follow_up(captured.id)
     return AiAssistantLeadResponse(ok=True)
+
+
+# Room for the multipart envelope and the three text fields around the photo itself.
+_PHOTO_REQUEST_MAX_BYTES = MAX_PHOTO_BYTES + 64 * 1024
+
+
+def _photo_rejection_status(reason: AiAssistantPhotoRejection) -> int:
+    """HTTP status of a refused photo."""
+    if reason is AiAssistantPhotoRejection.TOO_LARGE:
+        return status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    if reason is AiAssistantPhotoRejection.UNREADABLE:
+        return status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+    if reason is AiAssistantPhotoRejection.QUOTA:
+        return status.HTTP_409_CONFLICT
+    return status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+@router.post("/public/{slug}/photo", response_model=AiAssistantPhotoResponse, status_code=status.HTTP_201_CREATED)
+async def submit_assistant_photo(
+    slug: str,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> AiAssistantPhotoResponse:
+    """A photo for a quote (multipart ``file``, ``session_id``, ``language``, ``internal``): stored,
+    described by the vision model (never a price), kept for the visitor's request.
+
+    The form is parsed by hand, after the rate limit and the declared size are checked: a public
+    upload must never write an unbounded body to disk first.
+    """
+    if not assistant_photo_limiter.allow(f"{slug}:{_client_ip(request)}"):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de photos, réessayez plus tard")
+    declared_length = request.headers.get("content-length", "")
+    if not declared_length.isdigit():
+        raise HTTPException(status_code=status.HTTP_411_LENGTH_REQUIRED, detail="Taille de la photo inconnue")
+    if int(declared_length) > _PHOTO_REQUEST_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Photo trop lourde (8 Mo maximum)."
+        )
+    assistant = ai_assistant_service.get_public_by_slug(db, slug)
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found or inactive")
+    if not r2_storage.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Envoi de photo indisponible pour le moment"
+        )
+    form = await request.form(max_files=1, max_fields=3)
+    try:
+        upload = form.get("file")
+        raw_session = form.get("session_id")
+        raw_language = form.get("language")
+        raw_internal = form.get("internal")
+        session_id = raw_session.strip()[:64] if isinstance(raw_session, str) else ""
+        if not isinstance(upload, StarletteUploadFile) or not session_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Photo ou session manquante")
+        data = await upload.read(MAX_PHOTO_BYTES + 1)
+    finally:
+        await form.close()
+    try:
+        photo = await ai_assistant_photo_service.receive(
+            db,
+            assistant=assistant,
+            data=data,
+            session_id=session_id,
+            language=raw_language.strip()[:8] if isinstance(raw_language, str) else None,
+            is_test=isinstance(raw_internal, str) and raw_internal.strip().lower() in {"true", "1"},
+        )
+    except PhotoRejectedError as exc:
+        raise HTTPException(status_code=_photo_rejection_status(exc.reason), detail=exc.message) from exc
+    # A photo sent after the contact details joins the request already left in this visit.
+    if photo.relevant is not False:
+        ai_assistant_request_service.attach_late_photos(db, assistant_id=assistant.id, session_id=session_id)
+    kept = ai_assistant_photo_service.kept_count(db, assistant.id, session_id)
+    need = " — ".join(part for part in (photo.object_label, photo.damage) if part) or None
+    return AiAssistantPhotoResponse(
+        accepted=photo.relevant is not False,
+        reply=photo.reply or "",
+        need=need,
+        remaining=max(MAX_PHOTOS_PER_SESSION - kept, 0),
+    )
 
 
 def _handled_link_page(
