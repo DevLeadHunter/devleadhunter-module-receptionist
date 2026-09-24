@@ -1,9 +1,5 @@
 <template>
-  <section class="cs-section">
-    <header class="cs-section__head">
-      <h2 class="cs-section__title">Rapport du mois</h2>
-      <span v-if="report" class="cs-section__meta">{{ report.month_label }}</span>
-    </header>
+  <ClientSpaceSection title="Rapport du mois" :meta="report ? report.month_label : null">
     <p v-if="!report" class="cs-muted">
       Le premier rapport de {{ assistantName }} arrive au début du mois prochain, par email et ici.
     </p>
@@ -23,7 +19,7 @@
         </ol>
       </template>
     </template>
-  </section>
+  </ClientSpaceSection>
 </template>
 
 <script lang="ts" setup>

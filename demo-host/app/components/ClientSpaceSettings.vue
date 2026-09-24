@@ -1,16 +1,13 @@
 <template>
-  <section class="cs-section">
-    <header class="cs-section__head">
-      <h2 class="cs-section__title">Réglages</h2>
-    </header>
+  <ClientSpaceSection title="Réglages">
     <form class="css__form" @submit.prevent="submit">
-      <label class="css__field">
-        <span class="css__label">Prénom affiché aux visiteurs</span>
+      <label class="cs-field">
+        <span class="cs-label">Prénom affiché aux visiteurs</span>
         <input v-model="assistantName" class="cs-input" type="text" maxlength="64" required autocomplete="off" />
       </label>
 
-      <fieldset class="css__field">
-        <legend class="css__label">Langues proposées aux visiteurs</legend>
+      <fieldset class="cs-field">
+        <legend class="cs-label">Langues proposées aux visiteurs</legend>
         <div class="css__chips">
           <label
             v-for="option in languageOptions"
@@ -29,8 +26,8 @@
         </div>
       </fieldset>
 
-      <label class="css__field">
-        <span class="css__label">Mobile qui reçoit les alertes SMS</span>
+      <label class="cs-field">
+        <span class="cs-label">Mobile qui reçoit les alertes SMS</span>
         <input
           v-model="alertPhone"
           class="cs-input"
@@ -53,15 +50,14 @@
         </label>
       </div>
 
-      <div class="css__footer">
-        <button type="submit" class="cs-button" :disabled="isSaving || !canSave">
-          {{ isSaving ? 'Enregistrement…' : 'Enregistrer' }}
-        </button>
-        <span v-if="errorMessage" class="css__error">{{ errorMessage }}</span>
-        <span v-else-if="hasSaved && !hasChanges" class="css__saved">Enregistré.</span>
-      </div>
+      <ClientSpaceSaveBar
+        :is-busy="isSaving"
+        :can-save="canSave"
+        :error-message="errorMessage"
+        :show-saved="hasSaved && !hasChanges"
+      />
     </form>
-  </section>
+  </ClientSpaceSection>
 </template>
 
 <script lang="ts" setup>
@@ -154,20 +150,6 @@ watch(
   gap: 18px;
 }
 
-.css__field {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.css__label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--cs-ink);
-}
-
 .css__chips {
   display: flex;
   flex-wrap: wrap;
@@ -209,22 +191,5 @@ watch(
 .css__toggle input {
   margin-top: 3px;
   accent-color: var(--a-accent);
-}
-
-.css__footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-}
-
-.css__error {
-  font-size: 13px;
-  color: #9f3a2f;
-}
-
-.css__saved {
-  font-size: 13px;
-  color: var(--cs-ink-dim);
 }
 </style>

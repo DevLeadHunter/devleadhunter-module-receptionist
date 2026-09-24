@@ -62,13 +62,10 @@
         @save="saveSettings"
       />
 
-      <section class="cs-section">
-        <header class="cs-section__head">
-          <h2 class="cs-section__title">Abonnement</h2>
-          <span v-if="space.subscription" class="cs-section__meta">
-            {{ SUBSCRIPTION_LABELS[space.subscription.status] }}
-          </span>
-        </header>
+      <ClientSpaceSection
+        title="Abonnement"
+        :meta="space.subscription ? SUBSCRIPTION_LABELS[space.subscription.status] : null"
+      >
         <p v-if="!space.subscription" class="cs-muted">Aucun abonnement enregistré.</p>
         <template v-else>
           <p class="cs__line">
@@ -86,7 +83,7 @@
           </button>
           <p v-if="portalError" class="cs__notice cs__notice--error">{{ portalError }}</p>
         </template>
-      </section>
+      </ClientSpaceSection>
 
       <ClientSpaceCalendar
         :calendar="space.calendar"
@@ -126,6 +123,9 @@ import type {
   AiAssistantClientSubscription,
   AiAssistantClientSubscriptionStatus,
 } from '~/types/AiAssistantClientSpace'
+import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
+import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
+import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 
 const SUBSCRIPTION_LABELS: Record<AiAssistantClientSubscriptionStatus, string> = {
   incomplete: 'En attente',
@@ -148,7 +148,7 @@ const { data: load }: Awaited<ReturnType<typeof useAsyncData<AiAssistantClientSp
       try {
         return { state: 'ready', space: await $fetch<AiAssistantClientSpace>(endpoint.value) }
       } catch (error: unknown) {
-        const status: number | undefined = statusOf(error)
+        const status: number | undefined = ApiRefusalUtils.status(error)
         if (status === 401) return { state: 'expired', space: null }
         if (status === 404) return { state: 'invalid', space: null }
         return { state: 'unavailable', space: null }
@@ -175,14 +175,12 @@ const hasSavedCalendar: Ref<boolean> = ref(false)
 const isAwaitingCalendar: Ref<boolean> = ref(false)
 
 const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<string, string> => ({
-  '--a-accent': space.value?.accent_color || '#a9793f',
+  '--a-accent': space.value?.accent_color || AssistantAccentUtils.FALLBACK_ACCENT,
 }))
 
-/** The business name without the descriptive « - » part of its Maps listing (« Toitures Morel »). */
-const shortBusinessName: ComputedRef<string> = computed((): string => {
-  const name: string = space.value?.business_name ?? ''
-  return name.split(/\s+[-–—]\s+/)[0]?.trim() || name
-})
+const shortBusinessName: ComputedRef<string> = computed((): string =>
+  BusinessNameUtils.short(space.value?.business_name ?? ''),
+)
 
 const heroTitle: ComputedRef<string> = computed((): string => {
   const pendingCount: number = space.value?.pending_count ?? 0
@@ -201,34 +199,26 @@ const periodLine: ComputedRef<string> = computed((): string => {
 })
 
 /**
- * The HTTP status of a failed API call, when it has one.
- * @param error What `$fetch` threw.
- * @returns The status code, or undefined for a network failure.
- */
-function statusOf(error: unknown): number | undefined {
-  return (error as { statusCode?: number } | null)?.statusCode
-}
-
-/**
- * The API's explanation of a refused call, when it sent a readable one.
- * @param error What `$fetch` threw.
- * @returns The detail message, or null.
- */
-function detailOf(error: unknown): string | null {
-  const detail: unknown = (error as { data?: { detail?: unknown } } | null)?.data?.detail
-  return typeof detail === 'string' ? detail : null
-}
-
-/**
  * Switch to the « lien expiré » screen when the link lapsed during the visit.
  * @param error What `$fetch` threw.
  * @returns True when the link had expired.
  */
-function expireOn(error: unknown): boolean {
-  if (statusOf(error) !== 401) return false
+function showExpiredOnUnauthorized(error: unknown): boolean {
+  if (ApiRefusalUtils.status(error) !== 401) return false
   state.value = 'expired'
   space.value = null
   return true
+}
+
+/**
+ * The message a failed call shows, unless the link lapsed: the page then switches to the « lien expiré » screen.
+ * @param error What `$fetch` threw.
+ * @param fallback The message when the API gave no readable reason.
+ * @returns Null on a 401, else the API's detail or the fallback.
+ */
+function failureMessage(error: unknown, fallback: string): string | null {
+  if (showExpiredOnUnauthorized(error)) return null
+  return ApiRefusalUtils.detail(error) ?? fallback
 }
 
 /**
@@ -254,7 +244,9 @@ async function markHandled(requestId: number): Promise<void> {
     )
     if (wasPending && updated.status !== 'new') current.pending_count = Math.max(0, current.pending_count - 1)
   } catch (error: unknown) {
-    if (!expireOn(error)) actionError.value = 'La demande n’a pas pu être mise à jour, réessayez dans un instant.'
+    if (!showExpiredOnUnauthorized(error)) {
+      actionError.value = 'La demande n’a pas pu être mise à jour, réessayez dans un instant.'
+    }
   } finally {
     busyRequestId.value = null
   }
@@ -279,8 +271,7 @@ async function saveSettings(update: AiAssistantClientSettingsUpdate): Promise<vo
     if (update.assistant_name) current.assistant_name = current.settings.assistant_name
     hasSavedSettings.value = true
   } catch (error: unknown) {
-    if (!expireOn(error))
-      settingsError.value = detailOf(error) ?? 'Enregistrement impossible, réessayez dans un instant.'
+    settingsError.value = failureMessage(error, 'Enregistrement impossible, réessayez dans un instant.')
   } finally {
     isSavingSettings.value = false
   }
@@ -300,7 +291,7 @@ async function openPortal(): Promise<void> {
     })
     window.location.assign(portal.url)
   } catch (error: unknown) {
-    if (!expireOn(error)) portalError.value = detailOf(error) ?? 'Ouverture impossible, réessayez dans un instant.'
+    portalError.value = failureMessage(error, 'Ouverture impossible, réessayez dans un instant.')
     isOpeningPortal.value = false
   }
 }
@@ -342,7 +333,7 @@ async function connectCalendar(): Promise<void> {
     else window.location.assign(consent.url)
   } catch (error: unknown) {
     tab?.close()
-    if (!expireOn(error)) calendarError.value = detailOf(error) ?? 'Connexion indisponible, réessayez dans un instant.'
+    calendarError.value = failureMessage(error, 'Connexion indisponible, réessayez dans un instant.')
   } finally {
     isCalendarBusy.value = false
   }
@@ -366,8 +357,7 @@ async function saveCalendar(update: AiAssistantClientCalendarUpdate): Promise<vo
     })
     hasSavedCalendar.value = true
   } catch (error: unknown) {
-    if (!expireOn(error))
-      calendarError.value = detailOf(error) ?? 'Enregistrement impossible, réessayez dans un instant.'
+    calendarError.value = failureMessage(error, 'Enregistrement impossible, réessayez dans un instant.')
   } finally {
     isCalendarBusy.value = false
   }
@@ -389,7 +379,7 @@ async function disconnectCalendar(): Promise<void> {
   try {
     current.calendar = await $fetch<AiAssistantClientCalendar>(`${endpoint.value}/calendar`, { method: 'DELETE' })
   } catch (error: unknown) {
-    if (!expireOn(error)) calendarError.value = detailOf(error) ?? 'Déconnexion impossible, réessayez dans un instant.'
+    calendarError.value = failureMessage(error, 'Déconnexion impossible, réessayez dans un instant.')
   } finally {
     isCalendarBusy.value = false
   }
@@ -404,7 +394,7 @@ async function onVisibilityChange(): Promise<void> {
     current.calendar = fresh.calendar
     if (fresh.calendar.status === 'connected') isAwaitingCalendar.value = false
   } catch (error: unknown) {
-    expireOn(error)
+    showExpiredOnUnauthorized(error)
   }
 }
 
@@ -458,34 +448,9 @@ useHead({
   --cs-ink-dim: #6d665b;
   --cs-line: rgba(23, 19, 13, 0.12);
   --cs-card: #fffdf9;
-}
-
-.cs-section {
-  border: 1px solid var(--cs-line);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--cs-card) 70%, transparent);
-  padding: 20px;
-}
-
-.cs-section__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.cs-section__title {
-  margin: 0;
-  font-family: Fraunces, Georgia, serif;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.cs-section__meta {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--cs-ink-dim);
+  --cs-danger: #9f3a2f;
+  --cs-accent-soft: color-mix(in srgb, var(--a-accent) 16%, #fff);
+  --cs-on-ink: #fff;
 }
 
 .cs-muted {
@@ -503,7 +468,7 @@ useHead({
   font: inherit;
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: var(--cs-on-ink);
   background: var(--cs-ink);
 }
 
@@ -532,6 +497,20 @@ useHead({
 .cs-input:focus {
   outline: 2px solid color-mix(in srgb, var(--a-accent) 55%, transparent);
   outline-offset: 1px;
+}
+
+.cs-field {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.cs-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cs-ink);
 }
 </style>
 
@@ -628,7 +607,7 @@ useHead({
 }
 
 .cs__notice--error {
-  color: #9f3a2f;
+  color: var(--cs-danger);
 }
 
 .cs__foot {
