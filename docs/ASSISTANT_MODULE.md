@@ -66,6 +66,13 @@ historique borné (`MAX_HISTORY_MESSAGES = 12`, `MAX_MESSAGE_CHARS = 2000`). Si 
 indisponible, un **fallback sûr** garde la conversation vivante (invite à laisser ses coordonnées)
 plutôt que d'échouer. Modèle via `llm_service` (Groq).
 
+Le prompt (`knowledge_builder.render_system_prompt`) porte aussi la **date et l'heure locales** de
+l'entreprise (heure de Paris, commune aux pays ciblés) pour répondre à « ouvert aujourd'hui ? » depuis
+les horaires, interdit de laisser entendre qu'un **service absent de la fiche** existe (livraison,
+réservation, devis…), et accorde son vocabulaire au **genre de la persona**, déduit du prénom
+(`config_builder.resolve_persona_gender`, liste `masculine_first_names.py`, féminin par défaut). Ce genre
+est exposé dans la config publique (`assistant_gender`) pour les textes du widget et des pages démo.
+
 ## Endpoints (`api/api/v1/routes/ai_assistants.py`)
 
 | Méthode | Route | Rôle |

@@ -1,5 +1,7 @@
 """Tests for the AI assistant knowledge base and system prompt builder."""
 
+from datetime import datetime
+
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 
 _ENRICHMENT = {
@@ -86,3 +88,47 @@ def test_render_system_prompt_flags_missing_hours() -> None:
     prompt = ai_assistant_knowledge_builder.render_system_prompt(kb, assistant_name="Léa")
 
     assert "non communiqués" in prompt
+
+
+def test_render_system_prompt_states_the_business_date_and_time() -> None:
+    """The prompt carries the current local date and time, tied to the hours, so « ouvert aujourd'hui ? » is answered."""
+    kb = ai_assistant_knowledge_builder.build_knowledge(business_name="Cabinet Meyer", enrichment=_ENRICHMENT)
+    prompt = ai_assistant_knowledge_builder.render_system_prompt(
+        kb, assistant_name="Sofia", now=datetime(2026, 9, 24, 14, 5)
+    )
+
+    assert "AUJOURD'HUI : jeudi 24 septembre 2026, il est 14:05" in prompt
+    assert prompt.index("AUJOURD'HUI") < prompt.index("HORAIRES :")
+
+
+def test_render_system_prompt_defaults_to_the_current_date() -> None:
+    """Without an explicit clock the prompt still states today's date."""
+    kb = ai_assistant_knowledge_builder.build_knowledge(business_name="Cabinet Meyer", enrichment=None)
+    prompt = ai_assistant_knowledge_builder.render_system_prompt(kb, assistant_name="Sofia")
+
+    assert "AUJOURD'HUI : " in prompt
+    assert str(datetime.now().year) in prompt
+
+
+def test_render_system_prompt_forbids_implying_absent_services() -> None:
+    """The assistant may not commit the business to a service the knowledge base does not list."""
+    kb = ai_assistant_knowledge_builder.build_knowledge(business_name="Tasty Korea", enrichment=None)
+    prompt = ai_assistant_knowledge_builder.render_system_prompt(kb, assistant_name="Sofia")
+
+    assert "Ne laisse JAMAIS entendre qu'un service absent" in prompt
+    assert "livraison" in prompt
+    assert "tu ne t'engages à rien à la place de l'entreprise" in prompt
+
+
+def test_render_system_prompt_agrees_with_the_persona_gender() -> None:
+    """The persona's wording follows its first name: feminine for Sofia, masculine for Marc."""
+    kb = ai_assistant_knowledge_builder.build_knowledge(business_name="Cabinet Meyer", enrichment=None)
+    sofia = ai_assistant_knowledge_builder.render_system_prompt(kb, assistant_name="Sofia")
+    marc = ai_assistant_knowledge_builder.render_system_prompt(kb, assistant_name="Marc")
+
+    assert "Tu es Sofia, l'assistante virtuelle de Cabinet Meyer" in sofia
+    assert "Tu parles de toi au féminin" in sofia
+    assert "chaleureuse, humaine et confiante" in sofia
+    assert "Tu es Marc, l'assistant virtuel de Cabinet Meyer" in marc
+    assert "Tu parles de toi au masculin" in marc
+    assert "chaleureux, humain et confiant" in marc

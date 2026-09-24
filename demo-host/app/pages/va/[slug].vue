@@ -48,7 +48,7 @@
             :aria-hidden="isEndCardVisible ? 'false' : 'true'"
           >
             <h2 class="av__endcard-title">À vous de lui parler<span class="av__accent-dot">.</span></h2>
-            <p class="av__endcard-text">Posez-lui une question : il répond en quelques secondes.</p>
+            <p class="av__endcard-text">Posez-lui une question : {{ subjectPronoun }} répond en quelques secondes.</p>
             <a class="av__cta" :href="demoHref" @click="trackCtaClick('endcard')">
               Essayer l'assistant
               <svg
@@ -134,6 +134,7 @@ import { computed, onMounted, ref } from 'vue'
 import type { AiAssistantConfig } from '~/types/AiAssistant'
 import { captureDemoEvent, useDemoTracking } from '~/composables/useDemoTracking'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
+import { AssistantPersonaUtils } from '~/utils/AssistantPersonaUtils'
 
 const FALLBACK_ACCENT: string = '#a9793f'
 
@@ -177,6 +178,10 @@ const demoHref: ComputedRef<string> = computed((): string => `/ia/${slug.value}`
 
 /** Owner name for the signature line (empty when the owner set no name). */
 const ownerNameLabel: ComputedRef<string> = computed((): string => (assistant.value?.owner_name ?? '').trim())
+
+const subjectPronoun: ComputedRef<string> = computed((): string =>
+  AssistantPersonaUtils.subjectPronoun(assistant.value?.assistant_gender),
+)
 
 /** Read the video duration once its metadata loads, so the page can display it. */
 function readVideoDuration(): void {

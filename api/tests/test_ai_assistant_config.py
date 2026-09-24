@@ -1,5 +1,6 @@
 """Tests for the AI assistant configuration builder."""
 
+from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from services.ai_assistant import config_builder as config_module
 from services.ai_assistant.config_builder import (
     DEFAULT_ASSISTANT_NAME,
@@ -36,6 +37,16 @@ def test_defaults_when_nothing_provided() -> None:
     config = ai_assistant_config_builder.build_config(country="FR", use_brand_color=False)
     assert config["assistant_name"] == DEFAULT_ASSISTANT_NAME
     assert config["tone"] == DEFAULT_TONE
+
+
+def test_resolve_persona_gender_follows_the_first_name() -> None:
+    """A usual male first name speaks in the masculine; any other name (the default Sofia included) in the feminine."""
+    assert ai_assistant_config_builder.resolve_persona_gender("Sofia") is AiAssistantPersonaGender.FEMININE
+    assert ai_assistant_config_builder.resolve_persona_gender("Marc") is AiAssistantPersonaGender.MASCULINE
+    assert ai_assistant_config_builder.resolve_persona_gender("  LÉO ") is AiAssistantPersonaGender.MASCULINE
+    assert ai_assistant_config_builder.resolve_persona_gender("Jean-Pierre") is AiAssistantPersonaGender.MASCULINE
+    assert ai_assistant_config_builder.resolve_persona_gender("") is AiAssistantPersonaGender.FEMININE
+    assert ai_assistant_config_builder.resolve_persona_gender(None) is AiAssistantPersonaGender.FEMININE
 
 
 def test_brand_color_pulled_from_logo(monkeypatch) -> None:

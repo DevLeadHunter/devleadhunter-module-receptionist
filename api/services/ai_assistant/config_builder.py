@@ -5,8 +5,11 @@ like the generated sites) and speaks the languages that matter in the prospect's
 lever in Belgium and Luxembourg, where a business serves several language communities.
 """
 
+import unicodedata
 from typing import Any
 
+from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from services.ai_assistant.masculine_first_names import MASCULINE_FIRST_NAMES
 from services.brand_color_service import brand_color_service
 
 DEFAULT_ASSISTANT_NAME = "Sofia"
@@ -58,6 +61,21 @@ class AiAssistantConfigBuilder:
             "tone": (tone or "").strip() or DEFAULT_TONE,
             "accent_color": accent,
         }
+
+    def resolve_persona_gender(self, assistant_name: str | None) -> AiAssistantPersonaGender:
+        """Resolve the grammatical gender the persona speaks in, from its first name.
+
+        Args:
+            assistant_name: The persona name as configured (e.g. "Sofia", "Jean-Pierre").
+
+        Returns:
+            Masculine for a usual male first name, feminine otherwise (the default persona is feminine).
+        """
+        normalized = unicodedata.normalize("NFKD", assistant_name or "").encode("ascii", "ignore").decode("ascii")
+        first_name = normalized.strip().lower().replace("-", " ").split(" ")[0]
+        if first_name in MASCULINE_FIRST_NAMES:
+            return AiAssistantPersonaGender.MASCULINE
+        return AiAssistantPersonaGender.FEMININE
 
     def _languages_for_country(self, country: str | None) -> list[str]:
         code = (country or "").strip().upper()

@@ -4,6 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+
 
 class AiAssistantCreateRequest(BaseModel):
     """Request to generate an assistant for one of the caller's prospects."""
@@ -88,6 +90,7 @@ class AiAssistantPublicResponse(BaseModel):
     slug: str
     business_name: str
     assistant_name: str
+    assistant_gender: str = AiAssistantPersonaGender.FEMININE.value
     languages: list[str] = Field(default_factory=list)
     accent_color: str | None = None
     status: str

@@ -37,6 +37,7 @@ from schemas.ai_assistant import (
 )
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
+from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.assistant_subscription_service import assistant_subscription_service
 from services.assistant_video_service import (
     ASSISTANT_PRESENTER_MODULE,
@@ -517,6 +518,7 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
         slug=assistant.slug,
         business_name=assistant.business_name,
         assistant_name=assistant.assistant_name,
+        assistant_gender=ai_assistant_config_builder.resolve_persona_gender(assistant.assistant_name).value,
         languages=assistant.languages or [],
         accent_color=_accent_color(assistant.knowledge_json),
         status=assistant.status,

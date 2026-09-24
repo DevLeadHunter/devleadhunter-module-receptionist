@@ -6,8 +6,12 @@ It is built from the same enrichment that feeds the demo sites, so a prospect's 
 his site shows.
 """
 
+from datetime import UTC, datetime
 from typing import Any
 
+from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from services.ai_assistant.config_builder import ai_assistant_config_builder
+from services.french_date_formatter import FrenchDateFormatter
 from services.templates.site_content import (
     _clean_opening_hours,
     _clean_review_text,
@@ -18,6 +22,28 @@ from services.templates.site_content import (
 MAX_REVIEWS = 6
 MAX_REVIEW_CHARS = 280
 MAX_SERVICES = 20
+
+try:  # Every targeted country (FR, BE, LU, CH) keeps Paris time; naive UTC when tzdata is missing.
+    from zoneinfo import ZoneInfo
+
+    _BUSINESS_TIMEZONE: ZoneInfo | None = ZoneInfo("Europe/Paris")
+except Exception:
+    _BUSINESS_TIMEZONE = None
+
+_WORDING_BY_GENDER: dict[AiAssistantPersonaGender, dict[str, str]] = {
+    AiAssistantPersonaGender.FEMININE: {
+        "role": "l'assistante virtuelle",
+        "first_person": "féminin (« je suis ravie », « désolée »)",
+        "style": "chaleureuse, humaine et confiante",
+        "concise": "CONCISE",
+    },
+    AiAssistantPersonaGender.MASCULINE: {
+        "role": "l'assistant virtuel",
+        "first_person": "masculin (« je suis ravi », « désolé »)",
+        "style": "chaleureux, humain et confiant",
+        "concise": "CONCIS",
+    },
+}
 
 # ISO code → French language name, for the multilingual line of the system prompt.
 _LANGUAGE_NAMES: dict[str, str] = {
@@ -82,14 +108,16 @@ class AiAssistantKnowledgeBuilder:
         assistant_name: str,
         languages: list[str] | None = None,
         tone: str | None = None,
+        now: datetime | None = None,
     ) -> str:
         """Render the French system prompt that grounds the assistant on ``knowledge``.
 
         Args:
             knowledge: The knowledge base from :meth:`build_knowledge`.
-            assistant_name: The assistant's display name (e.g. "Sofia").
+            assistant_name: The assistant's display name (e.g. "Sofia"); its gender drives the wording.
             languages: Active language ISO codes; the assistant still replies in the visitor's language.
             tone: Optional persona tone hint injected into the prompt.
+            now: The business's current local time; defaults to the clock in the business timezone.
 
         Returns:
             The system prompt string.
@@ -97,7 +125,8 @@ class AiAssistantKnowledgeBuilder:
         identity = knowledge.get("identity", {})
         business_name = identity.get("business_name", "l'entreprise")
         location = identity.get("city")
-        header = f"Tu es {assistant_name}, l'assistante virtuelle de {business_name}"
+        wording = _WORDING_BY_GENDER[ai_assistant_config_builder.resolve_persona_gender(assistant_name)]
+        header = f"Tu es {assistant_name}, {wording['role']} de {business_name}"
         header += f", à {location}." if location else "."
 
         lines = [
@@ -106,18 +135,23 @@ class AiAssistantKnowledgeBuilder:
             "RÈGLES ABSOLUES :",
             "- Réponds UNIQUEMENT à partir des informations ci-dessous. N'invente JAMAIS un prix, un "
             "horaire, une disponibilité ou un fait qui n'y figure pas — c'est la règle la plus importante.",
+            "- Ne laisse JAMAIS entendre qu'un service absent des informations ci-dessous existe ou « peut "
+            "s'étudier » (livraison, réservation, paiement en ligne, devis gratuit, garantie, urgence…) : tu "
+            "ne t'engages à rien à la place de l'entreprise. Dis que tu ne sais pas et propose un rappel "
+            "pour le confirmer.",
             f"- {self._languages_line(languages)}",
+            f"- Tu parles de toi au {wording['first_person']}.",
             "- Sois d'abord VRAIMENT utile : réponds concrètement avec ce que tu sais et, quand c'est "
-            "pertinent, un conseil simple du métier — sans jamais promettre un prix ni un délai précis.",
-            "- Si une information manque (prix, horaire, disponibilité), dis-le avec naturel et rebondis "
-            "sur une solution (devis, estimation, rappel, prise de note), en variant tes formulations — "
+            "pertinent, un conseil simple du métier — sans jamais promettre un prix ni un délai.",
+            "- Si une information manque (prix, horaire, disponibilité, prestation), dis-le avec naturel et "
+            "propose de noter la demande pour que l'entreprise rappelle, en variant tes formulations — "
             "jamais deux fois la même phrase toute faite.",
             "- Fais avancer la conversation : UNE seule question à la fois pour cerner le besoin, puis "
-            "propose UNE action concrète (passer, prendre rendez-vous, être rappelé, recevoir un devis). "
-            "Pour recontacter quelqu'un, demande son prénom et un téléphone ou un e-mail.",
-            "- Style : chaleureuse, humaine et confiante, comme un excellent accueil en personne. Reste "
-            "CONCISE (2 à 4 phrases), sans jargon ni liste à puces. Mets en valeur ce qui distingue la "
-            "maison quand c'est utile.",
+            "propose UNE action concrète parmi ce que l'entreprise propose réellement ci-dessous, ou à défaut "
+            "d'être rappelé. Pour recontacter quelqu'un, demande son prénom et un téléphone ou un e-mail.",
+            f"- Style : {wording['style']}, comme un excellent accueil en personne. Reste "
+            f"{wording['concise']} (2 à 4 phrases), sans jargon ni liste à puces. Mets en valeur ce qui "
+            "distingue la maison quand c'est utile.",
         ]
         if tone:
             lines.append(f"- Ton : {tone}.")
@@ -127,6 +161,7 @@ class AiAssistantKnowledgeBuilder:
         rating_line = self._rating_line(knowledge.get("rating"))
         if rating_line:
             lines.append(rating_line)
+        lines.append(self._today_line(now or self._business_now()))
         lines.extend(self._hours_lines(knowledge.get("opening_hours")))
         lines.extend(self._services_lines(knowledge.get("services")))
         lines.extend(self._reviews_lines(knowledge.get("reviews")))
@@ -137,6 +172,17 @@ class AiAssistantKnowledgeBuilder:
             "dernière phrase, est écrite dans la langue de son message."
         )
         return "\n".join(lines)
+
+    @staticmethod
+    def _business_now() -> datetime:
+        return datetime.now(_BUSINESS_TIMEZONE) if _BUSINESS_TIMEZONE else datetime.now(UTC)
+
+    def _today_line(self, moment: datetime) -> str:
+        return (
+            f"AUJOURD'HUI : {FrenchDateFormatter.long_date(moment)}, il est {moment:%H:%M} (heure locale de "
+            "l'entreprise). Pour « ouvert maintenant / aujourd'hui », compare cette date et cette heure aux "
+            "HORAIRES ci-dessous ; sans horaires, dis que tu ne sais pas."
+        )
 
     def _build_rating(self, enr: dict[str, Any]) -> dict[str, str] | None:
         value = format_rating_value(enr.get("rating"))

@@ -18,7 +18,7 @@
         <span class="ai-head__av"><AssistantAvatar /></span>
         <span class="ai-head__who">
           <b>{{ config.assistant_name }}</b>
-          <span>Assistante {{ config.business_name }} · en ligne</span>
+          <span>{{ roleLabel }} {{ config.business_name }} · en ligne</span>
         </span>
         <button type="button" class="ai-head__x" aria-label="Fermer" @click="isOpen = false">✕</button>
       </header>
@@ -113,6 +113,7 @@ import type {
 } from '~/types/AiAssistant'
 import type { AssistantChatProps } from '~/types/AssistantChat'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
+import { AssistantPersonaUtils } from '~/utils/AssistantPersonaUtils'
 
 const DEFAULT_LANG: AssistantWidgetLang = 'fr'
 const FALLBACK_ACCENT: string = '#a9793f'
@@ -155,7 +156,7 @@ const UI_PLACEHOLDER: Record<AssistantWidgetLang, string> = {
   lu: 'Är Noriicht…',
 }
 const FALLBACK_REPLY: Record<AssistantWidgetLang, string> = {
-  fr: 'Désolée, je rencontre un souci technique. Réessayez dans un instant.',
+  fr: 'Je rencontre un souci technique. Réessayez dans un instant.',
   nl: 'Sorry, er is een technisch probleem. Probeer het zo meteen opnieuw.',
   en: 'Sorry, I hit a technical issue. Please try again in a moment.',
   de: 'Entschuldigung, es gab ein technisches Problem. Bitte versuchen Sie es gleich erneut.',
@@ -253,6 +254,7 @@ const languagesLine: ComputedRef<string> = computed(
   () =>
     `Répond en ${offeredLanguages.value.map((code: AssistantWidgetLang): string => LANGUAGE_NAMES[code]).join(' · ')}`,
 )
+const roleLabel: ComputedRef<string> = computed(() => AssistantPersonaUtils.roleLabel(props.config.assistant_gender))
 const suggestions: ComputedRef<string[]> = computed(() => SUGGESTIONS[lang.value])
 
 /** Open the panel and greet the visitor once. */

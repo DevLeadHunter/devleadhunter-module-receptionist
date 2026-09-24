@@ -1,8 +1,12 @@
+/** Grammatical gender the persona speaks in, resolved by the API from its first name. */
+export type AiAssistantPersonaGender = 'feminine' | 'masculine'
+
 /** Public configuration of a prospect's AI assistant, served by the API and consumed as-is. */
 export interface AiAssistantConfig {
   slug: string
   business_name: string
   assistant_name: string
+  assistant_gender?: AiAssistantPersonaGender
   languages: string[]
   accent_color: string | null
   status: string
