@@ -123,8 +123,14 @@ Une seule ligne chez le client :
 <script src="https://demo.dibodev.fr/ai-assistant.js" data-slug="son-slug" defer></script>
 ```
 
-Le script monte un iframe transparent (bas-droite) vers `/embed/{slug}`, se redimensionne au
-`postMessage` du widget, ne touche à aucun style de la page hôte, sans dépendance.
+Le script monte un iframe transparent (bas-droite) vers `/embed/{slug}?embed=1` (+ `internal=1`
+repris de la page hôte), ne touche à aucun style de la page hôte, sans dépendance. Dialogue par
+`postMessage` : le widget annonce `dlh-assistant-ready`, le loader répond `dlh-assistant-host`
+(largeur du viewport hôte, rejouée au resize) qui pilote le rendu mobile (`.ai-panel--mobile`,
+bulle masquée) — la media query de l'iframe ne dit rien de l'écran du client ; le widget envoie
+`dlh-assistant-resize` avec l'empreinte exacte du lanceur (fermé) ou `open: true` (440×680, plein
+écran sur mobile), donc aucune zone morte au-dessus du site hôte ; `dlh-assistant-unavailable`
+(slug inconnu, démo expirée) fait retirer l'iframe. Page hôte de test : `/embed-test.html?slug=…`.
 
 ## Intégration campagnes
 

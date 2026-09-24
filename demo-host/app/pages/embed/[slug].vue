@@ -31,7 +31,11 @@ const { init: initTracking }: ReturnType<typeof useDemoTracking> = useDemoTracki
 
 onMounted((): void => {
   const current: AiAssistantConfig | null | undefined = assistant.value
-  if (!current) return
+  if (!current) {
+    // Nothing to show (unknown slug, demo expired): the loader removes its iframe from the host page.
+    window.parent.postMessage({ type: 'dlh-assistant-unavailable' }, '*')
+    return
+  }
   void initTracking(current.slug, current.status, null, DemoBeaconUtils.channelFromQuery(route.query.src))
 })
 

@@ -2,8 +2,10 @@
   <div class="ai-widget" :style="accentStyle">
     <button
       v-if="!isOpen"
+      ref="launcherEl"
       type="button"
       class="ai-launcher"
+      :class="{ 'ai-launcher--mobile': isMobileLayout }"
       :aria-label="`Ouvrir ${config.assistant_name}`"
       @click="open"
     >
@@ -13,7 +15,12 @@
       <span class="ai-launcher__orb" aria-hidden="true"><AssistantAvatar /></span>
     </button>
 
-    <section v-else class="ai-panel" :aria-label="config.assistant_name">
+    <section
+      v-else
+      class="ai-panel"
+      :class="{ 'ai-panel--mobile': isMobileLayout }"
+      :aria-label="config.assistant_name"
+    >
       <header class="ai-head">
         <span class="ai-head__av"><AssistantAvatar /></span>
         <span class="ai-head__who">
@@ -103,7 +110,7 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, PropType, Ref } from 'vue'
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type {
   AiAssistantConfig,
   AssistantChatMessage,
@@ -117,6 +124,11 @@ import { AssistantPersonaUtils } from '~/utils/AssistantPersonaUtils'
 
 const DEFAULT_LANG: AssistantWidgetLang = 'fr'
 const FALLBACK_ACCENT: string = '#a9793f'
+// Below this viewport width the panel goes full screen and the launcher drops its bubble.
+const MOBILE_MAX_WIDTH: number = 560
+// Distance from the launcher to the viewport edge (mirrors the CSS) and room for its shadow.
+const LAUNCHER_EDGE_MARGIN: number = 22
+const LAUNCHER_SHADOW_ALLOWANCE: number = 12
 // Keep a returning visitor's conversation across page reloads, bounded so storage never grows unchecked.
 const MAX_STORED_MESSAGES: number = 40
 
@@ -240,6 +252,10 @@ const isSubmittingLead: Ref<boolean> = ref(false)
 const leadName: Ref<string> = ref('')
 const leadContact: Ref<string> = ref('')
 const leadNeed: Ref<string> = ref('')
+const launcherEl: Ref<HTMLElement | null> = ref(null)
+const isEmbedded: Ref<boolean> = ref(false)
+const viewportWidth: Ref<number | null> = ref(null)
+let launcherObserver: ResizeObserver | null = null
 
 const accentStyle: ComputedRef<Record<string, string>> = computed(() => ({
   '--ai-accent': props.config.accent_color || FALLBACK_ACCENT,
@@ -256,6 +272,9 @@ const languagesLine: ComputedRef<string> = computed(
 )
 const roleLabel: ComputedRef<string> = computed(() => AssistantPersonaUtils.roleLabel(props.config.assistant_gender))
 const suggestions: ComputedRef<string[]> = computed(() => SUGGESTIONS[lang.value])
+const isMobileLayout: ComputedRef<boolean> = computed(
+  (): boolean => viewportWidth.value !== null && viewportWidth.value < MOBILE_MAX_WIDTH,
+)
 
 /** Open the panel and greet the visitor once. */
 function open(): void {
@@ -422,11 +441,52 @@ async function submitLead(): Promise<void> {
   }
 }
 
-// When embedded on a client's site, tell the loader iframe to resize between bubble and panel.
-watch(isOpen, (open: boolean): void => {
-  if (typeof window !== 'undefined' && window.parent !== window) {
-    window.parent.postMessage({ type: 'dlh-assistant-resize', open }, '*')
+/**
+ * Tell the loader iframe how big to be: the launcher's exact footprint when closed, the panel when open.
+ */
+function postFrameSize(): void {
+  if (!isEmbedded.value) return
+  const launcher: HTMLElement | null = launcherEl.value
+  if (isOpen.value || !launcher) {
+    window.parent.postMessage({ type: 'dlh-assistant-resize', open: isOpen.value }, '*')
+    return
   }
+  const footprint: DOMRect = launcher.getBoundingClientRect()
+  window.parent.postMessage(
+    {
+      type: 'dlh-assistant-resize',
+      open: false,
+      width: footprint.width + LAUNCHER_EDGE_MARGIN + LAUNCHER_SHADOW_ALLOWANCE,
+      height: footprint.height + LAUNCHER_EDGE_MARGIN + LAUNCHER_SHADOW_ALLOWANCE,
+    },
+    '*',
+  )
+}
+
+/**
+ * Read the host page's viewport width posted by the loader, so the layout follows the client's screen.
+ * @param event - A message received from the parent window.
+ */
+function onHostMessage(event: MessageEvent): void {
+  const data: Record<string, unknown> | null = typeof event.data === 'object' ? event.data : null
+  if (!data || data.type !== 'dlh-assistant-host' || typeof data.width !== 'number' || data.width <= 0) return
+  viewportWidth.value = data.width
+}
+
+/** Follow the page's own viewport when the widget runs on the demo page rather than in an iframe. */
+function readOwnViewport(): void {
+  viewportWidth.value = window.innerWidth
+}
+
+// Opening/closing and the mobile switch (bubble shown or hidden) both change the footprint to report.
+watch([isOpen, isMobileLayout], (): void => {
+  void nextTick(postFrameSize)
+})
+
+// The launcher is re-created each time the panel closes: measure it whenever it (re)appears or reflows.
+watch(launcherEl, (launcher: HTMLElement | null): void => {
+  launcherObserver?.disconnect()
+  if (launcher && launcherObserver) launcherObserver.observe(launcher)
 })
 
 // Restore a returning visitor's conversation; otherwise open in their browser language when offered.
@@ -436,6 +496,25 @@ onMounted((): void => {
     const preferred: AssistantWidgetLang | null = detectPreferredLang()
     if (preferred) lang.value = preferred
   }
+  isEmbedded.value = window.parent !== window
+  if (isEmbedded.value) {
+    window.addEventListener('message', onHostMessage)
+    if (typeof ResizeObserver !== 'undefined') {
+      launcherObserver = new ResizeObserver((): void => postFrameSize())
+      if (launcherEl.value) launcherObserver.observe(launcherEl.value)
+    }
+    window.parent.postMessage({ type: 'dlh-assistant-ready' }, '*')
+    void nextTick(postFrameSize)
+    return
+  }
+  readOwnViewport()
+  window.addEventListener('resize', readOwnViewport)
+})
+
+onBeforeUnmount((): void => {
+  window.removeEventListener('message', onHostMessage)
+  window.removeEventListener('resize', readOwnViewport)
+  launcherObserver?.disconnect()
 })
 
 // Keep the stored conversation in step with what the visitor sees.
@@ -796,19 +875,17 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   opacity: 0.45;
   cursor: default;
 }
-@media (max-width: 560px) {
-  .ai-panel {
-    right: 0;
-    bottom: 0;
-    width: 100vw;
-    max-width: 100vw;
-    height: 100dvh;
-    border-radius: 0;
-    border: 0;
-  }
-  .ai-launcher__say {
-    display: none;
-  }
+.ai-panel--mobile {
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  max-width: 100vw;
+  height: 100dvh;
+  border-radius: 0;
+  border: 0;
+}
+.ai-launcher--mobile .ai-launcher__say {
+  display: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .ai-typing i {
