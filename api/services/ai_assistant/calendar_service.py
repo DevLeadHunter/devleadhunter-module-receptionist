@@ -10,7 +10,6 @@ half-day wishes of ``appointment_slots.py``.
 from __future__ import annotations
 
 import asyncio
-import base64
 import hashlib
 import hmac
 import logging
@@ -49,6 +48,7 @@ from services.ai_assistant.google_calendar_client import (
 )
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_email import AiAssistantRequestEmail
+from services.ai_assistant.signed_token import SignedToken
 from services.encryption_service import encryption_service
 from services.french_date_formatter import FrenchDateFormatter
 from services.sms.phone_normalizer import SERVED_MOBILE_PREFIXES, to_e164_mobile
@@ -192,9 +192,7 @@ class AiAssistantCalendarState:
     @classmethod
     def _signature(cls, assistant_id: int, expiry: str) -> str:
         """Truncated HMAC-SHA256 (128 bits) of the assistant and expiry, base64url without padding."""
-        message = f"{cls._PURPOSE}:{assistant_id}:{expiry}".encode()
-        digest = hmac.new(settings.secret_key.encode(), message, hashlib.sha256).digest()[:16]
-        return base64.urlsafe_b64encode(digest).decode().rstrip("=")
+        return SignedToken.short(cls._PURPOSE, assistant_id, expiry, length=16)
 
 
 class AiAssistantCalendarService:

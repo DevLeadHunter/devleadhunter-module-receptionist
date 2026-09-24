@@ -9,8 +9,6 @@ Every alert carries a fresh one, and the page sends a new one to the business wh
 
 from __future__ import annotations
 
-import base64
-import hashlib
 import hmac
 import re
 from dataclasses import dataclass
@@ -18,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 from typing import ClassVar
 
 from core.config import settings
+from services.ai_assistant.signed_token import SignedToken
 
 
 @dataclass(frozen=True)
@@ -117,9 +116,7 @@ class AiAssistantClientLinks:
     @classmethod
     def _sign(cls, assistant_id: int, expiry: str) -> str:
         """Truncated HMAC-SHA256 of the assistant and expiry, base64url without padding."""
-        message = f"{cls._PURPOSE}:{assistant_id}:{expiry}".encode()
-        digest = hmac.new(settings.secret_key.encode(), message, hashlib.sha256).digest()[: cls._SIGNATURE_BYTES]
-        return base64.urlsafe_b64encode(digest).decode().rstrip("=")
+        return SignedToken.short(cls._PURPOSE, assistant_id, expiry, length=cls._SIGNATURE_BYTES)
 
     @staticmethod
     def _utc(now: datetime | None) -> datetime:

@@ -8,11 +8,11 @@ can be neither forged for another request nor replayed forever.
 
 from __future__ import annotations
 
-import hashlib
 import hmac
 from datetime import UTC, datetime, timedelta
 
 from core.config import settings
+from services.ai_assistant.signed_token import SignedToken
 
 
 class AiAssistantRequestLinks:
@@ -61,5 +61,4 @@ class AiAssistantRequestLinks:
     @classmethod
     def sign(cls, request_id: int, expires_at: int) -> str:
         """HMAC-SHA256 of the request id and expiry, hex-encoded."""
-        message = f"{cls._PURPOSE}:{request_id}:{expires_at}".encode()
-        return hmac.new(settings.secret_key.encode(), message, hashlib.sha256).hexdigest()
+        return SignedToken.digest(cls._PURPOSE, request_id, expires_at).hex()
