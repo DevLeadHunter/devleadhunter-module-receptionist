@@ -38,7 +38,6 @@ from services.ai_assistant.request_email import AiAssistantRequestEmail, Request
 from services.ai_assistant.request_links import AiAssistantRequestLinks
 from services.notification_service import notification_service
 from services.sms.gsm_segments import segment_count, to_strict_gsm7
-from services.sms.send_window import paris_to_utc_naive
 from services.sms_config_service import sms_config_service
 from services.sms_service import sms_service
 
@@ -361,7 +360,7 @@ class AiAssistantRequestAlerts:
             local = OpeningHoursCalendar.to_business_time(current)
             release = QuietHours.release_at(local, settings.quiet_start_hour, settings.quiet_end_hour)
             text_now = release == local
-            request.sms_due_at = current if text_now else paris_to_utc_naive(release)
+            request.sms_due_at = current if text_now else OpeningHoursCalendar.to_utc(release)
         db.commit()
         if settings.email_enabled:
             await self._email_owner(db, request, assistant, transcript, is_reminder=False)

@@ -461,7 +461,7 @@ class AiAssistantCalendarService:
         Raises:
             GoogleCalendarError: When the agenda cannot be read.
         """
-        local_now = self._local(now or OpeningHoursCalendar.business_now())
+        local_now = OpeningHoursCalendar.localize(now or OpeningHoursCalendar.business_now())
         busy = await self._busy(db, calendar, local_now)
         # Appointments booked here count as busy even before the agenda shows them.
         booked = (
@@ -469,7 +469,7 @@ class AiAssistantCalendarService:
             .filter(
                 AiAssistantAppointment.assistant_id == assistant.id,
                 AiAssistantAppointment.google_event_id.isnot(None),
-                AiAssistantAppointment.ends_at > local_now.astimezone(UTC).replace(tzinfo=None),
+                AiAssistantAppointment.ends_at > OpeningHoursCalendar.to_utc(local_now),
             )
             .all()
         )
@@ -512,7 +512,7 @@ class AiAssistantCalendarService:
         earliest = local_now + timedelta(hours=settings.min_notice_hours)
         duration = timedelta(minutes=settings.duration_minutes)
         grid = cls._grid_minutes(settings.duration_minutes)
-        skip_until = cls._half_day(cls._local(after)) if after is not None else None
+        skip_until = cls._half_day(OpeningHoursCalendar.localize(after)) if after is not None else None
         open_cache: dict[datetime, bool] = {}
         slots: list[FreeSlot] = []
         seen: set[tuple[date, int]] = set()
@@ -567,7 +567,7 @@ class AiAssistantCalendarService:
             AppointmentRefused: When the slot or the kind is not one the widget offers.
             SlotTakenError: When the slot is no longer free.
         """
-        local_now = self._local(now or OpeningHoursCalendar.business_now())
+        local_now = OpeningHoursCalendar.localize(now or OpeningHoursCalendar.business_now())
         calendar = self.usable_calendar(db, assistant)
         if calendar is not None and self._bookings_today(db, assistant, local_now) >= self.MAX_BOOKINGS_PER_DAY:
             # A day's bookings are capped: past the cap (a script, a flood), picks become wishes and no message
@@ -595,7 +595,7 @@ class AiAssistantCalendarService:
                 db.commit()
                 return BookingOutcome(appointment=appointment)
 
-        local_start = self._local(start)
+        local_start = OpeningHoursCalendar.localize(start)
         if not local_now <= local_start <= local_now + timedelta(days=self.LOOK_AHEAD_DAYS + 1):
             raise AppointmentRefused("Ce créneau n'est plus proposé")
         period = (
@@ -670,13 +670,13 @@ class AiAssistantCalendarService:
             GoogleCalendarError: When the agenda cannot be read or written.
         """
         tz = OpeningHoursCalendar.business_timezone()
-        local_now = self._local(now or OpeningHoursCalendar.business_now())
+        local_now = OpeningHoursCalendar.localize(now or OpeningHoursCalendar.business_now())
         booking_settings = CalendarSettings.of(calendar)
-        local_start = self._local(start)
+        local_start = OpeningHoursCalendar.localize(start)
         duration = timedelta(minutes=booking_settings.duration_minutes)
         chosen_type = self._check_type(booking_settings, type_label)
         self._check_start(assistant, booking_settings, local_start, local_now)
-        start_utc = local_start.astimezone(UTC).replace(tzinfo=None)
+        start_utc = OpeningHoursCalendar.to_utc(local_start)
         end_utc = start_utc + duration
 
         async with self._lock_for(calendar.id):
@@ -740,9 +740,7 @@ class AiAssistantCalendarService:
                 visitor_email=visitor_email,
                 language=request.language,
                 is_test=bool(request.is_test),
-                reminder_due_at=self.reminder_due_at(
-                    start_utc, booked_at=local_now.astimezone(UTC).replace(tzinfo=None)
-                ),
+                reminder_due_at=self.reminder_due_at(start_utc, booked_at=OpeningHoursCalendar.to_utc(local_now)),
             )
             db.add(appointment)
             if calendar.last_error:
@@ -770,7 +768,7 @@ class AiAssistantCalendarService:
             due = datetime.combine(due.date(), cls.REMINDER_EARLIEST, tzinfo=tz)
         elif due.time() > cls.REMINDER_LATEST:
             due = datetime.combine(due.date(), cls.REMINDER_LATEST, tzinfo=tz)
-        due_utc = due.astimezone(UTC).replace(tzinfo=None)
+        due_utc = OpeningHoursCalendar.to_utc(due)
         return due_utc if due_utc > booked_at + cls.REMINDER_MIN_GAP else None
 
     @staticmethod
@@ -890,7 +888,7 @@ class AiAssistantCalendarService:
     @staticmethod
     def _bookings_today(db: Session, assistant: AiAssistant, local_now: datetime) -> int:
         """How many appointments the assistant booked over the last 24 hours."""
-        since = local_now.astimezone(UTC).replace(tzinfo=None) - timedelta(days=1)
+        since = OpeningHoursCalendar.to_utc(local_now) - timedelta(days=1)
         return (
             db.query(AiAssistantAppointment)
             .filter(AiAssistantAppointment.assistant_id == assistant.id, AiAssistantAppointment.created_at >= since)
@@ -915,7 +913,7 @@ class AiAssistantCalendarService:
         cached = self._busy_cache.get(calendar.id)
         if cached is not None and clock.monotonic() - cached[0] < self.BUSY_CACHE_SECONDS:
             return cached[2]
-        start = local_now.astimezone(UTC).replace(tzinfo=None)
+        start = OpeningHoursCalendar.to_utc(local_now)
         end = start + timedelta(days=self.LOOK_AHEAD_DAYS + 1)
         try:
             access_token = await self._access_token(db, calendar)
@@ -1076,8 +1074,8 @@ class AiAssistantCalendarService:
     @staticmethod
     def _overlaps(busy: list[BusyPeriod], start: datetime, end: datetime) -> bool:
         """Whether an aware slot meets a busy period (naive UTC)."""
-        start_utc = start.astimezone(UTC).replace(tzinfo=None)
-        end_utc = end.astimezone(UTC).replace(tzinfo=None)
+        start_utc = OpeningHoursCalendar.to_utc(start)
+        end_utc = OpeningHoursCalendar.to_utc(end)
         return any(period.start < end_utc and start_utc < period.end for period in busy)
 
     @classmethod
@@ -1089,12 +1087,6 @@ class AiAssistantCalendarService:
     def _grid_minutes(duration_minutes: int) -> int:
         """Starts every 30 minutes, every 15 for the shortest appointments."""
         return 15 if duration_minutes < 30 else 30
-
-    @staticmethod
-    def _local(moment: datetime) -> datetime:
-        """An aware business-time moment (a naive one is read as business time)."""
-        tz = OpeningHoursCalendar.business_timezone()
-        return moment.replace(tzinfo=tz) if moment.tzinfo is None else moment.astimezone(tz)
 
     @staticmethod
     def _opening_hours(assistant: AiAssistant) -> list[dict[str, str]] | None:

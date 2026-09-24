@@ -43,12 +43,12 @@ from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.client_links import AiAssistantClientLinks
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.llm_router import assistant_llm_router
+from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.photo_service import PHOTO_JOURNAL_MARKER
 from services.ai_assistant.report_email import AiAssistantReportEmail, LanguageShare, MonthlyStats, ReportEmailContent
 from services.ai_assistant.request_alerts import AiAssistantRequestAlerts
 from services.french_date_formatter import FrenchDateFormatter
 from services.notification_service import notification_service
-from services.sms.send_window import paris_to_utc_naive, utc_to_paris_naive
 
 logger = logging.getLogger(__name__)
 
@@ -113,8 +113,8 @@ class ReportPeriod:
         next_month = (first_day + timedelta(days=32)).replace(day=1)
         return cls(
             first_day=first_day,
-            start=paris_to_utc_naive(datetime(first_day.year, first_day.month, 1)),
-            end=paris_to_utc_naive(datetime(next_month.year, next_month.month, 1)),
+            start=OpeningHoursCalendar.to_utc(datetime(first_day.year, first_day.month, 1)),
+            end=OpeningHoursCalendar.to_utc(datetime(next_month.year, next_month.month, 1)),
         )
 
     @classmethod
@@ -182,7 +182,7 @@ class AiAssistantReportService:
             How many reports were emailed.
         """
         current = now or _utc_now()
-        local = utc_to_paris_naive(current)
+        local = OpeningHoursCalendar.to_business_time(current)
         if local.day > REPORT_DAYS or local.hour < SEND_FROM_HOUR:
             return 0
         period = ReportPeriod.before(local.date())
@@ -402,14 +402,14 @@ class AiAssistantReportService:
             stats=stats,
             accent_color=ai_assistant_service.accent_color(assistant),
             website=assistant.custom_domain or self._prospect_website(db, assistant.prospect_id),
-            service_start=utc_to_paris_naive(start).date() if start > period.start else None,
+            service_start=OpeningHoursCalendar.to_business_time(start).date() if start > period.start else None,
             client_space_url=AiAssistantClientLinks.url(assistant.id),
         )
         failure = await self._deliver(db, assistant, content)
         if failure is not None:
             # Retries run on the report days only: a failure late on the last one is final.
             will_retry = row.attempts < MAX_SEND_ATTEMPTS and (
-                utc_to_paris_naive(current + RETRY_DELAY).day <= REPORT_DAYS
+                OpeningHoursCalendar.to_business_time(current + RETRY_DELAY).day <= REPORT_DAYS
             )
             self._log_failure(assistant, row, failure, will_retry=will_retry)
             return False

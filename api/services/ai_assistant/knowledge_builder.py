@@ -8,7 +8,7 @@ and fitted to the prompt's budget (``knowledge_budget``); the listing and the we
 """
 
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 from itertools import groupby
 from typing import Any
 
@@ -16,6 +16,7 @@ from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from enums.assistant_knowledge_source import AssistantKnowledgeSource
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.knowledge_budget import AiAssistantKnowledgeBudget, KnowledgePassage, KnowledgeSourceText
+from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.french_date_formatter import FrenchDateFormatter
 from services.templates.site_content import (
     _DAY_ANNOTATION_RE,
@@ -35,13 +36,6 @@ MAX_FAQ_ENTRIES = 12
 _DATA_OPEN = "<<<"
 _DATA_CLOSE = ">>>"
 _DATA_MARKS = re.compile(r"<{3,}|>{3,}")
-
-try:  # Every targeted country (FR, BE, LU, CH) keeps Paris time; naive UTC when tzdata is missing.
-    from zoneinfo import ZoneInfo
-
-    _BUSINESS_TIMEZONE: ZoneInfo | None = ZoneInfo("Europe/Paris")
-except Exception:
-    _BUSINESS_TIMEZONE = None
 
 _WORDING_BY_GENDER: dict[AiAssistantPersonaGender, dict[str, str]] = {
     AiAssistantPersonaGender.FEMININE: {
@@ -193,7 +187,7 @@ class AiAssistantKnowledgeBuilder:
         rating_line = self._rating_line(knowledge.get("rating")) if listing_on else None
         if rating_line:
             lines.append(rating_line)
-        lines.append(self._today_line(now or self._business_now()))
+        lines.append(self._today_line(now or OpeningHoursCalendar.business_now()))
         if listing_on:  # Switched off, the hours come from the site or the documents when they give them.
             lines.extend(self._hours_lines(knowledge.get("opening_hours")))
             lines.extend(self._services_lines(knowledge.get("services")))
@@ -211,10 +205,6 @@ class AiAssistantKnowledgeBuilder:
             "dernière phrase, est écrite dans la langue de son message."
         )
         return "\n".join(lines)
-
-    @staticmethod
-    def _business_now() -> datetime:
-        return datetime.now(_BUSINESS_TIMEZONE) if _BUSINESS_TIMEZONE else datetime.now(UTC)
 
     def _today_line(self, moment: datetime) -> str:
         return (

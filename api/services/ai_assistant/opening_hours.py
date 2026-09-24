@@ -82,6 +82,33 @@ class OpeningHoursCalendar:
         return _BUSINESS_TIMEZONE or UTC
 
     @staticmethod
+    def localize(moment: datetime) -> datetime:
+        """
+        An aware business-time moment.
+
+        Args:
+            moment: Aware, or naive read as business time (not UTC: see ``to_business_time`` for stored values).
+
+        Returns:
+            The same instant in Paris time (UTC when tzdata is missing).
+        """
+        timezone = OpeningHoursCalendar.business_timezone()
+        return moment.replace(tzinfo=timezone) if moment.tzinfo is None else moment.astimezone(timezone)
+
+    @staticmethod
+    def to_utc(local_moment: datetime) -> datetime:
+        """
+        Convert a business-time moment to naive UTC, as the database stores it.
+
+        Args:
+            local_moment: Aware, or naive read as business time.
+
+        Returns:
+            The same instant, naive UTC.
+        """
+        return OpeningHoursCalendar.localize(local_moment).astimezone(UTC).replace(tzinfo=None)
+
+    @staticmethod
     def to_business_time(utc_moment: datetime) -> datetime:
         """
         Convert a naive UTC timestamp (as stored in the database) to the business's local time.
