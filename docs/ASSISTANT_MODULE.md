@@ -78,7 +78,7 @@ Trois sources, chacune coupable depuis le volet « Sources » de la carte assist
 - **Site web** : les pages lues (titre, taille). Relu **chaque semaine** (boucle horaire de `main.py`,
   10 assistants au plus par passage, les assistants vendus dont la dernière lecture a 7 jours ou plus) et
   sur « Mettre à jour ». La relecture compare les pages par adresse et note dans `knowledge_json['website_sync']`
-  la date, le nombre de pages et les pages ajoutées, retirées ou changées (« Lu le 24/09/2026 10:05 : 3 pages
+  la date, le nombre de pages et les pages ajoutées, retirées ou changées (« Lu le 24/09/2026 à 10:05 : 3 pages
   modifiées (1 ajoutée, 2 changées). »). Un site injoignable garde ses pages lues avant, avec la raison. La
   relecture de la semaine garde aussi les pages d'avant quand la nouvelle lecture perd plus de la moitié des
   pages ou du texte (une sous-page qui ne répond pas, une page de maintenance) et l'écrit (« Lecture
