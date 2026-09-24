@@ -30,7 +30,7 @@ from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RenderedEmail
 from services.email_attachment import EmailAttachment
 from services.email_sending_service import EmailSendingService
-from services.sms.gsm_segments import segment_count, to_gsm7
+from services.sms.gsm_segments import segment_count, to_strict_gsm7
 from services.sms_service import sms_service
 
 logger = logging.getLogger(__name__)
@@ -269,13 +269,13 @@ class AppointmentTexts:
             language: The texts' language.
 
         Returns:
-            The text; the kind, then the phone are dropped when they would not fit.
+            The text in GSM-7; the kind, then the phone are dropped when they would not fit.
         """
         when = cls.when(start_local, language)
         call = cls._CALL[language].format(phone=card.phone) if card.phone else ""
         for kind, tail in ((f" ({type_label})" if type_label else "", call), ("", call), ("", "")):
-            text = cls._CONFIRMATION[language].format(business=card.name, when=when, kind=kind) + tail
-            if segment_count(to_gsm7(text)) == 1:
+            text = to_strict_gsm7(cls._CONFIRMATION[language].format(business=card.name, when=when, kind=kind) + tail)
+            if segment_count(text) == 1:
                 return text
         return text
 
@@ -290,15 +290,15 @@ class AppointmentTexts:
             language: The texts' language.
 
         Returns:
-            The text; the address, then the phone are dropped when they would not fit.
+            The text in GSM-7; the address, then the phone are dropped when they would not fit.
         """
         base = cls._REMINDER[language].format(when=f"{start_local:%H:%M}", business=card.name)
         address = cls._ADDRESS[language].format(address=card.address) if card.address else ""
         call = cls._CALL[language].format(phone=card.phone) if card.phone else ""
-        for text in (base + address + call, base + call, base):
-            if segment_count(to_gsm7(text)) == 1:
+        for text in (to_strict_gsm7(base + address + call), to_strict_gsm7(base + call)):
+            if segment_count(text) == 1:
                 return text
-        return base
+        return to_strict_gsm7(base)
 
     @classmethod
     def email(

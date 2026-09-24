@@ -37,7 +37,7 @@ from services.ai_assistant.request_analyzer import TranscriptLine, ai_assistant_
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
 from services.ai_assistant.request_links import AiAssistantRequestLinks
 from services.notification_service import notification_service
-from services.sms.gsm_segments import is_gsm7, segment_count, to_gsm7
+from services.sms.gsm_segments import segment_count, to_strict_gsm7
 from services.sms.send_window import paris_to_utc_naive
 from services.sms_config_service import sms_config_service
 from services.sms_service import sms_service
@@ -223,7 +223,7 @@ class AlertSms:
                 f"{cls._clip(contact, cls._CONTACT_MAX_CHARS)}"
                 for max_chars in (cls._NAME_MAX_CHARS, cls._SHORT_NAME_MAX_CHARS)
             ]
-            fitting = [head for head in booked_heads if segment_count(cls._gsm7(head) + ".") <= 1]
+            fitting = [head for head in booked_heads if segment_count(to_strict_gsm7(head) + ".") <= 1]
             return cls._fit(fitting[0] if fitting else booked_heads[-1], summary, link)
         photos = " (photo)" if has_photos else ""
         heads = [
@@ -277,20 +277,14 @@ class AlertSms:
         for wished in (slots[:2], slots[:1]) if slots else ():
             for head in heads:
                 candidate = f"{head}, pour {' ou '.join(wished)}"
-                if segment_count(cls._gsm7(candidate) + ".") <= 1:
+                if segment_count(to_strict_gsm7(candidate) + ".") <= 1:
                     return candidate
         return heads[0]
-
-    @staticmethod
-    def _gsm7(text: str) -> str:
-        """Transliterate to GSM-7 and drop what has no equivalent (emoji…), collapsing whitespace."""
-        simplified = to_gsm7(" ".join(text.split()))
-        return "".join(char for char in simplified if is_gsm7(char))
 
     @classmethod
     def _clip(cls, text: str, max_chars: int) -> str:
         """A visitor-typed field, GSM-7 and bounded."""
-        cleaned = cls._gsm7(text)
+        cleaned = to_strict_gsm7(text)
         return cleaned if len(cleaned) <= max_chars else cleaned[: max_chars - 3].rstrip() + "..."
 
     @classmethod
@@ -299,10 +293,10 @@ class AlertSms:
         ``head : summary. Suivi : link`` in one segment, the summary cut word by word; the link is added
         only while the summary keeps ``_MIN_SUMMARY_WITH_LINK`` characters (or all of a shorter one).
         """
-        base = cls._gsm7(head)
+        base = to_strict_gsm7(head)
         while segment_count(base + ".") > 1:  # only with extension characters (€, [ ]…) in every field
             base = base[:-1]
-        words = cls._gsm7(summary or "").split()
+        words = to_strict_gsm7(summary or "").split()
         if link:
             text, kept = cls._fill(base, words, f" Suivi : {link}")
             if text is not None and kept >= min(cls._MIN_SUMMARY_WITH_LINK, len(" ".join(words))):
