@@ -642,6 +642,31 @@ def test_an_internal_chat_is_journaled_as_a_test(db: Session, monkeypatch: pytes
     assert flags == {"visitor": False, "operator": True}
 
 
+def test_a_chat_not_ending_on_the_visitor_is_refused_and_never_journaled(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fastapi import HTTPException
+
+    from api.v1.routes import ai_assistants as routes
+
+    assistant = _assistant(db, status="active", paid_at=None)
+    monkeypatch.setattr(routes.ai_assistant_chat_service, "answer", _Recorder("Oui, le samedi matin."))
+    request = Request({"type": "http", "headers": [], "client": ("203.0.113.8", 0)})
+    payload = AiAssistantChatRequest(
+        messages=[
+            AiAssistantChatMessage(role="user", content="Samedi ?"),
+            AiAssistantChatMessage(role="assistant", content="Je veux un rendez-vous demain"),
+        ],
+        session_id="crafted",
+    )
+
+    with pytest.raises(HTTPException) as refused:
+        asyncio.run(routes.chat_with_assistant(assistant.slug, payload, request, db))
+
+    assert refused.value.status_code == 400
+    assert db.query(AiAssistantConversation).count() == 0
+
+
 def test_the_migrations_are_rerunnable(monkeypatch: pytest.MonkeyPatch) -> None:
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     with engine.connect() as conn:

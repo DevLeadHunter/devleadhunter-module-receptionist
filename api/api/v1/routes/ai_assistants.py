@@ -817,7 +817,8 @@ async def chat_with_assistant(
     assistant = ai_assistant_service.get_public_by_slug(db, slug)
     if not assistant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found or inactive")
-    if not payload.messages:
+    # Only a visitor's message is a question: the journal must never file an assistant turn as theirs.
+    if not payload.messages or payload.messages[-1].role != "user":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No message to answer")
 
     history = [
