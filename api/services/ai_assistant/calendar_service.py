@@ -49,6 +49,7 @@ from services.ai_assistant.google_calendar_client import (
 )
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.encryption_service import encryption_service
+from services.french_date_formatter import FrenchDateFormatter
 from services.sms.phone_normalizer import to_e164_mobile
 
 logger = logging.getLogger(__name__)
@@ -774,9 +775,7 @@ class AiAssistantCalendarService:
     @staticmethod
     def start_label(appointment: AiAssistantAppointment) -> str:
         """An appointment's start for the business (« mar. 29/09 à 14:30 »)."""
-        start = OpeningHoursCalendar.to_business_time(appointment.starts_at)
-        weekday = ("lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim.")[start.weekday()]
-        return f"{weekday} {start:%d/%m} à {start:%H:%M}"
+        return FrenchDateFormatter.short_date_time(OpeningHoursCalendar.to_business_time(appointment.starts_at))
 
     @classmethod
     def booked_label(cls, appointment: AiAssistantAppointment) -> str:

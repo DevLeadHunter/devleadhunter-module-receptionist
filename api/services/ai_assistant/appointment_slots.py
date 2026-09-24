@@ -16,6 +16,7 @@ from typing import ClassVar
 from enums.ai_assistant_request import AiAssistantDayPeriod
 from models.ai_assistant import AiAssistant
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from services.french_date_formatter import FrenchDateFormatter
 
 
 class AppointmentRefused(ValueError):
@@ -48,7 +49,6 @@ class AiAssistantAppointmentSlots:
         AiAssistantDayPeriod.MORNING: (time(8, 30), time(9, 30), time(10, 30), time(11, 30)),
         AiAssistantDayPeriod.AFTERNOON: (time(13, 30), time(14, 30), time(15, 30), time(16, 30), time(17, 30)),
     }
-    _WEEKDAYS: ClassVar[tuple[str, ...]] = ("lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim.")
     _PERIOD_LABELS: ClassVar[dict[AiAssistantDayPeriod, str]] = {
         AiAssistantDayPeriod.MORNING: "matin",
         AiAssistantDayPeriod.AFTERNOON: "après-midi",
@@ -125,7 +125,7 @@ class AiAssistantAppointmentSlots:
     @classmethod
     def label(cls, slot: AppointmentSlot) -> str:
         """A half-day in French (« lun. 28/09, matin »)."""
-        return f"{cls._WEEKDAYS[slot.day.weekday()]} {slot.day:%d/%m}, {cls._PERIOD_LABELS[slot.period]}"
+        return f"{FrenchDateFormatter.short_date(slot.day)}, {cls._PERIOD_LABELS[slot.period]}"
 
     @classmethod
     def short_labels(cls, stored: list[dict[str, str]] | None) -> list[str]:
@@ -139,8 +139,7 @@ class AiAssistantAppointmentSlots:
             One label per half-day, in stored order.
         """
         return [
-            f"{cls._WEEKDAYS[slot.day.weekday()]} {slot.day:%d/%m} {cls._PERIOD_LABELS[slot.period]}"
-            for slot in cls.read(stored)
+            f"{FrenchDateFormatter.short_date(slot.day)} {cls._PERIOD_LABELS[slot.period]}" for slot in cls.read(stored)
         ]
 
     @classmethod

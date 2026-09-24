@@ -30,6 +30,7 @@ from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RenderedEmail
 from services.email_attachment import EmailAttachment
 from services.email_sending_service import EmailSendingService
+from services.french_date_formatter import FrenchDateFormatter
 from services.sms.gsm_segments import segment_count, to_strict_gsm7
 from services.sms_service import sms_service
 
@@ -82,32 +83,19 @@ class AppointmentTexts:
 
     LANGUAGES: ClassVar[tuple[str, ...]] = ("fr", "nl", "en", "de")
     _WEEKDAYS: ClassVar[dict[str, tuple[str, ...]]] = {
-        "fr": ("lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."),
+        "fr": FrenchDateFormatter.SHORT_WEEKDAYS,
         "nl": ("ma", "di", "wo", "do", "vr", "za", "zo"),
         "en": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
         "de": ("Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.", "So."),
     }
     _LONG_WEEKDAYS: ClassVar[dict[str, tuple[str, ...]]] = {
-        "fr": ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"),
+        "fr": FrenchDateFormatter.WEEKDAYS,
         "nl": ("maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"),
         "en": ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"),
         "de": ("Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"),
     }
     _MONTHS: ClassVar[dict[str, tuple[str, ...]]] = {
-        "fr": (
-            "janvier",
-            "février",
-            "mars",
-            "avril",
-            "mai",
-            "juin",
-            "juillet",
-            "août",
-            "septembre",
-            "octobre",
-            "novembre",
-            "décembre",
-        ),
+        "fr": FrenchDateFormatter.MONTHS,
         "nl": (
             "januari",
             "februari",
