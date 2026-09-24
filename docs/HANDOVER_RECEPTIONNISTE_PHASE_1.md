@@ -1,8 +1,8 @@
 # Passation — Réceptionniste IA, phase 1 (modèle économique)
 
-Branche **`feat/receptionist-phase-1`** : un commit par ticket (6), plus celui de ce document, posés
-sur `main` à `a0e6205`. `origin/main` n'a pas bougé depuis : la branche passe en avance rapide, sans
-conflit. Rien n'est mergé, `main` n'a pas été poussé.
+Branche **`feat/receptionist-phase-1`** : un commit par ticket (R2 en deux, R11 en deux), plus ceux de ce
+document (14 commits), posés sur `main` à `a0e6205`. `origin/main` n'a pas bougé depuis : la
+branche passe en avance rapide, sans conflit. Rien n'est mergé, `main` n'a pas été poussé.
 
 | Ticket | Asana | Commit | État |
 |---|---|---|---|
@@ -11,18 +11,22 @@ conflit. Rien n'est mergé, `main` n'a pas été poussé.
 | R6 — devis par photo | 1218810139834916 | `1d62798` | livré |
 | R4 — Mistral d'abord, secours Groq journalisé, « EU only » | 1218810158843341 | `0a65ac3` | livré ; en attente de la clé Mistral et des CGU |
 | R11 — 79 €, 5 emails + 5 SMS de prospection, textes de /ia | 1218810139755803 | `e46cf0a` | livré (périmètre prix / modèles / page) |
-| R9 — rapport mensuel au client + drapeau churn | 1218810013839351 | `d38c6fa` | livré (sans la page espace client) |
+| R9 — rapport mensuel au client + drapeau churn | 1218810013839351 | `d38c6fa` | livré (le rapport est aussi dans l'espace client, R8) |
 | R8 — espace client par lien magique | 1218821404873061 | `2fafebd` | livré |
 | R2 — rendez-vous : demande de créneaux sans agenda (R2a) | 1218810064722315 | `ff96da8` | livré |
-| R2 — rendez-vous : Google Agenda (R2b) | 1218810064722315 | voir la section | livré ; en attente de la vérification Google (R15) |
-| R1 — base de connaissance complète | 1218810139188474 | voir la section | livré |
+| R2 — rendez-vous : Google Agenda (R2b) | 1218810064722315 | `94e9c1b` | livré ; en attente de la vérification Google (R15) |
+| R1 — base de connaissance complète | 1218810139188474 | `48a5451` | livré ; à vérifier avec un vrai modèle |
+| R13 — argumentaire face à IONOS | 1218810139800577 | `e19889c` | écrit : `docs/RECEPTIONNISTE_ARGUMENTAIRE.md` |
+| R11 (suite) — encart d'estimation sur /ia | 1218810139755803 | `ac30c5a` | livré ; volumes par métier à valider |
 
 Chaque ticket a reçu sur Asana un commentaire « fait / reste / comment tester ». La documentation
 fonctionnelle à jour est dans `docs/ASSISTANT_MODULE.md` (sections Journal des conversations, Demandes,
-Modèles IA, Devis par photo, Alertes au commerçant, Rapport mensuel, Vente par abonnement).
+Modèles IA, Devis par photo, Alertes au commerçant, Rapport mensuel, Espace client, Rendez-vous dans Google
+Agenda, Sources de connaissance, Vente par abonnement).
 
 Hors de cette branche : R12 (verticales, détection « déjà équipé », score « demande entrante ») est sur
-`claude/epic-bohr-lgv8d8`, 4 commits, lui non plus pas mergé.
+`claude/epic-bohr-lgv8d8`, 5 commits au 24/09 au soir (dont un correctif d'horodatage `243c838`), lui non plus
+pas mergé.
 
 ## Rejouer
 
@@ -75,9 +79,9 @@ Tests par ticket (depuis `api/`, avec `python -m pytest -q`) :
 - `tests/test_storyblok_space_swap.py::test_swap_needed_when_trial_would_end_before_demo_ttl` et `::test_boundary_exactly_enough_trial_remaining`.
 - Typecheck `web` : 5 erreurs, `demo-host` : 2 erreurs. Ce sont des chemins Windows absolus (`C:/Users/…`) dans les types générés, plus un type PostHog. Aucune nouvelle erreur.
 
-Environnement de ce poste : pas de navigateur de test branché sur l'app, pas de clés Mistral / Groq /
-smsmode / Resend. Tout ce qui touche un service externe est testé avec des doublures. Les écrans ont été
-relus dans le code, pas cliqués.
+Environnement de ce poste : pas de clés Mistral / Groq / smsmode / Resend / Google. Tout ce qui touche un
+service externe est testé avec des doublures. Les écrans de R3 à R9 ont été relus dans le code. Ceux de R8, R2,
+R1 et de l'encart /ia ont été vérifiés dans Chromium, avec une API locale sur SQLite et des services simulés.
 
 ---
 
@@ -199,6 +203,23 @@ relus dans le code, pas cliqués.
 - Une ligne `assistant_llm_call` par appel (fournisseur, modèle, latence, tokens, coût estimé, secours, EU only), en INFO.
 - Pas de mention « données hébergées en Europe » sur /ia.
 
+**À faire pour mettre R4 en service** (rien à coder) :
+
+1. **Conditions Mistral** : relire et accepter les CGU et le DPA de La Plateforme (région UE, durée de conservation,
+   pas d'entraînement sur les données envoyées).
+2. **Clé** : créer `MISTRAL_API_KEY` sur console.mistral.ai et l'ajouter à l'environnement de l'API en prod. Les
+   modèles (`MISTRAL_CHAT_MODEL`, `MISTRAL_VISION_MODEL`, `mistral-small-latest` par défaut) et les prix
+   (`MISTRAL_EUR_PER_MTOK_IN` / `_OUT`, 0,10 / 0,30 € par million de tokens par défaut) ne changent que si le tarif
+   diffère.
+3. **Contrôle** : redémarrer l'API, poser une question à une démo `?internal=1`, et chercher dans les logs une ligne
+   `assistant_llm_call usage=chat provider=mistral`.
+4. **Bench** : `cd api && python scripts/bench_assistant_llm.py --out bench.md` (les 3 assistants en ligne les plus
+   récents, ou des slugs). Objectif : 0,02 € au plus par conversation et aucune réponse qui cite un prix. Relire
+   `bench.md`. Le refaire sur un assistant avec son site et 2 PDF (R1 : prompt d'environ 8 000 tokens).
+5. **EU only** : la case de « Personnaliser » n'est acceptée qu'une fois la clé en place. La cocher pour les clients
+   qui le demandent (sans secours Groq, une panne Mistral laisse le visiteur sur la réponse de secours).
+6. **Mention « Europe » sur /ia** : seulement après les points 1 à 4 (question 1).
+
 ---
 
 ## R11 — Prix et textes de vente (`e46cf0a`)
@@ -220,7 +241,7 @@ relus dans le code, pas cliqués.
 - Chaque SMS tient en un segment avec un lien de 45 caractères.
 - Le prix apparaît sur une démo, jamais sur un assistant vendu.
 
-**Non vérifié** : rendu de /ia et des aperçus de campagne dans un navigateur.
+**Non vérifié** : aperçus de campagne dans un navigateur (la page /ia a été vérifiée avec son encart, voir « R11 (suite) »).
 
 **Décisions prises seul**
 - Le modèle « demandes captées » est renommé en place en « devis par photo » : les campagnes gardent leur modèle.
