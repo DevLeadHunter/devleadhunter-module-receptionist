@@ -13,7 +13,7 @@ class AiAssistantSourcePage(BaseModel):
     chars: int
 
 
-class AiAssistantWebsiteSync(BaseModel):
+class AiAssistantWebsiteSyncItem(BaseModel):
     """The last read of the website: when, how many pages, what changed since the one before."""
 
     at: datetime | None = None
@@ -47,7 +47,7 @@ class AiAssistantSourcesResponse(BaseModel):
     site_enabled: bool
     listing_enabled: bool
     pages: list[AiAssistantSourcePage] = Field(default_factory=list)
-    sync: AiAssistantWebsiteSync | None = None
+    sync: AiAssistantWebsiteSyncItem | None = None
     # What the Google listing brings, in French (« Note 4,6/5 (128 avis) », « Horaires », « 3 services »).
     listing_facts: list[str] = Field(default_factory=list)
     documents: list[AiAssistantDocumentItem] = Field(default_factory=list)

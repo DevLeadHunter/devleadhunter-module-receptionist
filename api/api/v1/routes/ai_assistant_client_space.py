@@ -45,6 +45,7 @@ from services.ai_assistant.google_calendar_client import GoogleCalendarError
 from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.report_email import AiAssistantReportEmail, MonthlyStats
+from services.ai_assistant.report_service import ReportPeriod
 from services.ai_assistant.request_alerts import AlertSettings
 from services.ai_assistant.request_service import ai_assistant_request_service
 from services.assistant_pricing_service import AssistantPricingService
@@ -130,9 +131,8 @@ def _to_appointment(
 
 def _to_report(report: AiAssistantReport) -> AiAssistantClientReport:
     stats = MonthlyStats.from_json(report.stats_json or {})
-    year, month = report.month.split("-")
     return AiAssistantClientReport(
-        month_label=FrenchDateFormatter.month_year(datetime(int(year), int(month), 1)),
+        month_label=FrenchDateFormatter.month_year(ReportPeriod.of_key(report.month).first_day),
         conversations=stats.conversations,
         requests=stats.requests,
         quotes=stats.quotes,

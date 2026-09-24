@@ -758,26 +758,24 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
 
 
 def _closed_hours(db: Session, assistant: AiAssistant) -> AiAssistantClosedHours | None:
-    """
-    The demo page's estimate: the business's closed time from 7:00 to 22:00 this month (its Google hours) and the
-    requests that would come in meanwhile for its trade; None when its hours are unknown or never open (a listing
-    closed every day says nothing about when customers find the door shut).
-    """
+    """The demo page's estimate of the requests that come in while the business is closed (see the service)."""
     now = OpeningHoursCalendar.business_now()
-    estimate = OpeningHoursCalendar.closed_hours_estimate(
-        AiAssistantAppointmentSlots.opening_hours_of(assistant), year=now.year, month=now.month
-    )
-    if estimate is None or estimate.open_hours_per_week == 0:
-        return None
-    trade = AiAssistantRequestVolume.for_category(ai_assistant_service.business_category(db, assistant))
-    return AiAssistantClosedHours(
-        open_hours_per_week=estimate.open_hours_per_week,
-        closed_share_pct=estimate.closed_share_pct,
-        closed_hours_in_month=estimate.closed_hours_in_month,
+    offer = AiAssistantRequestVolume.closed_hours_offer(
+        AiAssistantAppointmentSlots.opening_hours_of(assistant),
+        ai_assistant_service.business_category(db, assistant),
+        year=now.year,
         month=now.month,
-        trade_label=trade.label,
-        monthly_requests=trade.monthly_requests,
-        estimated_requests=AiAssistantRequestVolume.estimate(trade.monthly_requests, estimate.closed_share_pct),
+    )
+    if offer is None:
+        return None
+    return AiAssistantClosedHours(
+        open_hours_per_week=offer.closed_hours.open_hours_per_week,
+        closed_share_pct=offer.closed_hours.closed_share_pct,
+        closed_hours_in_month=offer.closed_hours.closed_hours_in_month,
+        month=offer.month,
+        trade_label=offer.trade.label,
+        monthly_requests=offer.trade.monthly_requests,
+        estimated_requests=offer.estimated_requests,
     )
 
 

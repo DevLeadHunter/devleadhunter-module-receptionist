@@ -12,7 +12,6 @@ from api.v1.routes.ai_assistant_common import owned_assistant_or_404, require_de
 from core.database import get_db
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_document import AiAssistantDocument
-from models.prospect_db import ProspectDB
 from models.user import User
 from schemas.ai_assistant_sources import (
     AiAssistantDocumentItem,
@@ -20,12 +19,11 @@ from schemas.ai_assistant_sources import (
     AiAssistantSourcePage,
     AiAssistantSourcesResponse,
     AiAssistantSourcesUpdate,
-    AiAssistantWebsiteSync,
+    AiAssistantWebsiteSyncItem,
 )
-from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.document_service import AiAssistantDocumentService, ai_assistant_document_service
 from services.ai_assistant.document_text import AiAssistantDocumentText
-from services.ai_assistant.source_service import ai_assistant_source_service
+from services.ai_assistant.source_service import AiAssistantSourceService, ai_assistant_source_service
 from services.auth_service import get_current_active_user
 from services.r2_storage_service import r2_storage
 
@@ -35,60 +33,6 @@ router = APIRouter(prefix="/ai-assistants", tags=["ai-assistant-sources"])
 
 # Room for the multipart envelope around the file itself.
 _DOCUMENT_REQUEST_MAX_BYTES = AiAssistantDocumentText.MAX_BYTES + 64 * 1024
-
-
-def _listing_facts(knowledge: dict[str, Any]) -> list[str]:
-    """What the Google listing (and the site prepared from it) brings the assistant, in a few French words."""
-    facts: list[str] = []
-    rating = knowledge.get("rating") if isinstance(knowledge.get("rating"), dict) else {}
-    if rating.get("value"):  # Stored as shown: « 4,6/5 », « 128 ».
-        count = f" ({rating['count']} avis)" if rating.get("count") else ""
-        facts.append(f"Note {rating['value']}{count}")
-    hours = knowledge.get("opening_hours") or []
-    if hours:
-        facts.append("Horaires")
-    services = knowledge.get("services") or []
-    if services:
-        facts.append(_count(len(services), "service"))
-    reviews = knowledge.get("reviews") or []
-    if reviews:
-        facts.append(f"{len(reviews)} avis client{'s' if len(reviews) > 1 else ''}")
-    identity = knowledge.get("identity") if isinstance(knowledge.get("identity"), dict) else {}
-    contact = [label for key, label in (("phone", "téléphone"), ("address", "adresse")) if identity.get(key)]
-    if contact:
-        facts.append(" et ".join(contact).capitalize())
-    generated = knowledge.get("generated_site") if isinstance(knowledge.get("generated_site"), dict) else {}
-    prepared = [
-        part
-        for part in (
-            "présentation" if generated.get("about") else "",
-            _count(len(generated.get("services") or []), "prestation") if generated.get("services") else "",
-            _count(len(generated.get("faq") or []), "question fréquente") if generated.get("faq") else "",
-        )
-        if part
-    ]
-    if prepared:
-        facts.append("Site préparé : " + ", ".join(prepared))
-    return facts
-
-
-def _count(count: int, words: str) -> str:
-    """« 1 prestation », « 3 questions fréquentes »: every word of ``words`` takes the plural above one."""
-    if count <= 1:
-        return f"{count} {words}"
-    return f"{count} " + " ".join(f"{word}s" for word in words.split())
-
-
-def _website_url(db: Session, assistant: AiAssistant, knowledge: dict[str, Any]) -> str | None:
-    """The site the assistant reads, else the prospect's site that was never read (« Mettre à jour » reads it)."""
-    website = knowledge.get("website") if isinstance(knowledge.get("website"), dict) else {}
-    if isinstance(website.get("url"), str) and website["url"]:
-        return website["url"]
-    prospect = db.get(ProspectDB, assistant.prospect_id) if assistant.prospect_id else None
-    if prospect is None or not ai_assistant_service.has_readable_website(prospect):
-        return None
-    address = (prospect.website or "").strip()
-    return address if address.startswith(("http://", "https://")) else f"https://{address}"
 
 
 def _to_document(document: AiAssistantDocument) -> AiAssistantDocumentItem:
@@ -109,7 +53,7 @@ def _to_document(document: AiAssistantDocument) -> AiAssistantDocumentItem:
     )
 
 
-def _to_sync(knowledge: dict[str, Any]) -> AiAssistantWebsiteSync | None:
+def _to_sync(knowledge: dict[str, Any]) -> AiAssistantWebsiteSyncItem | None:
     sync = knowledge.get("website_sync")
     if not isinstance(sync, dict):
         return None
@@ -117,7 +61,7 @@ def _to_sync(knowledge: dict[str, Any]) -> AiAssistantWebsiteSync | None:
         at = datetime.fromisoformat(sync["at"]) if isinstance(sync.get("at"), str) else None
     except ValueError:
         at = None
-    return AiAssistantWebsiteSync(
+    return AiAssistantWebsiteSyncItem(
         at=at,
         pages=int(sync.get("pages") or 0),
         added=[str(url) for url in sync.get("added") or []],
@@ -132,7 +76,7 @@ def _to_sources(db: Session, assistant: AiAssistant) -> AiAssistantSourcesRespon
     website = knowledge.get("website") if isinstance(knowledge.get("website"), dict) else {}
     toggles = ai_assistant_source_service.toggles(assistant)
     return AiAssistantSourcesResponse(
-        website_url=_website_url(db, assistant, knowledge),
+        website_url=ai_assistant_source_service.website_url(db, assistant),
         site_enabled=toggles.site,
         listing_enabled=toggles.listing,
         pages=[
@@ -143,7 +87,7 @@ def _to_sources(db: Session, assistant: AiAssistant) -> AiAssistantSourcesRespon
             if isinstance(page, dict) and page.get("url")
         ],
         sync=_to_sync(knowledge),
-        listing_facts=_listing_facts(knowledge),
+        listing_facts=AiAssistantSourceService.listing_facts(knowledge),
         documents=[_to_document(document) for document in ai_assistant_document_service.documents_of(db, assistant)],
         max_documents=AiAssistantDocumentService.MAX_DOCUMENTS,
     )

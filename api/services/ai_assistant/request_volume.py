@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass
 from typing import ClassVar
 
+from services.ai_assistant.opening_hours import ClosedHoursEstimate, OpeningHoursCalendar
 from services.text_normalizer import TextNormalizer
 
 
@@ -22,6 +23,16 @@ class TradeVolume:
 
     label: str
     monthly_requests: int
+
+
+@dataclass(frozen=True)
+class ClosedHoursOffer:
+    """The demo page's estimate: the business's closed time this month and the requests its trade would miss."""
+
+    closed_hours: ClosedHoursEstimate
+    month: int
+    trade: TradeVolume
+    estimated_requests: int
 
 
 class AiAssistantRequestVolume:
@@ -78,6 +89,35 @@ class AiAssistantRequestVolume:
             if any(word.startswith(start) for word in words for start in starts):
                 return volume
         return cls.DEFAULT
+
+    @classmethod
+    def closed_hours_offer(
+        cls, opening_hours: list[dict[str, str]] | None, category: str | None, *, year: int, month: int
+    ) -> ClosedHoursOffer | None:
+        """
+        The estimate a demo page shows: the business's closed time from 7:00 to 22:00, and the requests that would
+        come in meanwhile for its trade.
+
+        Args:
+            opening_hours: The business's cleaned opening-hour rows (its Google hours).
+            category: Its Google Maps category.
+            year: The month's year.
+            month: The month, 1 to 12.
+
+        Returns:
+            The offer; None when the hours are unknown or never open (a listing closed every day says nothing about
+            when customers find the door shut).
+        """
+        closed_hours = OpeningHoursCalendar.closed_hours_estimate(opening_hours, year=year, month=month)
+        if closed_hours is None or closed_hours.open_hours_per_week == 0:
+            return None
+        trade = cls.for_category(category)
+        return ClosedHoursOffer(
+            closed_hours=closed_hours,
+            month=month,
+            trade=trade,
+            estimated_requests=cls.estimate(trade.monthly_requests, closed_hours.closed_share_pct),
+        )
 
     @staticmethod
     def estimate(monthly_requests: int, closed_share_pct: int) -> int:

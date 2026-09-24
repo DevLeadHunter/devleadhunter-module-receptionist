@@ -176,6 +176,79 @@ class AiAssistantSourceService:
             await self.run_pass()
             await asyncio.sleep(interval_seconds)
 
+    @classmethod
+    def listing_facts(cls, knowledge: dict[str, Any]) -> list[str]:
+        """
+        What the Google listing, and the site prepared from it, brings the assistant, in a few French words.
+
+        Args:
+            knowledge: The assistant's ``knowledge_json``.
+
+        Returns:
+            One short line per fact (« Note 4,6/5 (128 avis) », « Horaires », « 3 services »…).
+        """
+        facts: list[str] = []
+        rating = knowledge.get("rating") if isinstance(knowledge.get("rating"), dict) else {}
+        if rating.get("value"):  # Stored as shown: « 4,6/5 », « 128 ».
+            count = f" ({rating['count']} avis)" if rating.get("count") else ""
+            facts.append(f"Note {rating['value']}{count}")
+        if knowledge.get("opening_hours"):
+            facts.append("Horaires")
+        services = knowledge.get("services") or []
+        if services:
+            facts.append(cls._count_label(len(services), "service"))
+        reviews = knowledge.get("reviews") or []
+        if reviews:
+            facts.append(f"{len(reviews)} avis client{'s' if len(reviews) > 1 else ''}")
+        identity = knowledge.get("identity") if isinstance(knowledge.get("identity"), dict) else {}
+        contact = [label for key, label in (("phone", "téléphone"), ("address", "adresse")) if identity.get(key)]
+        if contact:
+            facts.append(" et ".join(contact).capitalize())
+        generated = knowledge.get("generated_site") if isinstance(knowledge.get("generated_site"), dict) else {}
+        prepared = [
+            part
+            for part in (
+                "présentation" if generated.get("about") else "",
+                cls._count_label(len(generated.get("services") or []), "prestation")
+                if generated.get("services")
+                else "",
+                cls._count_label(len(generated.get("faq") or []), "question fréquente") if generated.get("faq") else "",
+            )
+            if part
+        ]
+        if prepared:
+            facts.append("Site préparé : " + ", ".join(prepared))
+        return facts
+
+    @staticmethod
+    def website_url(db: Session, assistant: AiAssistant) -> str | None:
+        """
+        The site the assistant reads, else its prospect's site never read yet (« Mettre à jour » reads it).
+
+        Args:
+            db: Active database session.
+            assistant: The assistant.
+
+        Returns:
+            The absolute address, or None when there is no readable site.
+        """
+        knowledge = assistant.knowledge_json or {}
+        website = knowledge.get("website") if isinstance(knowledge.get("website"), dict) else {}
+        if isinstance(website.get("url"), str) and website["url"]:
+            return website["url"]
+        prospect = db.get(ProspectDB, assistant.prospect_id) if assistant.prospect_id else None
+        if prospect is None or not ai_assistant_service.has_readable_website(prospect):
+            return None
+        address = (prospect.website or "").strip()
+        return address if address.startswith(("http://", "https://")) else f"https://{address}"
+
+    @staticmethod
+    def _count_label(count: int, words: str) -> str:
+        """« 1 prestation », « 3 questions fréquentes »: every word of ``words`` takes the plural above one."""
+        if count <= 1:
+            return f"{count} {words}"
+        return f"{count} " + " ".join(f"{word}s" for word in words.split())
+
     @staticmethod
     def _last_read(assistant: AiAssistant) -> datetime | None:
         """When the website was last read: the last sync, else the crawl stored at creation, naive UTC."""
