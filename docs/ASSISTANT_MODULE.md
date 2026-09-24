@@ -128,12 +128,19 @@ Le script monte un iframe transparent (bas-droite) vers `/embed/{slug}`, se redi
 
 ## Intégration campagnes
 
-`{lien_assistant}` (résolu vers l'assistant **actif** du prospect, vide sinon) :
+`{lien_assistant}` (résolu vers l'assistant **actif** de l'expéditeur pour ce prospect — jamais celui
+d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprimé — vide sinon) :
 
 - **Email** — `EmailVariables.resolve_assistant_link` : ancre tracée (comme `{lien_demo}`).
 - **SMS** — `SmsVariables` : lien nu sans schéma (`EmailVariables.resolve_assistant_url` + `as_sms_link`).
 - **Vidéo** — `{lien_video_assistant}` / `{vignette_video_assistant}` (email + SMS) : dégradent en vide
-  si la vidéo n'est pas prête (le CTA reste `{lien_assistant}` live), pas de garde à l'enqueue.
+  si la vidéo n'est pas prête (le CTA reste `{lien_assistant}` live).
+- **Gardes** — un template qui utilise `{lien_assistant}` ou la vidéo assistant n'est ni mis en file ni
+  envoyé sans assistant actif : lancement, ajout de prospects et envoi email (`skipped_no_assistant`,
+  motif « Pas d'assistant IA actif »), campagne SMS, relance SMS et composeur SMS. Un assistant généré
+  après coup rejoint la file des campagnes actives (`enqueue_ready_prospect`), comme une démo.
+- **Module** — une campagne est « assistant » (verrou inter-modules 45 j) dès qu'un de ses templates,
+  J1, A/B **ou relance**, utilise une variable assistant, `{prix_assistant}` compris.
 
 Le contact du prospect (email/SMS) bloque l'autre module **45 j** (`services/contact_lock_service.py`),
 pour ne pas démarcher deux fois le même prospect entre le site et l'assistant.

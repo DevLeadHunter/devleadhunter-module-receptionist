@@ -92,6 +92,28 @@ def test_get_public_by_slug_returns_active_or_delivered_only(db) -> None:
     assert ai_assistant_service.get_public_by_slug(db, created.slug) is None
 
 
+def test_get_active_for_prospect_scopes_to_the_user_and_the_demo(db) -> None:
+    """Prospection links only the sender's own active demo: another member's, a sold or a deleted one never leak."""
+    mine = ai_assistant_service.create(
+        db, user_id=1, business_name="Cabinet Meyer", prospect_id=42, country="FR", use_brand_color=False
+    )
+    ai_assistant_service.create(
+        db, user_id=2, business_name="Cabinet Meyer", prospect_id=42, country="FR", use_brand_color=False
+    )
+    found = ai_assistant_service.get_active_for_prospect(db, prospect_id=42, user_id=1)
+    assert found is not None and found.id == mine.id
+    assert ai_assistant_service.get_active_for_prospect(db, prospect_id=42, user_id=3) is None
+
+    mine.status = "delivered"
+    db.commit()
+    assert ai_assistant_service.get_active_for_prospect(db, prospect_id=42, user_id=1) is None
+
+    mine.status = "active"
+    mine.deleted_at = datetime.utcnow()
+    db.commit()
+    assert ai_assistant_service.get_active_for_prospect(db, prospect_id=42, user_id=1) is None
+
+
 def test_record_lead_persists_a_lead_attached_to_the_prospect(db) -> None:
     """A lead carries the assistant's owner and prospect, with trimmed fields."""
     assistant = ai_assistant_service.create(

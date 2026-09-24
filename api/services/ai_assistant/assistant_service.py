@@ -4,6 +4,7 @@ Mirrors the demo-site engine: one assistant generated per prospect, from the sam
 publicly by slug and answering visitors. No Storyblok — the assistant renders from ``knowledge_json``.
 """
 
+import logging
 import re
 import unicodedata
 from typing import Any
@@ -17,6 +18,8 @@ from models.prospect_db import ProspectDB
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.enrichment_service import enrichment_service
+
+logger = logging.getLogger(__name__)
 
 _PUBLICLY_SERVED_STATUSES: tuple[str, ...] = (AiAssistantStatus.ACTIVE.value, AiAssistantStatus.DELIVERED.value)
 
@@ -163,6 +166,8 @@ class AiAssistantService:
 
             assistant_video_service.maybe_start_auto_generation(db, assistant, user_id)
 
+        # A campaign may have left this prospect out for lacking an assistant: it can join the queue now.
+        self._enqueue_ready_prospect(db, prospect_id, user_id)
         return assistant
 
     async def create_for_prospect(self, db: Session, *, user_id: int, prospect: ProspectDB) -> AiAssistant:
@@ -258,6 +263,24 @@ class AiAssistantService:
         db.refresh(lead)
         return lead
 
+    def get_active_for_prospect(self, db: Session, *, prospect_id: int, user_id: int) -> AiAssistant | None:
+        """Return the user's newest active (demo) assistant for a prospect, or None.
+
+        Prospection links the demo only: a sold (``delivered``) assistant is never prospected again,
+        and on a shared prospect another member's assistant never leaks into this user's sends.
+        """
+        return (
+            db.query(AiAssistant)
+            .filter(
+                AiAssistant.prospect_id == prospect_id,
+                AiAssistant.user_id == user_id,
+                AiAssistant.status == AiAssistantStatus.ACTIVE.value,
+                AiAssistant.deleted_at.is_(None),
+            )
+            .order_by(AiAssistant.created_at.desc())
+            .first()
+        )
+
     def get_public_by_slug(self, db: Session, slug: str) -> AiAssistant | None:
         """Return the publicly served, non-deleted assistant for a slug, or None.
 
@@ -273,6 +296,26 @@ class AiAssistantService:
             )
             .first()
         )
+
+    @staticmethod
+    def _enqueue_ready_prospect(db: Session, prospect_id: int | None, user_id: int) -> None:
+        """Append the prospect to the active campaigns that skipped him for lacking an assistant; never raises."""
+        if not prospect_id:
+            return
+        try:
+            from services.campaign_queue_service import CampaignQueueService
+
+            added: int = CampaignQueueService(db).enqueue_ready_prospect(prospect_id, user_id)
+            if added:
+                logger.info(
+                    "[Assistant] Assistant ready for prospect %d — auto-enqueued into %d campaign send(s)",
+                    prospect_id,
+                    added,
+                )
+        except Exception:
+            logger.warning(
+                "[Assistant] Auto re-enqueue after assistant ready failed for prospect %s", prospect_id, exc_info=True
+            )
 
     def _unique_slug(self, db: Session, business_name: str) -> str:
         base_slug = self._slugify(business_name)[:80]
