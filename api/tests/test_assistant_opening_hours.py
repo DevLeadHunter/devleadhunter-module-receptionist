@@ -9,7 +9,7 @@ from datetime import datetime
 
 import pytest
 
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from services.ai_assistant.opening_hours import ClosedHoursEstimate, OpeningHoursCalendar
 
 _WEEK = [
     {"day": "lundi", "hours": "08:00–12:00, 14:00–18:00"},
@@ -57,3 +57,38 @@ def test_a_day_without_row_is_unknown() -> None:
 
 def test_business_now_is_timezone_aware() -> None:
     assert OpeningHoursCalendar.business_now().tzinfo is not None
+
+
+def test_the_closed_hours_estimate_counts_the_closed_daytime_of_a_week_and_a_month() -> None:
+    estimate = OpeningHoursCalendar.closed_hours_estimate(_WEEK, year=2026, month=9)
+
+    # Open: Mon, Tue, Thu 8 h, Wed 4 h, Fri 18:00–24:00, Sat 0:00–2:00 (Friday night), Sun 24 h = 60 h.
+    # Closed from 7:00 to 22:00: 7 + 7 + 11 + 7 + 11 + 15 + 0 = 58 h of 105 (55 %); September 2026 has five
+    # Tuesdays and five Wednesdays: 4 × 7 + 5 × 7 + 5 × 11 + 4 × 7 + 4 × 11 + 4 × 15 = 250 h.
+    assert estimate == ClosedHoursEstimate(open_hours_per_week=60, closed_share_pct=55, closed_hours_in_month=250)
+    assert OpeningHoursCalendar.closed_hours_estimate(_WEEK[:6], year=2026, month=9) is None
+    assert OpeningHoursCalendar.closed_hours_estimate(None, year=2026, month=9) is None
+
+
+def test_the_estimate_counts_an_overnight_range_and_skips_a_holiday_week() -> None:
+    from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
+
+    days = ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")
+    night_shift = [{"day": day, "hours": "20:00–08:00"} for day in days]
+    holiday_week = [{"day": day, "hours": "08:00–18:00"} for day in days[:5]] + [
+        {"day": "samedi (Armistice 1918)", "hours": "Fermé"},
+        {"day": "dimanche", "hours": "Fermé"},
+    ]
+    knowledge = ai_assistant_knowledge_builder.build_knowledge(
+        business_name="Plomberie Dupont", enrichment={"opening_hours": holiday_week}
+    )
+
+    # Open 0:00–8:00 and 20:00–24:00 every day (84 h); from 7:00 to 22:00, open 7–8 and 20–22: closed 12 h of 15.
+    assert OpeningHoursCalendar.closed_hours_estimate(night_shift, year=2026, month=9) == ClosedHoursEstimate(
+        open_hours_per_week=84, closed_share_pct=80, closed_hours_in_month=360
+    )
+    # Around a public holiday, Google shows that week's hours: no estimate from them.
+    assert knowledge["opening_hours"][5] == {"day": "samedi", "hours": "Fermé", "holiday": True}
+    assert "holiday" not in knowledge["opening_hours"][6]
+    assert OpeningHoursCalendar.closed_hours_estimate(knowledge["opening_hours"], year=2026, month=11) is None
+    assert OpeningHoursCalendar.is_open_at(knowledge["opening_hours"], _at(0, 9)) is True

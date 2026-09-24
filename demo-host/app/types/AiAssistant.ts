@@ -1,6 +1,21 @@
 /** Grammatical gender the persona speaks in, resolved by the API from its first name. */
 export type AiAssistantPersonaGender = 'feminine' | 'masculine'
 
+/**
+ * The demo page's estimate: how long the business is closed from 7:00 to 22:00 (its Google hours), over a week and
+ * over `month` (1 to 12), and the requests that would come in meanwhile, on a base of `monthly_requests` for its
+ * trade (« un plombier »).
+ */
+export type AiAssistantClosedHours = {
+  open_hours_per_week: number
+  closed_share_pct: number
+  closed_hours_in_month: number
+  month: number
+  trade_label: string
+  monthly_requests: number
+  estimated_requests: number
+}
+
 /** Public configuration of a prospect's AI assistant, served by the API and consumed as-is. */
 export interface AiAssistantConfig {
   slug: string
@@ -18,6 +33,7 @@ export interface AiAssistantConfig {
   video_url?: string | null
   video_thumbnail_url?: string | null
   monthly_price_label?: string | null
+  closed_hours?: AiAssistantClosedHours | null
 }
 
 /** A single conversation turn exchanged with the assistant. */

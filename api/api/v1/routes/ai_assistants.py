@@ -32,6 +32,7 @@ from schemas.ai_assistant import (
     AiAssistantAppointmentTime,
     AiAssistantChatRequest,
     AiAssistantChatResponse,
+    AiAssistantClosedHours,
     AiAssistantConversationItem,
     AiAssistantConversationMessageItem,
     AiAssistantConversationsResponse,
@@ -73,6 +74,7 @@ from services.ai_assistant.request_alerts import AlertSettings
 from services.ai_assistant.request_email import AiAssistantRequestEmail
 from services.ai_assistant.request_links import AiAssistantRequestLinks
 from services.ai_assistant.request_service import RequestCounts, ai_assistant_request_service
+from services.ai_assistant.request_volume import AiAssistantRequestVolume
 from services.assistant_pricing_service import AssistantPricingService
 from services.assistant_subscription_service import assistant_subscription_service
 from services.assistant_video_service import (
@@ -763,6 +765,36 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
             if assistant.status == AiAssistantStatus.ACTIVE.value
             else None
         ),
+        closed_hours=_closed_hours(db, assistant) if assistant.status == AiAssistantStatus.ACTIVE.value else None,
+    )
+
+
+def _closed_hours(db: Session, assistant: AiAssistant) -> AiAssistantClosedHours | None:
+    """
+    The demo page's estimate: the business's closed time from 7:00 to 22:00 this month (its Google hours) and the
+    requests that would come in meanwhile for its trade; None when its hours are unknown or never open (a listing
+    closed every day says nothing about when customers find the door shut).
+    """
+    now = OpeningHoursCalendar.business_now()
+    estimate = OpeningHoursCalendar.closed_hours_estimate(
+        (assistant.knowledge_json or {}).get("opening_hours"), year=now.year, month=now.month
+    )
+    if estimate is None or estimate.open_hours_per_week == 0:
+        return None
+    category = (
+        db.query(ProspectDB.category).filter(ProspectDB.id == assistant.prospect_id).scalar()
+        if assistant.prospect_id
+        else None
+    )
+    trade = AiAssistantRequestVolume.for_category(category)
+    return AiAssistantClosedHours(
+        open_hours_per_week=estimate.open_hours_per_week,
+        closed_share_pct=estimate.closed_share_pct,
+        closed_hours_in_month=estimate.closed_hours_in_month,
+        month=now.month,
+        trade_label=trade.label,
+        monthly_requests=trade.monthly_requests,
+        estimated_requests=AiAssistantRequestVolume.estimate(trade.monthly_requests, estimate.closed_share_pct),
     )
 
 

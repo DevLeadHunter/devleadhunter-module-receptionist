@@ -128,6 +128,24 @@ class AssistantSubscriptionListResponse(BaseModel):
     mrr_cents: int = 0
 
 
+class AiAssistantClosedHours(BaseModel):
+    """
+    The demo page's estimate: how long the business is closed from 7:00 to 22:00 (its Google hours) and the
+    requests that would come in meanwhile, on a base of a plausible monthly volume for its trade.
+    """
+
+    open_hours_per_week: int
+    closed_share_pct: int
+    closed_hours_in_month: int
+    # The month of ``closed_hours_in_month`` (1 to 12), in the business's time.
+    month: int
+    # The base of the estimate: « un plombier », 30 requests a month.
+    trade_label: str
+    monthly_requests: int
+    # ``monthly_requests`` × ``closed_share_pct``.
+    estimated_requests: int
+
+
 class AiAssistantPublicResponse(BaseModel):
     """The configuration the chat widget needs to render itself for a prospect's assistant."""
 
@@ -150,6 +168,9 @@ class AiAssistantPublicResponse(BaseModel):
     # What the prospect would pay a month (the seller's current price, « 79 € »), for the demo page;
     # None once sold.
     monthly_price_label: str | None = None
+    # How long the business is closed while its customers look for it, for the demo page; None once sold or
+    # when its hours are unknown.
+    closed_hours: AiAssistantClosedHours | None = None
 
 
 class AiAssistantInterestRequest(BaseModel):

@@ -597,7 +597,18 @@ existe déjà).
 sans réponse »), trois preuves (répond 24 h/24 dans les langues de l'assistant, devis sur photo, demandes de
 rendez-vous), le prix de la démo (`monthly_price_label` de la config publique, mis en forme comme dans les
 emails ; masqué une fois vendu et au retour du paiement `?subscribed=1`) et l'invitation à essayer : poser une
-question, envoyer une photo, demander un rendez-vous.
+question, envoyer une photo, demander un rendez-vous. L'encart « Estimation · chez vous, chaque mois » chiffre les
+demandes qui arrivent quand c'est fermé, calcul affiché : un volume mensuel présenté comme « notre hypothèse » pour le
+métier, trouvé depuis la catégorie Google Maps du prospect par début de mot (`services/ai_assistant/request_volume.py` :
+30 pour un plombier, un serrurier ou un garage, 15 pour le bâtiment, 40 pour la coiffure, la restauration ou un
+cabinet de santé, 35 pour un institut de beauté, 25 pour une agence immobilière, 20 par défaut), multiplié par la
+part du temps de 7 h à 22 h où le commerce est fermé d'après ses horaires Google (arrondi au plus proche, 12,5 → 13),
+avec en appui les heures d'ouverture par semaine et les heures fermées du mois en cours. Config publique
+`closed_hours`, `OpeningHoursCalendar.closed_hours_estimate`. Il n'apparaît que sur une démo dont les 7 jours ont des
+horaires lisibles, ouverte au moins une heure par semaine, quand l'estimation donne au moins 2 demandes, et jamais
+sur une semaine de jour férié (Google annote alors les jours, « samedi (Assomption) », et montre les horaires de
+cette semaine-là : ces jours sont marqués `holiday` dans `knowledge_json['opening_hours']`). Ces volumes sont des
+hypothèses ; la part mesurée des demandes hors horaires est dans le dashboard et le rapport mensuel.
 
 Le contact du prospect (email/SMS) bloque l'autre module **45 j** (`services/contact_lock_service.py`),
 pour ne pas démarcher deux fois le même prospect entre le site et l'assistant.

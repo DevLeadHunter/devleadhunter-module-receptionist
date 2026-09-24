@@ -29,7 +29,7 @@ Hors de cette branche : R12 (verticales, détection « déjà équipé », score
 ```bash
 cd api
 python migrations/run_migrations.py      # idempotent ; les 13 migrations de la phase 1 sont listées plus bas
-python -m pytest -q                      # attendu : 1105 passed, 3 failed (préexistants, voir plus bas)
+python -m pytest -q                      # attendu : 1120 passed, 3 failed (préexistants, voir plus bas)
 ruff format --check . && ruff check .    # attendu : propre
 cd ..
 npm --prefix web run lint                # prettier + eslint propres ; typecheck : 5 erreurs préexistantes
@@ -66,6 +66,7 @@ Tests par ticket (depuis `api/`, avec `python -m pytest -q`) :
 | R2a | `tests/test_assistant_appointments.py` | 16 |
 | R2b | `tests/test_assistant_calendar.py` | 41 |
 | R1 | `tests/test_assistant_documents.py tests/test_ai_assistant_website_knowledge.py` | 28 + 6 |
+| R11 (suite) | `tests/test_assistant_opening_hours.py tests/test_assistant_sales_copy.py` (tests d'estimation) | 2 + 13 |
 
 Échecs et erreurs **préexistants**, identiques sur `main` à `a0e6205` (revérifié sur un worktree de
 `main`) :
@@ -414,6 +415,30 @@ relus dans le code, pas cliqués.
 - Le volet « Sources » est dans le dashboard (opérateur), pas dans l'espace client.
 - Chaque écriture de la connaissance qui suit une attente (lecture du site, d'un PDF, régénération) relit d'abord l'assistant, pour ne pas écraser un changement fait entre-temps.
 
+## R11 (suite) — Encart d'estimation sur /ia
+
+**Fichiers**
+- API : `services/ai_assistant/opening_hours.py` (`closed_hours_estimate`), `services/ai_assistant/request_volume.py` (volumes par métier), `schemas/ai_assistant.py` (`AiAssistantClosedHours`), route publique (`closed_hours`, démos seulement), `knowledge_builder.py` (jours de semaine fériée marqués `holiday`).
+- Demo-host : `pages/ia/[slug].vue` (encart), `types/AiAssistant.ts`.
+
+**Vérifié**
+- Tests :
+  - heures fermées de 7 h à 22 h sur une semaine et sur un mois : nuit du vendredi, horaires de nuit 20 h – 8 h, jour fermé, jour ouvert 24 h/24, jour sans horaires ;
+  - semaine de jour férié mise de côté ;
+  - estimation servie aux démos seulement, jamais pour une fiche fermée tous les jours ;
+  - base par défaut sans prospect ;
+  - arrondi au plus proche (12,5 → 13) ;
+  - métier trouvé par début de mot (« Restaurant barbecue » n'est pas un barbier, « Installateur de portes de garage » n'est pas un garage, « Institut de formation » n'est pas un institut de beauté).
+- Relecture de code (agent) : aucun point bloquant ; les 3 points importants (métiers mal reconnus, semaine de jour férié, hypothèse présentée comme un fait) et les 4 mineurs (« ≈ 1 demandes », arrondi, coût du calcul, contraste du chiffre) sont corrigés.
+- Navigateur : /ia d'une démo de plombier ouverte 43 h par semaine affiche « ≈ 18 demandes » et le calcul, sur bureau et mobile ; rien sur un assistant vendu.
+
+**Décisions prises seul**
+- Le chiffre est une estimation affichée comme telle, calcul compris : un volume mensuel pour le métier, présenté comme « notre hypothèse », × la part du temps fermé entre 7 h et 22 h (horaires Google). Libellé « chaque mois » plutôt que « ce mois-ci » : le volume est mensuel, seules les heures fermées sont celles du mois en cours.
+- Volumes retenus, des hypothèses à valider : plombier, serrurier, garage 30 ; électricien 20 ; couvreur, menuisier, peintre, bâtiment 15 ; coiffure, restaurant, cabinet de santé 40 ; institut de beauté 35 ; agence immobilière 25 ; autre 20.
+- Plage « quand vos clients cherchent » : 7 h – 22 h, tous les jours.
+- Encart masqué quand un jour n'a pas d'horaires lisibles, sur une semaine de jour férié, pour une fiche fermée tous les jours, et sous 2 demandes. Les assistants déjà créés n'ont la marque des jours fériés qu'après une régénération.
+- Le chiffre est écrit à l'encre, pas dans la couleur du commerce, pour rester lisible quelle que soit sa couleur.
+
 ---
 
 ## Questions pour Léo
@@ -426,7 +451,7 @@ relus dans le code, pas cliqués.
 4. **HEIC** : faut-il un décodeur serveur (`pillow-heif`) pour les navigateurs hors Safari ?
 5. **Vignettes du dashboard** : l'image entière suffit-elle, ou faut-il stocker une miniature ?
 6. **Renommer** le module « Réceptionniste IA » dans le sélecteur ?
-7. **Extras R11** non faits : encart « ce qu'elle aurait capté chez vous ce mois-ci », scénario de la vidéo de prospection.
+7. **Extras R11** : l'encart d'estimation est fait (valider les volumes par métier, voir « R11 (suite) ») ; le scénario de la vidéo de prospection reste à faire.
 8. **Remboursement** « premier mois satisfait ou remboursé » : manuel, ça convient ?
 9. **Relances à 79 €** : un prospect qui a reçu un email à 29 € voit 79 € dans les relances, sur la démo et au paiement. Ça convient ?
 10. **Scoring prospect** : brancher les événements de /ia et les demandes de l'assistant dans `behavior_service` ?

@@ -18,6 +18,7 @@ from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.knowledge_budget import AiAssistantKnowledgeBudget, KnowledgePassage, KnowledgeSourceText
 from services.french_date_formatter import FrenchDateFormatter
 from services.templates.site_content import (
+    _DAY_ANNOTATION_RE,
     _clean_opening_hours,
     _clean_review_text,
     format_rating_value,
@@ -111,7 +112,7 @@ class AiAssistantKnowledgeBuilder:
                 "description": self._clean_text(enr.get("description")),
             },
             "rating": self._build_rating(enr),
-            "opening_hours": _clean_opening_hours(enr.get("opening_hours") or []),
+            "opening_hours": self._build_hours(enr.get("opening_hours")),
             "services": self._build_services(enr.get("services")),
             "reviews": self._build_reviews(enr.get("reviews")),
             "social": {key: value for key, value in (enr.get("social_links") or {}).items() if value},
@@ -231,6 +232,24 @@ class AiAssistantKnowledgeBuilder:
         if count:
             rating["count"] = count
         return rating
+
+    @staticmethod
+    def _build_hours(raw_hours: Any) -> list[dict[str, Any]]:
+        """
+        The cleaned opening hours; a day Google annotated (« samedi (Assomption) ») is flagged ``holiday``: around a
+        public holiday, the listing shows that week's hours, not the usual ones.
+        """
+        raw_rows = [row for row in raw_hours or [] if isinstance(row, dict)]
+        rows: list[dict[str, Any]] = list(_clean_opening_hours(raw_rows))
+        annotated = {
+            _DAY_ANNOTATION_RE.sub(" ", str(row.get("day", ""))).strip().lower()
+            for row in raw_rows
+            if _DAY_ANNOTATION_RE.search(str(row.get("day", "")))
+        }
+        for row in rows:
+            if row["day"].lower() in annotated:
+                row["holiday"] = True
+        return rows
 
     def _build_services(self, raw_services: Any) -> list[str]:
         seen: set[str] = set()
