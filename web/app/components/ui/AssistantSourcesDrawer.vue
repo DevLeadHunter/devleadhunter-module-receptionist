@@ -8,8 +8,10 @@
         <div class="flex items-start gap-3 border-b border-[var(--app-line)] px-5 py-4">
           <button
             v-if="showBack"
+            type="button"
             class="flex h-10 w-7 shrink-0 items-center justify-center rounded text-[var(--app-ink-soft)] transition-colors hover:bg-[var(--app-surface-2)] hover:text-[var(--app-ink)]"
             title="Revenir au volet précédent"
+            aria-label="Revenir au volet précédent"
             @click="emit('back')"
           >
             <UIcon name="i-lucide-chevron-left" class="h-4 w-4" />
@@ -26,6 +28,7 @@
             <p class="text-muted mt-0.5 truncate text-sm">{{ assistant.business_name }}</p>
           </div>
           <button
+            type="button"
             class="flex h-7 w-7 items-center justify-center rounded text-[var(--app-ink-soft)] transition-colors hover:bg-[var(--app-surface-2)] hover:text-[var(--app-ink)]"
             aria-label="Fermer"
             @click="emit('close')"
@@ -73,7 +76,7 @@
                 </ul>
                 <button
                   type="button"
-                  class="btn-secondary h-8 self-start text-xs"
+                  class="btn-secondary h-8 self-start text-xs disabled:cursor-not-allowed disabled:opacity-50"
                   :disabled="isBusy"
                   @click="refreshWebsite"
                 >
@@ -114,7 +117,7 @@
                 </h3>
                 <button
                   type="button"
-                  class="btn-secondary h-8 text-xs"
+                  class="btn-secondary h-8 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                   :disabled="isBusy || sources.documents.length >= sources.max_documents"
                   @click="fileInput?.click()"
                 >
@@ -161,35 +164,38 @@
                   <div class="flex items-center justify-between gap-3 text-xs">
                     <span class="text-muted">{{ documentMeta(document) }}</span>
                     <button
-                      v-if="confirmDeleteId !== document.id"
                       type="button"
-                      class="text-muted cursor-pointer transition-colors hover:text-[var(--app-ink)]"
+                      class="text-muted cursor-pointer transition-colors hover:text-[var(--app-ink)] disabled:cursor-not-allowed disabled:opacity-50"
                       :disabled="isBusy"
-                      @click="confirmDeleteId = document.id"
+                      @click="askDelete(document)"
                     >
                       Supprimer
                     </button>
-                    <span v-else class="flex items-center gap-2">
-                      <button
-                        type="button"
-                        class="cursor-pointer font-medium text-[var(--app-ink)]"
-                        :disabled="isBusy"
-                        @click="deleteDocument(document)"
-                      >
-                        Confirmer
-                      </button>
-                      <button type="button" class="text-muted cursor-pointer" @click="confirmDeleteId = null">
-                        Annuler
-                      </button>
-                    </span>
                   </div>
                 </li>
               </ul>
             </section>
           </template>
+
+          <div v-else-if="hasLoadFailed" class="flex flex-col items-start gap-2">
+            <p class="text-muted text-sm">Sources indisponibles pour le moment.</p>
+            <button type="button" class="btn-secondary h-8 text-xs" @click="assistant && loadSources(assistant.id)">
+              <UIcon name="i-lucide-refresh-cw" class="mr-1 h-3.5 w-3.5" />
+              Réessayer
+            </button>
+          </div>
         </div>
       </div>
     </Transition>
+
+    <UiConfirmModal
+      ref="confirmModal"
+      title="Supprimer le document"
+      :message="`Supprimer « ${documentToDelete?.name} » ? L'assistant ne le lira plus et le fichier sera effacé.`"
+      confirm-text="Supprimer"
+      cancel-text="Annuler"
+      @confirm="deleteDocument"
+    />
   </Teleport>
 </template>
 
@@ -228,7 +234,11 @@ const loadingAssistantId: Ref<number | null> = ref(null)
 const isRefreshing: Ref<boolean> = ref(false)
 const isUploading: Ref<boolean> = ref(false)
 const isSaving: Ref<boolean> = ref(false)
-const confirmDeleteId: Ref<number | null> = ref(null)
+const hasLoadFailed: Ref<boolean> = ref(false)
+/** Document waiting for the deletion to be confirmed. */
+const documentToDelete: Ref<AiAssistantDocumentItem | null> = ref(null)
+/** Confirm modal handle. */
+const confirmModal: Ref<{ open: () => void } | null> = ref(null)
 const fileInput: Ref<HTMLInputElement | null> = ref(null)
 
 const isLoading: ComputedRef<boolean> = computed((): boolean => loadingAssistantId.value !== null)
@@ -306,11 +316,12 @@ function isShowing(assistantId: number): boolean {
  */
 async function loadSources(assistantId: number): Promise<void> {
   loadingAssistantId.value = assistantId
+  hasLoadFailed.value = false
   try {
     const loaded: AiAssistantSources = await AiAssistantService.getSources(assistantId)
     if (isShowing(assistantId)) sources.value = loaded
   } catch {
-    if (isShowing(assistantId)) toast.error('Sources indisponibles pour le moment.')
+    if (isShowing(assistantId)) hasLoadFailed.value = true
   } finally {
     if (loadingAssistantId.value === assistantId) loadingAssistantId.value = null
   }
@@ -413,12 +424,21 @@ async function toggleDocument(document: AiAssistantDocumentItem, enabled: boolea
 }
 
 /**
- * Delete a document and its file.
+ * Ask to confirm the deletion of a document.
  * @param document - The document.
+ */
+function askDelete(document: AiAssistantDocumentItem): void {
+  documentToDelete.value = document
+  confirmModal.value?.open()
+}
+
+/**
+ * Delete the confirmed document and its file.
  * @returns A promise resolved once deleted.
  */
-async function deleteDocument(document: AiAssistantDocumentItem): Promise<void> {
-  if (!props.assistant || !sources.value) return
+async function deleteDocument(): Promise<void> {
+  const document: AiAssistantDocumentItem | null = documentToDelete.value
+  if (!document || !props.assistant || !sources.value) return
   const assistantId: number = props.assistant.id
   isSaving.value = true
   try {
@@ -428,7 +448,7 @@ async function deleteDocument(document: AiAssistantDocumentItem): Promise<void> 
       ...sources.value,
       documents: sources.value.documents.filter((item: AiAssistantDocumentItem): boolean => item.id !== document.id),
     }
-    confirmDeleteId.value = null
+    documentToDelete.value = null
   } catch {
     toast.error('Suppression impossible, réessayez.')
   } finally {
@@ -440,7 +460,7 @@ watch(
   (): number | null => (props.open && props.assistant ? props.assistant.id : null),
   (assistantId: number | null): void => {
     sources.value = null
-    confirmDeleteId.value = null
+    documentToDelete.value = null
     if (assistantId !== null) void loadSources(assistantId)
   },
   { immediate: true },
