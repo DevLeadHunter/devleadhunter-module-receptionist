@@ -462,6 +462,24 @@ R1 et de l'encart /ia ont été vérifiés dans Chromium, avec une API locale su
 
 ---
 
+## Consolidation avant relecture
+
+Aucune fonctionnalité nouvelle : une passe par commit (ou par écran pour l'interface), sur la même branche.
+
+- **Surfaces publiques** (`fix: harden the receptionist public endpoints`) :
+  - Changé :
+    - chat public borné : 100 messages de 4 000 caractères au plus, rôles `user` / `assistant` seulement. Le widget envoie ses 40 derniers messages et limite la saisie à 2 000 caractères ;
+    - lien « marquer traitée » limité à 30 ouvertures par 5 min et par adresse ;
+    - un refus interne à la prise de rendez-vous ou de demande ne montre plus son texte au visiteur : phrase générique, détail dans le log ;
+    - photos décodées en JPEG, PNG ou WEBP seulement, jamais par les lecteurs rares de Pillow ;
+    - langues de l'espace client bornées ;
+    - tests d'isolement : signature d'un lien « marquer traitée » réutilisée sur une autre demande, photo envoyée à un autre assistant, lien client qui ne touche que son propre agenda.
+  - Vu et laissé :
+    - la config publique n'a pas de limite de débit. Le rendu serveur du demo-host la lit depuis ses propres adresses : une limite par adresse bloquerait tous les visiteurs.
+    - le `state` OAuth Google n'est pas lié au navigateur. Un client pourrait brancher l'agenda d'un tiers sur son propre assistant, à condition que ce tiers accepte l'écran de consentement Google. Risque jugé faible.
+    - les liens client ne sont pas révocables (question 15).
+    - le lecteur de site suit les redirections sans écarter les adresses internes. C'est déjà le cas sur `main` et ce n'est pas dans le périmètre de la branche.
+
 ## Questions pour Léo
 
 1. **Mistral** :

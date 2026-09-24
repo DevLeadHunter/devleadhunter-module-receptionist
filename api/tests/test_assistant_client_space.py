@@ -268,6 +268,8 @@ def test_the_client_changes_only_its_own_settings_and_keeps_the_operator_languag
     assert assistant.languages == ["fr", "lu", "it"]
     with pytest.raises(ValueError):
         AiAssistantClientSettingsUpdate(languages=["xx"])
+    with pytest.raises(ValueError):
+        AiAssistantClientSettingsUpdate(languages=["fr"] * 6)
     assert "eu_only" not in AiAssistantClientSettingsUpdate.model_fields
 
 

@@ -55,7 +55,7 @@ from schemas.ai_assistant import (
 )
 from schemas.ai_assistant_client_space import AiAssistantClientLinkRequest, AiAssistantClientLinkResponse
 from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
-from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentSlot
+from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentRefused, AppointmentSlot
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.calendar_service import SlotTakenError, ai_assistant_calendar_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
@@ -96,6 +96,7 @@ from services.rate_limiter import (
     assistant_chat_limiter,
     assistant_lead_limiter,
     assistant_photo_limiter,
+    assistant_request_link_limiter,
     assistant_subscribe_limiter,
 )
 
@@ -105,6 +106,9 @@ router = APIRouter(prefix="/ai-assistants", tags=["ai-assistants"])
 
 # Cap the history a public caller may submit, before the chat service bounds it further.
 _MAX_INCOMING_MESSAGES = 40
+# Shown to a visitor for a refusal whose reason is not written for them.
+_INVALID_REQUEST = "Demande invalide : vérifiez vos informations et réessayez."
+_TOO_MANY_LINK_OPENINGS = "Trop de tentatives"
 
 
 def _demo_url(slug: str) -> str:
@@ -907,9 +911,13 @@ async def submit_assistant_lead(
             is_test=payload.internal,
             appointment_slots=[AppointmentSlot(day=slot.date, period=slot.period) for slot in payload.slots],
         )
-    except ValueError as exc:
+    except AppointmentRefused as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    except ValueError as exc:
+        db.rollback()
+        logger.warning("Assistant request of slug %s refused", slug, exc_info=True)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_INVALID_REQUEST) from exc
     except Exception:
         # Losing the durable row must not swallow the strongest signal — still notify the owner.
         db.rollback()
@@ -934,8 +942,11 @@ async def submit_assistant_lead(
             )
         except SlotTakenError as exc:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
-        except ValueError as exc:
+        except AppointmentRefused as exc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        except ValueError as exc:
+            logger.warning("Booking of slug %s refused", slug, exc_info=True)
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_INVALID_REQUEST) from exc
         if outcome.appointment is not None:
             ai_assistant_appointment_notices.schedule_confirmation(outcome.appointment.id)
             booked_start = OpeningHoursCalendar.to_business_time(outcome.appointment.starts_at)
@@ -1048,14 +1059,25 @@ def _handled_link_page(
     return record, None
 
 
+def _too_many_link_openings() -> HTMLResponse:
+    """The page of a « marquer traitée » link opened too often from one address."""
+    return HTMLResponse(
+        AiAssistantRequestEmail.confirmation_page(_TOO_MANY_LINK_OPENINGS, "Réessayez dans quelques minutes."),
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+    )
+
+
 @router.get("/public/requests/{request_id}/handled", response_class=HTMLResponse)
 async def confirm_request_handled_page(
     request_id: int,
+    request: Request,
     exp: int = 0,
     token: str | None = None,
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     """The « marquer traitée » link of the summary email: shows the request and a confirm button, changes nothing."""
+    if not assistant_request_link_limiter.allow(f"handled:{client_ip(request)}"):
+        return _too_many_link_openings()
     record, error_page = _handled_link_page(db, request_id, exp, token)
     if error_page is not None or record is None:
         return error_page or HTMLResponse(status_code=status.HTTP_404_NOT_FOUND)
@@ -1077,11 +1099,14 @@ async def confirm_request_handled_page(
 @router.post("/public/requests/{request_id}/handled", response_class=HTMLResponse)
 async def mark_request_handled_from_email(
     request_id: int,
+    request: Request,
     exp: int = 0,
     token: str | None = None,
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     """Confirm the « marquer traitée » link: a signed, expiring action, no account needed."""
+    if not assistant_request_link_limiter.allow(f"handled:{client_ip(request)}"):
+        return _too_many_link_openings()
     record, error_page = _handled_link_page(db, request_id, exp, token)
     if error_page is not None or record is None:
         return error_page or HTMLResponse(status_code=status.HTTP_404_NOT_FOUND)

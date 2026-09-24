@@ -18,6 +18,10 @@ from models.ai_assistant import AiAssistant
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 
 
+class AppointmentRefused(ValueError):
+    """A slot or kind the visitor must choose again, with the sentence shown to them."""
+
+
 @dataclass(frozen=True)
 class AppointmentDay:
     """An open day and its open half-days."""
@@ -108,14 +112,14 @@ class AiAssistantAppointmentSlots:
             The distinct half-days, in calendar order.
 
         Raises:
-            ValueError: When more than ``MAX_CHOSEN`` are chosen or one is not offered.
+            AppointmentRefused: When more than ``MAX_CHOSEN`` are chosen or one is not offered.
         """
         distinct = sorted(set(chosen), key=lambda slot: (slot.day, list(AiAssistantDayPeriod).index(slot.period)))
         if len(distinct) > cls.MAX_CHOSEN:
-            raise ValueError("Deux créneaux au plus")
+            raise AppointmentRefused("Deux créneaux au plus")
         offered = {(item.day, period) for item in cls.offer(opening_hours, today=today) for period in item.periods}
         if any((slot.day, slot.period) not in offered for slot in distinct):
-            raise ValueError("Ce créneau n'est plus proposé")
+            raise AppointmentRefused("Ce créneau n'est plus proposé")
         return distinct
 
     @classmethod

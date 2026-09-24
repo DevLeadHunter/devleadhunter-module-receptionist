@@ -1,6 +1,7 @@
 """Schemas for the AI assistant endpoints (owner management, public widget config and chat)."""
 
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -180,16 +181,17 @@ class AiAssistantInterestRequest(BaseModel):
 
 
 class AiAssistantChatMessage(BaseModel):
-    """A single conversation turn from the widget."""
+    """A single conversation turn from the widget (its replies included: about 2,500 characters at most)."""
 
-    role: str
-    content: str
+    role: Literal["user", "assistant"]
+    content: str = Field(..., max_length=4000)
 
 
 class AiAssistantChatRequest(BaseModel):
     """A visitor's chat request: the conversation so far, ending on the visitor's message."""
 
-    messages: list[AiAssistantChatMessage] = Field(default_factory=list)
+    # The widget sends its last 40 turns; the margin covers an older widget still in a page.
+    messages: list[AiAssistantChatMessage] = Field(default_factory=list, max_length=100)
     # Random id the widget keeps with the visitor's conversation, so the journal groups its turns.
     session_id: str | None = Field(default=None, max_length=64)
     language: str | None = Field(default=None, max_length=8)

@@ -389,6 +389,29 @@ def test_a_photo_sent_after_the_contact_details_joins_the_request(db: Session, c
     assert request.channel == AiAssistantRequestChannel.PHOTO.value
 
 
+def test_a_photo_sent_to_another_assistant_never_joins_the_request(db: Session, cloud: dict[str, Any]) -> None:
+    assistant = _assistant(db)
+    other = _assistant(db)
+    service = AiAssistantRequestService()
+    request, _ = service.capture(
+        db,
+        assistant=assistant,
+        name="Marc",
+        contact="06 12 34 56 78",
+        need="Question",
+        language="fr",
+        session_id="session-1",
+    )
+
+    # Same widget session id, other business: its photo stays with its own assistant.
+    _receive(db, other)
+    service.attach_late_photos(db, assistant_id=assistant.id, session_id="session-1")
+
+    db.refresh(request)
+    assert service.photo_urls(request) == []
+    assert request.channel != AiAssistantRequestChannel.PHOTO.value
+
+
 def test_the_quota_starts_again_once_the_request_is_handled(db: Session, cloud: dict[str, Any]) -> None:
     assistant = _assistant(db)
     for _ in range(3):
@@ -418,6 +441,15 @@ def test_a_huge_canvas_is_refused_before_decoding_and_no_comment_survives() -> N
 
     assert refused.value.reason is AiAssistantPhotoRejection.TOO_LARGE
     assert b"Marc Dubois" not in clean
+
+
+def test_only_photo_formats_are_decoded() -> None:
+    for fmt in ("JPEG", "PNG", "WEBP"):
+        assert AiAssistantPhotoService.normalize(_photo_bytes(size=(40, 30), fmt=fmt)).startswith(b"\xff\xd8")
+    for fmt in ("TIFF", "BMP", "TGA"):
+        with pytest.raises(PhotoRejectedError) as refused:
+            AiAssistantPhotoService.normalize(_photo_bytes(size=(40, 30), fmt=fmt))
+        assert refused.value.reason is AiAssistantPhotoRejection.UNREADABLE
 
 
 def test_an_off_topic_verdict_is_read_whatever_its_json_type() -> None:

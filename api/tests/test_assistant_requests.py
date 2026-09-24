@@ -16,6 +16,7 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
+from starlette.requests import Request
 
 import migrations.add_ai_assistant_requests_table as requests_migration
 import models
@@ -79,6 +80,9 @@ def _assistant(db: Session, *, status: str = "active", email: str | None = None)
     assistant.email = email
     db.commit()
     return assistant
+
+
+_VISITOR = Request({"type": "http", "headers": [], "client": ("203.0.113.9", 0)})
 
 
 def _capture(db: Session, assistant: AiAssistant, **overrides: Any) -> tuple[AiAssistantRequest, bool]:
@@ -328,24 +332,51 @@ def test_the_handled_link_only_confirms_on_open_and_acts_on_a_signed_post(db: Se
 
     assistant = _assistant(db)
     request, _ = _capture(db, assistant)
+    other, _ = _capture(db, assistant, session_id="session-2")
     url = AiAssistantRequestLinks.handled_url(request.id)
     expires_at = int(url.split("exp=")[1].split("&")[0])
     token = url.split("token=")[1]
 
-    opened = asyncio.run(confirm_request_handled_page(request.id, exp=expires_at, token=token, db=db))
+    opened = asyncio.run(confirm_request_handled_page(request.id, _VISITOR, exp=expires_at, token=token, db=db))
     assert opened.status_code == 200
     assert '<form method="post"' in opened.body.decode()
     assert request.status == AiAssistantRequestStatus.NEW.value
 
-    forged = asyncio.run(mark_request_handled_from_email(request.id, exp=expires_at, token="0" * 64, db=db))
-    valid = asyncio.run(mark_request_handled_from_email(request.id, exp=expires_at, token=token, db=db))
-    reopened = asyncio.run(confirm_request_handled_page(request.id, exp=expires_at, token=token, db=db))
+    forged = asyncio.run(mark_request_handled_from_email(request.id, _VISITOR, exp=expires_at, token="0" * 64, db=db))
+    # A link names its request: its signature marks no other one.
+    borrowed = asyncio.run(mark_request_handled_from_email(other.id, _VISITOR, exp=expires_at, token=token, db=db))
+    valid = asyncio.run(mark_request_handled_from_email(request.id, _VISITOR, exp=expires_at, token=token, db=db))
+    reopened = asyncio.run(confirm_request_handled_page(request.id, _VISITOR, exp=expires_at, token=token, db=db))
 
     assert forged.status_code == 400
+    assert borrowed.status_code == 400
+    assert other.status == AiAssistantRequestStatus.NEW.value
     assert valid.status_code == 200
     assert "marquée comme traitée" in valid.body.decode()
     assert request.status == AiAssistantRequestStatus.HANDLED.value
     assert "<form" not in reopened.body.decode()
+
+
+def test_a_handled_link_opened_too_often_from_one_address_waits(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    import api.v1.routes.ai_assistants as routes
+    from services.rate_limiter import SlidingWindowRateLimiter
+
+    assistant = _assistant(db)
+    request, _ = _capture(db, assistant)
+    url = AiAssistantRequestLinks.handled_url(request.id)
+    expires_at = int(url.split("exp=")[1].split("&")[0])
+    token = url.split("token=")[1]
+    monkeypatch.setattr(
+        routes, "assistant_request_link_limiter", SlidingWindowRateLimiter(max_events=2, window_seconds=300)
+    )
+
+    pages = [
+        asyncio.run(routes.confirm_request_handled_page(request.id, _VISITOR, exp=expires_at, token=token, db=db))
+        for _ in range(3)
+    ]
+
+    assert [page.status_code for page in pages] == [200, 200, 429]
+    assert "Trop de tentatives" in pages[2].body.decode()
 
 
 def test_lost_announcements_are_picked_up_once_by_the_runner(

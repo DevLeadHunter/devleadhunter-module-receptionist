@@ -455,6 +455,24 @@ def test_the_lead_route_takes_the_half_days_and_answers_422_for_one_withdrawn(
     assert db.query(AiAssistantRequest).count() == 1
 
 
+def test_a_refusal_not_written_for_the_visitor_answers_a_plain_sentence(
+    db: Session, public_routes: list[int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assistant = _assistant(db, status="active")
+    payload = AiAssistantLeadRequest(name="Julie Roux", contact="06 11 22 33 44", session_id="session-1")
+
+    def broken_capture(db: Session, **fields: Any) -> Any:
+        raise ValueError("invalid literal for int() with base 10: 'x'")
+
+    monkeypatch.setattr(routes.ai_assistant_request_service, "capture", broken_capture)
+
+    with pytest.raises(HTTPException) as refused:
+        asyncio.run(routes.submit_assistant_lead(assistant.slug, payload, _VISITOR, db))
+
+    assert refused.value.status_code == 422
+    assert refused.value.detail == "Demande invalide : vérifiez vos informations et réessayez."
+
+
 def test_the_lead_payload_takes_two_half_days_at_most() -> None:
     choice = {"date": "2026-09-21", "period": "morning"}
 

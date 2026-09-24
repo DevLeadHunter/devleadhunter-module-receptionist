@@ -32,7 +32,12 @@ from models.ai_assistant_appointment import AiAssistantAppointment
 from models.ai_assistant_calendar import AiAssistantCalendar
 from models.ai_assistant_request import AiAssistantRequest
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_SUCCESS, STATUS_WARNING, activity_log_service
-from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentDay, AppointmentSlot
+from services.ai_assistant.appointment_slots import (
+    AiAssistantAppointmentSlots,
+    AppointmentDay,
+    AppointmentRefused,
+    AppointmentSlot,
+)
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.google_calendar_client import (
     GOOGLE_CALENDAR_EVENTS_SCOPE,
@@ -559,7 +564,7 @@ class AiAssistantCalendarService:
             The outcome; the request is an appointment request either way (unless urgent).
 
         Raises:
-            ValueError: When the slot or the kind is not one the widget offers.
+            AppointmentRefused: When the slot or the kind is not one the widget offers.
             SlotTakenError: When the slot is no longer free.
         """
         local_now = self._local(now or OpeningHoursCalendar.business_now())
@@ -592,7 +597,7 @@ class AiAssistantCalendarService:
 
         local_start = self._local(start)
         if not local_now <= local_start <= local_now + timedelta(days=self.LOOK_AHEAD_DAYS + 1):
-            raise ValueError("Ce créneau n'est plus proposé")
+            raise AppointmentRefused("Ce créneau n'est plus proposé")
         period = (
             AiAssistantDayPeriod.MORNING
             if local_start.time().replace(tzinfo=None) < self.AFTERNOON_FROM
@@ -660,7 +665,7 @@ class AiAssistantCalendarService:
             The booked appointment; a request that already has one gets it back (one appointment per request).
 
         Raises:
-            ValueError: When the slot or the kind is not one the widget offers.
+            AppointmentRefused: When the slot or the kind is not one the widget offers.
             SlotTakenError: When the slot is no longer free.
             GoogleCalendarError: When the agenda cannot be read or written.
         """
@@ -1010,7 +1015,7 @@ class AiAssistantCalendarService:
             {},
         )
         if not (on_grid and in_window and within_day and is_open):
-            raise ValueError("Ce créneau n'est plus proposé")
+            raise AppointmentRefused("Ce créneau n'est plus proposé")
 
     @staticmethod
     def _mark_appointment(request: AiAssistantRequest) -> None:
@@ -1027,7 +1032,7 @@ class AiAssistantCalendarService:
         for offered in booking_settings.appointment_types:
             if offered.casefold() == chosen.casefold():
                 return offered
-        raise ValueError("Choisissez le type de rendez-vous")
+        raise AppointmentRefused("Choisissez le type de rendez-vous")
 
     @classmethod
     def _candidate_starts(cls, day: date, grid: int) -> list[datetime]:

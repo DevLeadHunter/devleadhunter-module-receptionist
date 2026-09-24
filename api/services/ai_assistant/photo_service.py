@@ -40,6 +40,8 @@ MAX_PHOTOS_PER_SESSION = 3
 # A 48-megapixel phone photo passes; a small file declaring a huge canvas (decompression bomb) does not.
 MAX_PIXELS = 50_000_000
 MAX_EDGE_PX = 1600
+# The widget uploads a JPEG; only photo formats are decoded, never Pillow's rarer readers (EPS, PSD, TGA...).
+ACCEPTED_FORMATS = ("JPEG", "PNG", "WEBP")
 JPEG_QUALITY = 82
 RETENTION = timedelta(days=90)
 # Photos count toward one quote request for as long as a visit can add to it (the request merge window).
@@ -489,10 +491,10 @@ class AiAssistantPhotoService:
             The JPEG bytes (1600 px on the longest side at most).
 
         Raises:
-            PhotoRejectedError: When the bytes are not an image Pillow can read, or declare too many pixels.
+            PhotoRejectedError: When the bytes are not a JPEG, PNG or WEBP image, or declare too many pixels.
         """
         try:
-            with Image.open(io.BytesIO(data)) as source:
+            with Image.open(io.BytesIO(data), formats=ACCEPTED_FORMATS) as source:
                 width, height = source.size
                 if width * height > MAX_PIXELS:
                     raise PhotoRejectedError(

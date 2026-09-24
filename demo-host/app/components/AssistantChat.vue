@@ -254,6 +254,7 @@
         <textarea
           v-model="draft"
           rows="1"
+          maxlength="2000"
           :placeholder="UI_PLACEHOLDER[lang]"
           aria-label="Votre message"
           @keydown.enter.exact.prevent="send"
@@ -813,7 +814,7 @@ async function sendText(text: string): Promise<void> {
       {
         method: 'POST',
         body: {
-          messages: messages.value,
+          messages: messages.value.slice(-MAX_STORED_MESSAGES),
           session_id: sessionId.value,
           language: lang.value,
           internal: DemoBeaconUtils.isInternalVisit(),

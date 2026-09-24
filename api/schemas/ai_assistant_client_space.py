@@ -126,7 +126,9 @@ class AiAssistantClientSettingsUpdate(BaseModel):
     """A client's settings edit (partial; the alert mobile is read like in the dashboard)."""
 
     assistant_name: str | None = Field(default=None, min_length=1, max_length=64)
-    languages: list[AssistantWidgetLanguage] | None = Field(default=None, min_length=1)
+    languages: list[AssistantWidgetLanguage] | None = Field(
+        default=None, min_length=1, max_length=len(AssistantWidgetLanguage)
+    )
     # As typed; empty clears it (no SMS).
     alert_phone: str | None = Field(default=None, max_length=32)
     alert_sms_enabled: bool | None = None
