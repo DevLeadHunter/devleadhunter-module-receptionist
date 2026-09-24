@@ -12,6 +12,7 @@ import type {
   AssistantSubscription,
   AssistantSubscriptionListResponse,
 } from '~/types/AiAssistant'
+import type { AiAssistantDocumentItem, AiAssistantSources, AiAssistantSourcesUpdate } from '~/types/AiAssistantSources'
 
 const BASE_URL: string = '/api/v1/ai-assistants'
 
@@ -57,6 +58,97 @@ export class AiAssistantService {
    */
   static listConversations(assistantId: number): Promise<AiAssistantConversationsResponse> {
     return ApiClient.get<AiAssistantConversationsResponse>(`${BASE_URL}/${assistantId}/conversations`)
+  }
+
+  /**
+   * What an assistant reads: its website pages, its Google listing, its documents.
+   *
+   * @param assistantId - The assistant.
+   * @returns Its sources and the last website read.
+   */
+  static getSources(assistantId: number): Promise<AiAssistantSources> {
+    return ApiClient.get<AiAssistantSources>(`${BASE_URL}/${assistantId}/sources`)
+  }
+
+  /**
+   * Switch the website or the Google listing on or off.
+   *
+   * @param assistantId - The assistant.
+   * @param update - The switches to change.
+   * @returns The sources after the change.
+   */
+  static updateSources(assistantId: number, update: AiAssistantSourcesUpdate): Promise<AiAssistantSources> {
+    return ApiClient.patch<AiAssistantSources>(`${BASE_URL}/${assistantId}/sources`, update)
+  }
+
+  /**
+   * Read the business's website again now.
+   *
+   * @param assistantId - The assistant.
+   * @returns The sources, with what changed.
+   */
+  static refreshWebsite(assistantId: number): Promise<AiAssistantSources> {
+    return ApiClient.post<AiAssistantSources>(`${BASE_URL}/${assistantId}/sources/refresh`, {})
+  }
+
+  /**
+   * Give the assistant a PDF to read.
+   *
+   * @param assistantId - The assistant.
+   * @param file - The PDF.
+   * @returns The stored document.
+   * @throws Error carrying the API's explanation when the file is refused.
+   */
+  static async uploadDocument(assistantId: number, file: File): Promise<AiAssistantDocumentItem> {
+    const userStore: ReturnType<typeof useUserStore> = useUserStore()
+    const config: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
+    const formData: FormData = new FormData()
+    formData.append('file', file, file.name)
+    const response: Response = await fetch(`${config.public.apiBase}${BASE_URL}/${assistantId}/documents`, {
+      method: 'POST',
+      headers: userStore.token ? { Authorization: `Bearer ${userStore.token}` } : {},
+      body: formData,
+    })
+    if (!response.ok) {
+      const errorText: string = await response.text().catch(() => '')
+      let errorMessage: string = `Envoi du document échoué : ${response.statusText}`
+      if (errorText) {
+        try {
+          errorMessage = (JSON.parse(errorText).detail as string) || errorMessage
+        } catch {
+          errorMessage = errorText
+        }
+      }
+      throw new Error(errorMessage)
+    }
+    return (await response.json()) as AiAssistantDocumentItem
+  }
+
+  /**
+   * Switch a document on or off.
+   *
+   * @param assistantId - The assistant.
+   * @param documentId - The document.
+   * @param enabled - Whether the assistant reads it.
+   * @returns The document.
+   */
+  static setDocumentEnabled(
+    assistantId: number,
+    documentId: number,
+    enabled: boolean,
+  ): Promise<AiAssistantDocumentItem> {
+    return ApiClient.patch<AiAssistantDocumentItem>(`${BASE_URL}/${assistantId}/documents/${documentId}`, { enabled })
+  }
+
+  /**
+   * Delete a document and its file.
+   *
+   * @param assistantId - The assistant.
+   * @param documentId - The document.
+   * @returns A promise resolved once deleted.
+   */
+  static async deleteDocument(assistantId: number, documentId: number): Promise<void> {
+    await ApiClient.delete(`${BASE_URL}/${assistantId}/documents/${documentId}`)
   }
 
   /**

@@ -23,6 +23,7 @@ from models.prospect_db import ProspectDB
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.website_crawler import ai_assistant_website_crawler
+from services.ai_assistant.website_sync import AiAssistantWebsiteSync
 from services.enrichment_service import enrichment_service
 from services.mistral_service import mistral_service
 from services.sms.phone_normalizer import to_e164_mobile
@@ -233,7 +234,7 @@ class AiAssistantService:
     async def create_for_prospect(self, db: Session, *, user_id: int, prospect: ProspectDB) -> AiAssistant:
         """Generate an assistant for a prospect: enrichment, their own website and the site generated for them."""
         enrichment = enrichment_service.to_dict(await enrichment_service.ensure_enriched(db, user_id, prospect))
-        website = await self._crawl_prospect_website(prospect)
+        website = await self.crawl_prospect_website(prospect)
         generated_site = self._generated_site_content(db, user_id=user_id, prospect_id=prospect.id)
         return self.create(
             db,
@@ -295,6 +296,19 @@ class AiAssistantService:
         )
         knowledge = fields["knowledge_json"]
         knowledge["palette"] = {"accent": existing_accent}
+        # What was set up on the assistant survives: its documents and its source switches.
+        previous = assistant.knowledge_json or {}
+        for key in ("documents", "sources"):
+            if key in previous:
+                knowledge[key] = previous[key]
+        previous_site = previous.get("website") if isinstance(previous.get("website"), dict) else None
+        read_at = datetime.now(UTC).replace(tzinfo=None)
+        if website is not None:
+            knowledge["website_sync"] = AiAssistantWebsiteSync.record(previous_site, website, at=read_at)
+        elif previous_site and self.has_readable_website(prospect):
+            # The site cannot be read right now: its previous pages stay, like in the weekly re-read.
+            knowledge["website"] = previous_site
+            knowledge["website_sync"] = AiAssistantWebsiteSync.record(previous_site, None, at=read_at)
         assistant.city = fields["city"]
         assistant.phone = fields["phone"]
         assistant.email = fields["email"]
@@ -311,8 +325,11 @@ class AiAssistantService:
         enrichment = enrichment_service.to_dict(
             await enrichment_service.ensure_enriched(db, assistant.user_id, prospect)
         )
-        website = await self._crawl_prospect_website(prospect)
+        website = await self.crawl_prospect_website(prospect)
         generated_site = self._generated_site_content(db, user_id=assistant.user_id, prospect_id=prospect.id)
+        # The enrichment and the read take seconds: take the assistant as it is now (a document added meanwhile).
+        db.commit()
+        db.refresh(assistant)
         return self.regenerate(
             db,
             assistant=assistant,
@@ -323,12 +340,18 @@ class AiAssistantService:
         )
 
     @staticmethod
-    async def _crawl_prospect_website(prospect: ProspectDB) -> dict[str, Any] | None:
+    def has_readable_website(prospect: Any) -> bool:
+        """Whether the prospect has a website worth reading (known, neither dead nor a placeholder)."""
+        website = str(getattr(prospect, "website", None) or "").strip()
+        status = getattr(prospect, "website_status", None)
+        return bool(website) and status not in (WebsiteStatus.DEAD.value, WebsiteStatus.PLACEHOLDER.value)
+
+    @classmethod
+    async def crawl_prospect_website(cls, prospect: ProspectDB) -> dict[str, Any] | None:
         """The prospect's live website as crawl data, or None when there is no site worth reading."""
-        website: str = (prospect.website or "").strip()
-        if not website or prospect.website_status in (WebsiteStatus.DEAD.value, WebsiteStatus.PLACEHOLDER.value):
+        if not cls.has_readable_website(prospect):
             return None
-        return await ai_assistant_website_crawler.crawl(website)
+        return await ai_assistant_website_crawler.crawl((prospect.website or "").strip())
 
     @staticmethod
     def _generated_site_content(db: Session, *, user_id: int, prospect_id: int | None) -> dict[str, Any] | None:
@@ -417,6 +440,25 @@ class AiAssistantService:
         if due:
             db.commit()
         return len(due)
+
+    @staticmethod
+    def get_for_owner(db: Session, assistant_id: int, user_id: int) -> AiAssistant | None:
+        """
+        One of the owner's assistants, deleted ones excluded.
+
+        Args:
+            db: Active database session.
+            assistant_id: The assistant.
+            user_id: The owner.
+
+        Returns:
+            The assistant, or None when it is not the owner's or was deleted.
+        """
+        return (
+            db.query(AiAssistant)
+            .filter(AiAssistant.id == assistant_id, AiAssistant.user_id == user_id, AiAssistant.deleted_at.is_(None))
+            .first()
+        )
 
     def get_active_for_prospect(self, db: Session, *, prospect_id: int, user_id: int) -> AiAssistant | None:
         """Return the user's newest active (demo) assistant for a prospect, or None.

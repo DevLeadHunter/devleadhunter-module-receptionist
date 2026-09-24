@@ -5,6 +5,7 @@ the system prompt forbids inventing anything, and the model answers in the visit
 the model is unavailable, a safe fallback keeps the conversation alive instead of failing.
 """
 
+import logging
 import re
 from typing import Any
 
@@ -13,8 +14,13 @@ from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_build
 from services.ai_assistant.llm_router import assistant_llm_router
 from services.text_normalizer import TextNormalizer
 
+logger = logging.getLogger(__name__)
+
 MAX_HISTORY_MESSAGES = 12
 MAX_MESSAGE_CHARS = 2000
+# The visitor messages that pick the site and document passages when they exceed the prompt's budget: a follow-up
+# (« Et combien ça coûte ? ») keeps the subject of the ones before.
+QUESTION_MESSAGES = 3
 
 # Shown when the model cannot answer (no key, outage): never leave the visitor without a path forward.
 _FALLBACK_REPLY = (
@@ -70,13 +76,24 @@ class AiAssistantChatService:
         Returns:
             The assistant's reply, or a safe fallback when the model is unavailable.
         """
-        system_prompt = ai_assistant_knowledge_builder.render_system_prompt(
-            knowledge, assistant_name=assistant_name, languages=languages, tone=tone
-        )
         turns = self._bounded_history(history)
         # Only a conversation ending on the visitor's message is a question to answer (the models refuse others).
         if not turns or turns[-1]["role"] != "user":
             return _FALLBACK_REPLY
+        visitor_messages = [turn["content"] for turn in turns if turn["role"] == "user"]
+        question = "\n".join(visitor_messages[-QUESTION_MESSAGES:])
+        system_prompt = ai_assistant_knowledge_builder.render_system_prompt(
+            knowledge, assistant_name=assistant_name, languages=languages, tone=tone, question=question
+        )
+        identity = knowledge.get("identity") if isinstance(knowledge.get("identity"), dict) else {}
+        business_name = identity.get("business_name") or "?"
+        # About 4 characters per token in French: the size the website and the documents give the prompt.
+        logger.info(
+            "Assistant prompt of %s: %d characters, about %d tokens",
+            business_name,
+            len(system_prompt),
+            len(system_prompt) // 4,
+        )
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}, *turns]
         reply = await assistant_llm_router.chat(AssistantLlmUsage.CHAT, messages, eu_only=eu_only)
         return (reply or "").strip() or _FALLBACK_REPLY

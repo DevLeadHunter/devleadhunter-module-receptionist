@@ -51,6 +51,19 @@
           :class="[`ai-m--${message.role}`, { 'ai-m--photo': photoPreviews[index] }]"
         >
           <img v-if="photoPreviews[index]" :src="photoPreviews[index]" :alt="message.content" class="ai-m__photo" />
+          <template v-else-if="message.role === 'assistant'">
+            <template v-for="(part, partIndex) in MessageLinkUtils.parts(message.content)" :key="partIndex">
+              <a
+                v-if="part.kind === 'link'"
+                :href="part.value"
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                class="ai-m__link"
+                >{{ part.value }}</a
+              >
+              <template v-else>{{ part.value }}</template>
+            </template>
+          </template>
           <template v-else>{{ message.content }}</template>
         </div>
         <div v-if="isBusy" class="ai-typing" aria-label="Rédaction en cours"><i /><i /><i /></div>
@@ -291,6 +304,7 @@ import type { AssistantChatProps } from '~/types/AssistantChat'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
 import { AssistantPersonaUtils } from '~/utils/AssistantPersonaUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
+import { MessageLinkUtils } from '~/utils/MessageLinkUtils'
 import { PhotoCompressionUtils } from '~/utils/PhotoCompressionUtils'
 
 const DEFAULT_LANG: AssistantWidgetLang = 'fr'
@@ -1396,6 +1410,13 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   color: var(--ai-accent-ink);
   align-self: flex-end;
   border-bottom-right-radius: 5px;
+}
+/* A page of the business's site given in a reply: a plain link that wraps anywhere. */
+.ai-m__link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
 }
 .ai-typing {
   align-self: flex-start;

@@ -101,6 +101,7 @@ async def _ask(provider: LlmProvider, assistant: AiAssistant, language: str, que
         assistant_name=assistant.assistant_name,
         languages=assistant.languages,
         tone=assistant.tone,
+        question=question,
     )
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": question}]
     if provider is LlmProvider.MISTRAL:

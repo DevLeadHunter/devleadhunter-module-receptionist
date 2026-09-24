@@ -15,7 +15,7 @@ conflit. Rien n'est mergé, `main` n'a pas été poussé.
 | R8 — espace client par lien magique | 1218821404873061 | `2fafebd` | livré |
 | R2 — rendez-vous : demande de créneaux sans agenda (R2a) | 1218810064722315 | `ff96da8` | livré |
 | R2 — rendez-vous : Google Agenda (R2b) | 1218810064722315 | voir la section | livré ; en attente de la vérification Google (R15) |
-| R1 — base de connaissance complète | 1218810139188474 | — | non commencé |
+| R1 — base de connaissance complète | 1218810139188474 | voir la section | livré |
 
 Chaque ticket a reçu sur Asana un commentaire « fait / reste / comment tester ». La documentation
 fonctionnelle à jour est dans `docs/ASSISTANT_MODULE.md` (sections Journal des conversations, Demandes,
@@ -28,8 +28,8 @@ Hors de cette branche : R12 (verticales, détection « déjà équipé », score
 
 ```bash
 cd api
-python migrations/run_migrations.py      # idempotent ; les 12 migrations de la phase 1 sont listées plus bas
-python -m pytest -q                      # attendu : 1077 passed, 3 failed (préexistants, voir plus bas)
+python migrations/run_migrations.py      # idempotent ; les 13 migrations de la phase 1 sont listées plus bas
+python -m pytest -q                      # attendu : 1105 passed, 3 failed (préexistants, voir plus bas)
 ruff format --check . && ruff check .    # attendu : propre
 cd ..
 npm --prefix web run lint                # prettier + eslint propres ; typecheck : 5 erreurs préexistantes
@@ -50,6 +50,7 @@ Migrations de la phase 1, dans l'ordre de `MIGRATION_MODULES` :
 10. `add_assistant_subscription_cancel_at_period_end` (R8) : colonne `ai_assistant_subscriptions.cancel_at_period_end`.
 11. `add_ai_assistant_request_appointment_slots` (R2a) : colonne `ai_assistant_requests.appointment_slots_json`.
 12. `add_ai_assistant_calendars_tables` (R2b) : tables `ai_assistant_calendars` et `ai_assistant_appointments`.
+13. `add_ai_assistant_documents_table` (R1) : table `ai_assistant_documents`.
 
 Tests par ticket (depuis `api/`, avec `python -m pytest -q`) :
 
@@ -64,6 +65,7 @@ Tests par ticket (depuis `api/`, avec `python -m pytest -q`) :
 | R8 | `tests/test_assistant_client_space.py` | 14 |
 | R2a | `tests/test_assistant_appointments.py` | 16 |
 | R2b | `tests/test_assistant_calendar.py` | 41 |
+| R1 | `tests/test_assistant_documents.py tests/test_ai_assistant_website_knowledge.py` | 28 + 6 |
 
 Échecs et erreurs **préexistants**, identiques sur `main` à `a0e6205` (revérifié sur un worktree de
 `main`) :
@@ -370,6 +372,48 @@ relus dans le code, pas cliqués.
 - Le visiteur est prévenu par le canal qu'il a laissé : SMS pour un mobile, email (avec `.ics`) pour une adresse ; rappel J-1 par email quand il n'a pas laissé de mobile.
 - Une visite `?internal=1` réserve pour de vrai, avec un événement « [Test] … » : c'est ce qui permet le test d'acceptation (événement dans l'agenda de test, SMS reçu).
 
+## R1 — Base de connaissance complète
+
+**Fichiers**
+- API :
+  - `services/ai_assistant/document_text.py` : texte d'un PDF (`pypdf==6.19.0`, ajouté à `requirements.txt`) lu dans un processus à part (`python -m services.ai_assistant.document_text`), un à la fois, arrêté au bout de 30 s ; nettoyage, borne, refus motivés (scan, mot de passe, illisible, trop lourd, trop long à lire)
+  - `services/ai_assistant/document_service.py` : ajout (lecture, fichier dans R2, ligne, recopie dans la connaissance ; pas de fichier orphelin si l'écriture échoue), activation, suppression
+  - `services/ai_assistant/source_service.py` : interrupteurs site / fiche, relecture du site (bouton et boucle hebdomadaire) ; `website_sync.py` : écarts entre deux lectures, lecture incomplète mise de côté
+  - `services/ai_assistant/knowledge_budget.py` : budget du prompt (tout entier si ça tient, sinon les passages les plus proches des 3 derniers messages du visiteur, chaque source gardant son début)
+  - `knowledge_builder.py` : pages et documents encadrés comme données, liens, citation des documents, interrupteurs ; `chat_service.py` : messages du visiteur transmis, taille du prompt journalisée ; `scripts/bench_assistant_llm.py` : même prompt que le chat
+  - `assistant_service.py` : la régénération garde documents et interrupteurs, note la lecture du site, garde les pages d'un site injoignable ; `get_for_owner` (aussi utilisé par `_owned_assistant_or_404`)
+  - `models/ai_assistant_document.py` (table en utf8mb4), `enums/assistant_knowledge_source.py`, `migrations/add_ai_assistant_documents_table.py`, `schemas/ai_assistant_sources.py`, routes `api/v1/routes/ai_assistant_sources.py`
+  - `r2_storage_service.py` (`documents/assistant/…`), stockage admin (type « document d'assistant »), `main.py` (boucle, journal INFO du chat)
+- Web : `components/ui/AssistantSourcesDrawer.vue` (volet « Sources »), bouton « Sources » de la carte, `services/aiAssistantService.ts`, `types/AiAssistantSources.ts`, pile de volets.
+- Widget : `utils/MessageLinkUtils.ts` (liens des réponses, sans les `**` du Markdown).
+
+**Vérifié**
+- Tests (28 + 6) :
+  - PDF construits en mémoire : texte page après page, césures (pas les nombres ni les noms propres), borne à un saut de ligne, refus (scan, mot de passe, lourd, pas un PDF), page d'illustration ignorée ;
+  - lecture dans un processus à part : texte rendu, refus transmis, arrêt au délai, un PDF à la fois ;
+  - budget : tout entier quand ça tient, sinon les passages proches de la question dans l'ordre de lecture ; une relance sans mot en commun garde le début de chaque page et de chaque document ;
+  - documents : lus, stockés, recopiés tant qu'activés, bornés à 10 (même quand un autre envoi arrive pendant la lecture), propres à leur assistant, pas de fichier orphelin si le stockage ou l'écriture échoue ; table en utf8mb4 ;
+  - site : écarts d'une relecture, pages gardées quand le site tombe ou que la lecture de la semaine en perd plus de la moitié (« Mettre à jour » la prend), seuls les assistants vendus lus il y a 7 jours sont dus, document ajouté pendant une relecture gardé, site jamais lu proposé à la lecture ;
+  - régénération : interrupteurs et documents gardés, pages d'un site injoignable gardées, écarts notés, site mort plus lu ;
+  - prompt : encadrement `<<< >>>` (une page ne peut pas fermer son bloc), lien et citation, fiche puis site puis documents, fiche ou site coupés, document désactivé absent, passages « (extraits) » et « […] », 3 derniers messages transmis, taille journalisée ;
+  - routes : propriétaire seulement (404 sinon), taille vérifiée avant lecture (413), PDF refusé expliqué (422).
+- À la main : un PDF de 11 Ko dont les 60 pages partagent un flux de texte de 900 Ko (des minutes de lecture) est arrêté à 30 s ; l'API a continué de répondre pendant ce temps (298 battements de 100 ms sur 300) et aucun processus de lecture n'est resté. Deux PDF de 9 et 15 Ko qui gonflent en 0,9 et 4 Mo d'instructions de dessin par page sont refusés en 0,2 s.
+- Navigateur (Chromium, API locale sur SQLite + `nuxt dev`) :
+  - volet « Sources » sur bureau et mobile : pages et tailles, fiche, « Mettre à jour » (« 2 pages modifiées (1 ajoutée, 1 changée) »), dépôt d'un PDF, interrupteurs ;
+  - lien cliquable dans une réponse du widget (440 × 680).
+
+**Non vérifié** : réponses d'un vrai modèle sur un site et deux PDF (pas de clé Mistral / Groq ici) ; relecture d'un vrai site ; dépôt vers le vrai R2 ; création de la table sur le vrai MySQL.
+
+**Décisions prises seul**
+- « selon votre site » disparaît du prompt : il s'adressait au visiteur comme s'il était le commerçant. L'assistante donne l'adresse de la page (« Voir nos tarifs : https://… ») ou nomme le document.
+- Le site préparé par DevLeadHunter est rangé avec la fiche Google (il en est tiré) : couper la fiche le coupe aussi. Fiche coupée : téléphone, adresse, description, note, horaires, services et avis disparaissent ; le nom du commerce reste et les horaires viennent du site ou des documents s'ils les donnent.
+- Budget : 24 000 caractères pour le site et les documents (environ 6 000 tokens, un prompt d'environ 8 000 tokens). Découpage en passages seulement au-delà, classés par mots en commun avec les 3 derniers messages du visiteur, sans embeddings. Aux prix par défaut (0,10 € le million de tokens d'entrée), 6 messages à 8 000 tokens coûtent environ 0,005 €.
+- Documents : PDF avec du texte seulement (pas d'OCR des scans), 10 par assistant, 10 Mo, 60 pages, 30 000 caractères. Plusieurs fichiers du même nom sont acceptés.
+- Lecture des PDF dans un processus Python à part plutôt qu'un fil : un fil ne s'arrête pas, et un PDF piégé aurait occupé l'unique worker de l'API. Un seul PDF à la fois ; le second reçoit « Un autre PDF est en cours de lecture ».
+- Relecture hebdomadaire réservée aux assistants vendus (une démo se relit à la régénération) ; 10 assistants au plus par passage horaire, l'un après l'autre. Une relecture qui perd plus de la moitié des pages ou du texte est mise de côté ; le bouton, lui, prend toute lecture.
+- Le volet « Sources » est dans le dashboard (opérateur), pas dans l'espace client.
+- Chaque écriture de la connaissance qui suit une attente (lecture du site, d'un PDF, régénération) relit d'abord l'assistant, pour ne pas écraser un changement fait entre-temps.
+
 ---
 
 ## Questions pour Léo
@@ -399,6 +443,10 @@ relus dans le code, pas cliqués.
     - Tant qu'elle est en mode « Test », seuls les comptes testeurs peuvent se connecter et les jetons expirent au bout de 7 jours : l'agenda passe alors « à reconnecter ».
 19. **Expéditeur des SMS au visiteur** : ce sont les SMS de confirmation et de rappel. Ils partent avec le nom d'expéditeur de Paramètres → Relance SMS (ex. « Dibodev »), le nom du commerce étant en tête du texte. Faut-il un expéditeur au nom de chaque commerce (11 caractères, à déclarer chez smsmode) ?
 20. **Déplacer ou annuler** : le visiteur appelle le commerce, qui modifie l'événement dans son agenda. Faut-il un lien d'annulation dans la confirmation ?
+21. **Documents dans l'espace client** : faut-il laisser le commerçant déposer lui-même ses PDF (et couper ses sources) depuis son espace ? Aujourd'hui, seul l'opérateur le fait, depuis le dashboard.
+22. **Documents d'un assistant supprimé** : le texte et le fichier R2 restent (comme ses demandes et ses rapports). Faut-il les purger ?
+23. **Relecture des démos** : seules les démos régénérées relisent le site. Faut-il aussi relire chaque semaine les démos en cours ?
+24. **Jeu de caractères des tables de la phase 1** : `ai_assistant_requests`, `_photos`, `_reports`, `_calendars`, `_appointments` sont créées par `create_all` avec le jeu de caractères par défaut de la base. `fix_utf8mb4_collation` l'a passé en utf8mb4 si l'accès `ALTER DATABASE` était permis (sinon il l'a écrit en avertissement). À vérifier en prod : `SELECT TABLE_NAME, TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_COLLATION NOT LIKE 'utf8mb4%';`. Si des tables sortent, `python migrations/fix_utf8mb4_collation.py` (idempotent) les convertit. La table des documents est déjà déclarée en utf8mb4.
 
 ## Petits points laissés en l'état
 
@@ -408,6 +456,3 @@ relus dans le code, pas cliqués.
 - Le journal des conversations n'affiche pas la marque « test ».
 - Créneaux ajoutés après l'annonce : un visiteur qui recharge la page et choisit des créneaux dans les 24 h met à jour sa demande déjà annoncée ; le commerçant les voit dans le dashboard et l'espace client, pas dans un nouvel email ni un nouveau SMS (seulement dans le rappel J+1).
 
-## Non commencés
-
-- **R1** — base de connaissance complète : documents, re-crawl, sources, navigation du site.

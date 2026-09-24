@@ -509,11 +509,7 @@ async def regenerate_assistant(
 
 def _owned_assistant_or_404(db: Session, assistant_id: int, user_id: int) -> AiAssistant:
     """Fetch a caller-owned, non-deleted assistant, or raise 404."""
-    assistant = (
-        db.query(AiAssistant)
-        .filter(AiAssistant.id == assistant_id, AiAssistant.user_id == user_id, AiAssistant.deleted_at.is_(None))
-        .first()
-    )
+    assistant = ai_assistant_service.get_for_owner(db, assistant_id, user_id)
     if not assistant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
     return assistant
