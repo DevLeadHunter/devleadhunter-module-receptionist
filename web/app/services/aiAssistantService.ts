@@ -79,7 +79,7 @@ export class AiAssistantService {
   }
 
   /**
-   * Edit one of the user's assistants (name, persona, languages, accent).
+   * Edit one of the user's assistants (name, persona, languages, accent, owner alerts).
    *
    * @param assistantId - The assistant to edit.
    * @param payload - The fields to change.

@@ -66,6 +66,15 @@ class AiAssistant(Base):
     video_status: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
     video_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     video_generated_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # Alerts to the business owner once the assistant is sold. NULL keeps the default: SMS and email
+    # on, an SMS for quotes / appointments / emergencies only, SMS held from 22 h to 8 h (Paris).
+    alert_phone_e164: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    alert_sms_enabled: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    alert_email_enabled: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # ``AiAssistantRequestType`` values worth an SMS; every other type goes by email only.
+    alert_sms_types: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    alert_quiet_start_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    alert_quiet_end_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(onupdate=datetime.utcnow, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)

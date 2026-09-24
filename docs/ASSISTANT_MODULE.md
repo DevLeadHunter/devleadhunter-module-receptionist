@@ -88,7 +88,7 @@ est exposé dans la config publique (`assistant_gender`) pour les textes du widg
 | `GET` | `/ai-assistants/leads` | Anciens contacts captés (lecture seule, historique) |
 | `GET` | `/ai-assistants/requests` | Lister les demandes (`?assistant_id=`, `?status=`) + `pending_count` |
 | `PATCH` | `/ai-assistants/requests/{id}` | Changer le statut (`new` / `handled` / `dropped`) ou la note d'une demande |
-| `PATCH` | `/ai-assistants/{id}` | Personnaliser (nom, persona, langues, accent) |
+| `PATCH` | `/ai-assistants/{id}` | Personnaliser (nom, persona, langues, accent, alertes au commerçant) |
 | `POST` | `/ai-assistants/{id}/regenerate` | Régénérer la connaissance (garde marque + slug) |
 | `POST` | `/ai-assistants/{id}/video` | Générer la vidéo de prospection (fond serveur / VPS) |
 | `GET` | `/ai-assistants/{id}/video-context` | Contexte pour le build desktop (sidecar) |
@@ -183,10 +183,10 @@ leads y ont été recopiés une fois (`legacy_lead_id`, statut `handled`) et leu
   NULL` avant tout envoi (deux passes concurrentes n'annoncent pas deux fois). L'annonce part en tâche de
   fond juste après la capture ; `request_runner.py` (boucle de 5 min lancée au démarrage de l'API)
   reprend celles qu'un redémarrage a perdues (demandes de plus de 2 min et de moins de 24 h). Annonce :
-  push à l'owner (type, hors horaires) et, **si
-  l'assistant est vendu** (`delivered`), email de résumé au commerce (`AiAssistant.email`, sinon l'email
-  du prospect) via l'identité d'envoi de l'owner en mode transactionnel (`send_via_user_identity`,
-  sans `prospect_id` : le prospect n'est pas marqué contacté). Une démo n'écrit jamais au prospect.
+  push à l'owner (type, hors horaires) et, **si l'assistant est vendu** (`delivered`), les alertes au
+  commerçant (section suivante) : email de résumé au commerce (`AiAssistant.email`, sinon l'email du
+  prospect) via l'identité d'envoi de l'owner en mode transactionnel (`send_via_user_identity`, sans
+  `prospect_id` : le prospect n'est pas marqué contacté) et SMS. Une démo n'écrit jamais au prospect.
   L'email montre le besoin, les coordonnées cliquables (tel / mailto), la conversation et un bouton
   « Marquer comme traitée » : lien signé HMAC (`SECRET_KEY`) valable 30 jours (`request_links.py`). Le
   `GET` du lien n'affiche qu'une page de confirmation (les antivirus de messagerie ouvrent les liens) ;
@@ -197,6 +197,45 @@ leads y ont été recopiés une fois (`legacy_lead_id`, statut `handled`) et leu
 
 La liste des assistants porte `requests_7d`, `requests_30d` et `requests_outside_hours_pct` (part des
 demandes des 30 derniers jours reçues hors horaires, parmi celles dont les horaires sont connus).
+
+## Alertes au commerçant (`services/ai_assistant/request_alerts.py`)
+
+Seulement pour un assistant **vendu** (`delivered`) ; une démo n'alerte que l'owner (push).
+
+- **Réglages par assistant** (colonnes `alert_*` de `ai_assistants`, `NULL` = valeur par défaut ; le
+  dashboard n'envoie que les réglages modifiés), dans « Personnaliser » : mobile du commerçant
+  (`alert_phone_e164`, `to_e164_mobile`), SMS oui / non, email oui / non, types qui déclenchent un SMS
+  (`alert_sms_types`, défaut : devis, rendez-vous, urgence ; question et autre = email seulement) et plage
+  « ne pas déranger » (`alert_quiet_start_hour` → `alert_quiet_end_hour`, défaut 22 h → 8 h, heure de
+  Paris ; heures égales = jamais de pause).
+- **Numéro d'alerte** : un mobile français (06 / 07) se saisit en national seulement si le prospect est en
+  France ; tout autre pays exige le format international (`+352…`, `0032…`), sinon un `621 123 456`
+  luxembourgeois ou un `079…` suisse deviendrait le mobile français d'un inconnu. Fixe, format inconnu :
+  refusé (422, rien n'est enregistré).
+- **Alertée** (`owner_alerted_at`) : posé quand les alertes du commerçant partent, donc seulement pour un
+  assistant vendu. Rappel et signal 48 h ne regardent que ces demandes : une demande laissée sur la démo
+  avant la vente n'est jamais rappelée au nouveau client.
+- **Email** : toutes les demandes (le résumé décrit plus haut), à toute heure.
+- **SMS** : 1 segment GSM-7, sans mention STOP (message de service, pas de prospection) mais la liste
+  STOP de l'owner est respectée. Texte : « Nouvelle demande de devis (photo) de Marc, 06… : résumé » ;
+  le résumé est coupé au mot pour tenir, le contact reste entier. Envoyé par le nom d'expéditeur SMS de
+  l'owner (Paramètres → Relance SMS) et enregistré dans `sms_messages` sans prospect, avec
+  `kind = service` (`SmsService.send_service_message`) : coût suivi sur la page SMS, prospect jamais marqué
+  contacté, **hors** plafond journalier de l'automatisation et hors récap quotidien, notification (envoi ou
+  accusé de réception) seulement en cas d'échec. Un refus avant l'envoi (pas d'expéditeur, numéro en
+  liste STOP…) est inscrit au journal d'activité. Reçue pendant la plage de nuit, la demande garde son
+  SMS (`sms_due_at` = fin de la plage) ; la boucle de 5 min l'envoie à l'heure, sauf si la demande a été
+  traitée entre-temps. Un SMS en retard de plus de 12 h n'est plus envoyé. `sms_sent_at` est réservé avant
+  l'envoi, dans le même `UPDATE` qui vérifie que la demande est encore `new` : jamais deux SMS pour une
+  demande, jamais de SMS pour une demande traitée.
+- **Rappel J+1** : une demande toujours `new` 24 h après son arrivée reçoit **un seul** rappel
+  (`reminder_sent_at`) par les mêmes canaux (email « Rappel : … », SMS « Rappel, en attente depuis le
+  23/09 : … » pour les types à SMS), jamais pendant la plage de nuit. Les demandes de plus de 72 h ne sont
+  pas rappelées.
+- **Signal churn** : une demande d'abonné toujours `new` après 48 h déclenche un push à l'owner
+  (« Abonné X : N demandes non traitées depuis 48 h », N = toutes ses demandes en attente depuis 48 h ou
+  plus), une fois par demande (`stale_notified_at`), un push par assistant ; une demande de plus de 7 jours
+  ne déclenche plus de nouveau push.
 
 ## Intégration campagnes
 
@@ -255,8 +294,9 @@ La page **Assistants IA** (`web/app/pages/dashboard/ai-assistants.vue`) : KPIs (
 demandes à traiter, dernière demande), cartes par assistant (langues, demandes 7 j / 30 j, % hors
 horaires, conversations 7 j, Voir la démo, Copier le script, Personnaliser, Régénérer, Supprimer,
 **Générer / Voir la vidéo**) et la section **Demandes** (onglets « À traiter » / « Toutes » ; type,
-hors horaires, photos, test, statut ; résumé ; « Marquer traitée », « Sans suite », « Rouvrir »). Le
-clip présentateur « assistant » s'enregistre dans **Paramètres → Vidéo**
+hors horaires, photos, test, statut ; résumé ; « Marquer traitée », « Sans suite », « Rouvrir »).
+« Personnaliser » porte aussi les alertes au commerçant (mobile, SMS / email, types à SMS, plage de
+nuit). Le clip présentateur « assistant » s'enregistre dans **Paramètres → Vidéo**
 (`web/app/components/settings/AssistantPresenterClipCard.vue`). Le `ProspectDrawer` génère / ouvre
 l'assistant depuis un prospect selon le module actif.
 
@@ -275,7 +315,8 @@ modules dans le même projet PostHog. **Aucun** event côté dashboard (non inst
 | Demandes (capture, suivi, compteurs) | `api/services/ai_assistant/request_service.py` |
 | Typage + résumé d'une demande | `api/services/ai_assistant/request_analyzer.py` |
 | Email de résumé + lien signé | `api/services/ai_assistant/request_email.py`, `api/services/ai_assistant/request_links.py` |
-| Reprise des annonces perdues (boucle) | `api/services/ai_assistant/request_runner.py` |
+| Reprise des annonces perdues + alertes différées (boucle) | `api/services/ai_assistant/request_runner.py` |
+| Alertes au commerçant (email, SMS, rappel, signal 48 h) | `api/services/ai_assistant/request_alerts.py` |
 | Horaires d'ouverture (hors horaires) | `api/services/ai_assistant/opening_hours.py` |
 | Service génération / edit / régé | `api/services/ai_assistant/assistant_service.py` |
 | Config (accent, langues, persona) | `api/services/ai_assistant/config_builder.py` |

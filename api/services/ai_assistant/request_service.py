@@ -4,9 +4,10 @@ Structured requests captured by an assistant: one per widget session, typed and 
 A visitor who leaves their details through the widget becomes a request the business owner handles
 (new → handled or dropped). The request links the session's conversation journal, knows whether it
 came in outside the business hours, and is typed and summarized in the background (question, quote,
-appointment, urgent) so the visitor is answered at once. It is announced once: a summary email to
-the business when the assistant is sold (a demo never writes to the prospect), and a push to the
-operator. A visit flagged internal (the operator testing) is recorded but never announced.
+appointment, urgent) so the visitor is answered at once. It is announced once: a push to the
+operator and, when the assistant is sold, the owner's alerts (``request_alerts.py``: summary email,
+SMS); a demo never writes to the prospect. A visit flagged internal (the operator testing) is
+recorded but never announced.
 """
 
 from __future__ import annotations
@@ -21,16 +22,14 @@ from sqlalchemy.orm import Session
 
 from core.database import SessionLocal
 from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus, AiAssistantRequestType
-from enums.ai_assistant_status import AiAssistantStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_message import AiAssistantMessage
 from models.ai_assistant_request import AiAssistantRequest
-from models.prospect_db import ProspectDB
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from services.ai_assistant.request_alerts import ai_assistant_request_alerts
 from services.ai_assistant.request_analyzer import TranscriptLine, ai_assistant_request_analyzer
-from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
-from services.ai_assistant.request_links import AiAssistantRequestLinks
+from services.ai_assistant.request_email import AiAssistantRequestEmail
 from services.notification_service import notification_service
 
 logger = logging.getLogger(__name__)
@@ -167,7 +166,6 @@ class AiAssistantRequestService:
         db.commit()
         if request.is_test or not self._claim_announcement(db, request):
             return
-        await self._email_business(db, request, assistant, transcript)
         await notification_service.notify_assistant_lead(
             db,
             user_id=assistant.user_id,
@@ -178,6 +176,7 @@ class AiAssistantRequestService:
             request_label=AiAssistantRequestEmail.type_label(analysis.type),
             received_outside_hours=request.received_outside_hours,
         )
+        await ai_assistant_request_alerts.alert_owner(db, request, assistant, transcript)
 
     def transcript(self, db: Session, request: AiAssistantRequest) -> list[TranscriptLine]:
         """
@@ -366,13 +365,14 @@ class AiAssistantRequestService:
             now: Current naive UTC time (tests); defaults to now.
 
         Returns:
-            Ids of requests captured between one day and two minutes ago, never announced.
+            Ids of requests still new, captured between one day and two minutes ago, never announced.
         """
         current = now or datetime.now(UTC).replace(tzinfo=None)
         rows = (
             db.query(AiAssistantRequest.id)
             .filter(
                 AiAssistantRequest.owner_notified_at.is_(None),
+                AiAssistantRequest.status == AiAssistantRequestStatus.NEW.value,
                 AiAssistantRequest.is_test.is_(False),
                 AiAssistantRequest.legacy_lead_id.is_(None),
                 AiAssistantRequest.created_at <= current - ANNOUNCEMENT_GRACE,
@@ -399,49 +399,6 @@ class AiAssistantRequestService:
             await self._follow_up_in_background(request_id)
         return len(request_ids)
 
-    async def _email_business(
-        self, db: Session, request: AiAssistantRequest, assistant: AiAssistant, transcript: list[TranscriptLine]
-    ) -> None:
-        """Send the summary email to the business — only once the assistant is sold."""
-        if assistant.status != AiAssistantStatus.DELIVERED.value:
-            return
-        recipient = self._business_email(db, assistant)
-        if not recipient:
-            logger.info("Assistant %s: no business email for request %s", assistant.id, request.id)
-            return
-        rendered = AiAssistantRequestEmail.render(
-            RequestEmailContent(
-                business_name=assistant.business_name,
-                assistant_name=assistant.assistant_name,
-                request_type=AiAssistantRequestType(request.type),
-                visitor_name=request.name,
-                contact=request.contact,
-                need=request.need,
-                need_summary=request.need_summary,
-                received_at=OpeningHoursCalendar.to_business_time(request.created_at),
-                received_outside_hours=request.received_outside_hours,
-                transcript=ai_assistant_request_analyzer.bound_transcript(transcript),
-                handled_url=AiAssistantRequestLinks.handled_url(request.id),
-                photo_urls=tuple(self.photo_urls(request)),
-            )
-        )
-        from services.email_sending_service import EmailSendingService
-
-        try:
-            result = await EmailSendingService(db).send_via_user_identity(
-                user_id=assistant.user_id,
-                recipient_email=recipient,
-                recipient_name=assistant.business_name,
-                subject=rendered.subject,
-                body_html=rendered.html,
-                is_transactional=True,
-            )
-        except Exception:
-            logger.warning("Request %s summary email could not be sent", request.id, exc_info=True)
-            return
-        if not result.get("success"):
-            logger.warning("Request %s summary email failed: %s", request.id, result.get("error"))
-
     @staticmethod
     def photo_urls(request: AiAssistantRequest) -> list[str]:
         """
@@ -458,16 +415,6 @@ class AiAssistantRequestService:
             for photo in (request.photos_json or [])
             if isinstance(photo, dict) and isinstance(photo.get("url"), str)
         ]
-
-    @staticmethod
-    def _business_email(db: Session, assistant: AiAssistant) -> str | None:
-        """The business's contact address: the assistant's own, else its prospect's."""
-        if assistant.email and assistant.email.strip():
-            return assistant.email.strip()
-        if assistant.prospect_id is None:
-            return None
-        email = db.query(ProspectDB.email).filter(ProspectDB.id == assistant.prospect_id).scalar()
-        return email.strip() if email and email.strip() else None
 
     @staticmethod
     def _set_status(request: AiAssistantRequest, status: AiAssistantRequestStatus) -> None:
@@ -497,14 +444,7 @@ class AiAssistantRequestService:
     @staticmethod
     def _claim_announcement(db: Session, request: AiAssistantRequest) -> bool:
         """Atomically take the right to announce a request, so concurrent follow-ups announce it once."""
-        claimed = (
-            db.query(AiAssistantRequest)
-            .filter(AiAssistantRequest.id == request.id, AiAssistantRequest.owner_notified_at.is_(None))
-            .update({AiAssistantRequest.owner_notified_at: datetime.now(UTC).replace(tzinfo=None)})
-        )
-        db.commit()
-        db.refresh(request)
-        return claimed == 1
+        return ai_assistant_request_alerts.claim(db, request, AiAssistantRequest.owner_notified_at)
 
     @staticmethod
     def _conversation_id(db: Session, assistant_id: int, session_id: str | None) -> int | None:

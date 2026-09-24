@@ -1,4 +1,7 @@
-/** An AI assistant generated for a prospect, as seen by its owner. */
+/**
+ * An AI assistant generated for a prospect, as seen by its owner. `requests_outside_hours_pct` is the
+ * share of the last 30 days' requests received outside the business hours (null when they are unknown).
+ */
 export interface AiAssistantSummary {
   id: number
   slug: string
@@ -24,9 +27,23 @@ export interface AiAssistantSummary {
   conversations_30d: number
   requests_7d: number
   requests_30d: number
-  /** Share of the last 30 days' requests received outside the business hours (null = hours unknown). */
   requests_outside_hours_pct: number | null
+  alerts: AiAssistantAlertSettings
   created_at: string
+}
+
+/**
+ * How the business owner is alerted of the requests once the assistant is sold, defaults applied:
+ * `phone` in E.164 (null = no SMS), `sms_types` texted at once (the others go by email only), SMS held
+ * from `quiet_start_hour` to `quiet_end_hour` (Paris time, equal hours = never held).
+ */
+export type AiAssistantAlertSettings = {
+  phone: string | null
+  sms_enabled: boolean
+  email_enabled: boolean
+  sms_types: AiAssistantRequestType[]
+  quiet_start_hour: number
+  quiet_end_hour: number
 }
 
 /** The current user's assistants. */
@@ -74,7 +91,10 @@ export type AiAssistantVideoContext = {
   fps: number
 }
 
-/** Owner edits to an assistant's branding and persona (partial update). */
+/**
+ * Owner edits to an assistant's branding, persona and alerts (partial update). `alert_phone` is sent as
+ * typed; an empty one clears it.
+ */
 export type AiAssistantUpdatePayload = {
   assistant_name?: string
   business_name?: string
@@ -82,6 +102,12 @@ export type AiAssistantUpdatePayload = {
   tone?: string
   use_brand_color?: boolean
   accent_color?: string
+  alert_phone?: string
+  alert_sms_enabled?: boolean
+  alert_email_enabled?: boolean
+  alert_sms_types?: AiAssistantRequestType[]
+  alert_quiet_start_hour?: number
+  alert_quiet_end_hour?: number
 }
 
 /** The assistant customization form state (all fields present for v-model). */
@@ -91,6 +117,12 @@ export type AiAssistantEditForm = {
   tone: string
   accent_color: string
   languages: string[]
+  alert_phone: string
+  alert_sms_enabled: boolean
+  alert_email_enabled: boolean
+  alert_sms_types: AiAssistantRequestType[]
+  alert_quiet_start_hour: number
+  alert_quiet_end_hour: number
 }
 
 /** What a visitor wants — drives the owner's triage. */

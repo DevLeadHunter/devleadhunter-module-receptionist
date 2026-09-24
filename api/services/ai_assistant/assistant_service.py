@@ -13,6 +13,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from core.config import settings
+from enums.ai_assistant_request import AiAssistantRequestType
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.demo_site_status import DemoSiteStatus
 from enums.website_status import WebsiteStatus
@@ -23,6 +24,7 @@ from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.website_crawler import ai_assistant_website_crawler
 from services.enrichment_service import enrichment_service
+from services.sms.phone_normalizer import to_e164_mobile
 
 logger = logging.getLogger(__name__)
 
@@ -98,11 +100,12 @@ class AiAssistantService:
         }
 
     def update(self, db: Session, assistant: AiAssistant, fields: dict[str, Any]) -> AiAssistant:
-        """Apply owner edits (branding/persona) to an assistant, then persist.
+        """Apply owner edits (branding/persona/alerts) to an assistant, then persist.
 
         Only keys present in ``fields`` are touched, so a partial edit never wipes the rest.
         The accent lives in ``knowledge_json['palette']``, reassigned as a new dict so SQLAlchemy
-        detects the JSON change. An empty string clears a value (neutral accent, default persona).
+        detects the JSON change. An empty string clears a value (neutral accent, default persona,
+        no alert number).
 
         Args:
             db: Active database session.
@@ -111,7 +114,28 @@ class AiAssistantService:
 
         Returns:
             The refreshed assistant row.
+
+        Raises:
+            ValueError: When the alert number cannot receive an SMS (nothing is saved).
         """
+        if "alert_phone" in fields:
+            raw_phone = (fields["alert_phone"] or "").strip()
+            phone = to_e164_mobile(raw_phone, country=self._business_country(db, assistant)) if raw_phone else None
+            if raw_phone and phone is None:
+                raise ValueError(
+                    "Numéro d'alerte invalide : un mobile est requis, 06 / 07 en France, "
+                    "au format international ailleurs (+352…, +32…)"
+                )
+            assistant.alert_phone_e164 = phone
+        for flag in ("alert_sms_enabled", "alert_email_enabled"):
+            if flag in fields and fields[flag] is not None:
+                setattr(assistant, flag, bool(fields[flag]))
+        if "alert_sms_types" in fields and fields["alert_sms_types"] is not None:
+            chosen = {AiAssistantRequestType(value) for value in fields["alert_sms_types"]}
+            assistant.alert_sms_types = [item.value for item in AiAssistantRequestType if item in chosen]
+        for hour in ("alert_quiet_start_hour", "alert_quiet_end_hour"):
+            if hour in fields and fields[hour] is not None:
+                setattr(assistant, hour, int(fields[hour]))
         if "assistant_name" in fields:
             assistant.assistant_name = (fields["assistant_name"] or "").strip() or assistant.assistant_name
         if "business_name" in fields:
@@ -131,6 +155,14 @@ class AiAssistantService:
         db.commit()
         db.refresh(assistant)
         return assistant
+
+    @staticmethod
+    def _business_country(db: Session, assistant: AiAssistant) -> str:
+        """ISO code of the business's country (its prospect's), France when unknown."""
+        if assistant.prospect_id is None:
+            return "FR"
+        country = db.query(ProspectDB.country).filter(ProspectDB.id == assistant.prospect_id).scalar()
+        return country or "FR"
 
     def create(
         self,

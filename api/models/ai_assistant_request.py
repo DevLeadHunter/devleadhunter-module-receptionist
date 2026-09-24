@@ -46,6 +46,14 @@ class AiAssistantRequest(Base):
     owner_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     handled_at: Mapped[datetime | None] = mapped_column(nullable=True)
     owner_notified_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # When the business owner's alerts were routed (sold assistant only): reminders follow from it.
+    owner_alerted_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # Owner SMS: when it may go (held to the end of the night window), then when it went — at most one.
+    sms_due_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    sms_sent_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # The single J+1 reminder to the owner, and the 48 h « still waiting » push to the operator.
+    reminder_sent_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    stale_notified_at: Mapped[datetime | None] = mapped_column(nullable=True)
     legacy_lead_id: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False, index=True)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from core.config import settings
 from core.database import get_db
-from enums.ai_assistant_request import AiAssistantRequestStatus
+from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.demo_video_status import DemoVideoStatus
 from models.ai_assistant import AiAssistant
@@ -23,6 +23,7 @@ from models.ai_assistant_request import AiAssistantRequest
 from models.prospect_db import ProspectDB
 from models.user import User
 from schemas.ai_assistant import (
+    AiAssistantAlertSettings,
     AiAssistantChatRequest,
     AiAssistantChatResponse,
     AiAssistantConversationItem,
@@ -48,6 +49,7 @@ from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ConversationCounts, ai_assistant_conversation_service
+from services.ai_assistant.request_alerts import AlertSettings
 from services.ai_assistant.request_email import AiAssistantRequestEmail
 from services.ai_assistant.request_links import AiAssistantRequestLinks
 from services.ai_assistant.request_service import RequestCounts, ai_assistant_request_service
@@ -147,7 +149,30 @@ def _to_owner_response(
         requests_7d=requests.last_7_days if requests else 0,
         requests_30d=requests.last_30_days if requests else 0,
         requests_outside_hours_pct=requests.outside_hours_pct if requests else None,
+        alerts=_alert_settings(assistant),
         created_at=assistant.created_at,
+    )
+
+
+def _to_full_owner_response(db: Session, assistant: AiAssistant) -> AiAssistantResponse:
+    """One assistant as the list shows it (subscription and counts included), after an edit."""
+    return _to_owner_response(
+        assistant,
+        assistant_subscription_service.active_by_assistant_ids(db, [assistant.id]).get(assistant.id),
+        ai_assistant_conversation_service.counts_for_assistants(db, [assistant.id]).get(assistant.id),
+        ai_assistant_request_service.counts_for_assistants(db, [assistant.id]).get(assistant.id),
+    )
+
+
+def _alert_settings(assistant: AiAssistant) -> AiAssistantAlertSettings:
+    settings = AlertSettings.of(assistant)
+    return AiAssistantAlertSettings(
+        phone=settings.phone_e164,
+        sms_enabled=settings.sms_enabled,
+        email_enabled=settings.email_enabled,
+        sms_types=[item for item in AiAssistantRequestType if item in settings.sms_types],
+        quiet_start_hour=settings.quiet_start_hour,
+        quiet_end_hour=settings.quiet_end_hour,
     )
 
 
@@ -406,7 +431,7 @@ async def update_assistant(
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> AiAssistantResponse:
-    """Edit one of the caller's assistants (name, persona, languages, accent)."""
+    """Edit one of the caller's assistants (name, persona, languages, accent, owner alerts)."""
     assistant = (
         db.query(AiAssistant)
         .filter(AiAssistant.id == assistant_id, AiAssistant.user_id == user.id, AiAssistant.deleted_at.is_(None))
@@ -414,8 +439,11 @@ async def update_assistant(
     )
     if not assistant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
-    updated = ai_assistant_service.update(db, assistant, payload.model_dump(exclude_unset=True))
-    return _to_owner_response(updated)
+    try:
+        updated = ai_assistant_service.update(db, assistant, payload.model_dump(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    return _to_full_owner_response(db, updated)
 
 
 @router.post("/{assistant_id}/regenerate", response_model=AiAssistantResponse)

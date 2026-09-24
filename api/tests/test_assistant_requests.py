@@ -368,6 +368,7 @@ def test_lost_announcements_are_picked_up_once_by_the_runner(
         return request
 
     lost = add(10)
+    add(10, status=AiAssistantRequestStatus.HANDLED.value)
     add(10, owner_notified_at=now)
     add(10, is_test=True)
     add(10, legacy_lead_id=1)

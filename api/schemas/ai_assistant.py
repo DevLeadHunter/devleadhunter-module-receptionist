@@ -15,7 +15,7 @@ class AiAssistantCreateRequest(BaseModel):
 
 
 class AiAssistantUpdateRequest(BaseModel):
-    """Owner edits to an assistant's branding and persona (all optional, partial update)."""
+    """Owner edits to an assistant's branding, persona and alerts (all optional, partial update)."""
 
     assistant_name: str | None = None
     business_name: str | None = None
@@ -23,6 +23,26 @@ class AiAssistantUpdateRequest(BaseModel):
     tone: str | None = None
     use_brand_color: bool | None = None
     accent_color: str | None = None
+    # The business owner's mobile for the alerts, as typed (empty clears it).
+    alert_phone: str | None = Field(default=None, max_length=32)
+    alert_sms_enabled: bool | None = None
+    alert_email_enabled: bool | None = None
+    alert_sms_types: list[AiAssistantRequestType] | None = None
+    alert_quiet_start_hour: int | None = Field(default=None, ge=0, le=23)
+    alert_quiet_end_hour: int | None = Field(default=None, ge=0, le=23)
+
+
+class AiAssistantAlertSettings(BaseModel):
+    """How the business owner is alerted of the requests once the assistant is sold (defaults applied)."""
+
+    phone: str | None
+    sms_enabled: bool
+    email_enabled: bool
+    # Request types texted at once; every other type goes by email only.
+    sms_types: list[AiAssistantRequestType]
+    # SMS held from this hour to the end hour (Paris time); equal hours = never held.
+    quiet_start_hour: int
+    quiet_end_hour: int
 
 
 class AiAssistantResponse(BaseModel):
@@ -58,6 +78,7 @@ class AiAssistantResponse(BaseModel):
     requests_7d: int = 0
     requests_30d: int = 0
     requests_outside_hours_pct: int | None = None
+    alerts: AiAssistantAlertSettings
     created_at: datetime
 
 

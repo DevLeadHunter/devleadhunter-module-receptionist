@@ -34,6 +34,8 @@ class RequestEmailContent:
     transcript: list[TranscriptLine]
     handled_url: str
     photo_urls: tuple[str, ...] = ()
+    # The J+1 reminder of a request still waiting, instead of its first announcement.
+    is_reminder: bool = False
 
 
 @dataclass(frozen=True)
@@ -77,17 +79,22 @@ class AiAssistantRequestEmail:
         subject = f"{label} — {content.visitor_name}"
         if content.received_outside_hours:
             subject += " (hors horaires)"
+        if content.is_reminder:
+            subject = f"Rappel : {subject}"
 
         received = content.received_at.strftime("%d/%m/%Y à %H:%M")
         timing = f"Reçue le {received}" + (", en dehors de vos horaires" if content.received_outside_hours else "")
         summary = (content.need_summary or content.need or "").strip()
         own_words = (content.need or "").strip()
 
+        intro = (
+            f"Cette demande pour <strong>{html.escape(content.business_name)}</strong> attend toujours une réponse."
+            if content.is_reminder
+            else f"<strong>{html.escape(content.assistant_name)}</strong>, votre réceptionniste virtuelle, a noté une "
+            f"demande pour <strong>{html.escape(content.business_name)}</strong>."
+        )
         sections: list[str] = [
-            cls._paragraph(
-                f"<strong>{html.escape(content.assistant_name)}</strong>, votre réceptionniste virtuelle, a noté une "
-                f"demande pour <strong>{html.escape(content.business_name)}</strong>.",
-            ),
+            cls._paragraph(intro),
             cls._heading(label),
             cls._paragraph(html.escape(timing), muted=True),
         ]
