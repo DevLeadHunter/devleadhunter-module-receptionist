@@ -39,6 +39,9 @@ class AiAssistantResponse(BaseModel):
     status: str
     demo_url: str
     embed_snippet: str
+    # Demo countdown: NULL until the link is first emailed or texted, then the expiry it set.
+    demo_link_sent_at: datetime | None = None
+    expires_at: datetime | None = None
     # Prospection video state: NULL when never requested, else pending/generating/ready/failed.
     video_status: str | None = None
     video_page_url: str | None = None

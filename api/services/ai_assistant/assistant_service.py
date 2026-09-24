@@ -7,10 +7,12 @@ publicly by slug and answering visitors. No Storyblok — the assistant renders 
 import logging
 import re
 import unicodedata
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session
 
+from core.config import settings
 from enums.ai_assistant_status import AiAssistantStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_lead import AiAssistantLead
@@ -20,6 +22,11 @@ from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_build
 from services.enrichment_service import enrichment_service
 
 logger = logging.getLogger(__name__)
+
+
+def _as_utc(value: datetime) -> datetime:
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
 
 _PUBLICLY_SERVED_STATUSES: tuple[str, ...] = (AiAssistantStatus.ACTIVE.value, AiAssistantStatus.DELIVERED.value)
 
@@ -262,6 +269,61 @@ class AiAssistantService:
         db.commit()
         db.refresh(lead)
         return lead
+
+    def start_demo_ttl(self, db: Session, assistant: AiAssistant, sent_at: datetime) -> bool:
+        """Start the demo countdown from the first email or SMS carrying the assistant link; a no-op after.
+
+        The demo dies ``demo_site_ttl_days`` after that first send, like a demo site. A sold assistant
+        never counts down.
+
+        Returns:
+            True when ``expires_at`` was set by this send.
+        """
+        if assistant.demo_link_sent_at is not None or assistant.status != AiAssistantStatus.ACTIVE.value:
+            return False
+        sent_utc: datetime = _as_utc(sent_at)
+        assistant.demo_link_sent_at = sent_utc
+        assistant.expires_at = sent_utc + timedelta(days=settings.demo_site_ttl_days)
+        db.commit()
+        logger.info("Assistant demo TTL started for slug=%s expires_at=%s", assistant.slug, assistant.expires_at)
+        return True
+
+    def maybe_start_ttl_after_demo_email(
+        self, db: Session, *, user_id: int, prospect_id: int, sent_at: datetime, body_html: str
+    ) -> None:
+        """Start the demo countdown when an outreach email ships the sender's assistant link."""
+        assistant: AiAssistant | None = self.get_active_for_prospect(db, prospect_id=prospect_id, user_id=user_id)
+        if assistant is None or not self.body_contains_assistant_link(assistant, body_html):
+            return
+        self.start_demo_ttl(db, assistant, sent_at)
+
+    @staticmethod
+    def body_contains_assistant_link(assistant: AiAssistant, body: str) -> bool:
+        """Whether a rendered email or SMS body carries this assistant's public demo URL."""
+        return f"/ia/{assistant.slug}" in (body or "")
+
+    def expire_due_assistants(self, db: Session) -> int:
+        """Expire the demo assistants past their countdown; a sold assistant is never touched.
+
+        Returns:
+            The number of assistants expired.
+        """
+        due: list[AiAssistant] = (
+            db.query(AiAssistant)
+            .filter(
+                AiAssistant.status == AiAssistantStatus.ACTIVE.value,
+                AiAssistant.deleted_at.is_(None),
+                AiAssistant.demo_link_sent_at.isnot(None),
+                AiAssistant.expires_at <= datetime.now(UTC),
+            )
+            .all()
+        )
+        for assistant in due:
+            assistant.status = AiAssistantStatus.EXPIRED.value
+            logger.info("Assistant demo expired for slug=%s", assistant.slug)
+        if due:
+            db.commit()
+        return len(due)
 
     def get_active_for_prospect(self, db: Session, *, prospect_id: int, user_id: int) -> AiAssistant | None:
         """Return the user's newest active (demo) assistant for a prospect, or None.

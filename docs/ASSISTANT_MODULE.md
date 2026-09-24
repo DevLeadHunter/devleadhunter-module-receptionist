@@ -141,6 +141,12 @@ d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprim
   après coup rejoint la file des campagnes actives (`enqueue_ready_prospect`), comme une démo.
 - **Module** — une campagne est « assistant » (verrou inter-modules 45 j) dès qu'un de ses templates,
   J1, A/B **ou relance**, utilise une variable assistant, `{prix_assistant}` compris.
+- **Durée de vie** — comme un site, la démo compte à rebours `demo_site_ttl_days` (21 j) à partir du
+  **premier** email ou SMS qui porte son lien (`demo_link_sent_at` → `expires_at` ; boucle horaire
+  `services/ai_assistant/cleanup_service.py` → statut `expired`, page et widget en 404). Un assistant
+  vendu ne compte jamais. `{date_expiration}` annonce cette date dans un modèle assistant, et une relance
+  programmée après l'expiration est ignorée (« Assistant expiré avant la relance »). Le dashboard affiche
+  « En attente d'envoi » puis « Expire dans N j ».
 
 Le contact du prospect (email/SMS) bloque l'autre module **45 j** (`services/contact_lock_service.py`),
 pour ne pas démarcher deux fois le même prospect entre le site et l'assistant.

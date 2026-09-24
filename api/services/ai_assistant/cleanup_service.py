@@ -1,0 +1,41 @@
+"""Background expiry for AI assistant demos past their countdown."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+
+from core.database import SessionLocal
+from services.ai_assistant.assistant_service import ai_assistant_service
+
+logger = logging.getLogger(__name__)
+
+
+class AiAssistantCleanupRunner:
+    """Runs periodic expiry passes for assistant demos past their TTL (sold assistants never expire)."""
+
+    @staticmethod
+    async def run_loop(interval_seconds: int = 3600) -> None:
+        """
+        Periodically expire the demo assistants whose countdown ended.
+
+        Args:
+            interval_seconds: Delay between expiry passes.
+        """
+        while True:
+            db = SessionLocal()
+            try:
+                expired: int = ai_assistant_service.expire_due_assistants(db)
+                if expired:
+                    logger.info("Expired assistant demos: %s", expired)
+            except Exception as exc:
+                logger.exception("Assistant demo expiry failed: %s", exc)
+            finally:
+                db.close()
+
+            await asyncio.sleep(interval_seconds)
+
+
+async def run_ai_assistant_cleanup_loop(interval_seconds: int = 3600) -> None:
+    """Entrypoint registered by the API lifespan."""
+    await AiAssistantCleanupRunner.run_loop(interval_seconds)
