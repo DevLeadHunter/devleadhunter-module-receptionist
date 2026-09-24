@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar
 
@@ -21,6 +20,7 @@ from enums.ai_assistant_status import AiAssistantStatus
 from models.ai_assistant import AiAssistant
 from models.prospect_db import ProspectDB
 from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.knowledge_builder import SourceToggles
 from services.ai_assistant.website_sync import AiAssistantWebsiteSync
 
 logger = logging.getLogger(__name__)
@@ -29,14 +29,6 @@ logger = logging.getLogger(__name__)
 def _utc_now() -> datetime:
     """Current time, naive UTC (patched in tests)."""
     return datetime.now(UTC).replace(tzinfo=None)
-
-
-@dataclass(frozen=True)
-class SourceToggles:
-    """Which sources the assistant reads: the website pages, the Google listing (the documents have their own)."""
-
-    site: bool
-    listing: bool
 
 
 class AiAssistantSourceService:
@@ -57,9 +49,7 @@ class AiAssistantSourceService:
         Returns:
             Its toggles; a source never switched off is on.
         """
-        stored = (assistant.knowledge_json or {}).get("sources")
-        stored = stored if isinstance(stored, dict) else {}
-        return SourceToggles(site=stored.get("site") is not False, listing=stored.get("listing") is not False)
+        return SourceToggles.of(assistant.knowledge_json)
 
     @staticmethod
     def set_toggles(db: Session, assistant: AiAssistant, *, site: bool | None, listing: bool | None) -> AiAssistant:

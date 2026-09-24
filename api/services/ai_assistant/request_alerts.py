@@ -62,7 +62,7 @@ def _utc_now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-_REQUEST_TYPE_VALUES: frozenset[str] = frozenset(item.value for item in AiAssistantRequestType)
+_REQUEST_TYPE_VALUES: frozenset[str] = frozenset(request_type.value for request_type in AiAssistantRequestType)
 
 
 def _hour_or(value: int | None, default: int) -> int:

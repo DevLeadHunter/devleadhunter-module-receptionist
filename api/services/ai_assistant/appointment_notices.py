@@ -24,7 +24,6 @@ from sqlalchemy.orm import Session
 from core.database import SessionLocal
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
-from models.sms_config import SmsConfig
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RenderedEmail
@@ -32,6 +31,7 @@ from services.email_attachment import EmailAttachment
 from services.email_sending_service import EmailSendingService
 from services.french_date_formatter import FrenchDateFormatter
 from services.sms.gsm_segments import segment_count, to_strict_gsm7
+from services.sms_config_service import sms_config_service
 from services.sms_service import sms_service
 
 logger = logging.getLogger(__name__)
@@ -568,7 +568,7 @@ class AiAssistantAppointmentNotices:
     @staticmethod
     async def _send_sms(db: Session, assistant: AiAssistant, appointment: AiAssistantAppointment, text: str) -> None:
         """Text the visitor through the operator's SMS sender; logs why when it cannot."""
-        config = db.query(SmsConfig).filter(SmsConfig.user_id == assistant.user_id).first()
+        config = sms_config_service.get(db, assistant.user_id)
         reason = "Aucune configuration SMS" if config is None else None
         if config is not None:
             try:

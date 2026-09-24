@@ -489,7 +489,7 @@ class AiAssistantReportService:
         total = sum(counts.values())
         if not total:
             return ()
-        ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+        ordered = sorted(counts.items(), key=lambda entry: (-entry[1], entry[0]))
         return tuple(LanguageShare(code=code, share_pct=round(100 * count / total)) for code, count in ordered)
 
     async def _top_questions(

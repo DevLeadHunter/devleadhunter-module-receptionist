@@ -26,9 +26,9 @@ class AiAssistantClientSpaceEmail:
             Subject and HTML body; every stored text is HTML-escaped.
         """
         name = html.escape(assistant_name)
-        items = "".join(
-            f'<li style="margin:0 0 6px">{item}</li>'
-            for item in (
+        features_html = "".join(
+            f'<li style="margin:0 0 6px">{feature}</li>'
+            for feature in (
                 f"les demandes reçues par {name}, à marquer traitées d'un clic ;",
                 "le rapport du mois ;",
                 "vos alertes : le mobile qui reçoit les SMS, les emails ;",
@@ -41,7 +41,7 @@ class AiAssistantClientSpaceEmail:
                     f"Voici votre espace pour suivre le travail de <strong>{name}</strong> pour "
                     f"<strong>{html.escape(business_name)}</strong> :"
                 ),
-                f'<ul style="margin:0 0 12px;padding-left:22px">{items}</ul>',
+                f'<ul style="margin:0 0 12px;padding-left:22px">{features_html}</ul>',
                 AiAssistantRequestEmail.button("Ouvrir mon espace", url),
                 AiAssistantRequestEmail.paragraph(
                     f"Ce lien personnel est valable jusqu'au {expires_on:%d/%m/%Y}. Ne le transférez pas : il "

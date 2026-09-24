@@ -781,16 +781,11 @@ def _closed_hours(db: Session, assistant: AiAssistant) -> AiAssistantClosedHours
     """
     now = OpeningHoursCalendar.business_now()
     estimate = OpeningHoursCalendar.closed_hours_estimate(
-        (assistant.knowledge_json or {}).get("opening_hours"), year=now.year, month=now.month
+        AiAssistantAppointmentSlots.opening_hours_of(assistant), year=now.year, month=now.month
     )
     if estimate is None or estimate.open_hours_per_week == 0:
         return None
-    category = (
-        db.query(ProspectDB.category).filter(ProspectDB.id == assistant.prospect_id).scalar()
-        if assistant.prospect_id
-        else None
-    )
-    trade = AiAssistantRequestVolume.for_category(category)
+    trade = AiAssistantRequestVolume.for_category(ai_assistant_service.business_category(db, assistant))
     return AiAssistantClosedHours(
         open_hours_per_week=estimate.open_hours_per_week,
         closed_share_pct=estimate.closed_share_pct,

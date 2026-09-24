@@ -164,6 +164,13 @@ class AiAssistantService:
         return assistant
 
     @staticmethod
+    def business_category(db: Session, assistant: AiAssistant) -> str | None:
+        """The business's Google Maps category (its prospect's), when known."""
+        if assistant.prospect_id is None:
+            return None
+        return db.query(ProspectDB.category).filter(ProspectDB.id == assistant.prospect_id).scalar()
+
+    @staticmethod
     def business_country(db: Session, assistant: AiAssistant) -> str:
         """ISO code of the business's country (its prospect's), France when unknown."""
         if assistant.prospect_id is None:

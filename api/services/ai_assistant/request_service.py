@@ -30,6 +30,7 @@ from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_message import AiAssistantMessage
 from models.ai_assistant_request import AiAssistantRequest
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentSlot
+from services.ai_assistant.conversation_service import SESSION_ID_MAX_CHARS
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.photo_service import ai_assistant_photo_service
 from services.ai_assistant.request_alerts import ai_assistant_request_alerts
@@ -39,7 +40,6 @@ from services.notification_service import notification_service
 
 logger = logging.getLogger(__name__)
 
-SESSION_ID_MAX_CHARS = 64
 NAME_MAX_CHARS = 255
 NEED_MAX_CHARS = 2000
 OWNER_NOTE_MAX_CHARS = 2000

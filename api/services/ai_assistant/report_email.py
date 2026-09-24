@@ -55,33 +55,33 @@ class MonthlyStats:
         return self.conversations == 0 and self.requests == 0
 
     @classmethod
-    def from_json(cls, data: dict[str, Any]) -> MonthlyStats:
+    def from_json(cls, stats_json: dict[str, Any]) -> MonthlyStats:
         """
         Read back the figures stored on a report row.
 
         Args:
-            data: The row's ``stats_json``.
+            stats_json: The row's ``stats_json``.
 
         Returns:
             The figures.
         """
-        outside_hours = data.get("outside_hours_pct")
-        handling = data.get("average_handling_hours")
+        outside_hours = stats_json.get("outside_hours_pct")
+        handling = stats_json.get("average_handling_hours")
         return cls(
-            conversations=int(data.get("conversations") or 0),
-            requests=int(data.get("requests") or 0),
-            quotes=int(data.get("quotes") or 0),
-            appointments=int(data.get("appointments") or 0),
-            urgent=int(data.get("urgent") or 0),
-            photo_requests=int(data.get("photo_requests") or 0),
-            handled=int(data.get("handled") or 0),
+            conversations=int(stats_json.get("conversations") or 0),
+            requests=int(stats_json.get("requests") or 0),
+            quotes=int(stats_json.get("quotes") or 0),
+            appointments=int(stats_json.get("appointments") or 0),
+            urgent=int(stats_json.get("urgent") or 0),
+            photo_requests=int(stats_json.get("photo_requests") or 0),
+            handled=int(stats_json.get("handled") or 0),
             outside_hours_pct=int(outside_hours) if outside_hours is not None else None,
             languages=tuple(
-                LanguageShare(code=str(item["code"]), share_pct=int(item["share_pct"]))
-                for item in data.get("languages") or []
+                LanguageShare(code=str(share["code"]), share_pct=int(share["share_pct"]))
+                for share in stats_json.get("languages") or []
             ),
             average_handling_hours=float(handling) if handling is not None else None,
-            top_questions=tuple(str(question) for question in data.get("top_questions") or []),
+            top_questions=tuple(str(question) for question in stats_json.get("top_questions") or []),
         )
 
 
@@ -200,8 +200,8 @@ class AiAssistantReportEmail:
         if not languages:
             return None
         listed = languages[: cls.MAX_LANGUAGES_LISTED]
-        parts = [f"{LANGUAGE_NAMES.get(item.code, item.code.upper())} {item.share_pct}\u00a0%" for item in listed]
-        others = sum(item.share_pct for item in languages[cls.MAX_LANGUAGES_LISTED :])
+        parts = [f"{LANGUAGE_NAMES.get(share.code, share.code.upper())} {share.share_pct}\u00a0%" for share in listed]
+        others = sum(share.share_pct for share in languages[cls.MAX_LANGUAGES_LISTED :])
         if others:
             parts.append(f"autres {others}\u00a0%")
         return ", ".join(parts)
@@ -276,11 +276,11 @@ class AiAssistantReportEmail:
         if handling:
             sections.append(AiAssistantRequestEmail.paragraph(handling))
         if stats.top_questions:
-            items = "".join(
+            questions_html = "".join(
                 f'<li style="margin:0 0 6px">{html.escape(question)}</li>' for question in stats.top_questions
             )
             sections.append(cls._heading("Ce que vos visiteurs demandent le plus"))
-            sections.append(f'<ol style="margin:0 0 12px;padding-left:22px">{items}</ol>')
+            sections.append(f'<ol style="margin:0 0 12px;padding-left:22px">{questions_html}</ol>')
             sections.append(
                 AiAssistantRequestEmail.paragraph(
                     "Autant de réponses à mettre en avant sur votre site : vos clients les trouveront sans avoir à "
@@ -312,7 +312,7 @@ class AiAssistantReportEmail:
             f"Google, ajoutez ou vérifiez le lien « Site Web » vers {site} : c'est là que {name} répond à vos "
             "clients, à toute heure.",
         )
-        items = "".join(f'<li style="margin:0 0 10px">{step}</li>' for step in steps)
+        steps_html = "".join(f'<li style="margin:0 0 10px">{step}</li>' for step in steps)
         return "".join(
             [
                 AiAssistantRequestEmail.paragraph(
@@ -323,7 +323,7 @@ class AiAssistantReportEmail:
                 AiAssistantRequestEmail.paragraph(
                     f"C'est presque toujours que {name} n'est pas encore assez visible. Deux vérifications suffisent :"
                 ),
-                f'<ol style="margin:0 0 12px;padding-left:22px">{items}</ol>',
+                f'<ol style="margin:0 0 12px;padding-left:22px">{steps_html}</ol>',
                 AiAssistantRequestEmail.paragraph("Répondez simplement à cet email pour qu'on s'en occupe ensemble."),
                 AiAssistantRequestEmail.client_space_note(content.client_space_url) if content.client_space_url else "",
             ]

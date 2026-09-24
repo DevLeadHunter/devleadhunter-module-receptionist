@@ -48,9 +48,10 @@ from services.ai_assistant.google_calendar_client import (
     google_calendar_client,
 )
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from services.ai_assistant.request_email import AiAssistantRequestEmail
 from services.encryption_service import encryption_service
 from services.french_date_formatter import FrenchDateFormatter
-from services.sms.phone_normalizer import to_e164_mobile
+from services.sms.phone_normalizer import SERVED_MOBILE_PREFIXES, to_e164_mobile
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +61,6 @@ DURATION_CHOICES: tuple[int, ...] = (15, 30, 45, 60, 90, 120, 180)
 MIN_NOTICE_CHOICES: tuple[int, ...] = (0, 2, 4, 12, 24, 48, 72)
 MAX_APPOINTMENT_TYPES = 6
 APPOINTMENT_TYPE_MAX_CHARS = 40
-# Visitors are texted only on a mobile of the countries the assistants serve (like the alert mobile).
-VISITOR_SMS_PREFIXES: tuple[str, ...] = ("+33", "+32", "+352", "+41", "+49")
-
-
-_EMAIL_PATTERN = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
 
 class SlotTakenError(Exception):
@@ -475,7 +471,7 @@ class AiAssistantCalendarService:
             .all()
         )
         return self.compute_slots(
-            opening_hours=self._opening_hours(assistant),
+            opening_hours=AiAssistantAppointmentSlots.opening_hours_of(assistant),
             busy=[*busy, *(BusyPeriod(start=start, end=end) for start, end in booked)],
             settings=CalendarSettings.of(calendar),
             now=local_now,
@@ -599,11 +595,7 @@ class AiAssistantCalendarService:
         local_start = OpeningHoursCalendar.localize(start)
         if not local_now <= local_start <= local_now + timedelta(days=self.LOOK_AHEAD_DAYS + 1):
             raise AppointmentRefused("Ce créneau n'est plus proposé")
-        period = (
-            AiAssistantDayPeriod.MORNING
-            if local_start.time().replace(tzinfo=None) < self.AFTERNOON_FROM
-            else AiAssistantDayPeriod.AFTERNOON
-        )
+        period = AiAssistantDayPeriod.MORNING if self._is_morning(local_start) else AiAssistantDayPeriod.AFTERNOON
         request.appointment_slots_json = AiAssistantAppointmentSlots.to_json(
             [AppointmentSlot(day=local_start.date(), period=period)]
         )
@@ -625,11 +617,10 @@ class AiAssistantCalendarService:
             ``(mobile in E.164 or None, email or None)``.
         """
         cleaned = " ".join((contact or "").split())
-        email = _EMAIL_PATTERN.fullmatch(cleaned)
-        if email is not None:
+        if AiAssistantRequestEmail.is_email(cleaned):
             return None, cleaned.lower()[:255]
         mobile = to_e164_mobile(cleaned, country=ai_assistant_service.business_country(db, assistant))
-        return (mobile if mobile and mobile.startswith(VISITOR_SMS_PREFIXES) else None), None
+        return (mobile if mobile and mobile.startswith(SERVED_MOBILE_PREFIXES) else None), None
 
     async def book(
         self,
@@ -1006,7 +997,7 @@ class AiAssistantCalendarService:
         )
         within_day = self.FIRST_START <= local_start.time().replace(tzinfo=None) <= self.LAST_START
         is_open = self._open_throughout(
-            self._opening_hours(assistant),
+            AiAssistantAppointmentSlots.opening_hours_of(assistant),
             local_start.replace(tzinfo=None),
             timedelta(minutes=booking_settings.duration_minutes),
             {},
@@ -1079,19 +1070,18 @@ class AiAssistantCalendarService:
 
     @classmethod
     def _half_day(cls, moment: datetime) -> tuple[date, int]:
-        """The half-day of a business-time moment (0 morning, 1 afternoon)."""
-        return moment.date(), 0 if moment.time().replace(tzinfo=None) < cls.AFTERNOON_FROM else 1
+        """The half-day of a business-time moment (0 morning, 1 afternoon), in calendar order."""
+        return moment.date(), 0 if cls._is_morning(moment) else 1
+
+    @classmethod
+    def _is_morning(cls, moment: datetime) -> bool:
+        """Whether a business-time moment falls in the morning half-day."""
+        return moment.time() < cls.AFTERNOON_FROM
 
     @staticmethod
     def _grid_minutes(duration_minutes: int) -> int:
         """Starts every 30 minutes, every 15 for the shortest appointments."""
         return 15 if duration_minutes < 30 else 30
-
-    @staticmethod
-    def _opening_hours(assistant: AiAssistant) -> list[dict[str, str]] | None:
-        """The business's opening-hour rows from its knowledge."""
-        hours = (assistant.knowledge_json or {}).get("opening_hours")
-        return hours if isinstance(hours, list) else None
 
     @staticmethod
     def _event_summary(request: AiAssistantRequest, type_label: str | None) -> str:

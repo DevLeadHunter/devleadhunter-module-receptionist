@@ -62,7 +62,7 @@ class AiAssistantRequestEmail:
         AiAssistantRequestType.URGENT: "Urgence",
         AiAssistantRequestType.OTHER: "Nouvelle demande",
     }
-    _EMAIL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    _EMAIL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
     _PHONE_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r"^\+?[\d\s.()-]{6,}$")
 
     @classmethod
@@ -214,12 +214,17 @@ class AiAssistantRequestEmail:
         )
 
     @classmethod
+    def is_email(cls, contact: str) -> bool:
+        """Whether a visitor's contact reads as an email address (else a phone number or free text)."""
+        return cls._EMAIL_PATTERN.fullmatch(contact.strip()) is not None
+
+    @classmethod
     def _contact_html(cls, visitor_name: str, contact: str) -> str:
         """Name plus a tap-to-mail or tap-to-call link when the contact reads as one."""
         name = html.escape(visitor_name)
         cleaned = contact.strip()
         escaped = html.escape(cleaned)
-        if cls._EMAIL_PATTERN.match(cleaned):
+        if cls.is_email(cleaned):
             return f'{name}<br/><a href="mailto:{html.escape(cleaned, quote=True)}" style="color:#111">{escaped}</a>'
         if cls._PHONE_PATTERN.match(cleaned):
             dial = re.sub(r"[^\d+]", "", cleaned)

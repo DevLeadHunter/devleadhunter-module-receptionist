@@ -28,8 +28,9 @@ from enums.assistant_llm import AssistantLlmUsage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_photo import AiAssistantPhoto
 from models.ai_assistant_request import AiAssistantRequest
-from models.prospect_db import ProspectDB
+from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
+from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
 from services.ai_assistant.llm_router import assistant_llm_router
 from services.r2_storage_service import r2_storage
 
@@ -101,13 +102,6 @@ class AiAssistantPhotoVision:
         "Règles absolues : JAMAIS de prix, de fourchette, de coût ni de délai d'intervention — le devis "
         "est établi par l'entreprise. Ne décris pas les personnes. Ne diagnostique que ce qui est visible."
     )
-    LANGUAGE_NAMES: ClassVar[dict[str, str]] = {
-        "fr": "français",
-        "nl": "néerlandais",
-        "en": "anglais",
-        "de": "allemand",
-        "lu": "luxembourgeois",
-    }
     # Written by us, per widget language, when the model is unavailable or breaks a rule.
     FALLBACK_REPLIES: ClassVar[dict[str, str]] = {
         "fr": (
@@ -164,7 +158,7 @@ class AiAssistantPhotoVision:
         """
         context = (
             f"Entreprise : {business_name}" + (f" ({trade})" if trade else "") + ". "
-            f"Réponds au visiteur en {self.LANGUAGE_NAMES[self._lang(language)]}."
+            f"Réponds au visiteur en {LANGUAGE_NAMES[self._lang(language)]}."
         )
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": self.SYSTEM_PROMPT},
@@ -317,7 +311,7 @@ class AiAssistantPhotoService:
         jpeg = await asyncio.to_thread(self.normalize, data)
         business_name = assistant.business_name
         eu_only = bool(assistant.eu_only)
-        trade = self._trade(db, assistant)
+        trade = ai_assistant_service.business_category(db, assistant)
         # The row comes first: a restart mid-way leaves a known key for the purge, the quota sees the
         # photo at once, and the commit hands the connection back during the slow storage and vision calls.
         photo = AiAssistantPhoto(
@@ -516,13 +510,6 @@ class AiAssistantPhotoService:
         output = io.BytesIO()
         image.save(output, format="JPEG", quality=JPEG_QUALITY, optimize=True)
         return output.getvalue()
-
-    @staticmethod
-    def _trade(db: Session, assistant: AiAssistant) -> str | None:
-        """The business's trade (its prospect's category), when known."""
-        if assistant.prospect_id is None:
-            return None
-        return db.query(ProspectDB.category).filter(ProspectDB.id == assistant.prospect_id).scalar()
 
     @staticmethod
     async def _forget(photo: AiAssistantPhoto, *, now: datetime | None = None) -> bool:

@@ -7,7 +7,10 @@ his site shows. The business's website pages and documents follow the Google lis
 and fitted to the prompt's budget (``knowledge_budget``); the listing and the website can be switched off.
 """
 
+from __future__ import annotations
+
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from itertools import groupby
 from typing import Any
@@ -36,6 +39,30 @@ MAX_FAQ_ENTRIES = 12
 _DATA_OPEN = "<<<"
 _DATA_CLOSE = ">>>"
 _DATA_MARKS = re.compile(r"<{3,}|>{3,}")
+
+
+@dataclass(frozen=True)
+class SourceToggles:
+    """Which sources the assistant reads: the website pages, the Google listing (the documents have their own)."""
+
+    site: bool
+    listing: bool
+
+    @classmethod
+    def of(cls, knowledge: dict[str, Any] | None) -> SourceToggles:
+        """
+        The switches stored in an assistant's knowledge.
+
+        Args:
+            knowledge: Its ``knowledge_json``.
+
+        Returns:
+            The toggles; a source never switched off is on.
+        """
+        stored = (knowledge or {}).get("sources")
+        stored = stored if isinstance(stored, dict) else {}
+        return cls(site=stored.get("site") is not False, listing=stored.get("listing") is not False)
+
 
 _WORDING_BY_GENDER: dict[AiAssistantPersonaGender, dict[str, str]] = {
     AiAssistantPersonaGender.FEMININE: {
@@ -178,9 +205,9 @@ class AiAssistantKnowledgeBuilder:
 
         # The Google listing (and the site prepared from it) and the website can be switched off; a document has
         # its own switch and only the enabled ones are in ``documents``.
-        switches = knowledge.get("sources") if isinstance(knowledge.get("sources"), dict) else {}
-        listing_on = switches.get("listing") is not False
-        site_on = switches.get("site") is not False
+        toggles = SourceToggles.of(knowledge)
+        listing_on = toggles.listing
+        site_on = toggles.site
 
         lines.append("")
         lines.extend(self._identity_lines(identity, with_listing=listing_on))

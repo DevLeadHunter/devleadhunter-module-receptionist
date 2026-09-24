@@ -34,15 +34,12 @@ from services.ai_assistant.request_alerts import AiAssistantRequestAlerts
 from services.ai_assistant.request_email import RenderedEmail
 from services.ai_assistant.request_service import ai_assistant_request_service
 from services.assistant_subscription_service import assistant_subscription_service
-from services.sms.phone_normalizer import to_e164_mobile
+from services.sms.phone_normalizer import SERVED_MOBILE_PREFIXES, to_e164_mobile
 
 logger = logging.getLogger(__name__)
 
 # An expired link still asks for a fresh one this long after its expiry; an older one opens nothing.
 RENEWABLE_AFTER_EXPIRY = timedelta(days=90)
-# The alert mobile a client may set: the module's countries (France, Belgium, Luxembourg, Switzerland,
-# Germany for cross-border owners), never a premium or far-away number billed to the operator.
-CLIENT_ALERT_PHONE_PREFIXES: tuple[str, ...] = ("+33", "+32", "+352", "+41", "+49")
 
 
 class ClientSpaceAccessError(Exception):
@@ -296,7 +293,7 @@ class AiAssistantClientSpaceService:
         if not raw_phone.strip():
             return
         phone = to_e164_mobile(raw_phone, country=ai_assistant_service.business_country(db, assistant))
-        if phone is not None and not phone.startswith(CLIENT_ALERT_PHONE_PREFIXES):
+        if phone is not None and not phone.startswith(SERVED_MOBILE_PREFIXES):
             raise ValueError(
                 "Numéro d'alerte refusé : un mobile français, belge, luxembourgeois, suisse ou allemand est requis"
             )
