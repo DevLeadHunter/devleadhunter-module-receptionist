@@ -395,12 +395,13 @@ async function disconnectCalendar(): Promise<void> {
   }
 }
 
-/** Reload the space when the client comes back from the Google tab. */
+/** Reload the agenda's state when the client comes back from the Google tab; unsaved settings stay as typed. */
 async function onVisibilityChange(): Promise<void> {
-  if (document.visibilityState !== 'visible' || !isAwaitingCalendar.value) return
+  const current: AiAssistantClientSpace | null = space.value
+  if (document.visibilityState !== 'visible' || !isAwaitingCalendar.value || !current) return
   try {
     const fresh: AiAssistantClientSpace = await $fetch<AiAssistantClientSpace>(endpoint.value)
-    space.value = fresh
+    current.calendar = fresh.calendar
     if (fresh.calendar.status === 'connected') isAwaitingCalendar.value = false
   } catch (error: unknown) {
     expireOn(error)
