@@ -14,11 +14,15 @@ from sqlalchemy.orm import Session
 
 from core.config import settings
 from enums.ai_assistant_status import AiAssistantStatus
+from enums.demo_site_status import DemoSiteStatus
+from enums.website_status import WebsiteStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_lead import AiAssistantLead
+from models.demo_site import DemoSite
 from models.prospect_db import ProspectDB
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
+from services.ai_assistant.website_crawler import ai_assistant_website_crawler
 from services.enrichment_service import enrichment_service
 
 logger = logging.getLogger(__name__)
@@ -49,8 +53,14 @@ class AiAssistantService:
         languages: list[str] | None = None,
         tone: str | None = None,
         use_brand_color: bool = True,
+        website: dict[str, Any] | None = None,
+        generated_site: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Assemble the persistable fields of an assistant from a prospect's data (pure, no DB).
+
+        Args:
+            website: The crawl of the prospect's own site, when it has one.
+            generated_site: The ``content_json`` of the demo site generated for the prospect, when one exists.
 
         Returns:
             A dict of column values for :class:`AiAssistant` (identity, persona, ``knowledge_json``).
@@ -70,6 +80,8 @@ class AiAssistantService:
             phone=phone,
             email=email,
             enrichment=enrichment,
+            website=website,
+            generated_site=generated_site,
         )
         # The widget accent lives with the knowledge so the public endpoint serves it in one read.
         knowledge["palette"] = {"accent": config["accent_color"]}
@@ -139,6 +151,8 @@ class AiAssistantService:
         languages: list[str] | None = None,
         tone: str | None = None,
         use_brand_color: bool = True,
+        website: dict[str, Any] | None = None,
+        generated_site: dict[str, Any] | None = None,
     ) -> AiAssistant:
         """Create and persist an active assistant, returning the stored row."""
         fields = self.build_fields(
@@ -154,6 +168,8 @@ class AiAssistantService:
             languages=languages,
             tone=tone,
             use_brand_color=use_brand_color,
+            website=website,
+            generated_site=generated_site,
         )
         assistant = AiAssistant(
             user_id=user_id,
@@ -178,8 +194,10 @@ class AiAssistantService:
         return assistant
 
     async def create_for_prospect(self, db: Session, *, user_id: int, prospect: ProspectDB) -> AiAssistant:
-        """Generate an assistant for a prospect, enriching it first when needed."""
+        """Generate an assistant for a prospect: enrichment, their own website and the site generated for them."""
         enrichment = enrichment_service.to_dict(await enrichment_service.ensure_enriched(db, user_id, prospect))
+        website = await self._crawl_prospect_website(prospect)
+        generated_site = self._generated_site_content(db, user_id=user_id, prospect_id=prospect.id)
         return self.create(
             db,
             user_id=user_id,
@@ -192,10 +210,19 @@ class AiAssistantService:
             country=prospect.country,
             logo_url=(enrichment or {}).get("logo_url"),
             enrichment=enrichment,
+            website=website,
+            generated_site=generated_site,
         )
 
     def regenerate(
-        self, db: Session, *, assistant: AiAssistant, prospect: ProspectDB, enrichment: dict[str, Any] | None
+        self,
+        db: Session,
+        *,
+        assistant: AiAssistant,
+        prospect: ProspectDB,
+        enrichment: dict[str, Any] | None,
+        website: dict[str, Any] | None = None,
+        generated_site: dict[str, Any] | None = None,
     ) -> AiAssistant:
         """Rebuild an assistant's knowledge from the prospect's latest data, keeping look and voice.
 
@@ -209,6 +236,8 @@ class AiAssistantService:
             assistant: The assistant to rebuild.
             prospect: The prospect it was generated from (source of the refreshed facts).
             enrichment: The prospect's enrichment as a dict, or ``None``.
+            website: A fresh crawl of the prospect's own site, or ``None``.
+            generated_site: The ``content_json`` of the demo site generated for the prospect, or ``None``.
 
         Returns:
             The refreshed assistant row.
@@ -224,6 +253,8 @@ class AiAssistantService:
             logo_url=(enrichment or {}).get("logo_url"),
             enrichment=enrichment,
             use_brand_color=assistant.use_brand_color,
+            website=website,
+            generated_site=generated_site,
         )
         knowledge = fields["knowledge_json"]
         knowledge["palette"] = {"accent": existing_accent}
@@ -239,11 +270,46 @@ class AiAssistantService:
     async def regenerate_for_prospect(
         self, db: Session, *, assistant: AiAssistant, prospect: ProspectDB
     ) -> AiAssistant:
-        """Re-enrich the prospect, then rebuild the assistant's knowledge from it (keeps branding)."""
+        """Re-enrich the prospect and re-crawl their site, then rebuild the knowledge (keeps branding)."""
         enrichment = enrichment_service.to_dict(
             await enrichment_service.ensure_enriched(db, assistant.user_id, prospect)
         )
-        return self.regenerate(db, assistant=assistant, prospect=prospect, enrichment=enrichment)
+        website = await self._crawl_prospect_website(prospect)
+        generated_site = self._generated_site_content(db, user_id=assistant.user_id, prospect_id=prospect.id)
+        return self.regenerate(
+            db,
+            assistant=assistant,
+            prospect=prospect,
+            enrichment=enrichment,
+            website=website,
+            generated_site=generated_site,
+        )
+
+    @staticmethod
+    async def _crawl_prospect_website(prospect: ProspectDB) -> dict[str, Any] | None:
+        """The prospect's live website as crawl data, or None when there is no site worth reading."""
+        website: str = (prospect.website or "").strip()
+        if not website or prospect.website_status in (WebsiteStatus.DEAD.value, WebsiteStatus.PLACEHOLDER.value):
+            return None
+        return await ai_assistant_website_crawler.crawl(website)
+
+    @staticmethod
+    def _generated_site_content(db: Session, *, user_id: int, prospect_id: int | None) -> dict[str, Any] | None:
+        """The ``content_json`` of the newest demo site generated for the prospect, or None."""
+        if not prospect_id:
+            return None
+        site: DemoSite | None = (
+            db.query(DemoSite)
+            .filter(
+                DemoSite.user_id == user_id,
+                DemoSite.prospect_id == prospect_id,
+                DemoSite.status != DemoSiteStatus.DELETED.value,
+                DemoSite.content_json.isnot(None),
+            )
+            .order_by(DemoSite.created_at.desc())
+            .first()
+        )
+        return site.content_json if site is not None else None
 
     def record_lead(
         self,

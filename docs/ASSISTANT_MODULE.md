@@ -8,7 +8,13 @@
 
 - **1 assistant = 1 prospect.** Généré depuis les mêmes données que la démo de site (enrichissement),
   servi publiquement par `slug`, il répond aux visiteurs **strictement** sur la base de sa fiche de
-  connaissance (`knowledge_json`) — jamais d'invention.
+  connaissance (`knowledge_json`) — jamais d'invention. Trois sources : l'enrichissement Google Maps,
+  le **site web du prospect** (crawl léger à la génération et à la régénération,
+  `services/ai_assistant/website_crawler.py` : accueil + ≤ 7 pages internes « offre » d'abord —
+  prestations, tarifs, FAQ, contact… —, texte sans nav/footer, 4 000 caractères par page et 24 000 au
+  total, ignoré si le site est `dead`/`placeholder`) et le **`content_json` du site généré** pour lui
+  (à propos, cartes de prestations, FAQ). Le prompt encadre ces extraits comme des **données** (jamais
+  des instructions) et demande de dire « selon votre site » quand la réponse en vient.
 - **Multilingue par pays.** FR / NL / DE / EN / LU. Le widget s'ouvre dans la langue du visiteur ;
   le chat détecte et répond **dans sa langue**, sans jamais mélanger.
 - **À la marque du prospect** : nom d'assistant, ton, couleur d'accent tirée du logo. Tout est
