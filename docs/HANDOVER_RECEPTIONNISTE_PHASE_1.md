@@ -510,6 +510,28 @@ Aucune fonctionnalité nouvelle : une passe par commit (ou par écran pour l'int
     - les points d'interface (états vides et d'erreur, boutons, badge, emoji) sont traités en passe 4 ;
     - la suppression des bandeaux de `test_assistant_calendar.py` est partie avec `2db1158` ;
     - le reste est listé juste en dessous.
+- **Interface** (`edd0596` → `02d5def`, un commit par écran). Le skill `ui-ux-pro-max` n'existe pas dans cet environnement : chaque écran est aligné sur ses voisins de l'Atelier (Abonnements, Utilisateurs, Commandes, le volet Conversations, le volet des signatures email).
+  - Changé :
+    - Assistants IA :
+      - KPI en `UiStatCard`, avec `UiLoader` pendant le chargement et `UiEmptyState` quand il n'y a pas de demande ;
+      - onglets posés sur la ligne de séparation ;
+      - « Risque de désabonnement » au lieu de « churn », dans le style des autres pastilles de la carte, qui passent sous le nom quand la place manque ;
+      - chiffres de la carte en gris : la couleur est gardée pour les statuts ;
+      - boutons désactivés visibles.
+    - Personnaliser : « IA hébergée en Europe (Mistral) ». Le refus de l'API et les alertes admin disent la même chose.
+    - Volet Sources :
+      - état d'erreur avec « Réessayer » ;
+      - suppression confirmée par `UiConfirmModal`, comme dans les autres volets ;
+      - boutons désactivés visibles.
+    - Widget :
+      - puces photo et rendez-vous dessinées avec les icônes de la barre de saisie, sans emoji. « Photo envoyée » n'a plus d'emoji non plus, dans le journal comme dans le widget ;
+      - texte indicatif court, sur une ligne à 375 px ;
+      - le panneau photo masque les suggestions, comme celui des créneaux : la barre de saisie sortait de la fenêtre de 680 px.
+    - /ia : deux-points insécables.
+  - Vérifié : dans Chromium, à 1280 et 375 px, en clair et en sombre, avec l'API simulée. Pas de défilement horizontal. Le demo-host n'a pas de thème sombre : rien ne change.
+  - Vu et laissé :
+    - l'espace client est déjà aligné : jetons de /ia, états vides, de chargement et d'erreur présents ;
+    - le volet Conversations et la page Abonnements ne sont pas touchés par la branche. Le badge de désabonnement est sur les cartes Assistants IA.
 
 ### Relecture : points laissés pour plus tard
 
