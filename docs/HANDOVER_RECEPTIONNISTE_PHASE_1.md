@@ -83,6 +83,121 @@ Environnement de ce poste : pas de clés Mistral / Groq / smsmode / Resend / Goo
 service externe est testé avec des doublures. Les écrans de R3 à R9 ont été relus dans le code. Ceux de R8, R2,
 R1 et de l'encart /ia ont été vérifiés dans Chromium, avec une API locale sur SQLite et des services simulés.
 
+## Parcours de test manuel
+
+À jouer sur un poste qui a les clés : cette session n'en a aucune, et aucun de ces parcours n'a été joué contre de vrais services. `…` dans une adresse d'API vaut `/api/v1/ai-assistants`.
+
+**Avant de commencer**
+- Un assistant de test, généré sur un prospect de test dont l'email et le téléphone sont les vôtres. Jamais un vrai prospect ni l'un des 5 prospects de la prod : un assistant livré écrit à l'adresse et au mobile du commerce.
+- **Démo** (`active`) : toujours ouverte avec `?internal=1`. La demande porte alors la marque Test, n'est jamais annoncée, et rien ne part vers PostHog.
+- **Livré** (`delivered`) : payer son « Lien mensuel » (ligne Abonnement de la carte) en mode test Stripe, carte 4242 4242 4242 4242, ou en local `UPDATE ai_assistants SET status = 'delivered' WHERE id = …;` (sans abonnement : ni rapport mensuel ni section Abonnement). Sans `?internal=1`, une visite sur un assistant livré est réelle : alertes, compteurs, rapport.
+- Outils du navigateur ouverts sur l'onglet Réseau (filtre `ai-assistants`), journaux de l'API dans un terminal. En local, `DEV_EMAIL_REDIRECT` renvoie chaque email vers votre adresse.
+- Services : `GROQ_API_KEY` ou `MISTRAL_API_KEY` (sans clé, l'assistante donne sa réponse de secours), R2 (photos, PDF), `SMSMODE_API_KEY` et un expéditeur (Paramètres → Relance SMS), une identité d'envoi (Paramètres → Configuration d'envoi).
+
+### Sources et documents (R1)
+
+- Prérequis : démo ou livré, clé de modèle, R2, un PDF avec du texte (pas un scan) de moins de 10 Mo.
+- Page Assistants IA, bouton « Sources » de la carte : `GET …/{id}/sources`. Le volet montre Site web (pages lues, dernière lecture), Fiche Google et les documents.
+- « Mettre à jour » : `POST …/{id}/sources/refresh`, puis « Lu le 24/09/2026 à 10:05 : aucun changement. » ou « … : 2 pages modifiées (1 ajoutée, 1 changée). ».
+- « Ajouter un PDF » : `POST …/{id}/documents` (201), « Lecture du PDF… », puis le document dans la liste, activé. Un scan est refusé, « Ce PDF ne contient pas de texte lisible (document scanné ?) » (422) ; un fichier de plus de 10 Mo aussi (413).
+- Interrupteurs du site, de la fiche ou d'un document : `PATCH …/{id}/sources` ou `PATCH …/{id}/documents/{doc_id}`. Suppression : confirmation, puis `DELETE …/{id}/documents/{doc_id}`.
+- Sur `/ia/{slug}?internal=1`, une question dont la réponse n'est que dans le PDF : l'assistante répond et nomme le document (« d'après notre document … »). Document désactivé : elle ne sait plus répondre, dès le message suivant.
+- Une question sur une page précise du site : la réponse finit par l'adresse de la page, en lien (nouvel onglet).
+
+### Modèles : Mistral, secours Groq, IA hébergée en Europe (R4)
+
+- Prérequis : démo, `MISTRAL_API_KEY` et `GROQ_API_KEY`.
+- Sur `/ia/{slug}?internal=1`, poser une question : `POST …/public/{slug}/chat` (200, `reply`). Journal de l'API : `assistant_llm_call usage=chat provider=mistral … fallback=False eu_only=False`.
+- Secours : remplacer `MISTRAL_API_KEY` par une fausse clé, redémarrer l'API, reposer la question. La réponse arrive quand même ; le journal dit `provider=groq … fallback=True` ; les admins reçoivent « Mistral indisponible : chat de l'assistant basculé sur Groq » (une fois par 30 min au plus).
+- « Personnaliser » → « IA hébergée en Europe (Mistral) » → « Enregistrer » : `PATCH …/{id}` (200). Sans `MISTRAL_API_KEY` : 422 et le message « « IA hébergée en Europe » impossible : la clé Mistral n'est pas configurée sur le serveur ».
+- Interrupteur allumé et fausse clé Mistral : aucun appel à Groq. L'assistante propose de laisser ses coordonnées et les admins reçoivent « … sans réponse pour les assistants « IA hébergée en Europe » ».
+- Bench, depuis `api/` avec les deux clés : `python scripts/bench_assistant_llm.py <slug>`. Il affiche latence moyenne et p95, tokens, coût par réponse et par conversation, réponses citant un prix, et écrit les réponses dans un fichier Markdown.
+
+### Page de démo : prix, textes et estimation (R11)
+
+- Prérequis : démo dont la fiche Google donne des horaires pour les 7 jours.
+- Paramètres → Facturation & paiement, bloc « Abonnement Assistant IA » : 79 € par mois par défaut.
+- `/ia/{slug}?internal=1` : « Plus aucune demande sans réponse », les trois preuves, « 79 €/mois, installation comprise, sans engagement, premier mois satisfait ou remboursé. » (`GET …/public/{slug}` : `monthly_price_label`).
+- Changer le prix dans Facturation, recharger /ia : le nouveau prix. Avec `?subscribed=1`, ou sur un assistant livré : plus de prix.
+- Encart « Estimation · chez vous, chaque mois » : « ≈ N demandes » et le calcul (volume du métier × part du temps fermé entre 7 h et 22 h). Config publique : `closed_hours`. Absent sur un assistant livré, si un jour n'a pas d'horaires lisibles, ou sous 2 demandes.
+- Modèles : page Modèles d'email (`/dashboard/email-templates`), les 5 « Assistant IA - … » ; volet d'une campagne, les 5 modèles SMS `assistant-*`. L'aperçu remplace `{lien_assistant}` et `{prix_assistant}` ; `GET /api/v1/sms/templates/{key}/preview` rend `segments: 1` pour chacun.
+
+### Demandes (R3)
+
+- Prérequis : démo (`?internal=1`). L'email de résumé au commerce se teste avec un assistant livré (parcours Alertes).
+- `/ia/{slug}?internal=1` : poser une question, puis « Être rappelé » : nom, email ou téléphone, besoin, « Envoyer ».
+- `POST …/public/{slug}/lead` : le corps porte `session_id` et `internal: true`, la réponse `ok: true`. Le widget répond « Merci, vos coordonnées sont transmises. On vous recontacte très vite. ».
+- Assistants IA (rechargée), section Demandes, onglet « Toutes » : la demande, badge Test, typée et résumée en quelques secondes. Sans clé de modèle : type par mots-clés, résumé tiré des mots du visiteur. Elle n'est ni dans « À traiter » ni dans les KPI.
+- Envoyée en dehors des horaires Google du commerce : pastille « Hors horaires ».
+- Renvoyer le formulaire dans la même visite : la même demande est mise à jour, sans doublon.
+- « Marquer traitée », « Sans suite », « Rouvrir » : `PATCH …/requests/{id}`, et le statut de la ligne suit.
+
+### Devis par photo (R6)
+
+- Prérequis : démo, R2, un modèle qui lit les images (Mistral, ou le modèle vision de Groq), une photo JPEG, PNG ou WEBP de moins de 8 Mo.
+- `/ia/{slug}?internal=1` : puce « Envoyer une photo pour un devis », ou l'appareil photo de la barre de saisie. Le panneau affiche la mention (photo supprimée au bout de 90 jours, pas de personnes), puis « Choisir une photo ».
+- `POST …/public/{slug}/photo` (multipart, 200 : `accepted`, `reply`, `need`, `remaining`). Le fil montre la vignette et « Photo envoyée », puis la réponse : ce qui est visible, 2 questions au plus, jamais de prix.
+- Le formulaire de coordonnées s'ouvre ensuite avec le besoin pré-rempli. Envoyé : dans Assistants IA, onglet « Toutes », une demande « Devis » avec la vignette, ou « Urgence » si la photo montre un risque immédiat.
+- Photo hors sujet (un paysage) : refus poli, et la photo est retirée de R2 (son lien public ne répond plus).
+- Après 3 photos dans la visite, le bouton photo se grise (l'API refuserait une 4ᵉ en 409). Une photo HEIC depuis Chrome : « Je ne peux pas lire ce fichier … » (415).
+- Sans modèle vision : la photo est gardée et la réponse reste neutre.
+
+### Rendez-vous sans agenda : créneaux souhaités (R2a)
+
+- Prérequis : démo, ou assistant livré sans agenda connecté.
+- `/ia/{slug}?internal=1` : puce ou bouton « Prendre rendez-vous » : `GET …/public/{slug}/appointment-slots` (`mode: "request"`, 6 jours, `max_chosen: 2`).
+- Le panneau montre les demi-journées ouvertes à partir de demain. En cocher 2 (une 3ᵉ remplace la plus ancienne), « Continuer », coordonnées, « Envoyer ».
+- `POST …/public/{slug}/lead` avec `slots`. Le widget répond « Merci ! Votre demande de rendez-vous est transmise (…). On vous recontacte pour confirmer. ».
+- Assistants IA : demande « Rendez-vous », avec « Créneaux souhaités (à confirmer) : mar. 29/09, matin ou jeu. 01/10, après-midi » sous le résumé.
+- Sur un assistant livré, sans `?internal=1` : l'email de résumé a le bloc « Créneaux souhaités (à confirmer) » et le SMS « …, pour mar. 29/09 matin ou … : … ».
+- Commerce sans horaires lisibles : du lundi au vendredi seulement.
+
+### Alertes au commerçant (R10)
+
+- Prérequis : assistant livré ; smsmode, expéditeur et identité d'envoi ; visite **sans** `?internal=1` (une visite interne n'est jamais annoncée).
+- « Personnaliser » : « Mobile du commerçant » = votre mobile, SMS et « Email de résumé (toutes les demandes) » allumés, « SMS immédiat pour » : devis, rendez-vous, urgence (défaut).
+- `/ia/{slug}` : demander un devis, puis « Être rappelé » avec votre téléphone. `POST …/public/{slug}/lead`, puis dans la minute :
+  - email « Demande de devis — Nom » (« (hors horaires) » en dehors des horaires) à l'adresse du commerce : besoin, coordonnées cliquables, conversation, lien de l'espace client, bouton « Marquer comme traitée » ;
+  - SMS « Nouvelle demande de devis de Nom, 06… : résumé. Suivi : … » sur le mobile du commerçant, et un push à l'owner.
+- Le bouton de l'email ouvre une page de confirmation (rien ne change) ; son bouton marque la demande traitée (la ligne passe « Traitée » dans le dashboard).
+- Une simple question : l'email seulement, pas de SMS.
+- Demande reçue pendant la plage « Ne pas déranger » (22 h – 8 h par défaut) : l'email tout de suite, le SMS à la fin de la plage.
+- Laissée « À traiter » 24 h : un rappel, email « Rappel : Demande de devis — Nom » et SMS « Rappel, en attente depuis le … ». Après 48 h : push « Abonné X : N demandes non traitées depuis 48 h ».
+
+### Espace client (R8)
+
+- Prérequis : assistant livré, identité d'envoi ; un abonnement Stripe de test et le portail configuré dans Stripe pour la partie facturation (question 14).
+- Assistants IA, « Envoyer l'espace client » : `POST …/{id}/client-link` (`send: true`), « Espace client envoyé à … », le lien est copié, et l'email « Votre espace : les demandes reçues par {prénom} » part à l'adresse du commerce.
+- Ouvrir le lien `/client/{token}` : `GET …/client/{token}`, puis les sections Demandes, Rapport du mois, Réglages, Abonnement, Prochains rendez-vous, Connexions.
+- « Marquer traitée » : `POST …/client/{token}/requests/{id}/handled`, et la demande passe « Traitée », dans le dashboard aussi.
+- Réglages : changer le prénom, « Enregistrer » : `PATCH …/client/{token}/settings`, « Enregistré. », et le widget se présente sous le nouveau prénom au rechargement.
+- Changer le mobile d'alerte : l'email « Votre mobile d'alerte a été modifié » part à l'adresse du commerce, et le journal d'activité de l'owner le note. Un fixe, ou un mobile hors France, Belgique, Luxembourg, Suisse et Allemagne, est refusé.
+- « Factures, carte bancaire, résiliation » : `POST …/client/{token}/billing-portal`, puis le portail Stripe. Sans portail configuré : message « indisponible ».
+- La page n'envoie rien à PostHog et ne transmet pas son adresse en referrer (onglet Réseau).
+
+### Rendez-vous dans Google Agenda (R2b)
+
+- Prérequis : assistant livré ; `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` et `GOOGLE_CALENDAR_REDIRECT_URI` déclarée dans la console Google, accès `calendar.events` et `calendar.freebusy` sur l'écran de consentement, votre compte parmi les testeurs (question 18).
+- Espace client, Connexions, « Connecter Google Agenda » : `POST …/client/{token}/calendar/connect`, consentement Google dans un nouvel onglet (laisser les deux cases de l'agenda cochées), puis la page « fermez cet onglet ».
+- De retour sur l'espace (il se recharge) : « Agenda connecté » et l'adresse du compte. L'email « Votre agenda Google est connecté » part à l'adresse du commerce.
+- Réglages de l'agenda (durée, délai minimum, types un par ligne, agenda utilisé) : `PATCH …/client/{token}/calendar`.
+- `/ia/{slug}?internal=1`, « Prendre rendez-vous » : `GET …/appointment-slots` (`mode: "calendar"`, 3 `times`). « Autres créneaux » : la page suivante.
+- Choisir un type et un créneau, laisser votre mobile : `POST …/lead` avec `booking`, puis « C'est réservé : jeu. 1 oct., 14:00 (Révision). Vous recevez une confirmation par SMS. ».
+- Dans Google Agenda : l'événement « [Test] Révision — Nom », le contact et le besoin en notes. Sur votre mobile : « {Commerce} : votre rendez-vous du jeu. 01/10 à 14:00 (Révision) est confirmé. Empêché ? Appelez le … ».
+- Sans `?internal=1`, en plus : le SMS au commerçant « RDV réservé le jeu. 01/10 à 14:00 (Révision) par Nom, 06… » et l'email « Rendez-vous réservé — Nom » avec le bloc « Dans votre agenda ».
+- Créneau pris entre-temps (un événement ajouté à la main sur le créneau proposé) : 409, « Ce créneau vient d'être pris. Choisissez-en un autre. », puis une nouvelle offre.
+- Rappel J-1 : délai minimum à 0 h, réserver demain à une heure comprise entre 9 h et 19 h et au moins 2 h plus tard que maintenant. Le SMS « Rappel : rendez-vous demain, … » part aujourd'hui à cette heure-là (boucle de 5 min).
+- « Déconnecter » : `DELETE …/client/{token}/calendar`, et le widget repasse aux demi-journées.
+
+### Rapport mensuel (R9)
+
+- Prérequis : assistant livré par un paiement Stripe de test (le rapport exige un abonnement en cours), paiement reculé : `UPDATE ai_assistant_subscriptions SET activated_at = '2026-08-01' WHERE ai_assistant_id = 42;` ; identité d'envoi ; quelques conversations et demandes du mois **sans** `?internal=1` (une visite interne n'entre pas dans les chiffres) ; clé de modèle pour « Ce que vos visiteurs demandent le plus » (3 conversations au moins).
+- Envoi normal : le 1er du mois à partir de 8 h (boucle de 10 min, jusqu'au 3), pour un abonnement payé au moins 7 jours avant la fin du mois.
+- Envoi forcé, depuis `api/`, sur un assistant de test seulement (le mois reste marqué envoyé) : `python -c "import asyncio; from datetime import date; from core.database import SessionLocal; from models.ai_assistant import AiAssistant; from services.ai_assistant.report_service import ReportPeriod, ai_assistant_report_service as s; db = SessionLocal(); print(asyncio.run(s.report(db, db.get(AiAssistant, 42), ReportPeriod.of_month(date(2026, 9, 1)))))"` (42 : l'id de l'assistant). Il affiche `True`, puis `False` si on le relance (supprimer la ligne `ai_assistant_reports` pour rejouer).
+- Email « {prénom} en septembre : N demandes, … » à l'adresse du commerce, l'owner en copie cachée : bandeau à la couleur du widget, chiffres, questions les plus posées, lien de l'espace client. L'espace client le montre sous « Rapport du mois ».
+- Mois sans visite (la même commande sur août, `date(2026, 8, 1)`, où l'assistant n'avait aucune visite) : l'autre email (vérifier la bulle sur le site, le lien de la fiche Google) et le push « Abonné X : aucune visite en août 2026 (risque de désabonnement) ».
+- Pastille « Risque de désabonnement » sur la carte : un assistant livré au paiement reculé de plus de 30 jours, sans conversation ni demande depuis 30 jours.
+
 ---
 
 ## R3 — Demandes structurées (`3caa9c2`)
@@ -532,6 +647,17 @@ Aucune fonctionnalité nouvelle : une passe par commit (ou par écran pour l'int
   - Vu et laissé :
     - l'espace client est déjà aligné : jetons de /ia, états vides, de chargement et d'erreur présents ;
     - le volet Conversations et la page Abonnements ne sont pas touchés par la branche. Le badge de désabonnement est sur les cartes Assistants IA.
+- **Documentation** (`da2e58f`, `f8b4820`, puis le commit de ce parcours) :
+  - Changé :
+    - `ASSISTANT_MODULE.md` suit le cycle de vie du produit : génération, connaissance, démo, vente, après-vente, alertes et rapports, espace client, puis une partie Référence (endpoints, statuts servis publiquement, dashboard, tracking, carte des fichiers) ;
+    - doublons retirés : la page `/a/{slug}`, qui n'existe plus, fondue dans « Page de démo `/ia/{slug}` » ; le prix de la démo, le verrou de 45 jours et le suivi PostHog, chacun décrit une seule fois ;
+    - contradictions corrigées : 6 routes manquaient au tableau des endpoints (conversations, abonnements, lien d'abonnement) ; le lien d'abonnement accepte une démo expirée ; la section Tracking oubliait 2 events PostHog ; les renvois « section suivante » ne tombaient plus juste ; « EU only » et « churn » sont devenus « IA hébergée en Europe » et « risque de désabonnement » ;
+    - retirés : numéros de ticket, prénoms, plan de code (« multi-tenant plus tard ») ;
+    - passation : « Parcours de test manuel », un parcours par fonctionnalité, juste après « Rejouer ».
+  - Vu et laissé :
+    - les exemples de messages gardent des visiteurs fictifs (« Marc », « Julie Roux ») et la persona par défaut « Sofia » : ce sont des données d'exemple, pas des personnes ;
+    - le widget refuse une photo illisible en demandant « JPEG ou PNG », alors que le serveur accepte aussi WEBP : texte d'interface, hors de cette passe ;
+    - aucun parcours n'a été joué contre de vrais services : pas de clés dans cet environnement.
 
 ### Relecture : points laissés pour plus tard
 
