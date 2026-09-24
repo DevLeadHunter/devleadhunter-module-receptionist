@@ -35,12 +35,10 @@ from schemas.ai_assistant_client_space import (
 )
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
 from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.calendar_service import (
-    DURATION_CHOICES,
-    MIN_NOTICE_CHOICES,
-    CalendarSettings,
-    ai_assistant_calendar_service,
-)
+from services.ai_assistant.calendar_access import ai_assistant_calendar_access
+from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
+from services.ai_assistant.calendar_service import ai_assistant_calendar_service
+from services.ai_assistant.calendar_settings import DURATION_CHOICES, MIN_NOTICE_CHOICES, CalendarSettings
 from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
 from services.ai_assistant.client_space_service import ClientSpaceAccessError, ai_assistant_client_space_service
 from services.ai_assistant.google_calendar_client import GoogleCalendarError
@@ -124,7 +122,7 @@ def _to_appointment(
 ) -> AiAssistantClientAppointmentItem:
     return AiAssistantClientAppointmentItem(
         id=appointment.id,
-        start_label=ai_assistant_calendar_service.start_label(appointment),
+        start_label=ai_assistant_calendar_booking.start_label(appointment),
         type_label=appointment.type_label,
         name=record.name,
         contact=record.contact,
@@ -183,7 +181,7 @@ async def get_client_space(
     report = ai_assistant_client_space_service.latest_report(db, assistant)
     subscription = ai_assistant_client_space_service.current_subscription(db, assistant)
     records = ai_assistant_client_space_service.recent_requests(db, assistant)
-    booked = ai_assistant_calendar_service.booked_labels(db, [record.id for record in records])
+    booked = ai_assistant_calendar_booking.booked_labels(db, [record.id for record in records])
     return AiAssistantClientSpaceResponse(
         business_name=assistant.business_name,
         assistant_name=assistant.assistant_name,
@@ -201,7 +199,7 @@ async def get_client_space(
         calendar=_to_calendar(db, assistant),
         appointments=[
             _to_appointment(appointment, record)
-            for appointment, record in ai_assistant_calendar_service.upcoming(db, assistant)
+            for appointment, record in ai_assistant_calendar_booking.upcoming(db, assistant)
         ],
     )
 
@@ -215,7 +213,7 @@ async def mark_client_request_handled(
     record = ai_assistant_client_space_service.mark_handled(db, assistant, request_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demande introuvable")
-    return _to_request_item(record, ai_assistant_calendar_service.booked_labels(db, [record.id]).get(record.id))
+    return _to_request_item(record, ai_assistant_calendar_booking.booked_labels(db, [record.id]).get(record.id))
 
 
 @router.patch("/client/{token}/settings", response_model=AiAssistantClientSettings)
@@ -288,7 +286,7 @@ async def update_client_calendar(
 ) -> AiAssistantClientCalendar:
     """Change the booking settings: agenda, duration, minimum notice, kinds of appointment."""
     assistant, _link = _open(db, token, request)
-    calendar = ai_assistant_calendar_service.calendar_of(db, assistant)
+    calendar = ai_assistant_calendar_access.calendar_of(db, assistant)
     if calendar is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucun agenda connecté")
     try:

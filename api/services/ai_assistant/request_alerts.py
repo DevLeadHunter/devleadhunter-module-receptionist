@@ -30,7 +30,7 @@ from models.ai_assistant_subscription import AiAssistantSubscription
 from models.prospect_db import ProspectDB
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
-from services.ai_assistant.calendar_service import ai_assistant_calendar_service
+from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
 from services.ai_assistant.client_links import AiAssistantClientLinks
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_analyzer import TranscriptLine, ai_assistant_request_analyzer
@@ -561,14 +561,14 @@ class AiAssistantRequestAlerts:
             has_photos=bool(ai_assistant_request_service.photo_urls(request)),
             link=AiAssistantClientLinks.sms_link(assistant.id),
             slots=tuple(AiAssistantAppointmentSlots.short_labels(request.appointment_slots_json)),
-            booked=ai_assistant_calendar_service.booked_labels(db, [request.id]).get(request.id),
+            booked=ai_assistant_calendar_booking.booked_labels(db, [request.id]).get(request.id),
         )
         return await self._send_sms(db, assistant, settings.phone_e164, text)
 
     @staticmethod
     def _sms_slots(db: Session, request: AiAssistantRequest) -> tuple[str, ...]:
         """What a reminder SMS says of the appointment: the booked slot, else the wished half-days."""
-        booked = ai_assistant_calendar_service.booked_labels(db, [request.id]).get(request.id)
+        booked = ai_assistant_calendar_booking.booked_labels(db, [request.id]).get(request.id)
         if booked:
             return (booked,)
         return tuple(AiAssistantAppointmentSlots.short_labels(request.appointment_slots_json))
@@ -649,7 +649,7 @@ class AiAssistantRequestAlerts:
                     is_reminder=is_reminder,
                     client_space_url=AiAssistantClientLinks.url(assistant.id),
                     appointment_slots=tuple(AiAssistantAppointmentSlots.labels(request.appointment_slots_json)),
-                    appointment_booked=ai_assistant_calendar_service.booked_labels(db, [request.id]).get(request.id),
+                    appointment_booked=ai_assistant_calendar_booking.booked_labels(db, [request.id]).get(request.id),
                 )
             )
             result = await EmailSendingService(db).send_via_user_identity(

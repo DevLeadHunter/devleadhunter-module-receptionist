@@ -57,7 +57,8 @@ from schemas.ai_assistant_client_space import AiAssistantClientLinkRequest, AiAs
 from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentRefused, AppointmentSlot
 from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.calendar_service import SlotTakenError, ai_assistant_calendar_service
+from services.ai_assistant.calendar_booking import SlotTakenError, ai_assistant_calendar_booking
+from services.ai_assistant.calendar_service import ai_assistant_calendar_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
 from services.ai_assistant.client_space_service import ai_assistant_client_space_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
@@ -351,7 +352,7 @@ async def list_assistant_requests(
 ) -> AiAssistantRequestsResponse:
     """The requests visitors left across the caller's assistants, newest first."""
     rows = ai_assistant_request_service.list_for_owner(db, user.id, assistant_id=assistant_id, status=status_filter)
-    booked = ai_assistant_calendar_service.booked_labels(db, [request.id for request, _name in rows])
+    booked = ai_assistant_calendar_booking.booked_labels(db, [request.id for request, _name in rows])
     return AiAssistantRequestsResponse(
         requests=[_to_request_item(request, business_name, booked.get(request.id)) for request, business_name in rows],
         pending_count=ai_assistant_request_service.pending_count(db, user.id),
@@ -373,7 +374,7 @@ async def update_assistant_request(
         db, record, status=payload.status, owner_note=payload.owner_note
     )
     assistant = db.get(AiAssistant, updated.assistant_id)
-    booked = ai_assistant_calendar_service.booked_labels(db, [updated.id]).get(updated.id)
+    booked = ai_assistant_calendar_booking.booked_labels(db, [updated.id]).get(updated.id)
     return _to_request_item(updated, assistant.business_name if assistant else "", booked)
 
 
@@ -933,7 +934,7 @@ async def submit_assistant_lead(
     channel: AssistantVisitorChannel | None = None
     if payload.booking is not None:
         try:
-            outcome = await ai_assistant_calendar_service.book_request(
+            outcome = await ai_assistant_calendar_booking.book_request(
                 db, assistant, captured, start=payload.booking.start, type_label=payload.booking.type
             )
         except SlotTakenError as exc:
