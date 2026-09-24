@@ -1,7 +1,8 @@
 # Passation — Réceptionniste IA, phase 1 (modèle économique)
 
-Branche **`feat/receptionist-phase-1`** : un commit par ticket (R2 en deux, R11 en deux), plus ceux de ce
-document (14 commits), posés sur `main` à `a0e6205`. `origin/main` n'a pas bougé depuis : la
+Branche **`feat/receptionist-phase-1`** : un commit par ticket (R2 en deux, R11 en deux) et ceux de ce
+document (14 commits), puis la consolidation avant relecture (38 commits, sans fonctionnalité nouvelle), soit 52
+commits posés sur `main` à `a0e6205`. `origin/main` n'a pas bougé depuis (revérifié au 24/09 au soir) : la
 branche passe en avance rapide, sans conflit. Rien n'est mergé, `main` n'a pas été poussé.
 
 | Ticket | Asana | Commit | État |
@@ -18,11 +19,16 @@ branche passe en avance rapide, sans conflit. Rien n'est mergé, `main` n'a pas 
 | R1 — base de connaissance complète | 1218810139188474 | `48a5451` | livré ; à vérifier avec un vrai modèle |
 | R13 — argumentaire face à IONOS | 1218810139800577 | `e19889c` | écrit : `docs/RECEPTIONNISTE_ARGUMENTAIRE.md` |
 | R11 (suite) — encart d'estimation sur /ia | 1218810139755803 | `ac30c5a` | livré ; volumes par métier à valider |
+| Consolidation 1 — surfaces publiques | — | `0fa29c6` | fait |
+| Consolidation 2 — utf8mb4 sur les 8 tables, dates Stripe en UTC | — | `ec27c10` | fait |
+| Consolidation 3 — relecture du diff : 6 `fix`, 18 `refactor` | — | `2ec40bb` → `95ae98e`, `9e2337a` | fait ; points 🟡 / ⚪ listés dans « Relecture : points laissés pour plus tard » |
+| Consolidation 4 — interface, un commit par écran | — | `edd0596` → `02d5def`, `bc8cf5d`, `5d962ab` | fait |
+| Consolidation 5 — documentation et parcours de test manuel | — | `da2e58f`, `f8b4820`, `2e363e5`, et ce document | fait ; parcours non joués (pas de clés ici) |
 
 Chaque ticket a reçu sur Asana un commentaire « fait / reste / comment tester ». La documentation
-fonctionnelle à jour est dans `docs/ASSISTANT_MODULE.md` (sections Journal des conversations, Demandes,
-Modèles IA, Devis par photo, Alertes au commerçant, Rapport mensuel, Espace client, Rendez-vous dans Google
-Agenda, Sources de connaissance, Vente par abonnement).
+fonctionnelle à jour est dans `docs/ASSISTANT_MODULE.md`, rangée dans l'ordre de vie du produit : génération,
+connaissance, démo, vente, après-vente, alertes et rapports, espace client, puis une partie Référence. Les
+parcours à jouer à la main sont dans « Parcours de test manuel », plus bas.
 
 Hors de cette branche : R12 (verticales, détection « déjà équipé », score « demande entrante ») est sur
 `claude/epic-bohr-lgv8d8`, 5 commits au 24/09 au soir (dont un correctif d'horodatage `243c838`), lui non plus
@@ -33,7 +39,7 @@ pas mergé.
 ```bash
 cd api
 python migrations/run_migrations.py      # idempotent ; les 13 migrations de la phase 1 sont listées plus bas
-python -m pytest -q                      # attendu : 1120 passed, 3 failed (préexistants, voir plus bas)
+python -m pytest -q                      # attendu : 1140 tests, 2 ou 3 échecs préexistants (voir plus bas)
 ruff format --check . && ruff check .    # attendu : propre
 cd ..
 npm --prefix web run lint                # prettier + eslint propres ; typecheck : 5 erreurs préexistantes
@@ -60,28 +66,31 @@ Tests par ticket (depuis `api/`, avec `python -m pytest -q`) :
 
 | Ticket | Fichiers | Tests |
 |---|---|---|
-| R3 | `tests/test_assistant_requests.py tests/test_assistant_opening_hours.py tests/test_assistant_request_analysis.py tests/test_ai_assistant_service.py` | 17 + 16 + 11 + 8 |
+| R3 | `tests/test_assistant_requests.py tests/test_assistant_opening_hours.py tests/test_assistant_request_analysis.py tests/test_ai_assistant_service.py` | 18 + 16 + 11 + 8 |
 | R10 | `tests/test_assistant_request_alerts.py` | 18 |
-| R6 | `tests/test_assistant_photos.py` | 15 |
-| R4 | `tests/test_assistant_llm_router.py tests/test_ai_assistant_chat.py` | 15 + 6 |
+| R6 | `tests/test_assistant_photos.py` | 18 |
+| R4 | `tests/test_assistant_llm_router.py tests/test_ai_assistant_chat.py` | 15 + 7 |
 | R11 | `tests/test_assistant_sales_copy.py tests/test_sms_templates.py tests/test_assistant_pricing.py` | 8 + 23 + 5 |
-| R9 | `tests/test_assistant_reports.py tests/test_ai_assistant_conversations.py` | 26 + 5 |
+| R9 | `tests/test_assistant_reports.py tests/test_ai_assistant_conversations.py` | 27 + 5 |
 | R8 | `tests/test_assistant_client_space.py` | 14 |
-| R2a | `tests/test_assistant_appointments.py` | 16 |
-| R2b | `tests/test_assistant_calendar.py` | 41 |
-| R1 | `tests/test_assistant_documents.py tests/test_ai_assistant_website_knowledge.py` | 28 + 6 |
+| R2a | `tests/test_assistant_appointments.py` | 17 |
+| R2b | `tests/test_assistant_calendar.py` | 43 |
+| R1 | `tests/test_assistant_documents.py tests/test_ai_assistant_website_knowledge.py` | 27 + 6 |
 | R11 (suite) | `tests/test_assistant_opening_hours.py tests/test_assistant_sales_copy.py` (tests d'estimation) | 2 + 13 |
+| Consolidation | `tests/test_assistant_tables.py tests/test_assistant_signed_links.py` (plus les tests ajoutés aux fichiers ci-dessus) | 8 + 1 |
 
 Échecs et erreurs **préexistants**, identiques sur `main` à `a0e6205` (revérifié sur un worktree de
 `main`) :
 
-- `tests/test_sms_auto_planning.py::test_slots_already_planned_keep_their_capacity_reserved` dépend de la date du jour.
+- `tests/test_sms_auto_planning.py::test_slots_already_planned_keep_their_capacity_reserved` dépend de la date du jour (il passait le 24/09 au soir : 1138 passed, 2 failed).
 - `tests/test_storyblok_space_swap.py::test_swap_needed_when_trial_would_end_before_demo_ttl` et `::test_boundary_exactly_enough_trial_remaining`.
 - Typecheck `web` : 5 erreurs, `demo-host` : 2 erreurs. Ce sont des chemins Windows absolus (`C:/Users/…`) dans les types générés, plus un type PostHog. Aucune nouvelle erreur.
 
 Environnement de ce poste : pas de clés Mistral / Groq / smsmode / Resend / Google. Tout ce qui touche un
 service externe est testé avec des doublures. Les écrans de R3 à R9 ont été relus dans le code. Ceux de R8, R2,
 R1 et de l'encart /ia ont été vérifiés dans Chromium, avec une API locale sur SQLite et des services simulés.
+La passe d'interface a revu dans Chromium, à 1280 et 375 px, en clair et en sombre, la page Assistants IA,
+« Personnaliser », le volet Sources, le widget et /ia.
 
 ## Parcours de test manuel
 
@@ -658,6 +667,7 @@ Aucune fonctionnalité nouvelle : une passe par commit (ou par écran pour l'int
     - les exemples de messages gardent des visiteurs fictifs (« Marc », « Julie Roux ») et la persona par défaut « Sofia » : ce sont des données d'exemple, pas des personnes ;
     - le widget refuse une photo illisible en demandant « JPEG ou PNG », alors que le serveur accepte aussi WEBP : texte d'interface, hors de cette passe ;
     - aucun parcours n'a été joué contre de vrais services : pas de clés dans cet environnement.
+- **Vérification finale** (après les cinq passes) : tests, ruff et lints relancés sur la branche entière. `ruff format --check` a trouvé une ligne trop longue laissée par `2e5d87c` dans `assistant_service.py`, reformatée par `5d962ab` (le message ne change pas). Le reste est dans l'état attendu : 1138 passed et 2 des 3 échecs préexistants, ruff propre, prettier et eslint propres, typecheck avec ses 5 et 2 erreurs préexistantes.
 
 ### Relecture : points laissés pour plus tard
 
