@@ -36,6 +36,8 @@ class RequestEmailContent:
     photo_urls: tuple[str, ...] = ()
     # The J+1 reminder of a request still waiting, instead of its first announcement.
     is_reminder: bool = False
+    # The client space of a sold assistant (every request, the monthly report, the settings).
+    client_space_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -94,9 +96,9 @@ class AiAssistantRequestEmail:
             f"demande pour <strong>{html.escape(content.business_name)}</strong>."
         )
         sections: list[str] = [
-            cls._paragraph(intro),
+            cls.paragraph(intro),
             cls._heading(label),
-            cls._paragraph(html.escape(timing), muted=True),
+            cls.paragraph(html.escape(timing), muted=True),
         ]
         if summary:
             sections.append(cls._block("Ce qu'il faut savoir", html.escape(summary)))
@@ -111,22 +113,50 @@ class AiAssistantRequestEmail:
             sections.append(cls._block("Photos envoyées", links))
         if content.transcript:
             sections.append(cls._block("La conversation", cls._transcript_html(content)))
-        sections.append(cls._button("Marquer comme traitée", content.handled_url))
+        sections.append(cls.button("Marquer comme traitée", content.handled_url))
         sections.append(
-            cls._paragraph(
+            cls.paragraph(
                 "Répondez-lui directement avec les coordonnées ci-dessus. Ce lien marque la demande comme "
                 "traitée pour qu'elle ne vous soit plus rappelée.",
                 muted=True,
             )
         )
-        body = "".join(sections)
-        return RenderedEmail(
-            subject=subject,
-            html=(
-                "<div style=\"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;"
-                'color:#111;max-width:560px;margin:0 auto;padding:24px 16px;line-height:1.5;font-size:15px">'
-                f"{body}</div>"
-            ),
+        if content.client_space_url:
+            sections.append(cls.client_space_note(content.client_space_url))
+        return RenderedEmail(subject=subject, html=cls.document("".join(sections)))
+
+    @staticmethod
+    def document(body: str) -> str:
+        """
+        The outer frame of an assistant email: black on white, 560 px wide, readable in any mail client.
+
+        Args:
+            body: The email's sections, already rendered.
+
+        Returns:
+            The complete HTML body.
+        """
+        return (
+            "<div style=\"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;"
+            'color:#111;max-width:560px;margin:0 auto;padding:24px 16px;line-height:1.5;font-size:15px">'
+            f"{body}</div>"
+        )
+
+    @classmethod
+    def client_space_note(cls, url: str) -> str:
+        """
+        The footnote that opens the client space (every request, the monthly report, the settings).
+
+        Args:
+            url: The signed client-space link.
+
+        Returns:
+            A muted paragraph.
+        """
+        return cls.paragraph(
+            f'Toutes vos demandes, votre rapport du mois et vos réglages : <a href="{html.escape(url, quote=True)}" '
+            'style="color:#111">votre espace</a> (lien personnel : ne transférez pas cet email tel quel).',
+            muted=True,
         )
 
     @staticmethod
@@ -193,7 +223,17 @@ class AiAssistantRequestEmail:
         return f'<h1 style="font-size:20px;margin:24px 0 4px;font-weight:700">{html.escape(text)}</h1>'
 
     @staticmethod
-    def _paragraph(inner_html: str, *, muted: bool = False) -> str:
+    def paragraph(inner_html: str, *, muted: bool = False) -> str:
+        """
+        One paragraph of an assistant email, inline-styled.
+
+        Args:
+            inner_html: Its content, already escaped.
+            muted: Small grey text (footnotes).
+
+        Returns:
+            The ``<p>`` element.
+        """
         color = "#666" if muted else "#111"
         size = "13px" if muted else "15px"
         return f'<p style="margin:0 0 12px;color:{color};font-size:{size}">{inner_html}</p>'
@@ -207,7 +247,17 @@ class AiAssistantRequestEmail:
         )
 
     @staticmethod
-    def _button(label: str, url: str) -> str:
+    def button(label: str, url: str) -> str:
+        """
+        A black call-to-action link, shaped as a button.
+
+        Args:
+            label: Its text (plain).
+            url: Where it leads.
+
+        Returns:
+            The button paragraph.
+        """
         return (
             f'<p style="margin:20px 0"><a href="{html.escape(url, quote=True)}" '
             'style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 18px;'

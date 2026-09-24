@@ -29,6 +29,7 @@ from models.ai_assistant_request import AiAssistantRequest
 from models.ai_assistant_subscription import AiAssistantSubscription
 from models.prospect_db import ProspectDB
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
+from services.ai_assistant.client_links import AiAssistantClientLinks
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_analyzer import TranscriptLine, ai_assistant_request_analyzer
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
@@ -160,7 +161,7 @@ class QuietHours:
 
 
 class AlertSms:
-    """Writes the owner's SMS: one GSM-7 segment, the summary cut to fit."""
+    """Writes the owner's SMS: one GSM-7 segment, the summary cut to fit, then the client-space link."""
 
     LABELS: ClassVar[dict[AiAssistantRequestType, str]] = {
         AiAssistantRequestType.QUESTION: "Nouvelle question",
@@ -179,13 +180,22 @@ class AlertSms:
     # The contact is what the owner acts on: kept whole up to 60 characters, the name is cut first.
     _NAME_MAX_CHARS = 30
     _CONTACT_MAX_CHARS = 60
+    # The summary comes before the client-space link: the link goes when it would leave less than this.
+    _MIN_SUMMARY_WITH_LINK = 30
 
     @classmethod
     def new_request(
-        cls, *, request_type: AiAssistantRequestType, name: str, contact: str, summary: str | None, has_photos: bool
+        cls,
+        *,
+        request_type: AiAssistantRequestType,
+        name: str,
+        contact: str,
+        summary: str | None,
+        has_photos: bool,
+        link: str | None = None,
     ) -> str:
         """
-        The SMS announcing a request (« Nouvelle demande de devis (photo) de Marc, 06… : … »).
+        The SMS announcing a request (« Nouvelle demande de devis (photo) de Marc, 06… : … Vos demandes : … »).
 
         Args:
             request_type: Its type.
@@ -193,13 +203,14 @@ class AlertSms:
             contact: Their phone or email.
             summary: What they need.
             has_photos: Whether they sent photos.
+            link: The client space, without scheme; dropped when it cannot fit.
 
         Returns:
             A one-segment GSM-7 text.
         """
         photos = " (photo)" if has_photos else ""
         head = f"{cls.LABELS[request_type]}{photos} de {cls._clip(name, cls._NAME_MAX_CHARS)}, "
-        return cls._fit(head + cls._clip(contact, cls._CONTACT_MAX_CHARS), summary)
+        return cls._fit(head + cls._clip(contact, cls._CONTACT_MAX_CHARS), summary, link)
 
     @classmethod
     def reminder(
@@ -210,6 +221,7 @@ class AlertSms:
         contact: str,
         summary: str | None,
         received_local: datetime,
+        link: str | None = None,
     ) -> str:
         """
         The SMS reminding a request still waiting (« Rappel, en attente depuis le 23/09 : demande de devis… »).
@@ -220,6 +232,7 @@ class AlertSms:
             contact: Their phone or email.
             summary: What they need.
             received_local: When it came in, local time.
+            link: The client space, without scheme; dropped when it cannot fit.
 
         Returns:
             A one-segment GSM-7 text.
@@ -228,7 +241,7 @@ class AlertSms:
             f"Rappel, en attente depuis le {received_local:%d/%m} : {cls.REMINDER_LABELS[request_type]} de "
             f"{cls._clip(name, cls._NAME_MAX_CHARS)}, {cls._clip(contact, cls._CONTACT_MAX_CHARS)}"
         )
-        return cls._fit(head, summary)
+        return cls._fit(head, summary, link)
 
     @staticmethod
     def _gsm7(text: str) -> str:
@@ -243,21 +256,42 @@ class AlertSms:
         return cleaned if len(cleaned) <= max_chars else cleaned[: max_chars - 3].rstrip() + "..."
 
     @classmethod
-    def _fit(cls, head: str, summary: str | None) -> str:
-        """``head : summary.``, the summary cut word by word until the whole text is one segment."""
+    def _fit(cls, head: str, summary: str | None, link: str | None = None) -> str:
+        """
+        ``head : summary. Suivi : link`` in one segment, the summary cut word by word; the link is added
+        only while the summary keeps ``_MIN_SUMMARY_WITH_LINK`` characters (or all of a shorter one).
+        """
         base = cls._gsm7(head)
         while segment_count(base + ".") > 1:  # only with extension characters (€, [ ]…) in every field
             base = base[:-1]
         words = cls._gsm7(summary or "").split()
-        cut = False
-        while words:
-            ending = "..." if cut else ("" if words[-1].endswith((".", "!", "?")) else ".")
-            text = f"{base} : {' '.join(words)}{ending}"
-            if segment_count(text) <= 1:
+        if link:
+            text, kept = cls._fill(base, words, f" Suivi : {link}")
+            if text is not None and kept >= min(cls._MIN_SUMMARY_WITH_LINK, len(" ".join(words))):
                 return text
-            words.pop()
+        text, _kept = cls._fill(base, words, "")
+        return text or base + "."
+
+    @staticmethod
+    def _fill(base: str, words: list[str], tail: str) -> tuple[str | None, int]:
+        """
+        ``base : summary.tail``, the summary cut word by word until the text is one segment.
+
+        Returns:
+            The text and how many summary characters it kept, or (None, 0) when even ``base.tail`` overflows.
+        """
+        remaining = list(words)
+        cut = False
+        while remaining:
+            ending = "..." if cut else ("" if remaining[-1].endswith((".", "!", "?")) else ".")
+            kept = " ".join(remaining)
+            text = f"{base} : {kept}{ending}{tail}"
+            if segment_count(text) <= 1:
+                return text, len(kept)
+            remaining.pop()
             cut = True
-        return base + "."
+        text = f"{base}.{tail}"
+        return (text, 0) if segment_count(text) <= 1 else (None, 0)
 
 
 class AiAssistantRequestAlerts:
@@ -393,6 +427,7 @@ class AiAssistantRequestAlerts:
                     contact=request.contact,
                     summary=request.need_summary or request.need,
                     received_local=OpeningHoursCalendar.to_business_time(request.created_at),
+                    link=AiAssistantClientLinks.sms_link(assistant.id),
                 )
                 await self._send_sms(db, assistant, settings.phone_e164, text)
         return reminded
@@ -492,6 +527,7 @@ class AiAssistantRequestAlerts:
             contact=request.contact,
             summary=request.need_summary or request.need,
             has_photos=bool(ai_assistant_request_service.photo_urls(request)),
+            link=AiAssistantClientLinks.sms_link(assistant.id),
         )
         return await self._send_sms(db, assistant, settings.phone_e164, text)
 
@@ -569,6 +605,7 @@ class AiAssistantRequestAlerts:
                     handled_url=AiAssistantRequestLinks.handled_url(request.id),
                     photo_urls=tuple(ai_assistant_request_service.photo_urls(request)),
                     is_reminder=is_reminder,
+                    client_space_url=AiAssistantClientLinks.url(assistant.id),
                 )
             )
             result = await EmailSendingService(db).send_via_user_identity(

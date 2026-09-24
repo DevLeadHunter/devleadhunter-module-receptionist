@@ -48,8 +48,10 @@ from schemas.ai_assistant import (
     AssistantSubscriptionItem,
     AssistantSubscriptionListResponse,
 )
+from schemas.ai_assistant_client_space import AiAssistantClientLinkRequest, AiAssistantClientLinkResponse
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
+from services.ai_assistant.client_space_service import ai_assistant_client_space_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ConversationCounts, ai_assistant_conversation_service
 from services.ai_assistant.photo_service import (
@@ -105,7 +107,7 @@ def _embed_snippet(slug: str) -> str:
     return f'<script src="{base}/ai-assistant.js" data-slug="{slug}" defer></script>'
 
 
-def _client_ip(request: Request) -> str:
+def client_ip(request: Request) -> str:
     """Best-effort visitor IP for rate limiting (honours the nginx ``X-Forwarded-For``)."""
     forwarded = request.headers.get("x-forwarded-for", "")
     if forwarded:
@@ -503,6 +505,25 @@ def _owned_assistant_or_404(db: Session, assistant_id: int, user_id: int) -> AiA
     return assistant
 
 
+@router.post("/{assistant_id}/client-link", response_model=AiAssistantClientLinkResponse)
+async def issue_assistant_client_link(
+    assistant_id: int,
+    payload: AiAssistantClientLinkRequest,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantClientLinkResponse:
+    """A fresh client-space link for one of the caller's sold assistants, emailed to the business on demand."""
+    assistant = _owned_assistant_or_404(db, assistant_id, user.id)
+    if assistant.status != AiAssistantStatus.DELIVERED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="L'espace client s'ouvre une fois l'assistant vendu."
+        )
+    delivery = await ai_assistant_client_space_service.issue_link(db, assistant, send=payload.send)
+    return AiAssistantClientLinkResponse(
+        url=delivery.url, expires_at=delivery.expires_at, sent_to=delivery.sent_to, send_error=delivery.send_error
+    )
+
+
 @router.post("/{assistant_id}/video", response_model=AiAssistantResponse)
 async def generate_assistant_video(
     assistant_id: int,
@@ -655,7 +676,7 @@ async def subscribe_to_assistant(
     A live or expired demo can be subscribed to (the payment revives an expired one); an assistant
     already sold sends the client to its page instead of a second checkout.
     """
-    if not assistant_subscribe_limiter.allow(f"{slug}:{_client_ip(request)}"):
+    if not assistant_subscribe_limiter.allow(f"{slug}:{client_ip(request)}"):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de tentatives, réessayez plus tard"
         )
@@ -743,7 +764,7 @@ async def chat_with_assistant(
     db: Session = Depends(get_db),
 ) -> AiAssistantChatResponse:
     """Answer a visitor's message as the prospect's grounded assistant."""
-    if not assistant_chat_limiter.allow(f"{slug}:{_client_ip(request)}"):
+    if not assistant_chat_limiter.allow(f"{slug}:{client_ip(request)}"):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de messages, réessayez plus tard"
         )
@@ -788,7 +809,7 @@ async def submit_assistant_lead(
     db: Session = Depends(get_db),
 ) -> AiAssistantLeadResponse:
     """Record the request a visitor left through the assistant; typing and announcing run in the background."""
-    if not assistant_lead_limiter.allow(f"{slug}:{_client_ip(request)}"):
+    if not assistant_lead_limiter.allow(f"{slug}:{client_ip(request)}"):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de demandes, réessayez plus tard"
         )
@@ -855,7 +876,7 @@ async def submit_assistant_photo(
     The form is parsed by hand, after the rate limit and the declared size are checked: a public
     upload must never write an unbounded body to disk first.
     """
-    if not assistant_photo_limiter.allow(f"{slug}:{_client_ip(request)}"):
+    if not assistant_photo_limiter.allow(f"{slug}:{client_ip(request)}"):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de photos, réessayez plus tard")
     declared_length = request.headers.get("content-length", "")
     if not declared_length.isdigit():
@@ -982,7 +1003,7 @@ async def submit_assistant_interest(
     db: Session = Depends(get_db),
 ) -> None:
     """The prospect raised their hand on the assistant sales page — notify the owner (hot lead)."""
-    if not assistant_lead_limiter.allow(f"interest:{slug}:{_client_ip(request)}"):
+    if not assistant_lead_limiter.allow(f"interest:{slug}:{client_ip(request)}"):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de demandes, réessayez plus tard"
         )

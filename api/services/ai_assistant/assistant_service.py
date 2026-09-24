@@ -124,7 +124,7 @@ class AiAssistantService:
             raise ValueError("« EU only » impossible : la clé Mistral (MISTRAL_API_KEY) n'est pas configurée")
         if "alert_phone" in fields:
             raw_phone = (fields["alert_phone"] or "").strip()
-            phone = to_e164_mobile(raw_phone, country=self._business_country(db, assistant)) if raw_phone else None
+            phone = to_e164_mobile(raw_phone, country=self.business_country(db, assistant)) if raw_phone else None
             if raw_phone and phone is None:
                 raise ValueError(
                     "Numéro d'alerte invalide : un mobile est requis, 06 / 07 en France, "
@@ -163,7 +163,7 @@ class AiAssistantService:
         return assistant
 
     @staticmethod
-    def _business_country(db: Session, assistant: AiAssistant) -> str:
+    def business_country(db: Session, assistant: AiAssistant) -> str:
         """ISO code of the business's country (its prospect's), France when unknown."""
         if assistant.prospect_id is None:
             return "FR"

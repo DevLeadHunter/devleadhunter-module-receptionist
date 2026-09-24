@@ -44,6 +44,7 @@ Migrations de la phase 1, dans l'ordre de `MIGRATION_MODULES` :
 7. `add_ai_assistant_conversations_is_test` (R9) : colonne `ai_assistant_conversations.is_test`.
 8. `add_assistant_subscription_activated_at` (R9) : colonne `ai_assistant_subscriptions.activated_at`.
 9. `add_ai_assistant_reports_table` (R9) : table `ai_assistant_reports`.
+10. `add_assistant_subscription_cancel_at_period_end` (R8) : colonne `ai_assistant_subscriptions.cancel_at_period_end`.
 
 Tests par ticket (depuis `api/`, avec `python -m pytest -q`) :
 
@@ -263,6 +264,37 @@ relus dans le code, pas cliqués.
 
 ---
 
+## R8 — Espace client par lien magique
+
+**Fichiers**
+- API :
+  - `services/ai_assistant/client_links.py` : jeton `<id>.<expiration base 36>.<signature>` (~28 caractères, HMAC-SHA256 tronqué à 96 bits), forme canonique stricte
+  - `services/ai_assistant/client_space_service.py` (lecture, « traitée », réglages, portail Stripe, envoi du lien, avis de changement du mobile), `client_space_email.py`
+  - `api/v1/routes/ai_assistant_client_space.py` (routes publiques `/ai-assistants/client/{token}…`), route owner `POST /ai-assistants/{id}/client-link` dans `ai_assistants.py`
+  - `schemas/ai_assistant_client_space.py`, `enums/assistant_widget_language.py`, `services/rate_limiter.py` (3 limiteurs)
+  - `assistant_subscription_service.billing_portal_url` ; `cancel_at_period_end` (modèle, migration, webhook)
+  - Lien branché dans le SMS d'alerte (`AlertSms._fit` : résumé d'abord, lien si ≥ 30 caractères de résumé), l'email de résumé et le rapport mensuel (`AiAssistantRequestEmail.paragraph/button/document/client_space_note`, partagés)
+  - `client_ip`, `business_country` rendus publics (réutilisés)
+- Demo-host : `pages/client/[token].vue`, `components/ClientSpaceRequests.vue`, `ClientSpaceReport.vue`, `ClientSpaceSettings.vue`, types.
+- Web : bouton « Envoyer l'espace client » (cartes vendues), `AiAssistantService.issueClientLink`.
+
+**Vérifié**
+- Tests (14) : jeton (falsifié, non canonique, expiré), isolation entre assistants, 401 / 404, réglages (langues de l'owner gardées, null ignoré), mobile invalide ou hors zone refusé, avis de changement du mobile (email + journal), portail Stripe et URL de retour, renouvellement (3 / h, 90 jours max après expiration), lien owner (vendu seulement, scopé), date d'expiration en heure de Paris, SMS (résumé avant lien, 1 segment), résiliation programmée lue depuis Stripe.
+- Navigateur (Chromium, API locale sur SQLite + `nuxt dev`) : page complète à 390 et 1280 px, « Marquer traitée », enregistrement des réglages, mobile refusé avec le message de l'API, portail indisponible sans Stripe, page « lien expiré » et demande d'un nouveau lien.
+
+**Non vérifié** : vrai portail Stripe (clé et configuration du portail absentes ici), envoi réel des emails, SMS réel avec le lien.
+
+**Décisions prises seul**
+- Pas de table : le lien est sans état (HMAC + expiration 30 jours) et chaque alerte en apporte un neuf. Pas de révocation individuelle (voir questions).
+- Espace réservé aux assistants vendus ; le lien owner est refusé pour une démo.
+- La page se charge dans le navigateur (`server: false`) : la limite par IP vise le visiteur, pas le serveur Vercel.
+- Depuis l'espace, le mobile d'alerte doit être FR / BE / LU / CH / DE et tout changement est annoncé à l'adresse du commerçant (non modifiable depuis l'espace) et à l'owner.
+- Liste : toutes les demandes à traiter d'abord, puis les dernières traitées (30 au total).
+- Les phrases du rapport (langues, délai) viennent de l'API, identiques à l'email.
+- La page vit sur le demo-host comme demandé ; ses appels sont publics par lien signé (pas d'authentification), comme ceux du widget. Les standards du demo-host interdisent « appels API authentifiés / privés » : exception à acter.
+
+---
+
 ## Questions pour Léo
 
 1. **Mistral** :
@@ -280,6 +312,9 @@ relus dans le code, pas cliqués.
 11. **Résiliation** : à l'annulation d'un abonnement, l'assistant reste `delivered`. Le widget répond toujours et les alertes R10 partent encore ; le rapport, lui, s'arrête. Que doit-il se passer à la résiliation ?
 12. **Page publique pour les clients** : faut-il une page publique de l'assistant vendu, sans texte de vente, à mettre sur la fiche Google ? Aujourd'hui, /ia est la page de vente.
 13. **Adresse d'embed** : `custom_domain` n'est modifiable nulle part. Le rapport se rabat sur le site du prospect. Faut-il un champ dans Personnaliser ?
+14. **Portail Stripe** : l'enregistrer une fois dans Stripe (Settings → Billing → Customer portal : factures, carte, résiliation immédiate ou en fin de période). Sans cette configuration, le bouton de l'espace client affiche « indisponible ».
+15. **Lien de l'espace client** : pas de révocation individuelle (un lien fuité reste valable jusqu'à son expiration, 30 jours). Faut-il un bouton « révoquer les liens » (une version par assistant dans la signature) ?
+16. **Standards du demo-host** : l'espace client y vit (demande du prompt) avec des appels publics par lien signé. À acter comme exception à la règle « pas d'appels API authentifiés / privés ».
 
 ## Petits points laissés en l'état
 
@@ -290,9 +325,7 @@ relus dans le code, pas cliqués.
 
 ## Non commencés
 
-- **R8** — espace client minimal par lien magique (connexions, demandes, rapport, réglages). C'est le plus gros prérequis restant. Il débloque le lien « répondre » du SMS R10, la page du rapport R9 (les chiffres sont déjà dans `ai_assistant_reports.stats_json`) et le « marquer traitée » depuis l'espace client.
 - **R2** — prise de rendez-vous : OAuth Google Calendar, créneaux, confirmation et rappel SMS.
 - **R1** — base de connaissance complète : documents, re-crawl, sources, navigation du site.
 
-Ces trois tickets demandent chacun une vraie session (OAuth, nouvel espace authentifié, ingestion de
-documents). Ils ont été laissés de côté plutôt que livrés à moitié.
+Ces tickets demandent chacun une vraie session (OAuth, ingestion de documents).

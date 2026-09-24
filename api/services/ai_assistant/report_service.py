@@ -40,6 +40,7 @@ from models.prospect_db import ProspectDB
 from models.user import User
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
 from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.client_links import AiAssistantClientLinks
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.llm_router import assistant_llm_router
 from services.ai_assistant.photo_service import PHOTO_JOURNAL_MARKER
@@ -402,6 +403,7 @@ class AiAssistantReportService:
             accent_color=ai_assistant_service.accent_color(assistant),
             website=assistant.custom_domain or self._prospect_website(db, assistant.prospect_id),
             service_start=utc_to_paris_naive(start).date() if start > period.start else None,
+            client_space_url=AiAssistantClientLinks.url(assistant.id),
         )
         failure = await self._deliver(db, assistant, content)
         if failure is not None:

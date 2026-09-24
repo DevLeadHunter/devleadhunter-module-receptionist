@@ -250,6 +250,8 @@ class AssistantSubscriptionService:
         if record is None:
             return
         record.status = _STRIPE_STATUS_MAP.get(str(sub_obj.get("status")), record.status)
+        # A cancellation scheduled from the portal keeps the subscription active until the period ends.
+        record.cancel_at_period_end = bool(sub_obj.get("cancel_at_period_end") or sub_obj.get("cancel_at"))
         period_end = sub_obj.get("current_period_end")
         if period_end:
             record.current_period_end = datetime.fromtimestamp(int(period_end), UTC)
@@ -349,6 +351,28 @@ class AssistantSubscriptionService:
         db.commit()
         db.refresh(subscription)
         return subscription
+
+    def billing_portal_url(self, customer_id: str, *, return_url: str) -> str:
+        """
+        Open a Stripe billing portal session for a client (invoices, card, cancellation).
+
+        The portal's options (what the client may change, cancellation terms) are set once in the
+        Stripe dashboard, under Settings → Billing → Customer portal.
+
+        Args:
+            customer_id: The client's Stripe customer.
+            return_url: Where Stripe sends the client back.
+
+        Returns:
+            The portal session URL (short-lived).
+
+        Raises:
+            ValueError: When Stripe is not configured.
+        """
+        if not settings.stripe_secret_key:
+            raise ValueError("Stripe non configuré.")
+        session = self._stripe.billing_portal.Session.create(customer=customer_id, return_url=return_url)
+        return session.url
 
     def refund_last_payment(self, db: Session, subscription: AiAssistantSubscription) -> None:
         """

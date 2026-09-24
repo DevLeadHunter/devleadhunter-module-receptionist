@@ -1,0 +1,352 @@
+"""
+The client space of a sold assistant: what its client sees and changes through the magic link.
+
+Behind a signed link (``client_links``) and nothing else: the assistant's requests (tests excluded,
+the ones still waiting first) with a « traitée » button, its latest monthly report, a few settings (the
+assistant's first name, its languages, the alert mobile and channels) and the Stripe billing portal of
+its subscription. Only a sold assistant has a client space, and a token only ever reaches its own
+assistant. A new alert mobile is announced to the business address, which the space cannot change.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from typing import Any, ClassVar
+
+from sqlalchemy.orm import Session
+
+from enums.ai_assistant_request import AiAssistantRequestStatus
+from enums.ai_assistant_status import AiAssistantStatus
+from enums.assistant_subscription_status import AssistantSubscriptionStatus
+from enums.assistant_widget_language import AssistantWidgetLanguage
+from models.ai_assistant import AiAssistant
+from models.ai_assistant_report import AiAssistantReport
+from models.ai_assistant_request import AiAssistantRequest
+from models.ai_assistant_subscription import AiAssistantSubscription
+from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
+from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
+from services.ai_assistant.client_space_email import AiAssistantClientSpaceEmail
+from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from services.ai_assistant.request_alerts import AiAssistantRequestAlerts
+from services.ai_assistant.request_email import RenderedEmail
+from services.ai_assistant.request_service import ai_assistant_request_service
+from services.assistant_subscription_service import assistant_subscription_service
+from services.sms.phone_normalizer import to_e164_mobile
+
+logger = logging.getLogger(__name__)
+
+# An expired link still asks for a fresh one this long after its expiry; an older one opens nothing.
+RENEWABLE_AFTER_EXPIRY = timedelta(days=90)
+# The alert mobile a client may set: the module's countries (France, Belgium, Luxembourg, Switzerland,
+# Germany for cross-border owners), never a premium or far-away number billed to the operator.
+CLIENT_ALERT_PHONE_PREFIXES: tuple[str, ...] = ("+33", "+32", "+352", "+41", "+49")
+
+
+class ClientSpaceAccessError(Exception):
+    """The link opens no client space: forged, too old, of an assistant no longer sold, or expired."""
+
+    def __init__(self, *, is_expired: bool) -> None:
+        super().__init__("expired" if is_expired else "invalid")
+        self.is_expired = is_expired
+
+
+@dataclass(frozen=True)
+class ClientLinkDelivery:
+    """A client-space link just issued, and where it was emailed."""
+
+    url: str
+    expires_at: datetime
+    sent_to: str | None = None
+    send_error: str | None = None
+
+
+class AiAssistantClientSpaceService:
+    """Resolves a client-space link and serves the reads and edits its page offers."""
+
+    RECENT_REQUESTS: ClassVar[int] = 30
+    MAX_PENDING_LISTED: ClassVar[int] = 100
+    SETTINGS_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {"assistant_name", "languages", "alert_phone", "alert_sms_enabled", "alert_email_enabled"}
+    )
+
+    @staticmethod
+    def resolve(
+        db: Session, token: str, *, allow_expired: bool = False, now: datetime | None = None
+    ) -> tuple[AiAssistant, ClientLinkToken]:
+        """
+        The sold assistant a client-space link opens.
+
+        Args:
+            db: Active database session.
+            token: The token from the page URL.
+            allow_expired: Accept a link expired less than ``RENEWABLE_AFTER_EXPIRY`` ago (to email a
+                fresh one to the business).
+            now: Current time (tests); defaults to now.
+
+        Returns:
+            The assistant and the checked token.
+
+        Raises:
+            ClientSpaceAccessError: When the link is malformed, forged, of an assistant that is not sold
+                any more, or expired (``is_expired``; an expired link past the renewal window is invalid).
+        """
+        link = AiAssistantClientLinks.read(token, now=now)
+        if link is None:
+            raise ClientSpaceAccessError(is_expired=False)
+        assistant = db.get(AiAssistant, link.assistant_id)
+        if (
+            assistant is None
+            or assistant.deleted_at is not None
+            or assistant.status != AiAssistantStatus.DELIVERED.value
+        ):
+            raise ClientSpaceAccessError(is_expired=False)
+        if link.is_expired:
+            current = (now or datetime.now(UTC)).replace(tzinfo=None)
+            if not allow_expired:
+                raise ClientSpaceAccessError(is_expired=True)
+            if link.expires_at < current - RENEWABLE_AFTER_EXPIRY:
+                raise ClientSpaceAccessError(is_expired=False)
+        return assistant, link
+
+    def recent_requests(self, db: Session, assistant: AiAssistant) -> list[AiAssistantRequest]:
+        """
+        The assistant's requests to show: every one still waiting (newest first), then the latest others.
+
+        Args:
+            db: Active database session.
+            assistant: The assistant.
+
+        Returns:
+            The waiting requests (at most ``MAX_PENDING_LISTED``), then others up to ``RECENT_REQUESTS``
+            in all; tests excluded.
+        """
+        real = (AiAssistantRequest.assistant_id == assistant.id, AiAssistantRequest.is_test.is_(False))
+        newest = (AiAssistantRequest.created_at.desc(), AiAssistantRequest.id.desc())
+        pending = (
+            db.query(AiAssistantRequest)
+            .filter(*real, AiAssistantRequest.status == AiAssistantRequestStatus.NEW.value)
+            .order_by(*newest)
+            .limit(self.MAX_PENDING_LISTED)
+            .all()
+        )
+        room = self.RECENT_REQUESTS - len(pending)
+        if room <= 0:
+            return pending
+        others = (
+            db.query(AiAssistantRequest)
+            .filter(*real, AiAssistantRequest.status != AiAssistantRequestStatus.NEW.value)
+            .order_by(*newest)
+            .limit(room)
+            .all()
+        )
+        return pending + others
+
+    @staticmethod
+    def pending_count(db: Session, assistant: AiAssistant) -> int:
+        """How many of the assistant's real requests still wait for handling."""
+        return (
+            db.query(AiAssistantRequest)
+            .filter(
+                AiAssistantRequest.assistant_id == assistant.id,
+                AiAssistantRequest.is_test.is_(False),
+                AiAssistantRequest.status == AiAssistantRequestStatus.NEW.value,
+            )
+            .count()
+        )
+
+    @staticmethod
+    def latest_report(db: Session, assistant: AiAssistant) -> AiAssistantReport | None:
+        """The assistant's latest monthly report with its figures, if any."""
+        return (
+            db.query(AiAssistantReport)
+            .filter(AiAssistantReport.assistant_id == assistant.id, AiAssistantReport.stats_json.is_not(None))
+            .order_by(AiAssistantReport.month.desc())
+            .first()
+        )
+
+    @staticmethod
+    def current_subscription(db: Session, assistant: AiAssistant) -> AiAssistantSubscription | None:
+        """The assistant's latest subscription that was paid at least once (running, retrying or ended)."""
+        return (
+            db.query(AiAssistantSubscription)
+            .filter(
+                AiAssistantSubscription.ai_assistant_id == assistant.id,
+                AiAssistantSubscription.status != AssistantSubscriptionStatus.INCOMPLETE.value,
+            )
+            .order_by(AiAssistantSubscription.created_at.desc(), AiAssistantSubscription.id.desc())
+            .first()
+        )
+
+    @staticmethod
+    def mark_handled(db: Session, assistant: AiAssistant, request_id: int) -> AiAssistantRequest | None:
+        """
+        Mark one of the assistant's requests handled.
+
+        Args:
+            db: Active database session (committed).
+            assistant: The assistant the link opens.
+            request_id: The request.
+
+        Returns:
+            The request, or None when it is not one of this assistant's real requests.
+        """
+        request = (
+            db.query(AiAssistantRequest)
+            .filter(
+                AiAssistantRequest.id == request_id,
+                AiAssistantRequest.assistant_id == assistant.id,
+                AiAssistantRequest.is_test.is_(False),
+            )
+            .first()
+        )
+        if request is None:
+            return None
+        ai_assistant_request_service.mark_handled(db, request)
+        db.refresh(request)
+        return request
+
+    async def update_settings(self, db: Session, assistant: AiAssistant, fields: dict[str, Any]) -> AiAssistant:
+        """
+        Apply a client's settings edit like the dashboard does, within what a client may change.
+
+        A missing or null field is left as is. The languages the space does not offer (set by the
+        operator) are kept. A new alert mobile must be one of the module's countries, and is announced
+        by email to the business address and in the operator's activity log.
+
+        Args:
+            db: Active database session (committed).
+            assistant: The assistant the link opens.
+            fields: The provided fields (``model_dump(exclude_unset=True, mode="json")``).
+
+        Returns:
+            The refreshed assistant.
+
+        Raises:
+            ValueError: When the alert number cannot receive an SMS or is out of the module's countries
+                (nothing is saved).
+        """
+        allowed = {key: value for key, value in fields.items() if key in self.SETTINGS_FIELDS and value is not None}
+        if "languages" in allowed:
+            offered = {language.value for language in AssistantWidgetLanguage}
+            kept = [code for code in (assistant.languages or []) if code not in offered]
+            allowed["languages"] = [*allowed["languages"], *kept]
+        previous_phone = assistant.alert_phone_e164
+        if "alert_phone" in allowed:
+            self._check_alert_phone(db, assistant, str(allowed["alert_phone"]))
+        updated = ai_assistant_service.update(db, assistant, allowed)
+        if updated.alert_phone_e164 != previous_phone:
+            await self._announce_alert_phone(db, updated, previous_phone)
+        return updated
+
+    def billing_portal_url(self, db: Session, assistant: AiAssistant, *, return_url: str) -> str | None:
+        """
+        A Stripe billing portal session for the assistant's subscription (invoices, card, cancellation).
+
+        Args:
+            db: Active database session.
+            assistant: The assistant the link opens.
+            return_url: Where Stripe sends the client back (the client space).
+
+        Returns:
+            The portal URL, or None when no Stripe customer is known for the assistant.
+
+        Raises:
+            ValueError: When Stripe is not configured.
+        """
+        subscription = self.current_subscription(db, assistant)
+        if subscription is None or not subscription.stripe_customer_id:
+            return None
+        return assistant_subscription_service.billing_portal_url(subscription.stripe_customer_id, return_url=return_url)
+
+    async def issue_link(
+        self, db: Session, assistant: AiAssistant, *, send: bool, now: datetime | None = None
+    ) -> ClientLinkDelivery:
+        """
+        Sign a fresh client-space link and, when asked, email it to the business from the operator's identity.
+
+        Args:
+            db: Active database session.
+            assistant: A sold assistant.
+            send: Email the link to the business.
+            now: Current time (tests); defaults to now.
+
+        Returns:
+            The link, its expiry and where it went (never raises on a failed send).
+        """
+        current = (now or datetime.now(UTC)).replace(tzinfo=None)
+        url = AiAssistantClientLinks.url(assistant.id, now=current)
+        expires_at = current + timedelta(days=AiAssistantClientLinks.TTL_DAYS)
+        if not send:
+            return ClientLinkDelivery(url=url, expires_at=expires_at)
+        rendered = AiAssistantClientSpaceEmail.render(
+            business_name=assistant.business_name,
+            assistant_name=assistant.assistant_name,
+            url=url,
+            expires_on=OpeningHoursCalendar.to_business_time(expires_at).date(),
+        )
+        recipient, send_error = await self._email_business(db, assistant, rendered)
+        return ClientLinkDelivery(url=url, expires_at=expires_at, sent_to=recipient, send_error=send_error)
+
+    @staticmethod
+    def _check_alert_phone(db: Session, assistant: AiAssistant, raw_phone: str) -> None:
+        """Refuse an alert mobile outside the module's countries (an empty one clears the SMS alerts)."""
+        if not raw_phone.strip():
+            return
+        phone = to_e164_mobile(raw_phone, country=ai_assistant_service.business_country(db, assistant))
+        if phone is not None and not phone.startswith(CLIENT_ALERT_PHONE_PREFIXES):
+            raise ValueError(
+                "Numéro d'alerte refusé : un mobile français, belge, luxembourgeois, suisse ou allemand est requis"
+            )
+
+    async def _announce_alert_phone(self, db: Session, assistant: AiAssistant, previous_phone: str | None) -> None:
+        """Tell the business (by email) and the operator (activity log) that the alert mobile changed."""
+        new_phone = assistant.alert_phone_e164
+        activity_log_service.record(
+            category=CATEGORY_ASSISTANT,
+            action="assistant_client_alert_phone_changed",
+            status=STATUS_WARNING,
+            title=f"{assistant.business_name} · mobile d'alerte changé depuis l'espace client",
+            detail=f"{previous_phone or 'aucun'} → {new_phone or 'aucun'}",
+            user_id=assistant.user_id,
+            entity_type="prospect",
+            entity_id=assistant.prospect_id,
+        )
+        rendered = AiAssistantClientSpaceEmail.render_alert_phone_changed(
+            assistant_name=assistant.assistant_name, new_phone=new_phone
+        )
+        _recipient, send_error = await self._email_business(db, assistant, rendered)
+        if send_error:
+            logger.warning("Alert-mobile notice of assistant %s not sent: %s", assistant.id, send_error)
+
+    @staticmethod
+    async def _email_business(
+        db: Session, assistant: AiAssistant, rendered: RenderedEmail
+    ) -> tuple[str | None, str | None]:
+        """Email the business from the operator's identity; returns (address, None) or (None, why not)."""
+        from services.email_sending_service import EmailSendingService
+
+        recipient = AiAssistantRequestAlerts.business_email(db, assistant)
+        if not recipient:
+            return None, "Aucune adresse email du commerçant."
+        try:
+            result = await EmailSendingService(db).send_via_user_identity(
+                user_id=assistant.user_id,
+                recipient_email=recipient,
+                recipient_name=assistant.business_name,
+                subject=rendered.subject,
+                body_html=rendered.html,
+                is_transactional=True,
+            )
+        except Exception as exc:
+            logger.warning("Client-space email of assistant %s could not be sent", assistant.id, exc_info=True)
+            db.rollback()
+            return None, str(exc) or type(exc).__name__
+        if not result.get("success"):
+            return None, str(result.get("error") or "Échec de l'envoi.")
+        return recipient, None
+
+
+ai_assistant_client_space_service = AiAssistantClientSpaceService()

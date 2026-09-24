@@ -102,10 +102,18 @@ est exposé dans la config publique (`assistant_gender`) pour les textes du widg
 | `GET` | `/ai-assistants/public/requests/{id}/handled` | Lien signé de l'email de résumé : page de confirmation (ne change rien) |
 | `POST` | `/ai-assistants/public/requests/{id}/handled` | Même lien signé : marque la demande traitée (bouton de la page) |
 | `POST` | `/ai-assistants/public/{slug}/interest` | Signaler l'intérêt de l'owner (pop-up « me contacter ») |
+| `POST` | `/ai-assistants/{id}/client-link` | Lien de l'espace client d'un assistant vendu (`send` : l'envoyer par email au commerçant) |
+| `GET` | `/ai-assistants/client/{token}` | Espace client : demandes, rapport, réglages, abonnement |
+| `POST` | `/ai-assistants/client/{token}/requests/{id}/handled` | Marquer traitée une demande depuis l'espace client |
+| `PATCH` | `/ai-assistants/client/{token}/settings` | Prénom, langues, mobile d'alerte, SMS / email oui-non |
+| `POST` | `/ai-assistants/client/{token}/billing-portal` | Session du portail Stripe Billing (retour sur l'espace) |
+| `POST` | `/ai-assistants/client/{token}/renew` | Depuis un lien expiré : nouveau lien envoyé à l'adresse du commerçant |
 
 Les endpoints publics du widget sont **rate-limités par IP** (`services/rate_limiter.py`) : chat
 30 / 300 s, lead 8 / 300 s, photo 6 / 600 s (fenêtre glissante en mémoire). Le lien « traitée » n'a pas de limite : sans
-signature valide et non expirée, il ne fait rien.
+signature valide et non expirée, il ne fait rien. L'espace client : 120 appels / 300 s par IP (la page se charge
+dans le navigateur du visiteur, jamais depuis le serveur du demo-host), et 3 nouveaux liens par heure et 6 par jour
+et par assistant. Ses routes publiques vivent dans `api/api/v1/routes/ai_assistant_client_space.py`.
 
 ## Le widget (`demo-host/app/components/AssistantChat.vue`)
 
@@ -200,8 +208,9 @@ leads y ont été recopiés une fois (`legacy_lead_id`, statut `handled`) et leu
   prospect, sinon celui du client saisi au paiement Stripe de l'abonnement en cours) via l'identité
   d'envoi de l'owner en mode transactionnel (`send_via_user_identity`, sans
   `prospect_id` : le prospect n'est pas marqué contacté) et SMS. Une démo n'écrit jamais au prospect.
-  L'email montre le besoin, les coordonnées cliquables (tel / mailto), la conversation et un bouton
-  « Marquer comme traitée » : lien signé HMAC (`SECRET_KEY`) valable 30 jours (`request_links.py`). Le
+  L'email montre le besoin, les coordonnées cliquables (tel / mailto), la conversation, le lien de
+  l'espace client et un bouton « Marquer comme traitée » : lien signé HMAC (`SECRET_KEY`) valable
+  30 jours (`request_links.py`). Le
   `GET` du lien n'affiche qu'une page de confirmation (les antivirus de messagerie ouvrent les liens) ;
   c'est son bouton (`POST` sur la même URL) qui marque la demande traitée.
 - **Visite interne** (`internal: true`) : la demande est enregistrée avec `is_test`, typée, jamais
@@ -297,8 +306,9 @@ Seulement pour un assistant **vendu** (`delivered`) ; une démo n'alerte que l'o
   avant la vente n'est jamais rappelée au nouveau client.
 - **Email** : toutes les demandes (le résumé décrit plus haut), à toute heure.
 - **SMS** : 1 segment GSM-7, sans mention STOP (message de service, pas de prospection) mais la liste
-  STOP de l'owner est respectée. Texte : « Nouvelle demande de devis (photo) de Marc, 06… : résumé » ;
-  le résumé est coupé au mot pour tenir, le contact reste entier. Envoyé par le nom d'expéditeur SMS de
+  STOP de l'owner est respectée. Texte : « Nouvelle demande de devis (photo) de Marc, 06… : résumé.
+  Suivi : demo.dibodev.fr/client/… » ; le contact reste entier, le résumé est coupé au mot, et le lien
+  de l'espace client n'est ajouté que s'il laisse au moins 30 caractères de résumé (le résumé passe avant). Envoyé par le nom d'expéditeur SMS de
   l'owner (Paramètres → Relance SMS) et enregistré dans `sms_messages` sans prospect, avec
   `kind = service` (`SmsService.send_service_message`) : coût suivi sur la page SMS, prospect jamais marqué
   contacté, **hors** plafond journalier de l'automatisation et hors récap quotidien, notification (envoi ou
@@ -337,7 +347,8 @@ de 8 h, heure de Paris. Une démo ou un client résilié n'en reçoit jamais, re
   conversations ; une question qui contient un lien, un email ou un numéro est écartée ; sans réponse du
   modèle, la rubrique est omise.
 - **Email** : envoyé depuis l'identité d'envoi de l'owner à l'adresse du commerçant (la même que pour
-  les demandes), l'owner en copie cachée ; sans aucune adresse commerçant, l'owner seul le reçoit.
+  les demandes), l'owner en copie cachée, avec le lien de l'espace client ; sans aucune adresse
+  commerçant, l'owner seul le reçoit.
   Objet « Sofia en septembre : 43 demandes, 6 rendez-vous, 9 devis, 31 % en dehors de vos horaires ».
   Bandeau à la couleur d'accent du widget (noir si absente ou invalide), texte en noir ou blanc selon la
   couleur, mise en page en tableau et styles inline.
@@ -352,6 +363,38 @@ de 8 h, heure de Paris. Une démo ou un client résilié n'en reçoit jamais, re
   (le journal dit alors « abandonné »).
 - **Drapeau « Risque de churn »** (dashboard, `churn_risk`) : assistant vendu, abonnement actif payé
   depuis plus de 30 jours, aucune conversation ni demande sur les 30 derniers jours (tests exclus).
+
+## Espace client (`services/ai_assistant/client_space_service.py`)
+
+La page `/client/{token}` du demo-host (`demo-host/app/pages/client/[token].vue`), sans compte ni mot de
+passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a pas.
+
+- **Lien magique** (`client_links.py`) : `<id>.<expiration en base 36>.<signature>`, environ 28
+  caractères, HMAC-SHA256 tronqué à 96 bits (clé `SECRET_KEY`) de l'assistant et de l'expiration, valable
+  30 jours. Aucune table : chaque alerte SMS, chaque email de résumé et chaque rapport mensuel en porte
+  un neuf (avec « lien personnel : ne transférez pas cet email tel quel »). Un lien falsifié, non
+  canonique, d'un assistant supprimé ou non vendu, n'ouvre rien (404) ; un lien expiré répond 401
+  « demandez un nouveau lien » et la page propose de l'envoyer à l'adresse du commerçant (jamais
+  affichée), jusqu'à 90 jours après son expiration.
+- **Envoi depuis le dashboard** : bouton « Envoyer l'espace client » des cartes vendues (email
+  transactionnel depuis l'identité d'envoi de l'owner, adresse du commerçant comme pour les demandes ;
+  le lien est aussi copié).
+- **Contenu** : toutes les demandes à traiter puis les dernières traitées, 30 au total (tests exclus ;
+  coordonnées cliquables, photos, « Marquer traitée »), le dernier rapport mensuel
+  (`ai_assistant_reports.stats_json`, avec les phrases de l'email du rapport), les réglages (prénom de
+  l'assistant, langues parmi fr / nl / en / de / lu, les autres langues posées par l'owner étant
+  gardées, mobile d'alerte, SMS et email oui / non, via le même `ai_assistant_service.update` que le
+  dashboard), l'abonnement (prix figé, statut, fin de période, résiliation programmée) avec le portail
+  Stripe Billing (`billing_portal.Session.create`, retour sur l'espace ; ses options se règlent dans
+  Stripe, Settings → Billing → Customer portal). Section Connexions réservée à l'agenda.
+- **Mobile d'alerte** : depuis l'espace, seulement un mobile de France, Belgique, Luxembourg, Suisse ou
+  Allemagne ; tout changement est annoncé par email à l'adresse du commerçant (que l'espace ne modifie
+  pas, seuls les 2 derniers chiffres y figurent) et inscrit au journal d'activité de l'owner.
+- **Résiliation programmée** : `ai_assistant_subscriptions.cancel_at_period_end`, lu sur
+  `customer.subscription.updated` (`cancel_at_period_end` ou `cancel_at`) : l'abonnement reste `active`
+  jusqu'à la fin de la période payée.
+- **Page** : couleur d'accent du client, typographie de `/ia`, `noindex` et `referrer: no-referrer` (le
+  jeton ne fuit pas vers les photos ouvertes), pas de suivi PostHog.
 
 ## Intégration campagnes
 
@@ -426,7 +469,8 @@ demandes à traiter, dernière demande), cartes par assistant (langues, demandes
 horaires, conversations 7 j, Voir la démo, Copier le script, Personnaliser, Régénérer, Supprimer,
 **Générer / Voir la vidéo**) et la section **Demandes** (onglets « À traiter » / « Toutes » ; type,
 hors horaires, photos, test, statut ; résumé ; « Marquer traitée », « Sans suite », « Rouvrir »).
-Une carte d'abonné silencieux depuis 30 jours porte le badge « Risque de churn ».
+Une carte d'abonné silencieux depuis 30 jours porte le badge « Risque de churn ». Une carte vendue a le
+bouton « Envoyer l'espace client ».
 « Personnaliser » porte aussi les alertes au commerçant (mobile, SMS / email, types à SMS, plage de
 nuit). Le clip présentateur « assistant » s'enregistre dans **Paramètres → Vidéo**
 (`web/app/components/settings/AssistantPresenterClipCard.vue`). Le `ProspectDrawer` génère / ouvre
@@ -449,6 +493,8 @@ modules dans le même projet PostHog. **Aucun** event côté dashboard (non inst
 | Email de résumé + lien signé | `api/services/ai_assistant/request_email.py`, `api/services/ai_assistant/request_links.py` |
 | Reprise des annonces perdues + alertes différées (boucle) | `api/services/ai_assistant/request_runner.py` |
 | Rapport mensuel (boucle, chiffres, envoi, drapeau churn) + son email | `api/services/ai_assistant/report_service.py`, `api/services/ai_assistant/report_email.py` |
+| Espace client (lien magique, lecture, réglages, portail Stripe) + son email | `api/services/ai_assistant/client_space_service.py`, `client_links.py`, `client_space_email.py`, `api/api/v1/routes/ai_assistant_client_space.py` |
+| Page espace client | `demo-host/app/pages/client/[token].vue`, `demo-host/app/components/ClientSpace*.vue` |
 | Devis par photo (réception, vision, rattachement, purge) | `api/services/ai_assistant/photo_service.py` |
 | Routage des modèles (Mistral, secours Groq, EU only, coûts) | `api/services/ai_assistant/llm_router.py`, `api/services/mistral_service.py` |
 | Bench des modèles | `api/scripts/bench_assistant_llm.py` |

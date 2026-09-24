@@ -18,7 +18,7 @@ from typing import Any, ClassVar
 
 from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
-from services.ai_assistant.request_email import RenderedEmail
+from services.ai_assistant.request_email import AiAssistantRequestEmail, RenderedEmail
 from services.french_date_formatter import FrenchDateFormatter
 
 
@@ -99,6 +99,8 @@ class ReportEmailContent:
     website: str | None = None
     # The day the service started, when it was during the reported month.
     service_start: date | None = None
+    # The client space (every request, the settings).
+    client_space_url: str | None = None
 
 
 class AiAssistantReportEmail:
@@ -204,6 +206,22 @@ class AiAssistantReportEmail:
             parts.append(f"autres {others}\u00a0%")
         return ", ".join(parts)
 
+    @classmethod
+    def handling_line(cls, stats: MonthlyStats) -> str | None:
+        """
+        The handling sentence (« 31 demandes marquées traitées, en 5 h en moyenne. »).
+
+        Args:
+            stats: The month's figures.
+
+        Returns:
+            The sentence, or None when no request was marked handled.
+        """
+        if not stats.handled or stats.average_handling_hours is None:
+            return None
+        handled = "demande marquée traitée" if stats.handled == 1 else "demandes marquées traitées"
+        return f"{stats.handled} {handled}, en {cls.delay_label(stats.average_handling_hours)} en moyenne."
+
     @staticmethod
     def delay_label(hours: float) -> str:
         """A handling delay in words (« moins d'une heure », « 5 h », « 3 jours »), unbreakable."""
@@ -250,17 +268,13 @@ class AiAssistantReportEmail:
             cells.append((str(stats.urgent), cls._noun(stats.urgent, "urgence")))
         if stats.outside_hours_pct is not None:
             cells.append((f"{stats.outside_hours_pct} %", "hors horaires"))
-        sections = [cls._paragraph(intro), cls._figures_table(cells, accent)]
+        sections = [AiAssistantRequestEmail.paragraph(intro), cls._figures_table(cells, accent)]
         languages = cls.language_line(stats.languages)
         if languages:
-            sections.append(cls._paragraph(f"Langues des conversations : {html.escape(languages)}."))
-        if stats.handled and stats.average_handling_hours is not None:
-            handled = "demande marquée traitée" if stats.handled == 1 else "demandes marquées traitées"
-            sections.append(
-                cls._paragraph(
-                    f"{stats.handled} {handled}, en {cls.delay_label(stats.average_handling_hours)} en moyenne."
-                )
-            )
+            sections.append(AiAssistantRequestEmail.paragraph(f"Langues des conversations : {html.escape(languages)}."))
+        handling = cls.handling_line(stats)
+        if handling:
+            sections.append(AiAssistantRequestEmail.paragraph(handling))
         if stats.top_questions:
             items = "".join(
                 f'<li style="margin:0 0 6px">{html.escape(question)}</li>' for question in stats.top_questions
@@ -268,13 +282,17 @@ class AiAssistantReportEmail:
             sections.append(cls._heading("Ce que vos visiteurs demandent le plus"))
             sections.append(f'<ol style="margin:0 0 12px;padding-left:22px">{items}</ol>')
             sections.append(
-                cls._paragraph(
+                AiAssistantRequestEmail.paragraph(
                     "Autant de réponses à mettre en avant sur votre site : vos clients les trouveront sans avoir à "
                     "demander.",
                     muted=True,
                 )
             )
-        sections.append(cls._paragraph("Vous recevez ce rapport au début de chaque mois.", muted=True))
+        if content.client_space_url:
+            sections.append(AiAssistantRequestEmail.client_space_note(content.client_space_url))
+        sections.append(
+            AiAssistantRequestEmail.paragraph("Vous recevez ce rapport au début de chaque mois.", muted=True)
+        )
         return "".join(sections)
 
     @classmethod
@@ -297,16 +315,17 @@ class AiAssistantReportEmail:
         items = "".join(f'<li style="margin:0 0 10px">{step}</li>' for step in steps)
         return "".join(
             [
-                cls._paragraph(
+                AiAssistantRequestEmail.paragraph(
                     f"En {FrenchDateFormatter.month_year(content.month_first_day)}{cls._since(content)}, aucun "
                     f"visiteur n'a écrit à <strong>{name}</strong> pour "
                     f"<strong>{html.escape(content.business_name)}</strong>."
                 ),
-                cls._paragraph(
+                AiAssistantRequestEmail.paragraph(
                     f"C'est presque toujours que {name} n'est pas encore assez visible. Deux vérifications suffisent :"
                 ),
                 f'<ol style="margin:0 0 12px;padding-left:22px">{items}</ol>',
-                cls._paragraph("Répondez simplement à cet email pour qu'on s'en occupe ensemble."),
+                AiAssistantRequestEmail.paragraph("Répondez simplement à cet email pour qu'on s'en occupe ensemble."),
+                AiAssistantRequestEmail.client_space_note(content.client_space_url) if content.client_space_url else "",
             ]
         )
 
@@ -373,9 +392,3 @@ class AiAssistantReportEmail:
     @staticmethod
     def _heading(text: str) -> str:
         return f'<h2 style="font-size:16px;margin:20px 0 8px;font-weight:700">{html.escape(text)}</h2>'
-
-    @staticmethod
-    def _paragraph(inner_html: str, *, muted: bool = False) -> str:
-        color = "#666" if muted else "#111"
-        size = "13px" if muted else "15px"
-        return f'<p style="margin:0 0 12px;color:{color};font-size:{size}">{inner_html}</p>'

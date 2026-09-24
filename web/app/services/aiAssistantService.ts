@@ -1,5 +1,6 @@
 import { ApiClient } from '~/services/api'
 import type {
+  AiAssistantClientLink,
   AiAssistantConversationsResponse,
   AiAssistantListResponse,
   AiAssistantRequestItem,
@@ -87,6 +88,17 @@ export class AiAssistantService {
    */
   static update(assistantId: number, payload: AiAssistantUpdatePayload): Promise<AiAssistantSummary> {
     return ApiClient.patch<AiAssistantSummary>(`${BASE_URL}/${assistantId}`, payload)
+  }
+
+  /**
+   * Sign a fresh client-space link for a sold assistant, and email it to the business when asked.
+   *
+   * @param assistantId - The sold assistant.
+   * @param send - Email the link to the business's address.
+   * @returns The link, its expiry and where it was sent.
+   */
+  static issueClientLink(assistantId: number, send: boolean): Promise<AiAssistantClientLink> {
+    return ApiClient.post<AiAssistantClientLink>(`${BASE_URL}/${assistantId}/client-link`, { send })
   }
 
   /**

@@ -1,0 +1,219 @@
+"""Client space routes: the magic-link page of a sold assistant (its link is issued from the owner routes)."""
+
+import logging
+from datetime import UTC, datetime
+
+import stripe
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.orm import Session
+
+from api.v1.routes.ai_assistants import client_ip
+from core.database import get_db
+from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
+from enums.assistant_subscription_status import AssistantSubscriptionStatus
+from enums.assistant_widget_language import AssistantWidgetLanguage
+from models.ai_assistant import AiAssistant
+from models.ai_assistant_report import AiAssistantReport
+from models.ai_assistant_request import AiAssistantRequest
+from models.ai_assistant_subscription import AiAssistantSubscription
+from schemas.ai_assistant_client_space import (
+    AiAssistantClientLanguageOption,
+    AiAssistantClientPortalResponse,
+    AiAssistantClientRenewResponse,
+    AiAssistantClientReport,
+    AiAssistantClientRequestItem,
+    AiAssistantClientSettings,
+    AiAssistantClientSettingsUpdate,
+    AiAssistantClientSpaceResponse,
+    AiAssistantClientSubscription,
+)
+from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
+from services.ai_assistant.client_space_service import ClientSpaceAccessError, ai_assistant_client_space_service
+from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
+from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from services.ai_assistant.report_email import AiAssistantReportEmail, MonthlyStats
+from services.ai_assistant.request_alerts import AlertSettings
+from services.ai_assistant.request_service import ai_assistant_request_service
+from services.assistant_pricing_service import AssistantPricingService
+from services.french_date_formatter import FrenchDateFormatter
+from services.rate_limiter import (
+    assistant_client_limiter,
+    assistant_client_renew_daily_limiter,
+    assistant_client_renew_limiter,
+)
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/ai-assistants", tags=["ai-assistant-client-space"])
+
+_TOO_MANY = "Trop de requêtes, réessayez dans quelques minutes"
+
+
+def _business_label(moment: datetime, pattern: str) -> str:
+    """A stored UTC moment (naive or aware) as business-time text."""
+    naive_utc = moment.astimezone(UTC).replace(tzinfo=None) if moment.tzinfo else moment
+    return OpeningHoursCalendar.to_business_time(naive_utc).strftime(pattern)
+
+
+def _open(
+    db: Session, token: str, request: Request, *, allow_expired: bool = False
+) -> tuple[AiAssistant, ClientLinkToken]:
+    """The assistant a client-space link opens, or the HTTP error the page shows (rate-limited per visitor)."""
+    if not assistant_client_limiter.allow(f"client:{client_ip(request)}"):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=_TOO_MANY)
+    try:
+        return ai_assistant_client_space_service.resolve(db, token, allow_expired=allow_expired)
+    except ClientSpaceAccessError as exc:
+        if exc.is_expired:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Ce lien a expiré : demandez un nouveau lien."
+            ) from exc
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ce lien n'ouvre aucun espace.") from exc
+
+
+def _to_request_item(record: AiAssistantRequest) -> AiAssistantClientRequestItem:
+    return AiAssistantClientRequestItem(
+        id=record.id,
+        type=AiAssistantRequestType(record.type),
+        status=AiAssistantRequestStatus(record.status),
+        name=record.name,
+        contact=record.contact,
+        summary=(record.need_summary or record.need or "").strip() or None,
+        received_label=_business_label(record.created_at, "%d/%m à %H:%M"),
+        received_outside_hours=record.received_outside_hours,
+        photo_urls=ai_assistant_request_service.photo_urls(record),
+    )
+
+
+def _to_report(report: AiAssistantReport) -> AiAssistantClientReport:
+    stats = MonthlyStats.from_json(report.stats_json or {})
+    year, month = report.month.split("-")
+    return AiAssistantClientReport(
+        month_label=FrenchDateFormatter.month_year(datetime(int(year), int(month), 1)),
+        conversations=stats.conversations,
+        requests=stats.requests,
+        quotes=stats.quotes,
+        appointments=stats.appointments,
+        urgent=stats.urgent,
+        photo_requests=stats.photo_requests,
+        outside_hours_pct=stats.outside_hours_pct,
+        languages_line=AiAssistantReportEmail.language_line(stats.languages),
+        handling_line=AiAssistantReportEmail.handling_line(stats),
+        top_questions=list(stats.top_questions),
+    )
+
+
+def _to_subscription(subscription: AiAssistantSubscription) -> AiAssistantClientSubscription:
+    per = "/an" if subscription.interval == "year" else "/mois"
+    return AiAssistantClientSubscription(
+        status=AssistantSubscriptionStatus(subscription.status),
+        price_label=f"{AssistantPricingService.format_price(subscription.amount_cents)}{per}",
+        period_end_label=(
+            _business_label(subscription.current_period_end, "%d/%m/%Y") if subscription.current_period_end else None
+        ),
+        cancel_scheduled=bool(subscription.cancel_at_period_end),
+        can_manage=bool(subscription.stripe_customer_id),
+    )
+
+
+def _to_settings(assistant: AiAssistant) -> AiAssistantClientSettings:
+    alerts = AlertSettings.of(assistant)
+    offered = {language.value for language in AssistantWidgetLanguage}
+    return AiAssistantClientSettings(
+        assistant_name=assistant.assistant_name,
+        languages=[AssistantWidgetLanguage(code) for code in (assistant.languages or []) if code in offered],
+        alert_phone=alerts.phone_e164,
+        alert_sms_enabled=alerts.sms_enabled,
+        alert_email_enabled=alerts.email_enabled,
+    )
+
+
+@router.get("/client/{token}", response_model=AiAssistantClientSpaceResponse)
+async def get_client_space(
+    token: str, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantClientSpaceResponse:
+    """Everything the client-space page shows, for a valid link."""
+    assistant, link = _open(db, token, request)
+    report = ai_assistant_client_space_service.latest_report(db, assistant)
+    subscription = ai_assistant_client_space_service.current_subscription(db, assistant)
+    return AiAssistantClientSpaceResponse(
+        business_name=assistant.business_name,
+        assistant_name=assistant.assistant_name,
+        accent_color=ai_assistant_service.accent_color(assistant),
+        link_expires_label=_business_label(link.expires_at, "%d/%m/%Y"),
+        pending_count=ai_assistant_client_space_service.pending_count(db, assistant),
+        requests=[
+            _to_request_item(record) for record in ai_assistant_client_space_service.recent_requests(db, assistant)
+        ],
+        report=_to_report(report) if report is not None else None,
+        settings=_to_settings(assistant),
+        language_options=[
+            AiAssistantClientLanguageOption(code=language, label=LANGUAGE_NAMES.get(language.value, language.value))
+            for language in AssistantWidgetLanguage
+        ],
+        subscription=_to_subscription(subscription) if subscription is not None else None,
+    )
+
+
+@router.post("/client/{token}/requests/{request_id}/handled", response_model=AiAssistantClientRequestItem)
+async def mark_client_request_handled(
+    token: str, request_id: int, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantClientRequestItem:
+    """Mark one of the assistant's requests handled from the client space."""
+    assistant, _link = _open(db, token, request)
+    record = ai_assistant_client_space_service.mark_handled(db, assistant, request_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demande introuvable")
+    return _to_request_item(record)
+
+
+@router.patch("/client/{token}/settings", response_model=AiAssistantClientSettings)
+async def update_client_settings(
+    token: str, payload: AiAssistantClientSettingsUpdate, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantClientSettings:
+    """Change the assistant's first name, languages or alerts from the client space."""
+    assistant, _link = _open(db, token, request)
+    try:
+        updated = await ai_assistant_client_space_service.update_settings(
+            db, assistant, payload.model_dump(exclude_unset=True, mode="json")
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    return _to_settings(updated)
+
+
+@router.post("/client/{token}/billing-portal", response_model=AiAssistantClientPortalResponse)
+async def open_client_billing_portal(
+    token: str, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantClientPortalResponse:
+    """A Stripe billing portal session for the client's subscription, returning to the client space."""
+    assistant, _link = _open(db, token, request)
+    try:
+        url = ai_assistant_client_space_service.billing_portal_url(
+            db, assistant, return_url=AiAssistantClientLinks.page_url(token)
+        )
+    except (ValueError, stripe.error.StripeError) as exc:
+        logger.warning("Billing portal of assistant %s unavailable", assistant.id, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="La gestion de l'abonnement est indisponible pour le moment.",
+        ) from exc
+    if url is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucun abonnement à gérer")
+    return AiAssistantClientPortalResponse(url=url)
+
+
+@router.post(
+    "/client/{token}/renew", response_model=AiAssistantClientRenewResponse, status_code=status.HTTP_202_ACCEPTED
+)
+async def renew_client_link(
+    token: str, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantClientRenewResponse:
+    """Email a fresh link to the business from an expired (but authentic) one; its address is never shown."""
+    assistant, _link = _open(db, token, request, allow_expired=True)
+    key = f"renew:{assistant.id}"
+    if not assistant_client_renew_limiter.allow(key) or not assistant_client_renew_daily_limiter.allow(key):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=_TOO_MANY)
+    delivery = await ai_assistant_client_space_service.issue_link(db, assistant, send=True)
+    return AiAssistantClientRenewResponse(sent=delivery.sent_to is not None)

@@ -199,3 +199,11 @@ export type AiAssistantConversationsResponse = {
   business_name: string
   conversations: AiAssistantConversation[]
 }
+
+/** A fresh client-space link of a sold assistant; `sent_to` is the address it was emailed to, if any. */
+export type AiAssistantClientLink = {
+  url: string
+  expires_at: string
+  sent_to: string | null
+  send_error: string | null
+}

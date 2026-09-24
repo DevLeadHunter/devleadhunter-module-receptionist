@@ -8,7 +8,7 @@ subscribed at 29 €/mois stays at 29 € even after the launch price rises.
 
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.database import Base
@@ -44,6 +44,8 @@ class AiAssistantSubscription(Base):
     # End of the paid period (renews monthly/annually); NULL until the first payment.
     current_period_end: Mapped[datetime | None] = mapped_column(nullable=True)
     canceled_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # The client scheduled the end in the billing portal: still paid until ``current_period_end``. NULL = False.
+    cancel_at_period_end: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     # When the first payment activated it (naive UTC): the start of the service. NULL on rows activated
     # before the column existed — ``created_at`` (the checkout) stands in.
     activated_at: Mapped[datetime | None] = mapped_column(nullable=True)
