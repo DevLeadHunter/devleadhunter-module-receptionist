@@ -16,12 +16,12 @@ class _FakeDB:
 
 
 def test_defaults_when_user_or_value_missing() -> None:
-    assert AssistantPricingService.monthly_price_cents(_FakeDB(None), 1) == 2900
+    assert AssistantPricingService.monthly_price_cents(_FakeDB(None), 1) == 7900
     assert AssistantPricingService.annual_free_months(_FakeDB(None), 1) == 2
-    assert AssistantPricingService.annual_price_cents(_FakeDB(None), 1) == 29000  # 2900 × (12-2)
+    assert AssistantPricingService.annual_price_cents(_FakeDB(None), 1) == 79000  # 7900 × (12-2)
 
     unset = SimpleNamespace(assistant_monthly_price_cents=None, assistant_annual_free_months=None)
-    assert AssistantPricingService.monthly_price_cents(_FakeDB(unset), 1) == 2900
+    assert AssistantPricingService.monthly_price_cents(_FakeDB(unset), 1) == 7900
     assert AssistantPricingService.annual_free_months(_FakeDB(unset), 1) == 2
 
 

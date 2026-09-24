@@ -17,6 +17,7 @@ export interface AiAssistantConfig {
   video_available?: boolean
   video_url?: string | null
   video_thumbnail_url?: string | null
+  monthly_price_label?: string | null
 }
 
 /** A single conversation turn exchanged with the assistant. */

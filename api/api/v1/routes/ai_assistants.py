@@ -62,6 +62,7 @@ from services.ai_assistant.request_alerts import AlertSettings
 from services.ai_assistant.request_email import AiAssistantRequestEmail
 from services.ai_assistant.request_links import AiAssistantRequestLinks
 from services.ai_assistant.request_service import RequestCounts, ai_assistant_request_service
+from services.assistant_pricing_service import AssistantPricingService
 from services.assistant_subscription_service import assistant_subscription_service
 from services.assistant_video_service import (
     ASSISTANT_PRESENTER_MODULE,
@@ -724,6 +725,11 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
         video_available=video_ready,
         video_url=public_video_file_url(assistant.slug) if video_ready else None,
         video_thumbnail_url=public_thumbnail_url(assistant.slug, assistant.video_generated_at) if video_ready else None,
+        monthly_price_label=(
+            AssistantPricingService.format_price(AssistantPricingService.monthly_price_cents(db, assistant.user_id))
+            if assistant.status == AiAssistantStatus.ACTIVE.value
+            else None
+        ),
     )
 
 

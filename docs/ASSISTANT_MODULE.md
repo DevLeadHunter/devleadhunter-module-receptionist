@@ -335,6 +335,21 @@ d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprim
   programmée après l'expiration est ignorée (« Assistant expiré avant la relance »). Le dashboard affiche
   « En attente d'envoi » puis « Expire dans N j ».
 
+**Modèles de prospection** : 5 emails (`seeders/email_template_seeder.py`, « Assistant IA - … » : réponses
+24/7, devis par photo, multilingue, relance, le prix cash) et 5 SMS (`services/sms/templates.py`, clés
+`assistant-*`), écrits autour de la demande restée sans réponse (le soir, une photo, la langue du client).
+Un seul lien, la démo (`{lien_assistant}`) ; le prix par `{prix_assistant}` ; chaque SMS tient en un segment
+GSM-7 mention STOP et prénom compris avec un lien de 45 caractères (testé), sans `https://` (le lien SMS est
+nu). Les modèles déjà en base sont réécrits en place par `rewrite_assistant_emails_missed_requests` (sujet,
+corps, catégorie, ordre ; « demandes captées » y devient « devis par photo », ou est archivé si ce modèle
+existe déjà).
+
+**Page démo** `/ia/{slug}` (`demo-host/app/pages/ia/[slug].vue`) : titre = la promesse (« Plus aucune demande
+sans réponse »), trois preuves (répond 24 h/24 dans les langues de l'assistant, devis sur photo, demandes de
+rendez-vous), le prix de la démo (`monthly_price_label` de la config publique, mis en forme comme dans les
+emails ; masqué une fois vendu et au retour du paiement `?subscribed=1`) et l'invitation à essayer : poser une
+question, envoyer une photo, demander un rendez-vous.
+
 Le contact du prospect (email/SMS) bloque l'autre module **45 j** (`services/contact_lock_service.py`),
 pour ne pas démarcher deux fois le même prospect entre le site et l'assistant.
 
@@ -421,8 +436,11 @@ modules dans le même projet PostHog. **Aucun** event côté dashboard (non inst
 La vente du module est un **abonnement Stripe récurrent**, distinct de la vente de site à 500 € en une
 fois (`docs/STRIPE_SETUP.md`). Décidé + implémenté :
 
-- **Prix configurable** par utilisateur : mensuel (`users.assistant_monthly_price_cents`, défaut 29 €)
-  + mois offerts sur l'annuel (`assistant_annual_free_months`, défaut 2 → 290 €/an). `AssistantPricingService`,
+- **Prix configurable** par utilisateur : mensuel (`users.assistant_monthly_price_cents`, défaut 79 €,
+  conseillé 79 à 99 €) + mois offerts sur l'annuel (`assistant_annual_free_months`, défaut 2 → 790 €/an).
+  Les comptes restés sur l'ancien défaut (29 €) passent à 79 € (`raise_assistant_default_price`) ; les
+  abonnements en cours gardent leur prix ; la migration affiche les comptes déplacés. La page `/ia` d'une démo
+  affiche ce prix (`monthly_price_label` de la config publique, absent une fois l'assistant vendu). `AssistantPricingService`,
   éditable dans **Paramètres → Facturation**, affiché via `{prix_assistant}`.
 - **Grandfathering** : le prix est **verrouillé** sur la ligne `ai_assistant_subscriptions.amount_cents`
   à la souscription — monter le prix configuré ne touche jamais un abonné existant.

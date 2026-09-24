@@ -138,6 +138,9 @@ class AiAssistantPublicResponse(BaseModel):
     video_available: bool = False
     video_url: str | None = None
     video_thumbnail_url: str | None = None
+    # What the prospect would pay a month (the seller's current price, « 79 € »), for the demo page;
+    # None once sold.
+    monthly_price_label: str | None = None
 
 
 class AiAssistantInterestRequest(BaseModel):
