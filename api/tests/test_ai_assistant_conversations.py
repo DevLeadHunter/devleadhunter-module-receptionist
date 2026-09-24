@@ -76,19 +76,32 @@ def test_record_turn_bounds_the_stored_content_and_survives_a_missing_session(db
 
 
 def test_counts_for_assistants_split_the_last_7_and_30_days(db) -> None:
-    """Counts follow the conversation start: one this week, one three weeks ago, one too old to count."""
+    """Counts follow the last message: a returning visitor counts again, a quiet one and a test do not."""
     assistant = _assistant(db)
     now = datetime.now(UTC).replace(tzinfo=None)
-    for session, started_days_ago in (("recent", 1), ("older", 20), ("ancient", 45)):
+    for session, started_days_ago, last_days_ago, is_test in (
+        ("recent", 1, 1, False),
+        ("returning", 60, 2, False),
+        ("older", 20, 20, False),
+        ("ancient", 45, 45, False),
+        ("internal", 1, 1, True),
+    ):
         conversation = ai_assistant_conversation_service.record_turn(
-            db, assistant=assistant, session_id=session, language="fr", visitor_message="?", reply="!"
+            db,
+            assistant=assistant,
+            session_id=session,
+            language="fr",
+            visitor_message="?",
+            reply="!",
+            is_test=is_test,
         )
         conversation.started_at = now - timedelta(days=started_days_ago)
+        conversation.last_message_at = now - timedelta(days=last_days_ago)
     db.commit()
 
     counts = ai_assistant_conversation_service.counts_for_assistants(db, [assistant.id, 999])
-    assert counts[assistant.id].last_7_days == 1
-    assert counts[assistant.id].last_30_days == 2
+    assert counts[assistant.id].last_7_days == 2
+    assert counts[assistant.id].last_30_days == 3
     assert counts[999].last_7_days == 0 and counts[999].last_30_days == 0
     assert ai_assistant_conversation_service.counts_for_assistants(db, []) == {}
 

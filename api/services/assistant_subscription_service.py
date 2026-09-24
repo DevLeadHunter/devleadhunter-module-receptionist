@@ -178,6 +178,9 @@ class AssistantSubscriptionService:
         record.client_email = details.get("email") or record.client_email
         record.client_name = details.get("name") or record.client_name
         record.status = AssistantSubscriptionStatus.ACTIVE.value
+        # Stamped here even when a subscription update already flipped the row to active (events are unordered).
+        if record.activated_at is None:
+            record.activated_at = datetime.now(UTC).replace(tzinfo=None)
         # The client is now paying: mark the assistant SOLD so the demo TTL never takes it down.
         self._mark_assistant_sold(db, record.ai_assistant_id)
         db.commit()

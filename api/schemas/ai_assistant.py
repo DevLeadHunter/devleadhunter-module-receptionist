@@ -80,6 +80,8 @@ class AiAssistantResponse(BaseModel):
     requests_7d: int = 0
     requests_30d: int = 0
     requests_outside_hours_pct: int | None = None
+    # A subscriber for 30 days whose assistant had no conversation and no request over the last 30.
+    churn_risk: bool = False
     alerts: AiAssistantAlertSettings
     eu_only: bool = False
     created_at: datetime
@@ -163,6 +165,8 @@ class AiAssistantChatRequest(BaseModel):
     # Random id the widget keeps with the visitor's conversation, so the journal groups its turns.
     session_id: str | None = Field(default=None, max_length=64)
     language: str | None = Field(default=None, max_length=8)
+    # Set by the widget on a « ?internal=1 » visit (the operator testing): journaled, out of the counts.
+    internal: bool = False
 
 
 class AiAssistantChatResponse(BaseModel):

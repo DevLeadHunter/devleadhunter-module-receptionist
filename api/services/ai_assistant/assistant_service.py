@@ -376,6 +376,21 @@ class AiAssistantService:
         self.start_demo_ttl(db, assistant, sent_at)
 
     @staticmethod
+    def accent_color(assistant: AiAssistant) -> str | None:
+        """
+        The widget accent, stored with the knowledge (``knowledge_json['palette']['accent']``).
+
+        Args:
+            assistant: The assistant.
+
+        Returns:
+            The accent colour, or None when the widget keeps the neutral one.
+        """
+        palette = (assistant.knowledge_json or {}).get("palette")
+        accent = palette.get("accent") if isinstance(palette, dict) else None
+        return accent if isinstance(accent, str) else None
+
+    @staticmethod
     def body_contains_assistant_link(assistant: AiAssistant, body: str) -> bool:
         """Whether a rendered email or SMS body carries this assistant's public demo URL."""
         return f"/ia/{assistant.slug}" in (body or "")

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Index, Integer, String
+from sqlalchemy import Boolean, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
@@ -22,6 +22,8 @@ class AiAssistantConversation(Base):
     session_id: Mapped[str] = mapped_column(String(64), nullable=False)
     language: Mapped[str | None] = mapped_column(String(8), nullable=True)
     message_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # From a « ?internal=1 » visit (the operator testing): journaled, out of the counts and reports. NULL = False.
+    is_test: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     started_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False, index=True)
     last_message_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False, index=True)
 

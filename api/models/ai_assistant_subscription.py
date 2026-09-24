@@ -44,6 +44,9 @@ class AiAssistantSubscription(Base):
     # End of the paid period (renews monthly/annually); NULL until the first payment.
     current_period_end: Mapped[datetime | None] = mapped_column(nullable=True)
     canceled_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # When the first payment activated it (naive UTC): the start of the service. NULL on rows activated
+    # before the column existed — ``created_at`` (the checkout) stands in.
+    activated_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     # Buyer identity, denormalised (from the Stripe Checkout customer).
     client_email: Mapped[str | None] = mapped_column(String(255), nullable=True)

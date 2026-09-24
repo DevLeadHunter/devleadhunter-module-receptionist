@@ -58,6 +58,7 @@ from services.ai_assistant.photo_service import (
     PhotoRejectedError,
     ai_assistant_photo_service,
 )
+from services.ai_assistant.report_service import ai_assistant_report_service
 from services.ai_assistant.request_alerts import AlertSettings
 from services.ai_assistant.request_email import AiAssistantRequestEmail
 from services.ai_assistant.request_links import AiAssistantRequestLinks
@@ -112,11 +113,6 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _accent_color(knowledge: dict[str, Any] | None) -> str | None:
-    palette = (knowledge or {}).get("palette")
-    return palette.get("accent") if isinstance(palette, dict) else None
-
-
 def _owner_public_fields(assistant: AiAssistant) -> dict[str, str | None]:
     """Owner contact shown in the « me contacter » banner (photo guarded on the R2 base)."""
     user = assistant.user
@@ -146,7 +142,7 @@ def _to_owner_response(
         assistant_name=assistant.assistant_name,
         languages=assistant.languages or [],
         tone=assistant.tone,
-        accent_color=_accent_color(assistant.knowledge_json),
+        accent_color=ai_assistant_service.accent_color(assistant),
         use_brand_color=assistant.use_brand_color,
         status=assistant.status,
         demo_url=_demo_url(assistant.slug),
@@ -164,6 +160,12 @@ def _to_owner_response(
         requests_7d=requests.last_7_days if requests else 0,
         requests_30d=requests.last_30_days if requests else 0,
         requests_outside_hours_pct=requests.outside_hours_pct if requests else None,
+        churn_risk=ai_assistant_report_service.is_churn_risk(
+            status=assistant.status,
+            subscribed_at=getattr(subscription, "activated_at", None) or getattr(subscription, "created_at", None),
+            conversations_30d=conversations.last_30_days if conversations else 0,
+            requests_30d=requests.last_30_days if requests else 0,
+        ),
         alerts=_alert_settings(assistant),
         eu_only=bool(assistant.eu_only),
         created_at=assistant.created_at,
@@ -486,7 +488,7 @@ async def regenerate_assistant(
     if not prospect:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prospect not found for this assistant")
     updated = await ai_assistant_service.regenerate_for_prospect(db, assistant=assistant, prospect=prospect)
-    return _to_owner_response(updated)
+    return _to_full_owner_response(db, updated)
 
 
 def _owned_assistant_or_404(db: Session, assistant_id: int, user_id: int) -> AiAssistant:
@@ -513,7 +515,7 @@ async def generate_assistant_video(
         assistant_video_service.request_generation(db, assistant, user.id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
-    return _to_owner_response(assistant)
+    return _to_full_owner_response(db, assistant)
 
 
 @router.get("/{assistant_id}/video-context")
@@ -602,7 +604,7 @@ async def upload_assistant_video_final(
         db.refresh(assistant)
     finally:
         shutil.rmtree(work_dir, ignore_errors=True)
-    return _to_owner_response(assistant)
+    return _to_full_owner_response(db, assistant)
 
 
 @router.delete("/{assistant_id}/video", response_model=AiAssistantResponse)
@@ -614,7 +616,7 @@ async def clear_assistant_video(
     """Delete the assistant's generated video and reset its state."""
     assistant = _owned_assistant_or_404(db, assistant_id, user.id)
     assistant_video_service.clear_video(db, assistant)
-    return _to_owner_response(assistant)
+    return _to_full_owner_response(db, assistant)
 
 
 @router.get("/{assistant_id}/subscription/link")
@@ -719,7 +721,7 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
         assistant_name=assistant.assistant_name,
         assistant_gender=ai_assistant_config_builder.resolve_persona_gender(assistant.assistant_name).value,
         languages=assistant.languages or [],
-        accent_color=_accent_color(assistant.knowledge_json),
+        accent_color=ai_assistant_service.accent_color(assistant),
         status=assistant.status,
         **_owner_public_fields(assistant),
         video_available=video_ready,
@@ -771,6 +773,7 @@ async def chat_with_assistant(
             language=payload.language,
             visitor_message=history[-1]["content"],
             reply=reply,
+            is_test=payload.internal,
         )
     except Exception:
         logger.warning("Assistant conversation journal failed for slug %s", slug, exc_info=True)

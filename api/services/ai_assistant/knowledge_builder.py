@@ -47,7 +47,7 @@ _WORDING_BY_GENDER: dict[AiAssistantPersonaGender, dict[str, str]] = {
 }
 
 # ISO code → French language name, for the multilingual line of the system prompt.
-_LANGUAGE_NAMES: dict[str, str] = {
+LANGUAGE_NAMES: dict[str, str] = {
     "fr": "français",
     "en": "anglais",
     "de": "allemand",
@@ -241,7 +241,7 @@ class AiAssistantKnowledgeBuilder:
         return reviews
 
     def _languages_line(self, languages: list[str] | None) -> str:
-        names = [_LANGUAGE_NAMES.get(code, code) for code in (languages or []) if code]
+        names = [LANGUAGE_NAMES.get(code, code) for code in (languages or []) if code]
         base = (
             "LANGUE : réponds INTÉGRALEMENT dans la langue du message du visiteur — du premier au dernier "
             "mot — même si ce n'est pas une des langues habituelles de la maison. Ne mélange JAMAIS deux "

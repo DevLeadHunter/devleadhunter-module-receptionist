@@ -160,9 +160,12 @@ Chaque tour de chat public est journalisé côté serveur : `ai_assistant_conver
 `message_count`) + `ai_assistant_messages` (rôle, contenu borné à 2 000 caractères). Le journal ne
 bloque jamais la réponse (échec = warning). L'owner lit les 20 dernières conversations d'un assistant
 (`GET /ai-assistants/{id}/conversations`, drawer « Ce que vos visiteurs ont demandé » de la page
-Assistants IA) et voit `conversations_7d` / `conversations_30d` dans la liste ; purge après 90 jours
+Assistants IA) et voit `conversations_7d` / `conversations_30d` dans la liste (conversations dont le
+dernier message tombe dans la fenêtre : un visiteur qui revient compte à nouveau) ; purge après 90 jours
 sans message par la boucle de nettoyage. C'est la seule visibilité une fois le widget vendu (sur le
-site du client, hors PostHog).
+site du client, hors PostHog). Une visite `?internal=1` (le widget envoie `internal` avec chaque message)
+est journalisée avec `is_test` : visible dans le journal, hors des compteurs, du rapport mensuel et du
+drapeau churn.
 
 Tracking PostHog : `useDemoTracking.init` accepte l'iframe pour la surface `assistant` (la page embed la
 passe), donc `assistant_opened` / `assistant_message_sent` / `assistant_lead_submitted` partent aussi
@@ -194,7 +197,8 @@ leads y ont été recopiés une fois (`legacy_lead_id`, statut `handled`) et leu
   reprend celles qu'un redémarrage a perdues (demandes de plus de 2 min et de moins de 24 h). Annonce :
   push à l'owner (type, hors horaires) et, **si l'assistant est vendu** (`delivered`), les alertes au
   commerçant (section suivante) : email de résumé au commerce (`AiAssistant.email`, sinon l'email du
-  prospect) via l'identité d'envoi de l'owner en mode transactionnel (`send_via_user_identity`, sans
+  prospect, sinon celui du client saisi au paiement Stripe de l'abonnement en cours) via l'identité
+  d'envoi de l'owner en mode transactionnel (`send_via_user_identity`, sans
   `prospect_id` : le prospect n'est pas marqué contacté) et SMS. Une démo n'écrit jamais au prospect.
   L'email montre le besoin, les coordonnées cliquables (tel / mailto), la conversation et un bouton
   « Marquer comme traitée » : lien signé HMAC (`SECRET_KEY`) valable 30 jours (`request_links.py`). Le
@@ -313,6 +317,42 @@ Seulement pour un assistant **vendu** (`delivered`) ; une démo n'alerte que l'o
   plus), une fois par demande (`stale_notified_at`), un push par assistant ; une demande de plus de 7 jours
   ne déclenche plus de nouveau push.
 
+## Rapport mensuel (`services/ai_assistant/report_service.py`)
+
+Chaque assistant **vendu** (`delivered`, non supprimé) d'un client qui paie (abonnement `active` ou
+`past_due`) reçoit le rapport du mois écoulé, envoyé par sa propre boucle de 10 min (à part des alertes :
+un modèle lent ne les retarde pas ; `ai_assistant_report_service.run_loop`) du 1er au 3 du mois à partir
+de 8 h, heure de Paris. Une démo ou un client résilié n'en reçoit jamais, relances comprises.
+
+- **Période** : le mois calendaire à l'heure de Paris. Un client qui a payé en cours de mois
+  (`activated_at` de l'abonnement en cours, posé au paiement ; `created_at` pour les abonnements payés
+  avant cette colonne) est compté à partir de ce jour, donc sans les visites de la démo ; payé dans les
+  7 derniers jours du mois, son premier rapport est celui du mois suivant.
+- **Chiffres** (`stats_json`, visites et demandes de test exclues) : conversations où un visiteur a écrit
+  dans le mois (un visiteur qui revient compte dans chaque mois où il écrit), demandes, devis,
+  rendez-vous, urgences, demandes avec photo, demandes marquées traitées et délai moyen avant
+  « traitée », % hors horaires parmi les demandes aux horaires connus, langues des conversations
+  (`fr-FR` compté `fr`), et les 3 questions les plus posées : le modèle (usage `assistant_report`, EU only
+  respecté, 30 s maximum) regroupe le premier message du mois de chaque conversation, à partir de 3
+  conversations ; une question qui contient un lien, un email ou un numéro est écartée ; sans réponse du
+  modèle, la rubrique est omise.
+- **Email** : envoyé depuis l'identité d'envoi de l'owner à l'adresse du commerçant (la même que pour
+  les demandes), l'owner en copie cachée ; sans aucune adresse commerçant, l'owner seul le reçoit.
+  Objet « Sofia en septembre : 43 demandes, 6 rendez-vous, 9 devis, 31 % en dehors de vos horaires ».
+  Bandeau à la couleur d'accent du widget (noir si absente ou invalide), texte en noir ou blanc selon la
+  couleur, mise en page en tableau et styles inline.
+- **Mois sans visite** (aucune conversation, aucune demande) : un autre email (vérifier que la bulle
+  apparaît sur le site, que la fiche d'établissement Google renvoie vers le site ; lien vers
+  `custom_domain`, sinon le site du prospect, quand il se lit comme un domaine) et un push à l'owner
+  « Abonné X : aucune visite en septembre 2026 (risque de désabonnement) » (`is_empty`).
+- **Une fois par mois** : la ligne `ai_assistant_reports` (unique par assistant et mois) est écrite avant
+  l'envoi et chaque essai y est réservé (`attempts`, `last_attempt_at`) : un rapport ne part jamais deux
+  fois. Un envoi en échec est inscrit au journal d'activité et retenté deux fois, à une heure
+  d'intervalle au moins, avec les chiffres déjà calculés ; les relances s'arrêtent avec les jours d'envoi
+  (le journal dit alors « abandonné »).
+- **Drapeau « Risque de churn »** (dashboard, `churn_risk`) : assistant vendu, abonnement actif payé
+  depuis plus de 30 jours, aucune conversation ni demande sur les 30 derniers jours (tests exclus).
+
 ## Intégration campagnes
 
 `{lien_assistant}` (résolu vers l'assistant **actif** de l'expéditeur pour ce prospect — jamais celui
@@ -386,6 +426,7 @@ demandes à traiter, dernière demande), cartes par assistant (langues, demandes
 horaires, conversations 7 j, Voir la démo, Copier le script, Personnaliser, Régénérer, Supprimer,
 **Générer / Voir la vidéo**) et la section **Demandes** (onglets « À traiter » / « Toutes » ; type,
 hors horaires, photos, test, statut ; résumé ; « Marquer traitée », « Sans suite », « Rouvrir »).
+Une carte d'abonné silencieux depuis 30 jours porte le badge « Risque de churn ».
 « Personnaliser » porte aussi les alertes au commerçant (mobile, SMS / email, types à SMS, plage de
 nuit). Le clip présentateur « assistant » s'enregistre dans **Paramètres → Vidéo**
 (`web/app/components/settings/AssistantPresenterClipCard.vue`). Le `ProspectDrawer` génère / ouvre
@@ -402,11 +443,12 @@ modules dans le même projet PostHog. **Aucun** event côté dashboard (non inst
 
 | Rôle | Fichier |
 |---|---|
-| Modèle | `api/models/ai_assistant.py`, `api/models/ai_assistant_request.py`, `api/models/ai_assistant_photo.py` (+ `ai_assistant_lead.py` historique) |
+| Modèle | `api/models/ai_assistant.py`, `api/models/ai_assistant_request.py`, `api/models/ai_assistant_photo.py`, `api/models/ai_assistant_report.py` (+ `ai_assistant_lead.py` historique) |
 | Demandes (capture, suivi, compteurs) | `api/services/ai_assistant/request_service.py` |
 | Typage + résumé d'une demande | `api/services/ai_assistant/request_analyzer.py` |
 | Email de résumé + lien signé | `api/services/ai_assistant/request_email.py`, `api/services/ai_assistant/request_links.py` |
 | Reprise des annonces perdues + alertes différées (boucle) | `api/services/ai_assistant/request_runner.py` |
+| Rapport mensuel (boucle, chiffres, envoi, drapeau churn) + son email | `api/services/ai_assistant/report_service.py`, `api/services/ai_assistant/report_email.py` |
 | Devis par photo (réception, vision, rattachement, purge) | `api/services/ai_assistant/photo_service.py` |
 | Routage des modèles (Mistral, secours Groq, EU only, coûts) | `api/services/ai_assistant/llm_router.py`, `api/services/mistral_service.py` |
 | Bench des modèles | `api/scripts/bench_assistant_llm.py` |
@@ -454,7 +496,8 @@ fois (`docs/STRIPE_SETUP.md`). Décidé + implémenté :
   renvoie vers sa page. Le webhook (`/payments/webhook`) active la ligne sur
   `checkout.session.completed` et synchronise le statut sur `customer.subscription.updated/deleted`.
 - **À l'activation** : l'assistant passe `DELIVERED` (sorti du TTL démo, jamais coupé tant que le client
-  paie) — une démo **expirée** est ainsi ravivée par le paiement.
+  paie) — une démo **expirée** est ainsi ravivée par le paiement. `activated_at` garde l'heure du premier
+  paiement (le début du service, pour le rapport mensuel et le drapeau churn).
 - **Essai** = la démo (limitée par `expires_at`) ; pas d'essai gratuit du produit. Résiliation libre,
   zéro frais ; satisfait-remboursé 1er mois : bouton « Rembourser » (dernière facture, PaymentIntent lu via
   `payments.data.payment.payment_intent` — API Stripe 2025-03-31 — avec repli sur la charge de la facture).

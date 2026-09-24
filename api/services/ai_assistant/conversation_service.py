@@ -25,7 +25,7 @@ RECENT_CONVERSATIONS_LIMIT = 20
 
 @dataclass(frozen=True)
 class ConversationCounts:
-    """How many conversations an assistant had over the last 7 and 30 days."""
+    """How many conversations an assistant had over the last 7 and 30 days (tests excluded)."""
 
     last_7_days: int = 0
     last_30_days: int = 0
@@ -43,6 +43,7 @@ class AiAssistantConversationService:
         language: str | None,
         visitor_message: str,
         reply: str,
+        is_test: bool = False,
     ) -> AiAssistantConversation:
         """Append a visitor message and the assistant's reply to the session's conversation.
 
@@ -53,11 +54,14 @@ class AiAssistantConversationService:
             language: The widget language at that moment, when known.
             visitor_message: What the visitor wrote.
             reply: What the assistant answered.
+            is_test: Sent from an internal visit (``?internal=1``): the conversation stays out of the counts.
 
         Returns:
             The conversation the turn was appended to.
         """
         conversation = self._conversation_for_session(db, assistant=assistant, session_id=session_id, language=language)
+        if is_test:
+            conversation.is_test = True
         now: datetime = datetime.now(UTC).replace(tzinfo=None)
         for role, content in (("user", visitor_message), ("assistant", reply)):
             conversation.messages.append(
@@ -70,7 +74,19 @@ class AiAssistantConversationService:
         return conversation
 
     def counts_for_assistants(self, db: Session, assistant_ids: list[int]) -> dict[int, ConversationCounts]:
-        """Conversation counts over the last 7 and 30 days, keyed by assistant id (for the dashboard list)."""
+        """
+        Conversations active over the last 7 and 30 days, keyed by assistant id (for the dashboard list).
+
+        A returning visitor goes on in the conversation of their session: it counts when its last message
+        falls in the window, however old its start. Tests are left out.
+
+        Args:
+            db: Active database session.
+            assistant_ids: The assistants listed.
+
+        Returns:
+            Counts keyed by assistant id (every id present).
+        """
         if not assistant_ids:
             return {}
         now: datetime = datetime.now(UTC).replace(tzinfo=None)
@@ -141,7 +157,8 @@ class AiAssistantConversationService:
             db.query(AiAssistantConversation.assistant_id, func.count(AiAssistantConversation.id))
             .filter(
                 AiAssistantConversation.assistant_id.in_(assistant_ids),
-                AiAssistantConversation.started_at >= since,
+                AiAssistantConversation.is_test.is_not(True),
+                AiAssistantConversation.last_message_at >= since,
             )
             .group_by(AiAssistantConversation.assistant_id)
             .all()

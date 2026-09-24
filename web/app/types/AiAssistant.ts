@@ -1,6 +1,8 @@
 /**
  * An AI assistant generated for a prospect, as seen by its owner. `requests_outside_hours_pct` is the
- * share of the last 30 days' requests received outside the business hours (null when they are unknown).
+ * share of the last 30 days' requests received outside the business hours (null when they are unknown);
+ * `churn_risk` flags a client subscribed for 30 days whose assistant had no conversation and no request
+ * over the last 30.
  */
 export interface AiAssistantSummary {
   id: number
@@ -28,6 +30,7 @@ export interface AiAssistantSummary {
   requests_7d: number
   requests_30d: number
   requests_outside_hours_pct: number | null
+  churn_risk: boolean
   alerts: AiAssistantAlertSettings
   eu_only: boolean
   created_at: string

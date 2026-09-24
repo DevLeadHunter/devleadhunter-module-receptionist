@@ -493,7 +493,7 @@ async function scrollToLatest(): Promise<void> {
 }
 
 /**
- * Send a specific text as the visitor's message.
+ * Send a specific text as the visitor's message (an internal visit is flagged so it stays out of the counts).
  * @param text The message to send.
  * @returns A promise resolving once the reply is handled.
  */
@@ -510,7 +510,15 @@ async function sendText(text: string): Promise<void> {
   try {
     const answer: AssistantChatReply = await $fetch<AssistantChatReply>(
       `${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${props.config.slug}/chat`,
-      { method: 'POST', body: { messages: messages.value, session_id: sessionId.value, language: lang.value } },
+      {
+        method: 'POST',
+        body: {
+          messages: messages.value,
+          session_id: sessionId.value,
+          language: lang.value,
+          internal: DemoBeaconUtils.isInternalVisit(),
+        },
+      },
     )
     messages.value.push({ role: 'assistant', content: answer.reply })
   } catch {

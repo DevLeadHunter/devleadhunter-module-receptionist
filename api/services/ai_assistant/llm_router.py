@@ -31,6 +31,7 @@ _USAGE_LABELS: dict[AssistantLlmUsage, str] = {
     AssistantLlmUsage.CHAT: "chat de l'assistant",
     AssistantLlmUsage.VISION: "photos de devis",
     AssistantLlmUsage.REQUEST: "analyse des demandes",
+    AssistantLlmUsage.REPORT: "rapport mensuel",
 }
 _OUTAGE_MESSAGES: dict[AssistantLlmOutage, str] = {
     AssistantLlmOutage.FALLBACK: "Mistral indisponible : {usage} basculé sur Groq",

@@ -361,6 +361,7 @@ class AiAssistantPhotoService:
                 language=language,
                 visitor_message=PHOTO_JOURNAL_MARKER,
                 reply=analysis.reply,
+                is_test=is_test,
             )
         except Exception:
             logger.warning("Photo %s: journal failed", photo.id, exc_info=True)
