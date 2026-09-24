@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from core.config import settings
@@ -54,7 +55,7 @@ from services.email_variables import EmailVariables
 from services.notification_service import notification_service
 from services.presenter_video_service import presenter_video_service
 from services.r2_storage_service import r2_storage
-from services.rate_limiter import assistant_chat_limiter, assistant_lead_limiter
+from services.rate_limiter import assistant_chat_limiter, assistant_lead_limiter, assistant_subscribe_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -452,42 +453,74 @@ async def clear_assistant_video(
     return _to_owner_response(assistant)
 
 
-@router.post("/{assistant_id}/subscription/checkout")
-async def create_assistant_subscription_checkout(
+@router.get("/{assistant_id}/subscription/link")
+async def get_assistant_subscription_link(
     assistant_id: int,
     interval: str = "month",
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
     """
-    Generate a Stripe subscription checkout link for a client to subscribe to this assistant.
+    The permanent subscription link (monthly or annual) the owner sends to the client.
 
-    The owner generates the link (monthly or annual) and sends it to the client, who subscribes on
-    Stripe's hosted page. The price is locked at creation (grandfathering).
+    It never expires: each click opens a fresh Stripe Checkout on the public ``subscribe`` endpoint,
+    at the price configured at that moment (locked once the client pays).
     """
     assistant = _owned_assistant_or_404(db, assistant_id, user.id)
-    if assistant.status != AiAssistantStatus.ACTIVE.value:
+    if assistant.status == AiAssistantStatus.DELIVERED.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cet assistant est déjà vendu.")
+    if assistant.status not in (AiAssistantStatus.ACTIVE.value, AiAssistantStatus.EXPIRED.value):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="L'assistant doit être actif.")
     if interval not in ("month", "year"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Intervalle invalide (month ou year).")
-    demo = settings.demo_host_base_url.rstrip("/")
+    return {"url": assistant_subscription_service.subscription_link(assistant, interval)}
+
+
+@router.get("/public/{slug}/subscribe")
+async def subscribe_to_assistant(
+    slug: str,
+    request: Request,
+    interval: str = "month",
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    """
+    Open a fresh Stripe Checkout for a client clicking the permanent subscription link.
+
+    A live or expired demo can be subscribed to (the payment revives an expired one); an assistant
+    already sold sends the client to its page instead of a second checkout.
+    """
+    if not assistant_subscribe_limiter.allow(f"{slug}:{_client_ip(request)}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de tentatives, réessayez plus tard"
+        )
+    assistant = ai_assistant_service.get_by_slug(db, slug)
+    if assistant is None or assistant.status not in (
+        AiAssistantStatus.ACTIVE.value,
+        AiAssistantStatus.EXPIRED.value,
+        AiAssistantStatus.DELIVERED.value,
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
+    if assistant.status == AiAssistantStatus.DELIVERED.value:
+        return RedirectResponse(url=_demo_url(assistant.slug), status_code=status.HTTP_303_SEE_OTHER)
+    if interval not in ("month", "year"):
+        interval = "month"
     try:
-        url = assistant_subscription_service.create_checkout_session(
+        checkout_url = assistant_subscription_service.create_checkout_session(
             db,
-            user_id=user.id,
+            user_id=assistant.user_id,
             assistant=assistant,
             interval=interval,
-            success_url=f"{demo}/ia/{assistant.slug}?subscribed=1",
-            cancel_url=f"{demo}/ia/{assistant.slug}",
+            success_url=f"{_demo_url(assistant.slug)}?subscribed=1",
+            cancel_url=_demo_url(assistant.slug),
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception as exc:
-        logger.exception("Assistant subscription checkout failed for assistant %s", assistant_id)
+        logger.exception("Assistant subscription checkout failed for slug %s", slug)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="Stripe indisponible pour le moment."
         ) from exc
-    return {"url": url}
+    return RedirectResponse(url=checkout_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.delete("/{assistant_id}", status_code=status.HTTP_204_NO_CONTENT)

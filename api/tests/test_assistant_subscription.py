@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -243,3 +244,114 @@ def test_list_for_user_returns_rows_with_names(db: Session) -> None:
     subscription, business_name, _assistant_name = rows[0]
     assert subscription.amount_cents == 2900
     assert business_name == "Barbershop 63"
+
+
+def test_subscription_link_is_permanent_and_targets_the_public_subscribe_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sub_module.settings, "api_base_url", "https://api.devleadhunter.test/", raising=False)
+    link = AssistantSubscriptionService.subscription_link(SimpleNamespace(slug="barbershop-63"), "year")
+    assert link == "https://api.devleadhunter.test/api/v1/ai-assistants/public/barbershop-63/subscribe?interval=year"
+
+
+def test_checkout_reuses_the_recent_unpaid_row_at_the_current_price(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = AssistantSubscriptionService()
+    _stub_stripe(service, monkeypatch)
+    monkeypatch.setattr(sub_module.AssistantPricingService, "monthly_price_cents", staticmethod(lambda _db, _uid: 2900))
+    service.create_checkout_session(
+        db, user_id=1, assistant=_assistant(), interval="month", success_url="s", cancel_url="c"
+    )
+    # The client clicks the permanent link again after the owner raised the price: same row, new price.
+    monkeypatch.setattr(sub_module.AssistantPricingService, "monthly_price_cents", staticmethod(lambda _db, _uid: 3900))
+    service.create_checkout_session(
+        db, user_id=1, assistant=_assistant(), interval="month", success_url="s", cancel_url="c"
+    )
+
+    rows = db.query(AiAssistantSubscription).all()
+    assert len(rows) == 1
+    assert rows[0].amount_cents == 3900  # unpaid, so nothing was grandfathered yet
+    assert rows[0].stripe_checkout_session_id == "cs_test_123"
+
+
+def test_purge_stale_incomplete_rows_keeps_recent_and_paid_ones(db: Session) -> None:
+    service = AssistantSubscriptionService()
+    stale = AiAssistantSubscription(
+        user_id=1, ai_assistant_id=7, interval="month", amount_cents=2900, status="incomplete"
+    )
+    stale.created_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=8)
+    old_but_paid = AiAssistantSubscription(
+        user_id=1, ai_assistant_id=8, interval="month", amount_cents=2900, status="active"
+    )
+    old_but_paid.created_at = stale.created_at
+    fresh = AiAssistantSubscription(
+        user_id=1, ai_assistant_id=9, interval="month", amount_cents=2900, status="incomplete"
+    )
+    db.add_all([stale, old_but_paid, fresh])
+    db.commit()
+
+    assert service.purge_stale_incomplete_rows(db) == 1
+    remaining = {row.ai_assistant_id for row in db.query(AiAssistantSubscription).all()}
+    assert remaining == {8, 9}
+
+
+def _stub_refund(service: AssistantSubscriptionService, monkeypatch: pytest.MonkeyPatch, invoice: dict) -> list[dict]:
+    """Stub the Stripe reads of a refund around one invoice payload and capture the Refund.create calls."""
+    refunds: list[dict] = []
+    monkeypatch.setattr(sub_module.settings, "stripe_secret_key", "sk_test_x", raising=False)
+    monkeypatch.setattr(
+        service._stripe.Subscription, "retrieve", lambda sub_id: {"latest_invoice": "in_1"}, raising=False
+    )
+    monkeypatch.setattr(service._stripe.Invoice, "retrieve", lambda invoice_id, **kwargs: invoice, raising=False)
+    monkeypatch.setattr(service._stripe.Refund, "create", lambda **kwargs: refunds.append(kwargs), raising=False)
+    return refunds
+
+
+def test_refund_reads_the_payment_from_the_basil_invoice_payments(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = AssistantSubscriptionService()
+    basil_invoice = {"id": "in_1", "payments": {"data": [{"payment": {"payment_intent": {"id": "pi_1"}}}]}}
+    refunds = _stub_refund(service, monkeypatch, basil_invoice)
+
+    service.refund_last_payment(object(), SimpleNamespace(stripe_subscription_id="sub_1"))
+
+    assert refunds == [{"payment_intent": "pi_1"}]
+
+
+def test_refund_falls_back_to_the_invoice_charge_via_the_customer(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = AssistantSubscriptionService()
+    refunds = _stub_refund(service, monkeypatch, {"id": "in_1", "customer": "cus_1"})
+    charges = {
+        "data": [{"id": "ch_0", "invoice": "in_0", "paid": True}, {"id": "ch_1", "invoice": "in_1", "paid": True}]
+    }
+    monkeypatch.setattr(service._stripe.Charge, "list", lambda **kwargs: charges, raising=False)
+
+    service.refund_last_payment(object(), SimpleNamespace(stripe_subscription_id="sub_1"))
+
+    assert refunds == [{"charge": "ch_1"}]
+
+
+def test_refund_without_any_payment_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = AssistantSubscriptionService()
+    _stub_refund(service, monkeypatch, {"id": "in_1", "customer": "cus_1"})
+    monkeypatch.setattr(service._stripe.Charge, "list", lambda **kwargs: {"data": []}, raising=False)
+
+    with pytest.raises(ValueError):
+        service.refund_last_payment(object(), SimpleNamespace(stripe_subscription_id="sub_1"))
+
+
+def test_activation_revives_an_expired_demo(db: Session) -> None:
+    service = AssistantSubscriptionService()
+    assistant = AiAssistant(
+        id=7, user_id=1, slug="barbershop-63", business_name="Barbershop 63", status=AiAssistantStatus.EXPIRED.value
+    )
+    db.add(assistant)
+    row = AiAssistantSubscription(
+        user_id=1, ai_assistant_id=7, interval="month", amount_cents=2900, status="incomplete"
+    )
+    db.add(row)
+    db.commit()
+
+    service.activate_from_session(db, {"metadata": {"assistant_subscription_id": str(row.id)}, "subscription": "sub_1"})
+    db.refresh(assistant)
+    assert assistant.status == AiAssistantStatus.DELIVERED.value  # the paying client gets their assistant back

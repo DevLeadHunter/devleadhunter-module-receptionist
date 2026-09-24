@@ -227,13 +227,20 @@ fois (`docs/STRIPE_SETUP.md`). Décidé + implémenté :
   éditable dans **Paramètres → Facturation**, affiché via `{prix_assistant}`.
 - **Grandfathering** : le prix est **verrouillé** sur la ligne `ai_assistant_subscriptions.amount_cents`
   à la souscription — monter le prix configuré ne touche jamais un abonné existant.
-- **Checkout** : l'owner génère un lien Stripe (`POST /ai-assistants/{id}/subscription/checkout?interval=month|year`,
-  `mode=subscription`, compte Stripe **plateforme**) depuis le dashboard et l'envoie au client, qui
-  s'abonne sur la page hébergée Stripe. Le webhook (`/payments/webhook`) active la ligne sur
+- **Lien d'abonnement permanent** : l'owner copie depuis le dashboard
+  (`GET /ai-assistants/{id}/subscription/link?interval=month|year`) un lien vers l'endpoint public
+  `GET /ai-assistants/public/{slug}/subscribe`, qu'il envoie au client. À chaque clic, cet endpoint crée
+  une Checkout Session Stripe **fraîche** (`mode=subscription`, compte Stripe **plateforme**) et redirige :
+  une session expire en 24 h, le lien envoyé jamais. La ligne locale `INCOMPLETE` est réutilisée d'un
+  clic à l'autre (prix du moment tant que rien n'est payé), purgée après 7 j sans paiement (boucle
+  `services/ai_assistant/cleanup_service.py`) ; 5 clics / 5 min par visiteur. Un assistant déjà vendu
+  renvoie vers sa page. Le webhook (`/payments/webhook`) active la ligne sur
   `checkout.session.completed` et synchronise le statut sur `customer.subscription.updated/deleted`.
-- **À l'activation** : l'assistant passe `DELIVERED` (sorti du TTL démo, jamais coupé tant que le client paie).
-- **Essai** = la démo (déjà limitée par `expires_at`) ; pas d'essai gratuit du produit. Résiliation libre,
-  zéro frais ; satisfait-remboursé 1er mois = politique (remboursement manuel Stripe).
+- **À l'activation** : l'assistant passe `DELIVERED` (sorti du TTL démo, jamais coupé tant que le client
+  paie) — une démo **expirée** est ainsi ravivée par le paiement.
+- **Essai** = la démo (limitée par `expires_at`) ; pas d'essai gratuit du produit. Résiliation libre,
+  zéro frais ; satisfait-remboursé 1er mois : bouton « Rembourser » (dernière facture, PaymentIntent lu via
+  `payments.data.payment.payment_intent` — API Stripe 2025-03-31 — avec repli sur la charge de la facture).
 
 ⚠️ **À vérifier en Stripe test mode avant la prod** (non testable hors ligne) : le flux checkout + webhook
 de bout en bout, et **ajouter les événements** `customer.subscription.updated` / `customer.subscription.deleted`

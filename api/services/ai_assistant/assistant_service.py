@@ -343,6 +343,10 @@ class AiAssistantService:
             .first()
         )
 
+    def get_by_slug(self, db: Session, slug: str) -> AiAssistant | None:
+        """Return the non-deleted assistant for a slug, whatever its status, or None."""
+        return db.query(AiAssistant).filter(AiAssistant.slug == slug, AiAssistant.deleted_at.is_(None)).first()
+
     def get_public_by_slug(self, db: Session, slug: str) -> AiAssistant | None:
         """Return the publicly served, non-deleted assistant for a slug, or None.
 

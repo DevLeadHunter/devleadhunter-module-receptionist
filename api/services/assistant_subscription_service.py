@@ -14,7 +14,7 @@ mirroring the website invoice path (:mod:`services.payment_providers.stripe_prov
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import stripe
 from sqlalchemy.orm import Session
@@ -27,6 +27,9 @@ from models.ai_assistant_subscription import AiAssistantSubscription
 from services.assistant_pricing_service import AssistantPricingService
 
 logger = logging.getLogger(__name__)
+
+# An unpaid checkout row is reused by later clicks on the permanent link, then purged once stale.
+_INCOMPLETE_ROW_TTL_DAYS = 7
 
 # Stripe subscription statuses → our own. Anything unmapped leaves the record's status unchanged.
 _STRIPE_STATUS_MAP: dict[str, str] = {
@@ -48,6 +51,24 @@ class AssistantSubscriptionService:
             stripe.api_key = settings.stripe_secret_key
         self._stripe = stripe
 
+    @staticmethod
+    def subscription_link(assistant: AiAssistant, interval: str) -> str:
+        """
+        The permanent link the seller sends a client: it opens a fresh Stripe Checkout at each click.
+
+        A Checkout Session expires 24 h after creation (Stripe's maximum), so the emailed link must
+        not be one — it targets the public ``subscribe`` endpoint, which creates the session on demand.
+
+        Args:
+            assistant: The assistant being sold.
+            interval: ``"month"`` or ``"year"``.
+
+        Returns:
+            The absolute API URL to send.
+        """
+        base: str = settings.api_base_url.rstrip("/")
+        return f"{base}/api/v1/ai-assistants/public/{assistant.slug}/subscribe?interval={interval}"
+
     def create_checkout_session(
         self,
         db: Session,
@@ -61,8 +82,9 @@ class AssistantSubscriptionService:
         """
         Create a Stripe subscription Checkout Session and return its hosted URL.
 
-        The price is resolved + LOCKED now (grandfathering): a local ``INCOMPLETE`` row is created with
-        the amount, and the webhook flips it to ``ACTIVE`` once the client pays.
+        The price is resolved + LOCKED now (grandfathering): a local ``INCOMPLETE`` row carries the
+        amount — the recent unpaid row of this assistant is reused, so repeated clicks on the permanent
+        link never pile up rows — and the webhook flips it to ``ACTIVE`` once the client pays.
 
         Args:
             db: Active database session.
@@ -91,16 +113,19 @@ class AssistantSubscriptionService:
             recurring = {"interval": "month"}
             label = "mensuel"
 
-        record = AiAssistantSubscription(
-            user_id=user_id,
-            prospect_id=assistant.prospect_id,
-            ai_assistant_id=assistant.id,
-            interval=interval,
-            amount_cents=amount_cents,
-            currency="eur",
-            status=AssistantSubscriptionStatus.INCOMPLETE.value,
-        )
-        db.add(record)
+        record = self._reusable_incomplete_row(db, assistant_id=assistant.id, interval=interval)
+        if record is None:
+            record = AiAssistantSubscription(
+                user_id=user_id,
+                prospect_id=assistant.prospect_id,
+                ai_assistant_id=assistant.id,
+                interval=interval,
+                currency="eur",
+                status=AssistantSubscriptionStatus.INCOMPLETE.value,
+            )
+            db.add(record)
+        # Unpaid, so nothing to grandfather yet: the row follows the price configured at this click.
+        record.amount_cents = amount_cents
         db.commit()
         db.refresh(record)
 
@@ -160,12 +185,54 @@ class AssistantSubscriptionService:
         return None if was_already_active else record
 
     @staticmethod
+    def _reusable_incomplete_row(db: Session, *, assistant_id: int, interval: str) -> AiAssistantSubscription | None:
+        """The assistant's recent unpaid checkout row for this interval, or None."""
+        cutoff: datetime = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=_INCOMPLETE_ROW_TTL_DAYS)
+        return (
+            db.query(AiAssistantSubscription)
+            .filter(
+                AiAssistantSubscription.ai_assistant_id == assistant_id,
+                AiAssistantSubscription.interval == interval,
+                AiAssistantSubscription.status == AssistantSubscriptionStatus.INCOMPLETE.value,
+                AiAssistantSubscription.created_at >= cutoff,
+            )
+            .order_by(AiAssistantSubscription.created_at.desc())
+            .first()
+        )
+
+    def purge_stale_incomplete_rows(self, db: Session) -> int:
+        """Delete the unpaid checkout rows older than the reuse window (the client never paid).
+
+        Returns:
+            The number of rows deleted.
+        """
+        cutoff: datetime = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=_INCOMPLETE_ROW_TTL_DAYS)
+        stale: list[AiAssistantSubscription] = (
+            db.query(AiAssistantSubscription)
+            .filter(
+                AiAssistantSubscription.status == AssistantSubscriptionStatus.INCOMPLETE.value,
+                AiAssistantSubscription.created_at < cutoff,
+            )
+            .all()
+        )
+        for row in stale:
+            db.delete(row)
+        if stale:
+            db.commit()
+        return len(stale)
+
+    @staticmethod
     def _mark_assistant_sold(db: Session, assistant_id: int | None) -> None:
-        """Promote a subscribed assistant to DELIVERED (excluded from the demo TTL cleanup)."""
+        """Promote a subscribed assistant to DELIVERED: sold, so never expired by the demo cleanup.
+
+        An expired demo is revived by the payment — a client who pays always gets their assistant.
+        """
         if not assistant_id:
             return
         assistant = db.get(AiAssistant, assistant_id)
-        if assistant is not None and assistant.status == AiAssistantStatus.ACTIVE.value:
+        if assistant is None:
+            return
+        if assistant.status in (AiAssistantStatus.ACTIVE.value, AiAssistantStatus.EXPIRED.value):
             assistant.status = AiAssistantStatus.DELIVERED.value
 
     def update_from_stripe_subscription(self, db: Session, sub_obj: dict) -> None:
@@ -282,7 +349,11 @@ class AssistantSubscriptionService:
 
     def refund_last_payment(self, db: Session, subscription: AiAssistantSubscription) -> None:
         """
-        Refund the subscription's latest payment (the « satisfait-remboursé » gesture).
+        Refund the subscription's latest invoice (the « satisfait-remboursé » gesture).
+
+        Since the 2025-03-31 Stripe API the Invoice no longer carries ``payment_intent`` or ``charge``:
+        the payment is read from ``payments.data.payment.payment_intent`` and refunded by
+        PaymentIntent; older accounts fall back to the invoice charge, found via the customer.
 
         Args:
             db: Active database session (unused, kept for a consistent signature).
@@ -293,15 +364,58 @@ class AssistantSubscriptionService:
         """
         if not subscription.stripe_subscription_id or not settings.stripe_secret_key:
             raise ValueError("Aucun paiement Stripe à rembourser.")
-        sub = self._stripe.Subscription.retrieve(
-            subscription.stripe_subscription_id, expand=["latest_invoice.payment_intent"]
-        )
-        invoice = sub.get("latest_invoice") or {}
-        payment_intent = invoice.get("payment_intent")
-        payment_intent_id = payment_intent.get("id") if isinstance(payment_intent, dict) else payment_intent
-        if not payment_intent_id:
+        sub = self._stripe.Subscription.retrieve(subscription.stripe_subscription_id)
+        invoice_id = self._object_id(sub.get("latest_invoice"))
+        if not invoice_id:
             raise ValueError("Aucun paiement à rembourser.")
-        self._stripe.Refund.create(payment_intent=payment_intent_id)
+        payment_intent_id = self._invoice_payment_intent_id(invoice_id)
+        if payment_intent_id:
+            self._stripe.Refund.create(payment_intent=payment_intent_id)
+            return
+        charge_id = self._invoice_charge_id(invoice_id)
+        if not charge_id:
+            raise ValueError("Aucun paiement à rembourser.")
+        self._stripe.Refund.create(charge=charge_id)
+
+    def _invoice_payment_intent_id(self, invoice_id: str) -> str | None:
+        """The PaymentIntent that settled an invoice, or None when the API version exposes none."""
+        try:
+            invoice = self._stripe.Invoice.retrieve(invoice_id, expand=["payments.data.payment.payment_intent"])
+        except self._stripe.error.InvalidRequestError:
+            return None
+        direct = self._object_id(invoice.get("payment_intent"))
+        if direct:
+            return direct
+        payments = invoice.get("payments") or {}
+        entries = payments.get("data", []) if isinstance(payments, dict) else []
+        for entry in entries or []:
+            payment_intent_id = self._object_id((entry.get("payment") or {}).get("payment_intent"))
+            if payment_intent_id:
+                return payment_intent_id
+        return None
+
+    def _invoice_charge_id(self, invoice_id: str) -> str | None:
+        """The paid, un-refunded charge of an invoice, via its customer when the Invoice hides it."""
+        invoice = self._stripe.Invoice.retrieve(invoice_id)
+        direct = self._object_id(invoice.get("charge"))
+        if direct:
+            return direct
+        customer_id = self._object_id(invoice.get("customer"))
+        if not customer_id:
+            return None
+        charges = self._stripe.Charge.list(customer=customer_id, limit=100)
+        for charge in charges.get("data", []) or []:
+            settles_invoice = self._object_id(charge.get("invoice")) == invoice_id
+            if settles_invoice and charge.get("paid") and not charge.get("refunded"):
+                return charge.get("id")
+        return None
+
+    @staticmethod
+    def _object_id(value: object) -> str | None:
+        """The id of a Stripe field that is either an id string or an expanded object."""
+        if isinstance(value, dict):
+            return value.get("id")
+        return value if isinstance(value, str) else None
 
     @staticmethod
     def _record_from_metadata(db: Session, metadata: dict | None) -> AiAssistantSubscription | None:
