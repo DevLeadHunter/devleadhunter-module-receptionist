@@ -204,9 +204,10 @@ class AiAssistantPhotoVision:
             safe = reply if reply and not cls.PRICE_PATTERN.search(reply) else cls.OFF_TOPIC_REPLIES[lang]
             return PhotoAnalysis(False, None, None, None, (), safe)
         urgency_value = answer.get("urgency")
+        urgency_text = urgency_value.strip().lower() if isinstance(urgency_value, str) else None
         urgency = (
-            AiAssistantPhotoUrgency(urgency_value)
-            if urgency_value in {item.value for item in AiAssistantPhotoUrgency}
+            AiAssistantPhotoUrgency(urgency_text)
+            if urgency_text in {level.value for level in AiAssistantPhotoUrgency}
             else None
         )
         raw_questions = answer.get("missing_questions")

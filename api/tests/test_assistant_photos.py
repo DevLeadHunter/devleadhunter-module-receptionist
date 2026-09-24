@@ -452,6 +452,17 @@ def test_only_photo_formats_are_decoded() -> None:
         assert refused.value.reason is AiAssistantPhotoRejection.UNREADABLE
 
 
+def test_an_urgency_is_read_as_text_and_any_other_json_type_is_ignored() -> None:
+    def urgency(value: object) -> AiAssistantPhotoUrgency | None:
+        return AiAssistantPhotoVision.parse(
+            {"relevant": True, "urgency": value, "reply": "Je vois une fuite."}, "fr"
+        ).urgency
+
+    assert urgency(" High ") is AiAssistantPhotoUrgency.HIGH
+    for value in (["high"], {"level": "high"}, 3, None, "critique"):
+        assert urgency(value) is None
+
+
 def test_an_off_topic_verdict_is_read_whatever_its_json_type() -> None:
     for verdict in (False, "false", "False", "0", 0):
         assert AiAssistantPhotoVision.parse({"relevant": verdict, "reply": "Hors sujet."}, "fr").relevant is False
