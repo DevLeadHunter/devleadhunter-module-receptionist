@@ -13,6 +13,7 @@ import type {
   AssistantSubscriptionListResponse,
 } from '~/types/AiAssistant'
 import type { AiAssistantDocumentItem, AiAssistantSources, AiAssistantSourcesUpdate } from '~/types/AiAssistantSources'
+import type { ApiErrorBody } from '~/types/Api'
 
 const BASE_URL: string = '/api/v1/ai-assistants'
 
@@ -100,28 +101,13 @@ export class AiAssistantService {
    * @throws Error carrying the API's explanation when the file is refused.
    */
   static async uploadDocument(assistantId: number, file: File): Promise<AiAssistantDocumentItem> {
-    const userStore: ReturnType<typeof useUserStore> = useUserStore()
-    const config: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
     const formData: FormData = new FormData()
     formData.append('file', file, file.name)
-    const response: Response = await fetch(`${config.public.apiBase}${BASE_URL}/${assistantId}/documents`, {
-      method: 'POST',
-      headers: userStore.token ? { Authorization: `Bearer ${userStore.token}` } : {},
-      body: formData,
-    })
-    if (!response.ok) {
-      const errorText: string = await response.text().catch(() => '')
-      let errorMessage: string = `Envoi du document échoué : ${response.statusText}`
-      if (errorText) {
-        try {
-          errorMessage = (JSON.parse(errorText).detail as string) || errorMessage
-        } catch {
-          errorMessage = errorText
-        }
-      }
-      throw new Error(errorMessage)
-    }
-    return (await response.json()) as AiAssistantDocumentItem
+    return AiAssistantService.postMultipart<AiAssistantDocumentItem>(
+      `${BASE_URL}/${assistantId}/documents`,
+      formData,
+      'Envoi du document échoué',
+    )
   }
 
   /**
@@ -235,28 +221,13 @@ export class AiAssistantService {
    * @throws When the upload fails (message from the API when available).
    */
   static async uploadFinalVideo(assistantId: number, bundle: Blob): Promise<AiAssistantSummary> {
-    const userStore: ReturnType<typeof useUserStore> = useUserStore()
-    const config: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
     const formData: FormData = new FormData()
     formData.append('file', bundle, `${assistantId}-video.zip`)
-    const response: Response = await fetch(`${config.public.apiBase}${BASE_URL}/${assistantId}/video-final`, {
-      method: 'POST',
-      headers: userStore.token ? { Authorization: `Bearer ${userStore.token}` } : {},
-      body: formData,
-    })
-    if (!response.ok) {
-      const errorText: string = await response.text().catch(() => '')
-      let errorMessage: string = `Envoi de la vidéo échoué : ${response.statusText}`
-      if (errorText) {
-        try {
-          errorMessage = (JSON.parse(errorText).detail as string) || errorMessage
-        } catch {
-          errorMessage = errorText
-        }
-      }
-      throw new Error(errorMessage)
-    }
-    return (await response.json()) as AiAssistantSummary
+    return AiAssistantService.postMultipart<AiAssistantSummary>(
+      `${BASE_URL}/${assistantId}/video-final`,
+      formData,
+      'Envoi de la vidéo échoué',
+    )
   }
 
   /**
@@ -314,5 +285,38 @@ export class AiAssistantService {
    */
   static async remove(assistantId: number): Promise<void> {
     await ApiClient.delete(`${BASE_URL}/${assistantId}`)
+  }
+
+  /**
+   * Send an authenticated multipart POST, which the JSON api client cannot carry.
+   *
+   * @param path - Path starting with `/api/`.
+   * @param formData - The multipart body.
+   * @param failureLabel - Start of the error message when the API sends no explanation, followed by the status text.
+   * @returns The parsed response body.
+   * @throws Error carrying the API `detail`, else the raw error body, else the label and the status text.
+   */
+  private static async postMultipart<T>(path: string, formData: FormData, failureLabel: string): Promise<T> {
+    const userStore: ReturnType<typeof useUserStore> = useUserStore()
+    const config: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
+    const response: Response = await fetch(`${config.public.apiBase}${path}`, {
+      method: 'POST',
+      headers: userStore.token ? { Authorization: `Bearer ${userStore.token}` } : {},
+      body: formData,
+    })
+    if (!response.ok) {
+      const errorText: string = await response.text().catch((): string => '')
+      let errorMessage: string = `${failureLabel} : ${response.statusText}`
+      if (errorText) {
+        try {
+          const errorBody: ApiErrorBody = JSON.parse(errorText)
+          errorMessage = errorBody.detail || errorMessage
+        } catch {
+          errorMessage = errorText
+        }
+      }
+      throw new Error(errorMessage)
+    }
+    return (await response.json()) as T
   }
 }
