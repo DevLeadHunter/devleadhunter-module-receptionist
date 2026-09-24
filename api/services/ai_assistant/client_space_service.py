@@ -105,10 +105,10 @@ class AiAssistantClientSpaceService:
             raise ClientSpaceAccessError(is_expired=False)
         if link.is_expired:
             current = (now or datetime.now(UTC)).replace(tzinfo=None)
-            if not allow_expired:
-                raise ClientSpaceAccessError(is_expired=True)
             if link.expires_at < current - RENEWABLE_AFTER_EXPIRY:
                 raise ClientSpaceAccessError(is_expired=False)
+            if not allow_expired:
+                raise ClientSpaceAccessError(is_expired=True)
         return assistant, link
 
     def recent_requests(self, db: Session, assistant: AiAssistant) -> list[AiAssistantRequest]:

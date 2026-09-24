@@ -231,12 +231,14 @@ def test_an_expired_link_asks_for_a_new_one_and_a_forged_or_demo_link_opens_noth
     demo = _assistant(db, business_name="Démo Dupont", status="active")
     deleted = _assistant(db, business_name="Garage Fermé", deleted_at=datetime(2026, 9, 1))
     expired = _token(sold, now=datetime.now(UTC) - timedelta(days=31))
+    # Past the renewal window, a new link could not be sent: the page must not offer one.
+    forgotten = _token(sold, now=datetime.now(UTC) - timedelta(days=150))
 
     assert _status_of(routes.get_client_space(expired, _VISITOR, db)) == (
         401,
         "Ce lien a expiré : demandez un nouveau lien.",
     )
-    for token in (_token(demo), _token(deleted), "12.abc.AAAAAAAAAAAAAAAA", "n'importe quoi"):
+    for token in (_token(demo), _token(deleted), forgotten, "12.abc.AAAAAAAAAAAAAAAA", "n'importe quoi"):
         assert _status_of(routes.get_client_space(token, _VISITOR, db))[0] == 404
 
 
