@@ -75,7 +75,6 @@ class GoogleCalendarClient:
 
     AUTHORIZATION_URL: ClassVar[str] = "https://accounts.google.com/o/oauth2/v2/auth"
     TOKEN_URL: ClassVar[str] = "https://oauth2.googleapis.com/token"
-    REVOKE_URL: ClassVar[str] = "https://oauth2.googleapis.com/revoke"
     USERINFO_URL: ClassVar[str] = "https://www.googleapis.com/oauth2/v2/userinfo"
     FREEBUSY_URL: ClassVar[str] = "https://www.googleapis.com/calendar/v3/freeBusy"
     EVENTS_URL: ClassVar[str] = "https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events"
@@ -248,14 +247,6 @@ class GoogleCalendarClient:
                 return draft.event_id
             raise
         return str(payload.get("id") or draft.event_id)
-
-    async def revoke(self, token: str) -> None:
-        """Revoke a token at Google (best effort: a token already dead is fine)."""
-        try:
-            async with httpx.AsyncClient(timeout=self.TIMEOUT_SECONDS) as client:
-                await client.post(self.REVOKE_URL, data={"token": token})
-        except httpx.HTTPError:
-            logger.warning("Google token revocation failed", exc_info=True)
 
     async def _token_request(self, form: dict[str, str]) -> dict[str, Any]:
         """POST to the token endpoint; an ``invalid_grant`` means the client must connect again."""
