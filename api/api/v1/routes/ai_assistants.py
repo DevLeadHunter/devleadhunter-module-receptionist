@@ -8,16 +8,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from core.config import settings
 from core.database import get_db
+from enums.ai_assistant_request import AiAssistantRequestStatus
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.demo_video_status import DemoVideoStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_lead import AiAssistantLead
+from models.ai_assistant_request import AiAssistantRequest
 from models.prospect_db import ProspectDB
 from models.user import User
 from schemas.ai_assistant import (
@@ -34,6 +36,9 @@ from schemas.ai_assistant import (
     AiAssistantLeadsResponse,
     AiAssistantListResponse,
     AiAssistantPublicResponse,
+    AiAssistantRequestItem,
+    AiAssistantRequestsResponse,
+    AiAssistantRequestUpdateRequest,
     AiAssistantResponse,
     AiAssistantUpdateRequest,
     AssistantSubscriptionItem,
@@ -43,6 +48,9 @@ from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ConversationCounts, ai_assistant_conversation_service
+from services.ai_assistant.request_email import AiAssistantRequestEmail
+from services.ai_assistant.request_links import AiAssistantRequestLinks
+from services.ai_assistant.request_service import RequestCounts, ai_assistant_request_service
 from services.assistant_subscription_service import assistant_subscription_service
 from services.assistant_video_service import (
     ASSISTANT_PRESENTER_MODULE,
@@ -108,7 +116,10 @@ def _owner_public_fields(assistant: AiAssistant) -> dict[str, str | None]:
 
 
 def _to_owner_response(
-    assistant: AiAssistant, subscription: object | None = None, conversations: ConversationCounts | None = None
+    assistant: AiAssistant,
+    subscription: object | None = None,
+    conversations: ConversationCounts | None = None,
+    requests: RequestCounts | None = None,
 ) -> AiAssistantResponse:
     return AiAssistantResponse(
         id=assistant.id,
@@ -133,7 +144,33 @@ def _to_owner_response(
         subscription_interval=getattr(subscription, "interval", None),
         conversations_7d=conversations.last_7_days if conversations else 0,
         conversations_30d=conversations.last_30_days if conversations else 0,
+        requests_7d=requests.last_7_days if requests else 0,
+        requests_30d=requests.last_30_days if requests else 0,
+        requests_outside_hours_pct=requests.outside_hours_pct if requests else None,
         created_at=assistant.created_at,
+    )
+
+
+def _to_request_item(request: AiAssistantRequest, business_name: str) -> AiAssistantRequestItem:
+    return AiAssistantRequestItem(
+        id=request.id,
+        assistant_id=request.assistant_id,
+        prospect_id=request.prospect_id,
+        business_name=business_name,
+        type=request.type,
+        status=request.status,
+        channel=request.channel,
+        name=request.name,
+        contact=request.contact,
+        need=request.need,
+        need_summary=request.need_summary,
+        language=request.language,
+        received_outside_hours=request.received_outside_hours,
+        is_test=request.is_test,
+        owner_note=request.owner_note,
+        photo_urls=ai_assistant_request_service.photo_urls(request),
+        created_at=request.created_at,
+        handled_at=request.handled_at,
     )
 
 
@@ -164,9 +201,15 @@ async def list_assistants(
     assistants = query.order_by(AiAssistant.created_at.desc()).all()
     subscriptions = assistant_subscription_service.active_by_assistant_ids(db, [a.id for a in assistants])
     conversation_counts = ai_assistant_conversation_service.counts_for_assistants(db, [a.id for a in assistants])
+    request_counts = ai_assistant_request_service.counts_for_assistants(db, [a.id for a in assistants])
     return AiAssistantListResponse(
         assistants=[
-            _to_owner_response(assistant, subscriptions.get(assistant.id), conversation_counts.get(assistant.id))
+            _to_owner_response(
+                assistant,
+                subscriptions.get(assistant.id),
+                conversation_counts.get(assistant.id),
+                request_counts.get(assistant.id),
+            )
             for assistant in assistants
         ]
     )
@@ -209,7 +252,7 @@ async def list_assistant_leads(
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> AiAssistantLeadsResponse:
-    """List the leads captured across the caller's assistants, newest first."""
+    """Legacy: the leads captured before requests existed (read-only history, no longer written)."""
     rows = (
         db.query(AiAssistantLead, AiAssistant.business_name)
         .join(AiAssistant, AiAssistant.id == AiAssistantLead.assistant_id)
@@ -234,6 +277,39 @@ async def list_assistant_leads(
             for lead, business_name in rows
         ]
     )
+
+
+@router.get("/requests", response_model=AiAssistantRequestsResponse)
+async def list_assistant_requests(
+    assistant_id: int | None = None,
+    status_filter: AiAssistantRequestStatus | None = Query(default=None, alias="status"),
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantRequestsResponse:
+    """The requests visitors left across the caller's assistants, newest first."""
+    rows = ai_assistant_request_service.list_for_owner(db, user.id, assistant_id=assistant_id, status=status_filter)
+    return AiAssistantRequestsResponse(
+        requests=[_to_request_item(request, business_name) for request, business_name in rows],
+        pending_count=ai_assistant_request_service.pending_count(db, user.id),
+    )
+
+
+@router.patch("/requests/{request_id}", response_model=AiAssistantRequestItem)
+async def update_assistant_request(
+    request_id: int,
+    payload: AiAssistantRequestUpdateRequest,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantRequestItem:
+    """Mark one of the caller's requests handled / dropped / new again, or edit its note."""
+    record = ai_assistant_request_service.get_for_owner(db, user.id, request_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
+    updated = ai_assistant_request_service.update_for_owner(
+        db, record, status=payload.status, owner_note=payload.owner_note
+    )
+    assistant = db.get(AiAssistant, updated.assistant_id)
+    return _to_request_item(updated, assistant.business_name if assistant else "")
 
 
 def _to_subscription_item(
@@ -658,7 +734,7 @@ async def submit_assistant_lead(
     request: Request,
     db: Session = Depends(get_db),
 ) -> AiAssistantLeadResponse:
-    """Record a lead a visitor left through the assistant, then notify the owner."""
+    """Record the request a visitor left through the assistant; typing and announcing run in the background."""
     if not assistant_lead_limiter.allow(f"{slug}:{_client_ip(request)}"):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de demandes, réessayez plus tard"
@@ -670,28 +746,100 @@ async def submit_assistant_lead(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name and contact are required")
 
     try:
-        ai_assistant_service.record_lead(
+        captured, _created = ai_assistant_request_service.capture(
             db,
             assistant=assistant,
             name=payload.name,
             contact=payload.contact,
             need=payload.need,
             language=payload.language,
+            session_id=payload.session_id,
+            is_test=payload.internal,
         )
     except Exception:
         # Losing the durable row must not swallow the strongest signal — still notify the owner.
         db.rollback()
-        logger.warning("assistant lead persist failed (slug=%s)", slug)
+        logger.warning("assistant request persist failed (slug=%s)", slug, exc_info=True)
+        if not payload.internal:
+            await notification_service.notify_assistant_lead(
+                db,
+                user_id=assistant.user_id,
+                prospect_id=assistant.prospect_id,
+                fallback_name=assistant.business_name,
+                lead_name=payload.name.strip(),
+                need=payload.need or "",
+            )
+        return AiAssistantLeadResponse(ok=True)
 
-    await notification_service.notify_assistant_lead(
-        db,
-        user_id=assistant.user_id,
-        prospect_id=assistant.prospect_id,
-        fallback_name=assistant.business_name,
-        lead_name=payload.name.strip(),
-        need=payload.need or "",
-    )
+    ai_assistant_request_service.schedule_follow_up(captured.id)
     return AiAssistantLeadResponse(ok=True)
+
+
+def _handled_link_page(
+    db: Session, request_id: int, exp: int, token: str | None
+) -> tuple[AiAssistantRequest | None, HTMLResponse | None]:
+    """Check a « marquer traitée » link; returns the request, or the error page to show instead."""
+    if not AiAssistantRequestLinks.verify(request_id, exp, token):
+        return None, HTMLResponse(
+            AiAssistantRequestEmail.confirmation_page(
+                "Lien expiré ou invalide",
+                "Ce lien ne permet plus de traiter la demande. Utilisez le dernier email reçu.",
+            ),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+    record = db.get(AiAssistantRequest, request_id)
+    if record is None:
+        return None, HTMLResponse(
+            AiAssistantRequestEmail.confirmation_page("Demande introuvable", "Cette demande n'existe plus."),
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    return record, None
+
+
+@router.get("/public/requests/{request_id}/handled", response_class=HTMLResponse)
+async def confirm_request_handled_page(
+    request_id: int,
+    exp: int = 0,
+    token: str | None = None,
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """The « marquer traitée » link of the summary email: shows the request and a confirm button, changes nothing."""
+    record, error_page = _handled_link_page(db, request_id, exp, token)
+    if error_page is not None or record is None:
+        return error_page or HTMLResponse(status_code=status.HTTP_404_NOT_FOUND)
+    if record.status != AiAssistantRequestStatus.NEW.value:
+        return HTMLResponse(
+            AiAssistantRequestEmail.confirmation_page(
+                "Demande déjà traitée", f"La demande de {record.name} n'est plus à traiter."
+            )
+        )
+    return HTMLResponse(
+        AiAssistantRequestEmail.confirmation_page(
+            f"Demande de {record.name}",
+            "Vous avez répondu à cette demande ? Marquez-la comme traitée pour ne plus qu'on vous la rappelle.",
+            action_label="Marquer comme traitée",
+        )
+    )
+
+
+@router.post("/public/requests/{request_id}/handled", response_class=HTMLResponse)
+async def mark_request_handled_from_email(
+    request_id: int,
+    exp: int = 0,
+    token: str | None = None,
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Confirm the « marquer traitée » link: a signed, expiring action, no account needed."""
+    record, error_page = _handled_link_page(db, request_id, exp, token)
+    if error_page is not None or record is None:
+        return error_page or HTMLResponse(status_code=status.HTTP_404_NOT_FOUND)
+    changed = ai_assistant_request_service.mark_handled(db, record)
+    title = "Demande marquée comme traitée" if changed else "Demande déjà traitée"
+    return HTMLResponse(
+        AiAssistantRequestEmail.confirmation_page(
+            title, f"La demande de {record.name} ne vous sera plus rappelée. Merci !"
+        )
+    )
 
 
 @router.post("/public/{slug}/interest", status_code=status.HTTP_204_NO_CONTENT)

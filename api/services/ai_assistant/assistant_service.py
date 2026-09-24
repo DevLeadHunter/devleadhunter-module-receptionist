@@ -17,7 +17,6 @@ from enums.ai_assistant_status import AiAssistantStatus
 from enums.demo_site_status import DemoSiteStatus
 from enums.website_status import WebsiteStatus
 from models.ai_assistant import AiAssistant
-from models.ai_assistant_lead import AiAssistantLead
 from models.demo_site import DemoSite
 from models.prospect_db import ProspectDB
 from services.ai_assistant.config_builder import ai_assistant_config_builder
@@ -310,31 +309,6 @@ class AiAssistantService:
             .first()
         )
         return site.content_json if site is not None else None
-
-    def record_lead(
-        self,
-        db: Session,
-        *,
-        assistant: AiAssistant,
-        name: str,
-        contact: str,
-        need: str | None = None,
-        language: str | None = None,
-    ) -> AiAssistantLead:
-        """Persist a lead a visitor left through an assistant, attached to its prospect."""
-        lead = AiAssistantLead(
-            user_id=assistant.user_id,
-            prospect_id=assistant.prospect_id,
-            assistant_id=assistant.id,
-            name=name.strip(),
-            contact=contact.strip(),
-            need=(need or "").strip() or None,
-            language=(language or "").strip() or None,
-        )
-        db.add(lead)
-        db.commit()
-        db.refresh(lead)
-        return lead
 
     def start_demo_ttl(self, db: Session, assistant: AiAssistant, sent_at: datetime) -> bool:
         """Start the demo countdown from the first email or SMS carrying the assistant link; a no-op after.

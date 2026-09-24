@@ -22,6 +22,10 @@ export interface AiAssistantSummary {
   subscription_interval: string | null
   conversations_7d: number
   conversations_30d: number
+  requests_7d: number
+  requests_30d: number
+  /** Share of the last 30 days' requests received outside the business hours (null = hours unknown). */
+  requests_outside_hours_pct: number | null
   created_at: string
 }
 
@@ -89,22 +93,47 @@ export type AiAssistantEditForm = {
   languages: string[]
 }
 
-/** One lead a visitor left through an assistant, as seen by its owner. */
-export type AiAssistantLead = {
+/** What a visitor wants — drives the owner's triage. */
+export type AiAssistantRequestType = 'question' | 'quote' | 'appointment' | 'urgent' | 'other'
+
+/** Where the owner is with a request. */
+export type AiAssistantRequestStatus = 'new' | 'handled' | 'dropped'
+
+/** Where a request came in. */
+export type AiAssistantRequestChannel = 'site' | 'email' | 'photo'
+
+/** A request a visitor left through an assistant, typed and summarized for the owner. */
+export type AiAssistantRequestItem = {
   id: number
   assistant_id: number
   prospect_id: number | null
   business_name: string
+  type: AiAssistantRequestType
+  status: AiAssistantRequestStatus
+  channel: AiAssistantRequestChannel
   name: string
   contact: string
   need: string | null
+  need_summary: string | null
   language: string | null
+  received_outside_hours: boolean | null
+  is_test: boolean
+  owner_note: string | null
+  photo_urls: string[]
   created_at: string
+  handled_at: string | null
 }
 
-/** The leads captured across the current user's assistants. */
-export type AiAssistantLeadsResponse = {
-  leads: AiAssistantLead[]
+/** The user's requests across their assistants, newest first. */
+export type AiAssistantRequestsResponse = {
+  requests: AiAssistantRequestItem[]
+  pending_count: number
+}
+
+/** Owner changes to a request (partial). */
+export type AiAssistantRequestUpdatePayload = {
+  status?: AiAssistantRequestStatus
+  owner_note?: string
 }
 
 /** One turn of a journaled conversation. */

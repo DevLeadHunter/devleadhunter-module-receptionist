@@ -1,8 +1,10 @@
 import { ApiClient } from '~/services/api'
 import type {
   AiAssistantConversationsResponse,
-  AiAssistantLeadsResponse,
   AiAssistantListResponse,
+  AiAssistantRequestItem,
+  AiAssistantRequestsResponse,
+  AiAssistantRequestUpdatePayload,
   AiAssistantSummary,
   AiAssistantUpdatePayload,
   AiAssistantVideoContext,
@@ -47,21 +49,33 @@ export class AiAssistantService {
   }
 
   /**
-   * List the leads captured across the user's assistants, newest first.
+   * List the latest conversations visitors had with one of the user's assistants.
    *
-   * @returns The captured leads.
+   * @param assistantId - The assistant whose journal to read.
+   * @returns The 20 latest conversations, newest first.
    */
   static listConversations(assistantId: number): Promise<AiAssistantConversationsResponse> {
     return ApiClient.get<AiAssistantConversationsResponse>(`${BASE_URL}/${assistantId}/conversations`)
   }
 
   /**
-   * List the leads captured across the user's assistants, newest first.
+   * List the requests visitors left across the user's assistants, newest first.
    *
-   * @returns The captured leads.
+   * @returns The requests and how many still wait for handling.
    */
-  static listLeads(): Promise<AiAssistantLeadsResponse> {
-    return ApiClient.get<AiAssistantLeadsResponse>(`${BASE_URL}/leads`)
+  static listRequests(): Promise<AiAssistantRequestsResponse> {
+    return ApiClient.get<AiAssistantRequestsResponse>(`${BASE_URL}/requests`)
+  }
+
+  /**
+   * Change a request's status (handled, dropped, new again) or note.
+   *
+   * @param requestId - The request to update.
+   * @param payload - The fields to change.
+   * @returns The updated request.
+   */
+  static updateRequest(requestId: number, payload: AiAssistantRequestUpdatePayload): Promise<AiAssistantRequestItem> {
+    return ApiClient.patch<AiAssistantRequestItem>(`${BASE_URL}/requests/${requestId}`, payload)
   }
 
   /**

@@ -85,7 +85,9 @@ est exposé dans la config publique (`assistant_gender`) pour les textes du widg
 |---|---|---|
 | `POST` | `/ai-assistants` | Générer un assistant pour un prospect |
 | `GET` | `/ai-assistants` | Lister ses assistants (filtre `?prospect_id=`) |
-| `GET` | `/ai-assistants/leads` | Lister les contacts captés (join assistant) |
+| `GET` | `/ai-assistants/leads` | Anciens contacts captés (lecture seule, historique) |
+| `GET` | `/ai-assistants/requests` | Lister les demandes (`?assistant_id=`, `?status=`) + `pending_count` |
+| `PATCH` | `/ai-assistants/requests/{id}` | Changer le statut (`new` / `handled` / `dropped`) ou la note d'une demande |
 | `PATCH` | `/ai-assistants/{id}` | Personnaliser (nom, persona, langues, accent) |
 | `POST` | `/ai-assistants/{id}/regenerate` | Régénérer la connaissance (garde marque + slug) |
 | `POST` | `/ai-assistants/{id}/video` | Générer la vidéo de prospection (fond serveur / VPS) |
@@ -95,11 +97,14 @@ est exposé dans la config publique (`assistant_gender`) pour les textes du widg
 | `DELETE` | `/ai-assistants/{id}` | Supprimer (soft-delete) |
 | `GET` | `/ai-assistants/public/{slug}` | Config publique du widget (+ vidéo si prête) |
 | `POST` | `/ai-assistants/public/{slug}/chat` | Réponse groundée à un message |
-| `POST` | `/ai-assistants/public/{slug}/lead` | Capturer un contact |
+| `POST` | `/ai-assistants/public/{slug}/lead` | Capturer une demande (coordonnées + `session_id` + `internal`) |
+| `GET` | `/ai-assistants/public/requests/{id}/handled` | Lien signé de l'email de résumé : page de confirmation (ne change rien) |
+| `POST` | `/ai-assistants/public/requests/{id}/handled` | Même lien signé : marque la demande traitée (bouton de la page) |
 | `POST` | `/ai-assistants/public/{slug}/interest` | Signaler l'intérêt de l'owner (pop-up « me contacter ») |
 
-Les 3 endpoints publics sont **rate-limités par IP** (`services/rate_limiter.py`) : chat 30 / 300 s,
-lead 8 / 300 s (fenêtre glissante en mémoire).
+Les endpoints publics du widget sont **rate-limités par IP** (`services/rate_limiter.py`) : chat
+30 / 300 s, lead 8 / 300 s (fenêtre glissante en mémoire). Le lien « traitée » n'a pas de limite : sans
+signature valide et non expirée, il ne fait rien.
 
 ## Le widget (`demo-host/app/components/AssistantChat.vue`)
 
@@ -112,7 +117,8 @@ C'est le **produit** que le client colle sur son site. Il porte :
 - **Persistance de conversation** : la conversation (et la langue) est gardée en `localStorage`
   (`dlh-assistant-<slug>`, bornée à 40 messages) — un visiteur qui recharge ou change de page **retrouve
   son fil**. Écriture/lecture en `try/catch` (mode privé) : le widget marche sans.
-- **Capture de lead** : nom + contact + besoin + langue → notification à l'owner.
+- **Capture de demande** : nom + contact + besoin + langue, avec l'identifiant de session du widget
+  (la demande est liée à la conversation) et `internal: true` sur une visite `?internal=1`.
 - **Embarqué** : quand il tourne en iframe, il envoie `postMessage` pour se redimensionner entre la
   bulle fermée et le panneau ouvert.
 
@@ -153,6 +159,44 @@ Tracking PostHog : `useDemoTracking.init` accepte l'iframe pour la surface `assi
 passe), donc `assistant_opened` / `assistant_message_sent` / `assistant_lead_submitted` partent aussi
 depuis un site client tant que la démo est `active` ; un assistant vendu n'est plus tracé (journal
 serveur seulement).
+
+## Demandes (`services/ai_assistant/request_service.py`)
+
+Un visiteur qui laisse ses coordonnées devient une **demande** (`ai_assistant_requests`), l'unité que
+le commerçant traite. Elle remplace `ai_assistant_leads` pour toute nouvelle capture ; les anciens
+leads y ont été recopiés une fois (`legacy_lead_id`, statut `handled`) et leur table reste en lecture.
+
+- **Une demande par session** : la même `session_id` met à jour sa demande tant qu'elle est `new` et
+  a moins de 24 h (coordonnées, besoin) au lieu d'en créer une deuxième. Une demande déjà traitée, sans
+  suite ou plus ancienne n'est jamais rouverte : le visiteur qui revient ouvre une nouvelle demande.
+  Sans session, chaque envoi crée une demande.
+- **Liée au journal** : `conversation_id` pointe la conversation de la session ; sa transcription
+  alimente le résumé et l'email.
+- **Typée et résumée** en arrière-plan (`request_analyzer.py`, `llm_service.complete_json`) :
+  `type` ∈ `question | quote | appointment | urgent | other` et `need_summary` (1-2 phrases factuelles en
+  français, jamais de prix). Sans modèle ou réponse hors contrat : mots-clés FR/NL/DE/EN pour le type,
+  mots du visiteur pour le résumé. Le visiteur reçoit sa confirmation sans attendre.
+- **Hors horaires** : `received_outside_hours` est calculé à la capture depuis
+  `knowledge_json['opening_hours']` à l'heure de Paris (`opening_hours.py` ; plages après minuit,
+  « Fermé », « 24h/24 ») ; horaires absents ou illisibles = `NULL` (inconnu), jamais « hors horaires ».
+- **Annoncée une fois** : `owner_notified_at` est réservé par un `UPDATE … WHERE owner_notified_at IS
+  NULL` avant tout envoi (deux passes concurrentes n'annoncent pas deux fois). L'annonce part en tâche de
+  fond juste après la capture ; `request_runner.py` (boucle de 5 min lancée au démarrage de l'API)
+  reprend celles qu'un redémarrage a perdues (demandes de plus de 2 min et de moins de 24 h). Annonce :
+  push à l'owner (type, hors horaires) et, **si
+  l'assistant est vendu** (`delivered`), email de résumé au commerce (`AiAssistant.email`, sinon l'email
+  du prospect) via l'identité d'envoi de l'owner en mode transactionnel (`send_via_user_identity`,
+  sans `prospect_id` : le prospect n'est pas marqué contacté). Une démo n'écrit jamais au prospect.
+  L'email montre le besoin, les coordonnées cliquables (tel / mailto), la conversation et un bouton
+  « Marquer comme traitée » : lien signé HMAC (`SECRET_KEY`) valable 30 jours (`request_links.py`). Le
+  `GET` du lien n'affiche qu'une page de confirmation (les antivirus de messagerie ouvrent les liens) ;
+  c'est son bouton (`POST` sur la même URL) qui marque la demande traitée.
+- **Visite interne** (`internal: true`) : la demande est enregistrée avec `is_test`, typée, jamais
+  annoncée, exclue des compteurs et de l'onglet « À traiter » (visible sous « Toutes », badge Test).
+- **Statuts** : `new` → `handled` (ou `dropped`), `handled_at` suit ; note libre de l'owner.
+
+La liste des assistants porte `requests_7d`, `requests_30d` et `requests_outside_hours_pct` (part des
+demandes des 30 derniers jours reçues hors horaires, parmi celles dont les horaires sont connus).
 
 ## Intégration campagnes
 
@@ -208,9 +252,11 @@ verrouillé) échange **toute** la navigation. La nav Assistant IA : Tableau de 
 Carte, **Assistants IA**, Campagnes, emails, sms, Ventes (pas de Sites démo ni Automatisations).
 
 La page **Assistants IA** (`web/app/pages/dashboard/ai-assistants.vue`) : KPIs (assistants actifs,
-contacts captés, dernier contact), cartes par assistant (langues, badge de contacts captés, Voir la
-démo, Copier le script, Personnaliser, Régénérer, Supprimer, **Générer / Voir la vidéo**) et la liste
-des contacts. Le clip présentateur « assistant » s'enregistre dans **Paramètres → Vidéo**
+demandes à traiter, dernière demande), cartes par assistant (langues, demandes 7 j / 30 j, % hors
+horaires, conversations 7 j, Voir la démo, Copier le script, Personnaliser, Régénérer, Supprimer,
+**Générer / Voir la vidéo**) et la section **Demandes** (onglets « À traiter » / « Toutes » ; type,
+hors horaires, photos, test, statut ; résumé ; « Marquer traitée », « Sans suite », « Rouvrir »). Le
+clip présentateur « assistant » s'enregistre dans **Paramètres → Vidéo**
 (`web/app/components/settings/AssistantPresenterClipCard.vue`). Le `ProspectDrawer` génère / ouvre
 l'assistant depuis un prospect selon le module actif.
 
@@ -225,7 +271,12 @@ modules dans le même projet PostHog. **Aucun** event côté dashboard (non inst
 
 | Rôle | Fichier |
 |---|---|
-| Modèle | `api/models/ai_assistant.py`, `api/models/ai_assistant_lead.py` |
+| Modèle | `api/models/ai_assistant.py`, `api/models/ai_assistant_request.py` (+ `ai_assistant_lead.py` historique) |
+| Demandes (capture, suivi, compteurs) | `api/services/ai_assistant/request_service.py` |
+| Typage + résumé d'une demande | `api/services/ai_assistant/request_analyzer.py` |
+| Email de résumé + lien signé | `api/services/ai_assistant/request_email.py`, `api/services/ai_assistant/request_links.py` |
+| Reprise des annonces perdues (boucle) | `api/services/ai_assistant/request_runner.py` |
+| Horaires d'ouverture (hors horaires) | `api/services/ai_assistant/opening_hours.py` |
 | Service génération / edit / régé | `api/services/ai_assistant/assistant_service.py` |
 | Config (accent, langues, persona) | `api/services/ai_assistant/config_builder.py` |
 | Fiche de connaissance | `api/services/ai_assistant/knowledge_builder.py` |

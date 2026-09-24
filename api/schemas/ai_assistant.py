@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus, AiAssistantRequestType
 
 
 class AiAssistantCreateRequest(BaseModel):
@@ -53,6 +54,10 @@ class AiAssistantResponse(BaseModel):
     # Visitor conversations journaled over the last 7 / 30 days (the owner's window once sold).
     conversations_7d: int = 0
     conversations_30d: int = 0
+    # Visitor requests over the last 7 / 30 days, and the share received outside the business hours.
+    requests_7d: int = 0
+    requests_30d: int = 0
+    requests_outside_hours_pct: int | None = None
     created_at: datetime
 
 
@@ -140,12 +145,16 @@ class AiAssistantChatResponse(BaseModel):
 
 
 class AiAssistantLeadRequest(BaseModel):
-    """A lead a visitor submits through the assistant widget."""
+    """A visitor's details submitted through the assistant widget — it becomes a request."""
 
-    name: str
-    contact: str
-    need: str | None = None
-    language: str | None = None
+    name: str = Field(..., max_length=255)
+    contact: str = Field(..., max_length=255)
+    need: str | None = Field(default=None, max_length=2000)
+    language: str | None = Field(default=None, max_length=8)
+    # The widget session, so the request links the conversation and a resubmission updates it.
+    session_id: str | None = Field(default=None, max_length=64)
+    # Set by the widget on a « ?internal=1 » visit (the operator testing): recorded, never announced.
+    internal: bool = False
 
 
 class AiAssistantLeadResponse(BaseModel):
@@ -172,6 +181,44 @@ class AiAssistantLeadsResponse(BaseModel):
     """The leads captured across the caller's assistants, newest first."""
 
     leads: list[AiAssistantLeadItem] = Field(default_factory=list)
+
+
+class AiAssistantRequestItem(BaseModel):
+    """One visitor request, for the owner's « Demandes » list."""
+
+    id: int
+    assistant_id: int
+    prospect_id: int | None = None
+    business_name: str
+    type: AiAssistantRequestType
+    status: AiAssistantRequestStatus
+    channel: AiAssistantRequestChannel
+    name: str
+    contact: str
+    need: str | None = None
+    need_summary: str | None = None
+    language: str | None = None
+    received_outside_hours: bool | None = None
+    is_test: bool = False
+    owner_note: str | None = None
+    photo_urls: list[str] = Field(default_factory=list)
+    created_at: datetime
+    handled_at: datetime | None = None
+
+
+class AiAssistantRequestsResponse(BaseModel):
+    """The caller's requests across their assistants, newest first."""
+
+    requests: list[AiAssistantRequestItem] = Field(default_factory=list)
+    # Real requests still waiting for handling (tests excluded), whatever the filter.
+    pending_count: int = 0
+
+
+class AiAssistantRequestUpdateRequest(BaseModel):
+    """Owner changes to a request (partial)."""
+
+    status: AiAssistantRequestStatus | None = None
+    owner_note: str | None = Field(default=None, max_length=2000)
 
 
 class AiAssistantConversationMessageItem(BaseModel):

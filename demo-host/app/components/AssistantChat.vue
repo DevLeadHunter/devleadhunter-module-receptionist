@@ -121,6 +121,7 @@ import type {
 import type { AssistantChatProps } from '~/types/AssistantChat'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
 import { AssistantPersonaUtils } from '~/utils/AssistantPersonaUtils'
+import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 
 const DEFAULT_LANG: AssistantWidgetLang = 'fr'
 const FALLBACK_ACCENT: string = '#a9793f'
@@ -424,9 +425,10 @@ async function send(): Promise<void> {
 }
 
 /**
- * Submit the visitor's contact details as a qualified lead.
+ * Submit the visitor's contact details: the API turns them into a request tied to this conversation.
+ * An internal visit (the owner testing) is sent as such so it is recorded without alerting anyone.
  *
- * @returns A promise resolved once the lead is sent.
+ * @returns A promise resolved once the request is sent.
  */
 async function submitLead(): Promise<void> {
   if (isSubmittingLead.value || !leadName.value.trim() || !leadContact.value.trim()) return
@@ -434,7 +436,14 @@ async function submitLead(): Promise<void> {
   try {
     await $fetch(`${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${props.config.slug}/lead`, {
       method: 'POST',
-      body: { name: leadName.value, contact: leadContact.value, need: leadNeed.value, language: lang.value },
+      body: {
+        name: leadName.value,
+        contact: leadContact.value,
+        need: leadNeed.value,
+        language: lang.value,
+        session_id: sessionId.value,
+        internal: DemoBeaconUtils.isInternalVisit(),
+      },
     })
     leadSent.value = true
     captureDemoEvent('assistant_lead_submitted')

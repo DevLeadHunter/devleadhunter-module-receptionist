@@ -11,7 +11,6 @@ from sqlalchemy.orm import sessionmaker
 
 import models
 from core.database import Base
-from models.ai_assistant_lead import AiAssistantLead
 from services.ai_assistant.assistant_service import ai_assistant_service
 
 # Load every model so SQLAlchemy can configure the mappers (relationships resolve across models).
@@ -112,22 +111,6 @@ def test_get_active_for_prospect_scopes_to_the_user_and_the_demo(db) -> None:
     mine.deleted_at = datetime.utcnow()
     db.commit()
     assert ai_assistant_service.get_active_for_prospect(db, prospect_id=42, user_id=1) is None
-
-
-def test_record_lead_persists_a_lead_attached_to_the_prospect(db) -> None:
-    """A lead carries the assistant's owner and prospect, with trimmed fields."""
-    assistant = ai_assistant_service.create(
-        db, user_id=7, business_name="LUMA Immobilier", prospect_id=42, country="LU", use_brand_color=False
-    )
-    lead = ai_assistant_service.record_lead(
-        db, assistant=assistant, name="  Marc Weber  ", contact="marc@example.lu", need="  Visiter le penthouse  "
-    )
-    assert lead.user_id == 7
-    assert lead.prospect_id == 42
-    assert lead.assistant_id == assistant.id
-    assert lead.name == "Marc Weber"
-    assert lead.need == "Visiter le penthouse"
-    assert db.query(AiAssistantLead).count() == 1
 
 
 def test_update_edits_persona_languages_and_accent(db) -> None:
