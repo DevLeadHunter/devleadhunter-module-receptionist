@@ -49,6 +49,8 @@
       />
       <p v-if="actionError" class="cs__notice cs__notice--error">{{ actionError }}</p>
 
+      <ClientSpaceAppointments v-if="space.appointments.length > 0" :appointments="space.appointments" />
+
       <ClientSpaceReport :report="space.report" :assistant-name="space.assistant_name" />
 
       <ClientSpaceSettings
@@ -86,15 +88,16 @@
         </template>
       </section>
 
-      <section class="cs-section">
-        <header class="cs-section__head">
-          <h2 class="cs-section__title">Connexions</h2>
-        </header>
-        <p class="cs-muted">
-          Agenda Google : bientôt, {{ space.assistant_name }} pourra réserver vos rendez-vous directement dans votre
-          agenda.
-        </p>
-      </section>
+      <ClientSpaceCalendar
+        :calendar="space.calendar"
+        :assistant-name="space.assistant_name"
+        :is-busy="isCalendarBusy"
+        :error-message="calendarError"
+        :has-saved="hasSavedCalendar"
+        @connect="connectCalendar"
+        @save="saveCalendar"
+        @disconnect="disconnectCalendar"
+      />
 
       <p class="cs__foot">
         Lien personnel, valable jusqu’au {{ space.link_expires_label }}. Ne le transférez pas : il donne accès à vos
@@ -108,6 +111,9 @@
 import type { ComputedRef, Ref } from 'vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type {
+  AiAssistantClientCalendar,
+  AiAssistantClientCalendarConnect,
+  AiAssistantClientCalendarUpdate,
   AiAssistantClientPortal,
   AiAssistantClientRenew,
   AiAssistantClientRenewState,
@@ -162,6 +168,11 @@ const hasSavedSettings: Ref<boolean> = ref(false)
 const isOpeningPortal: Ref<boolean> = ref(false)
 const portalError: Ref<string | null> = ref(null)
 const renewState: Ref<AiAssistantClientRenewState> = ref('idle')
+const isCalendarBusy: Ref<boolean> = ref(false)
+const calendarError: Ref<string | null> = ref(null)
+const hasSavedCalendar: Ref<boolean> = ref(false)
+// Google opened in another tab: the space reloads when the client comes back to this one.
+const isAwaitingCalendar: Ref<boolean> = ref(false)
 
 const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<string, string> => ({
   '--a-accent': space.value?.accent_color || '#a9793f',
@@ -311,6 +322,92 @@ async function renewLink(): Promise<void> {
 }
 
 /**
+ * Open Google's consent page in a new tab to connect the client's agenda.
+ * @returns A promise resolved once the tab is on its way to Google, or once the failure is shown.
+ */
+async function connectCalendar(): Promise<void> {
+  if (!space.value || isCalendarBusy.value) return
+  calendarError.value = null
+  // Opened before the call: a tab opened after an await is blocked as a pop-up. It never sees this page.
+  const tab: Window | null = window.open('about:blank', '_blank')
+  if (tab) tab.opener = null
+  isCalendarBusy.value = true
+  try {
+    const consent: AiAssistantClientCalendarConnect = await $fetch<AiAssistantClientCalendarConnect>(
+      `${endpoint.value}/calendar/connect`,
+      { method: 'POST' },
+    )
+    isAwaitingCalendar.value = true
+    if (tab) tab.location.href = consent.url
+    else window.location.assign(consent.url)
+  } catch (error: unknown) {
+    tab?.close()
+    if (!expireOn(error)) calendarError.value = detailOf(error) ?? 'Connexion indisponible, réessayez dans un instant.'
+  } finally {
+    isCalendarBusy.value = false
+  }
+}
+
+/**
+ * Save the booking settings the client changed.
+ * @param update The changed settings only.
+ * @returns A promise resolved once the API answered.
+ */
+async function saveCalendar(update: AiAssistantClientCalendarUpdate): Promise<void> {
+  const current: AiAssistantClientSpace | null = space.value
+  if (!current || isCalendarBusy.value) return
+  isCalendarBusy.value = true
+  calendarError.value = null
+  hasSavedCalendar.value = false
+  try {
+    current.calendar = await $fetch<AiAssistantClientCalendar>(`${endpoint.value}/calendar`, {
+      method: 'PATCH',
+      body: update,
+    })
+    hasSavedCalendar.value = true
+  } catch (error: unknown) {
+    if (!expireOn(error))
+      calendarError.value = detailOf(error) ?? 'Enregistrement impossible, réessayez dans un instant.'
+  } finally {
+    isCalendarBusy.value = false
+  }
+}
+
+/**
+ * Disconnect the agenda after a confirmation: appointments go back to requests the client confirms.
+ * @returns A promise resolved once the API answered.
+ */
+async function disconnectCalendar(): Promise<void> {
+  const current: AiAssistantClientSpace | null = space.value
+  if (!current || isCalendarBusy.value) return
+  const confirmed: boolean = window.confirm(
+    'Déconnecter votre agenda ? Les visiteurs choisiront des demi-journées et vous confirmerez vous-même.',
+  )
+  if (!confirmed) return
+  isCalendarBusy.value = true
+  calendarError.value = null
+  try {
+    current.calendar = await $fetch<AiAssistantClientCalendar>(`${endpoint.value}/calendar`, { method: 'DELETE' })
+  } catch (error: unknown) {
+    if (!expireOn(error)) calendarError.value = detailOf(error) ?? 'Déconnexion impossible, réessayez dans un instant.'
+  } finally {
+    isCalendarBusy.value = false
+  }
+}
+
+/** Reload the space when the client comes back from the Google tab. */
+async function onVisibilityChange(): Promise<void> {
+  if (document.visibilityState !== 'visible' || !isAwaitingCalendar.value) return
+  try {
+    const fresh: AiAssistantClientSpace = await $fetch<AiAssistantClientSpace>(endpoint.value)
+    space.value = fresh
+    if (fresh.calendar.status === 'connected') isAwaitingCalendar.value = false
+  } catch (error: unknown) {
+    expireOn(error)
+  }
+}
+
+/**
  * Unlock the portal button when the browser restores this page from its back-forward cache.
  * @param event - The page-show event.
  */
@@ -330,10 +427,12 @@ watch(
 
 onMounted((): void => {
   window.addEventListener('pageshow', onPageShow)
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
 
 onBeforeUnmount((): void => {
   window.removeEventListener('pageshow', onPageShow)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 
 useHead({

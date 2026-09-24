@@ -4,7 +4,8 @@ import logging
 from datetime import UTC, datetime
 
 import stripe
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from api.v1.routes.ai_assistants import client_ip
@@ -13,10 +14,15 @@ from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequ
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
 from enums.assistant_widget_language import AssistantWidgetLanguage
 from models.ai_assistant import AiAssistant
+from models.ai_assistant_appointment import AiAssistantAppointment
 from models.ai_assistant_report import AiAssistantReport
 from models.ai_assistant_request import AiAssistantRequest
 from models.ai_assistant_subscription import AiAssistantSubscription
 from schemas.ai_assistant_client_space import (
+    AiAssistantClientAppointmentItem,
+    AiAssistantClientCalendar,
+    AiAssistantClientCalendarConnect,
+    AiAssistantClientCalendarUpdate,
     AiAssistantClientLanguageOption,
     AiAssistantClientPortalResponse,
     AiAssistantClientRenewResponse,
@@ -29,12 +35,20 @@ from schemas.ai_assistant_client_space import (
 )
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
 from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.calendar_service import (
+    DURATION_CHOICES,
+    MIN_NOTICE_CHOICES,
+    CalendarSettings,
+    ai_assistant_calendar_service,
+)
 from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
 from services.ai_assistant.client_space_service import ClientSpaceAccessError, ai_assistant_client_space_service
+from services.ai_assistant.google_calendar_client import GoogleCalendarError
 from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.report_email import AiAssistantReportEmail, MonthlyStats
 from services.ai_assistant.request_alerts import AlertSettings
+from services.ai_assistant.request_email import AiAssistantRequestEmail
 from services.ai_assistant.request_service import ai_assistant_request_service
 from services.assistant_pricing_service import AssistantPricingService
 from services.french_date_formatter import FrenchDateFormatter
@@ -73,7 +87,7 @@ def _open(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ce lien n'ouvre aucun espace.") from exc
 
 
-def _to_request_item(record: AiAssistantRequest) -> AiAssistantClientRequestItem:
+def _to_request_item(record: AiAssistantRequest, booked: str | None = None) -> AiAssistantClientRequestItem:
     return AiAssistantClientRequestItem(
         id=record.id,
         type=AiAssistantRequestType(record.type),
@@ -85,6 +99,35 @@ def _to_request_item(record: AiAssistantRequest) -> AiAssistantClientRequestItem
         received_outside_hours=record.received_outside_hours,
         photo_urls=ai_assistant_request_service.photo_urls(record),
         appointment_slots=AiAssistantAppointmentSlots.labels(record.appointment_slots_json),
+        appointment_booked=booked,
+    )
+
+
+def _to_calendar(db: Session, assistant: AiAssistant) -> AiAssistantClientCalendar:
+    state, calendar = ai_assistant_calendar_service.connection(db, assistant)
+    booking = CalendarSettings.of(calendar) if calendar is not None else CalendarSettings.defaults()
+    return AiAssistantClientCalendar(
+        status=state,
+        account_email=calendar.account_email if calendar is not None else None,
+        calendar_id=booking.calendar_id,
+        duration_minutes=booking.duration_minutes,
+        min_notice_hours=booking.min_notice_hours,
+        appointment_types=list(booking.appointment_types),
+        last_error=calendar.last_error if calendar is not None else None,
+        duration_choices=list(DURATION_CHOICES),
+        min_notice_choices=list(MIN_NOTICE_CHOICES),
+    )
+
+
+def _to_appointment(
+    appointment: AiAssistantAppointment, record: AiAssistantRequest
+) -> AiAssistantClientAppointmentItem:
+    return AiAssistantClientAppointmentItem(
+        id=appointment.id,
+        start_label=ai_assistant_calendar_service.start_label(appointment),
+        type_label=appointment.type_label,
+        name=record.name,
+        contact=record.contact,
     )
 
 
@@ -139,15 +182,15 @@ async def get_client_space(
     assistant, link = _open(db, token, request)
     report = ai_assistant_client_space_service.latest_report(db, assistant)
     subscription = ai_assistant_client_space_service.current_subscription(db, assistant)
+    records = ai_assistant_client_space_service.recent_requests(db, assistant)
+    booked = ai_assistant_calendar_service.booked_labels(db, [record.id for record in records])
     return AiAssistantClientSpaceResponse(
         business_name=assistant.business_name,
         assistant_name=assistant.assistant_name,
         accent_color=ai_assistant_service.accent_color(assistant),
         link_expires_label=_business_label(link.expires_at, "%d/%m/%Y"),
         pending_count=ai_assistant_client_space_service.pending_count(db, assistant),
-        requests=[
-            _to_request_item(record) for record in ai_assistant_client_space_service.recent_requests(db, assistant)
-        ],
+        requests=[_to_request_item(record, booked.get(record.id)) for record in records],
         report=_to_report(report) if report is not None else None,
         settings=_to_settings(assistant),
         language_options=[
@@ -155,6 +198,11 @@ async def get_client_space(
             for language in AssistantWidgetLanguage
         ],
         subscription=_to_subscription(subscription) if subscription is not None else None,
+        calendar=_to_calendar(db, assistant),
+        appointments=[
+            _to_appointment(appointment, record)
+            for appointment, record in ai_assistant_calendar_service.upcoming(db, assistant)
+        ],
     )
 
 
@@ -167,7 +215,7 @@ async def mark_client_request_handled(
     record = ai_assistant_client_space_service.mark_handled(db, assistant, request_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demande introuvable")
-    return _to_request_item(record)
+    return _to_request_item(record, ai_assistant_calendar_service.booked_labels(db, [record.id]).get(record.id))
 
 
 @router.patch("/client/{token}/settings", response_model=AiAssistantClientSettings)
@@ -219,3 +267,83 @@ async def renew_client_link(
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=_TOO_MANY)
     delivery = await ai_assistant_client_space_service.issue_link(db, assistant, send=True)
     return AiAssistantClientRenewResponse(sent=delivery.sent_to is not None)
+
+
+@router.post("/client/{token}/calendar/connect", response_model=AiAssistantClientCalendarConnect)
+async def connect_client_calendar(
+    token: str, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantClientCalendarConnect:
+    """The Google consent page that connects the client's agenda (the page opens it in a new tab)."""
+    assistant, _link = _open(db, token, request)
+    try:
+        url = ai_assistant_calendar_service.authorization_url(assistant)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    return AiAssistantClientCalendarConnect(url=url)
+
+
+@router.patch("/client/{token}/calendar", response_model=AiAssistantClientCalendar)
+async def update_client_calendar(
+    token: str, payload: AiAssistantClientCalendarUpdate, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantClientCalendar:
+    """Change the booking settings: agenda, duration, minimum notice, kinds of appointment."""
+    assistant, _link = _open(db, token, request)
+    calendar = ai_assistant_calendar_service.calendar_of(db, assistant)
+    if calendar is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucun agenda connecté")
+    try:
+        await ai_assistant_calendar_service.update_settings(db, calendar, payload.model_dump(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    return _to_calendar(db, assistant)
+
+
+@router.delete("/client/{token}/calendar", response_model=AiAssistantClientCalendar)
+async def disconnect_client_calendar(
+    token: str, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantClientCalendar:
+    """Disconnect the agenda (its tokens are deleted); appointments go back to wished half-days."""
+    assistant, _link = _open(db, token, request)
+    ai_assistant_calendar_service.disconnect(db, assistant)
+    return _to_calendar(db, assistant)
+
+
+@router.get("/calendar/google/callback", response_class=HTMLResponse)
+async def google_calendar_callback(
+    request: Request,
+    code: str = Query(default=""),
+    state: str = Query(default=""),
+    error: str = Query(default=""),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Where Google sends the client back: the agenda is stored, then a page to close (it carries no link)."""
+    if not assistant_client_limiter.allow(f"client:{client_ip(request)}"):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=_TOO_MANY)
+    if error or not code:
+        return _calendar_page(
+            "Connexion annulée", "L'agenda n'est pas connecté. Fermez cet onglet et recommencez depuis votre espace."
+        )
+    try:
+        assistant, calendar = await ai_assistant_calendar_service.connect(db, code=code, state=state)
+    except ValueError as exc:
+        return _calendar_page("Connexion impossible", f"{exc}. Fermez cet onglet et recommencez depuis votre espace.")
+    except GoogleCalendarError:
+        logger.warning("Google refused an agenda consent code", exc_info=True)
+        return _calendar_page(
+            "Connexion impossible",
+            "Google n'a pas confirmé la connexion. Fermez cet onglet et recommencez depuis votre espace.",
+        )
+    await ai_assistant_client_space_service.announce_calendar_connected(db, assistant, calendar.account_email)
+    account = f" ({calendar.account_email})" if calendar.account_email else ""
+    return _calendar_page(
+        "Google Agenda est connecté",
+        f"{assistant.assistant_name} réservera désormais les rendez-vous de {assistant.business_name} dans cet "
+        f"agenda{account}. Vous pouvez fermer cet onglet et revenir à votre espace.",
+    )
+
+
+def _calendar_page(title: str, message: str) -> HTMLResponse:
+    """The small page shown after the Google consent (no token, nothing to leak)."""
+    return HTMLResponse(
+        AiAssistantRequestEmail.confirmation_page(title, message), headers={"Referrer-Policy": "no-referrer"}
+    )

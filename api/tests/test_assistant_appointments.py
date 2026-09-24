@@ -416,7 +416,7 @@ def test_the_email_lists_the_wished_half_days() -> None:
 def test_the_public_slots_route_serves_the_offer(db: Session, public_routes: list[int]) -> None:
     assistant = _assistant(db, status="active")
 
-    offer = asyncio.run(routes.get_assistant_appointment_slots(assistant.slug, _VISITOR, db))
+    offer = asyncio.run(routes.get_assistant_appointment_slots(assistant.slug, _VISITOR, after=None, db=db))
 
     assert offer.max_chosen == 2
     assert [(item.date, item.periods) for item in offer.days][:2] == [
@@ -424,7 +424,7 @@ def test_the_public_slots_route_serves_the_offer(db: Session, public_routes: lis
         (date(2026, 9, 22), [_AFTERNOON]),
     ]
     with pytest.raises(HTTPException) as missing:
-        asyncio.run(routes.get_assistant_appointment_slots("inconnu", _VISITOR, db))
+        asyncio.run(routes.get_assistant_appointment_slots("inconnu", _VISITOR, after=None, db=db))
     assert missing.value.status_code == 404
 
 

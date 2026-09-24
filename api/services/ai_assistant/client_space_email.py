@@ -56,6 +56,37 @@ class AiAssistantClientSpaceEmail:
         )
 
     @staticmethod
+    def render_calendar_connected(
+        *, assistant_name: str, business_name: str, account_email: str | None
+    ) -> RenderedEmail:
+        """
+        Render the notice sent to the business address when a Google agenda is connected from the client space.
+
+        Args:
+            assistant_name: The assistant's first name.
+            business_name: The business.
+            account_email: The connected Google account, when Google told it.
+
+        Returns:
+            Subject and HTML body; every stored text is HTML-escaped.
+        """
+        name = html.escape(assistant_name)
+        account = f" (<strong>{html.escape(account_email)}</strong>)" if account_email else ""
+        body = "".join(
+            [
+                AiAssistantRequestEmail.paragraph(
+                    f"Un agenda Google{account} vient d'être connecté à <strong>{name}</strong>, la réceptionniste "
+                    f"de <strong>{html.escape(business_name)}</strong>. Les visiteurs de votre site y réservent "
+                    "désormais leurs rendez-vous, sur vos créneaux libres et dans vos horaires."
+                ),
+                AiAssistantRequestEmail.paragraph(
+                    "Si ce n'est pas vous, répondez tout de suite à cet email : nous déconnecterons cet agenda.",
+                ),
+            ]
+        )
+        return RenderedEmail(subject="Votre agenda Google est connecté", html=AiAssistantRequestEmail.document(body))
+
+    @staticmethod
     def render_alert_phone_changed(*, assistant_name: str, new_phone: str | None) -> RenderedEmail:
         """
         Render the notice sent to the business address when the alert mobile changes from the client space.

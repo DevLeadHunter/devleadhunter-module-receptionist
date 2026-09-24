@@ -40,6 +40,8 @@ class RequestEmailContent:
     client_space_url: str | None = None
     # Half-days wished for an appointment, in French (« lun. 28/09, matin »).
     appointment_slots: tuple[str, ...] = ()
+    # The appointment booked in the business's agenda (« mar. 29/09 à 14:30 (Révision) »).
+    appointment_booked: str | None = None
 
 
 @dataclass(frozen=True)
@@ -80,6 +82,8 @@ class AiAssistantRequestEmail:
             Subject and HTML body; every visitor-provided text is HTML-escaped.
         """
         label = cls.type_label(content.request_type)
+        if content.appointment_booked and content.request_type != AiAssistantRequestType.URGENT:
+            label = "Rendez-vous réservé"
         subject = f"{label} — {content.visitor_name}"
         if content.received_outside_hours:
             subject += " (hors horaires)"
@@ -104,6 +108,15 @@ class AiAssistantRequestEmail:
         ]
         if summary:
             sections.append(cls._block("Ce qu'il faut savoir", html.escape(summary)))
+        if content.appointment_booked:
+            sections.append(
+                cls._block(
+                    "Dans votre agenda",
+                    f"{html.escape(content.appointment_booked)}<br/>"
+                    '<span style="color:#666">Réservé par votre réceptionniste, sur un créneau libre de votre '
+                    "agenda.</span>",
+                )
+            )
         if content.appointment_slots:
             wished = "<br/>".join(html.escape(label) for label in content.appointment_slots)
             sections.append(cls._block("Créneaux souhaités (à confirmer)", wished))

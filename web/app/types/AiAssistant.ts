@@ -142,7 +142,8 @@ export type AiAssistantRequestChannel = 'site' | 'email' | 'photo'
 
 /**
  * A request a visitor left through an assistant, typed and summarized for the owner; `appointment_slots` are the
- * wished half-days of an appointment request, in French (« lun. 28/09, matin »).
+ * wished half-days of an appointment request, in French (« lun. 28/09, matin »), and `appointment_booked` the
+ * appointment booked in the client's agenda (« mar. 29/09 à 14:30 (Révision) »).
  */
 export type AiAssistantRequestItem = {
   id: number
@@ -162,6 +163,7 @@ export type AiAssistantRequestItem = {
   owner_note: string | null
   photo_urls: string[]
   appointment_slots: string[]
+  appointment_booked: string | null
   created_at: string
   handled_at: string | null
 }

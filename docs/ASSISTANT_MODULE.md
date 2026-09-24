@@ -75,7 +75,9 @@ plutôt que d'échouer. Modèle via `llm_service` (Groq).
 Le prompt (`knowledge_builder.render_system_prompt`) porte aussi la **date et l'heure locales** de
 l'entreprise (heure de Paris, commune aux pays ciblés) pour répondre à « ouvert aujourd'hui ? » depuis
 les horaires, interdit de laisser entendre qu'un **service absent de la fiche** existe (livraison,
-réservation, devis…), et accorde son vocabulaire au **genre de la persona**, déduit du prénom
+réservation, devis…), renvoie les demandes de rendez-vous vers le calendrier du widget (bouton « Prendre
+rendez-vous » ; l'assistante ne propose ni ne confirme jamais elle-même une date), et accorde son vocabulaire
+au **genre de la persona**, déduit du prénom
 (`config_builder.resolve_persona_gender`, liste `masculine_first_names.py`, féminin par défaut). Ce genre
 est exposé dans la config publique (`assistant_gender`) pour les textes du widget et des pages démo.
 
@@ -96,9 +98,9 @@ est exposé dans la config publique (`assistant_gender`) pour les textes du widg
 | `DELETE` | `/ai-assistants/{id}/video` | Supprimer la vidéo générée |
 | `DELETE` | `/ai-assistants/{id}` | Supprimer (soft-delete) |
 | `GET` | `/ai-assistants/public/{slug}` | Config publique du widget (+ vidéo si prête) |
-| `POST` | `/ai-assistants/public/{slug}/chat` | Réponse groundée à un message |
-| `GET` | `/ai-assistants/public/{slug}/appointment-slots` | Demi-journées ouvertes proposées pour un rendez-vous (`days`, `max_chosen`) |
-| `POST` | `/ai-assistants/public/{slug}/lead` | Capturer une demande (coordonnées + `session_id` + `internal` + `slots` : 2 demi-journées au plus ; 422 si l'une n'est plus proposée) |
+| `POST` | `/ai-assistants/public/{slug}/chat` | Réponse groundée à un message (+ `offer_booking` quand le visiteur demande un rendez-vous) |
+| `GET` | `/ai-assistants/public/{slug}/appointment-slots` | Offre de rendez-vous : créneaux libres de l'agenda (`mode: calendar`, `times` 3 par page, `after` pour la suite, `types`) ou demi-journées ouvertes (`mode: request`, `days`, `max_chosen`) |
+| `POST` | `/ai-assistants/public/{slug}/lead` | Capturer une demande (coordonnées + `session_id` + `internal` + `slots` : 2 demi-journées au plus, ou `booking` : un créneau de l'agenda ; 422 si le créneau n'est plus proposé, 409 s'il vient d'être pris ; `booked_start` quand c'est réservé) |
 | `POST` | `/ai-assistants/public/{slug}/photo` | Photo pour un devis (multipart : `file`, `session_id`, `language`, `internal`) |
 | `GET` | `/ai-assistants/public/requests/{id}/handled` | Lien signé de l'email de résumé : page de confirmation (ne change rien) |
 | `POST` | `/ai-assistants/public/requests/{id}/handled` | Même lien signé : marque la demande traitée (bouton de la page) |
@@ -109,6 +111,10 @@ est exposé dans la config publique (`assistant_gender`) pour les textes du widg
 | `PATCH` | `/ai-assistants/client/{token}/settings` | Prénom, langues, mobile d'alerte, SMS / email oui-non |
 | `POST` | `/ai-assistants/client/{token}/billing-portal` | Session du portail Stripe Billing (retour sur l'espace) |
 | `POST` | `/ai-assistants/client/{token}/renew` | Depuis un lien expiré : nouveau lien envoyé à l'adresse du commerçant |
+| `POST` | `/ai-assistants/client/{token}/calendar/connect` | Page de consentement Google de l'agenda (503 si Google n'est pas configuré) |
+| `PATCH` | `/ai-assistants/client/{token}/calendar` | Réglages de réservation : durée, délai minimum, types de rendez-vous, agenda |
+| `DELETE` | `/ai-assistants/client/{token}/calendar` | Déconnecter l'agenda (accès révoqué chez Google) |
+| `GET` | `/ai-assistants/calendar/google/callback` | Retour de Google : l'agenda est enregistré, puis une page « fermez cet onglet » |
 
 Les endpoints publics du widget sont **rate-limités par IP** (`services/rate_limiter.py`) : chat
 30 / 300 s, créneaux 30 / 300 s (compteur à part), lead 8 / 300 s, photo 6 / 600 s (fenêtre glissante en
@@ -147,6 +153,12 @@ C'est le **produit** que le client colle sur son site. Il porte :
   le widget le dit et recharge les créneaux. Dates dans la langue du widget (`Intl.DateTimeFormat`).
   Pendant le choix des créneaux et le formulaire, les suggestions et « Être rappelé » s'effacent : le
   panneau tient dans l'iframe de 440 × 680 (la liste des jours défile, les boutons restent visibles).
+- **Rendez-vous dans l'agenda** (assistant vendu dont le client a connecté Google Agenda) : le même
+  panneau montre les 3 prochains créneaux libres (« Autres créneaux » pour la suite) et, si le client en a
+  défini, les types de rendez-vous ; le visiteur en choisit un, laisse ses coordonnées, et c'est réservé
+  (« C'est réservé : mer. 30 sept., 08:00 (Contrôle technique). »). Heures toujours affichées à l'heure du
+  commerce (`Europe/Paris`). Créneau pris entre-temps : message, puis nouvelle offre. Quand le visiteur
+  demande un rendez-vous dans le chat (`offer_booking`), le panneau s'ouvre de lui-même, une fois par visite.
 - **Embarqué** : quand il tourne en iframe, il envoie `postMessage` pour se redimensionner entre la
   bulle fermée et le panneau ouvert.
 
@@ -332,7 +344,8 @@ Seulement pour un assistant **vendu** (`delivered`) ; une démo n'alerte que l'o
 - **SMS** : 1 segment GSM-7, sans mention STOP (message de service, pas de prospection) mais la liste
   STOP de l'owner est respectée. Texte : « Nouvelle demande de devis (photo) de Marc, 06… : résumé.
   Suivi : demo.dibodev.fr/client/… » (les créneaux souhaités d'un rendez-vous suivent le contact : « 06…, pour
-  mar. 22/09 après-midi ») ; le contact reste entier, le résumé est coupé au mot, et le lien
+  mar. 22/09 après-midi » ; un rendez-vous réservé dans l'agenda ouvre le SMS : « RDV réservé le jeu. 24/09 à
+  14:00 (Révision) par Julie, 06… ») ; le contact reste entier, le résumé est coupé au mot, et le lien
   de l'espace client n'est ajouté que s'il laisse au moins 30 caractères de résumé (le résumé passe avant). Envoyé par le nom d'expéditeur SMS de
   l'owner (Paramètres → Relance SMS) et enregistré dans `sms_messages` sans prospect, avec
   `kind = service` (`SmsService.send_service_message`) : coût suivi sur la page SMS, prospect jamais marqué
@@ -411,7 +424,8 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
   gardées, mobile d'alerte, SMS et email oui / non, via le même `ai_assistant_service.update` que le
   dashboard), l'abonnement (prix figé, statut, fin de période, résiliation programmée) avec le portail
   Stripe Billing (`billing_portal.Session.create`, retour sur l'espace ; ses options se règlent dans
-  Stripe, Settings → Billing → Customer portal). Section Connexions réservée à l'agenda.
+  Stripe, Settings → Billing → Customer portal), les prochains rendez-vous réservés et la section
+  Connexions (Google Agenda, section suivante).
 - **Mobile d'alerte** : depuis l'espace, seulement un mobile de France, Belgique, Luxembourg, Suisse ou
   Allemagne ; tout changement est annoncé par email à l'adresse du commerçant (que l'espace ne modifie
   pas, seuls les 2 derniers chiffres y figurent) et inscrit au journal d'activité de l'owner.
@@ -420,6 +434,70 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
   jusqu'à la fin de la période payée.
 - **Page** : couleur d'accent du client, typographie de `/ia`, `noindex` et `referrer: no-referrer` (le
   jeton ne fuit pas vers les photos ouvertes), pas de suivi PostHog.
+
+## Rendez-vous dans Google Agenda (`services/ai_assistant/calendar_service.py`)
+
+Pour un assistant **vendu** : son client connecte son propre Google Agenda depuis l'espace client, et le
+widget y réserve les rendez-vous. Sans agenda utilisable, tout retombe sur les demi-journées souhaitées
+(section Demandes).
+
+- **Connexion** (`google_calendar_client.py`) : bouton « Connecter Google Agenda » de l'espace client,
+  consentement Google dans un nouvel onglet (la page d'origine se recharge quand on y revient). Accès demandés :
+  l'adresse du compte, `calendar.events` (créer l'événement) et `calendar.freebusy` (les disponibilités : la
+  requête freeBusy n'accepte pas `calendar.events`), hors ligne. Le `state` OAuth est signé (HMAC de
+  `SECRET_KEY`, assistant + expiration 15 min) et ne porte aucun lien ; le retour
+  (`GOOGLE_CALENDAR_REDIRECT_URI`, à déclarer dans la console Google) affiche une page « fermez cet onglet ».
+  Un consentement où l'une des deux permissions de l'agenda a été décochée n'enregistre rien. Jetons chiffrés
+  (`encryption_service`) dans `ai_assistant_calendars`, une ligne par assistant ; le jeton d'accès est
+  rafraîchi deux minutes avant son expiration et enregistré aussitôt. Chaque connexion est annoncée par email à
+  l'adresse du commerçant et inscrite au journal d'activité de l'owner ; reconnecter un autre compte Google
+  repart de son agenda principal. Déconnexion : les jetons sont effacés ici, sans révocation chez Google (une
+  révocation couvre toute l'autorisation du compte, qui peut servir ailleurs) ; l'espace client indique comment
+  retirer l'accès depuis le compte Google.
+- **Réglages** (espace client) : durée d'un rendez-vous (15 min à 3 h, défaut 1 h), délai minimum avant un
+  rendez-vous (0 à 72 h, défaut 24 h), jusqu'à 6 types de rendez-vous (« Révision », « Contrôle technique » ;
+  le visiteur en choisit un), agenda utilisé (`primary` ou l'identifiant d'un autre agenda du compte, vérifié
+  auprès de Google avant d'être enregistré). Le dernier problème rencontré avec l'agenda (lecture seule,
+  introuvable, Google muet) s'affiche dans l'espace client jusqu'à la réservation suivante.
+- **Offre** : départs toutes les 30 minutes (15 pour les rendez-vous de moins de 30 min), de 6 h à 21 h 30 ;
+  un créneau est libre s'il tient entièrement dans les horaires (sondés tous les quarts d'heure ; jour sans
+  horaire lisible : lundi-vendredi 9 h-12 h, 14 h-18 h), après le délai minimum, sur 21 jours, sans toucher une
+  période occupée de Google (freeBusy, gardé une minute par agenda) ni un rendez-vous déjà réservé ici. Le
+  widget reçoit le premier créneau libre de chaque demi-journée, trois par page.
+- **Réservation** (`POST …/lead` avec `booking`) : la demande est d'abord enregistrée (le contact n'est jamais
+  perdu), puis le créneau est revérifié (grille, délai, horaires, rendez-vous locaux, freeBusy frais). Les
+  réservations d'un agenda passent une à une (verrou en mémoire : l'API tourne sur un seul worker) et aucun
+  verrou ni écriture de base n'est tenu pendant que Google répond : l'événement est créé d'abord, avec un
+  identifiant tiré de la demande et du créneau (une seconde tentative après une réponse perdue retrouve le
+  même), puis le rendez-vous est enregistré. Titre « Révision — Julie Roux », le contact et le besoin en notes ;
+  une visite `?internal=1` crée un événement « [Test] … ». Une demande n'a qu'un rendez-vous : une nouvelle
+  réservation de la même visite renvoie le premier. La demande devient `appointment` (sauf urgence). Au-delà de
+  20 réservations en 24 h pour un assistant, les choix deviennent des demi-journées souhaitées et aucun message
+  ne part vers un visiteur (garde-fou contre un script qui réserverait tout et ferait partir des SMS).
+- **Repli** : Google injoignable ou accès perdu au moment de réserver, la demande garde la demi-journée du
+  créneau choisi et le commerce confirme ; un accès perdu (401, `invalid_grant`, permissions manquantes) passe
+  l'agenda en « à reconnecter » (journal d'activité de l'owner) et le widget propose les demi-journées.
+- **Le visiteur** (`appointment_notices.py`) : confirmation par SMS s'il a laissé un mobile de France,
+  Belgique, Luxembourg, Suisse ou Allemagne (lu comme un numéro du pays du commerce), sinon par email avec le
+  fichier `rendez-vous.ics` ; ni l'un ni l'autre : rien ne part et le widget ne promet pas de confirmation (le
+  journal d'activité le note). Textes dans la langue du widget
+  (français, néerlandais, anglais, allemand ; le luxembourgeois lit le français) : « Garage Morel : votre
+  rendez-vous du jeu. 24/09 à 14:00 (Révision) est confirmé. Empêché ? Appelez le 03 83 12 34 56. » Puis le
+  **rappel J-1** : 24 h avant, ramené entre 9 h et 19 h, par SMS (email « Rappel : … c'est demain » sans
+  mobile) ; pas de rappel pour un rendez-vous réservé moins de 2 h avant l'heure du rappel. Le rappel ne part
+  que la veille, entre 9 h et 20 h : une boucle arrêtée qui repart la nuit attend le matin, et le lendemain le
+  rappel est abandonné (il dirait « demain » le jour même). SMS d'un segment, en message de service par
+  l'expéditeur de l'owner ; l'email part de l'identité d'envoi de l'owner et dit de ne pas y répondre (la
+  réponse irait à l'opérateur) mais d'appeler le commerce. Chaque message est réservé sur sa ligne avant
+  l'envoi (jamais deux fois) ; la boucle de 5 min renvoie une confirmation perdue (réservation de plus de
+  2 min et de moins d'un jour) et envoie les rappels dus, jamais à moins d'une heure du rendez-vous. Un échec
+  est inscrit au journal d'activité.
+- **Le commerçant** : l'alerte R10 dit « RDV réservé le jeu. 24/09 à 14:00 (Révision) par Julie Roux, 06… »
+  (SMS) et « Rendez-vous réservé » avec un bloc « Dans votre agenda » (email) ; le dashboard, l'espace client
+  (demandes et « Prochains rendez-vous ») affichent le rendez-vous.
+- **Vérification Google** : les accès `calendar.events` et `calendar.freebusy` sont des accès sensibles ;
+  tant que l'application Google n'est pas vérifiée, l'écran de consentement affiche un avertissement et, en
+  mode « Test », les jetons expirent au bout de 7 jours (R15).
 
 ## Intégration campagnes
 
@@ -526,6 +604,9 @@ modules dans le même projet PostHog. **Aucun** event côté dashboard (non inst
 | Alertes au commerçant (email, SMS, rappel, signal 48 h) | `api/services/ai_assistant/request_alerts.py` |
 | Horaires d'ouverture (hors horaires) | `api/services/ai_assistant/opening_hours.py` |
 | Créneaux d'une demande de rendez-vous (sans agenda) | `api/services/ai_assistant/appointment_slots.py` |
+| Google Agenda (connexion, créneaux libres, réservation) | `api/services/ai_assistant/calendar_service.py`, `google_calendar_client.py`, `api/models/ai_assistant_calendar.py`, `ai_assistant_appointment.py` |
+| Confirmation et rappel J-1 au visiteur | `api/services/ai_assistant/appointment_notices.py` |
+| Agenda et rendez-vous dans l'espace client | `demo-host/app/components/ClientSpaceCalendar.vue`, `ClientSpaceAppointments.vue` |
 | Service génération / edit / régé | `api/services/ai_assistant/assistant_service.py` |
 | Config (accent, langues, persona) | `api/services/ai_assistant/config_builder.py` |
 | Fiche de connaissance | `api/services/ai_assistant/knowledge_builder.py` |

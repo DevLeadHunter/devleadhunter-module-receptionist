@@ -26,9 +26,10 @@ export interface AssistantChatMessage {
   content: string
 }
 
-/** The assistant's reply to a chat request. */
+/** The assistant's reply to a chat request; `offer_booking` when the visitor asks for an appointment. */
 export interface AssistantChatReply {
   reply: string
+  offer_booking: boolean
 }
 
 /** Localized labels for the lead-capture form. */
@@ -75,10 +76,37 @@ export type AssistantAppointmentDay = {
   periods: AssistantDayPeriod[]
 }
 
-/** The next open half-days served by the API, and how many a visitor may pick. */
+/** How the widget takes an appointment: booked in the business's agenda, or half-days the business confirms. */
+export type AssistantBookingMode = 'calendar' | 'request'
+
+/** A free slot of the business's agenda (ISO moments with their offset). */
+export type AssistantAppointmentTime = {
+  start: string
+  end: string
+}
+
+/**
+ * What the appointment panel offers: free slots of the agenda (`calendar`, three at a time, `types` to pick
+ * from) or open half-days (`request`, `max_chosen` of them).
+ */
 export type AssistantAppointmentSlots = {
+  mode: AssistantBookingMode
   days: AssistantAppointmentDay[]
   max_chosen: number
+  times: AssistantAppointmentTime[]
+  has_more: boolean
+  types: string[]
+  duration_minutes: number | null
+}
+
+/**
+ * The API's answer to a request; `booked_start` when the appointment was booked in the agenda, and how the
+ * visitor gets its confirmation (none without a mobile of the served countries nor an email).
+ */
+export type AssistantLeadReply = {
+  ok: boolean
+  booked_start: string | null
+  confirmation_channel: 'sms' | 'email' | null
 }
 
 /** A half-day the visitor picked. */
@@ -92,12 +120,22 @@ export type AssistantSlotsState = 'idle' | 'loading' | 'ready' | 'error'
 
 /**
  * Localized texts of the appointment chip, button and slot panel. `periods` label the buttons, `periodsInline`
- * the half-days inside a sentence; `sent` carries a `{slots}` placeholder.
+ * the half-days inside a sentence; `sent` and `booked` carry a `{slots}` placeholder, `bookedSms` / `bookedEmail`
+ * follow `booked` when a confirmation leaves.
  */
 export type AssistantAppointmentLabels = {
   chip: string
   button: string
   title: string
+  titleCalendar: string
+  kind: string
+  more: string
+  appointment: string
+  booked: string
+  bookedSms: string
+  bookedEmail: string
+  first: string
+  taken: string
   periods: Record<AssistantDayPeriod, string>
   periodsInline: Record<AssistantDayPeriod, string>
   next: string

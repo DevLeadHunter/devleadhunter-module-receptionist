@@ -5,11 +5,13 @@ the system prompt forbids inventing anything, and the model answers in the visit
 the model is unavailable, a safe fallback keeps the conversation alive instead of failing.
 """
 
+import re
 from typing import Any
 
 from enums.assistant_llm import AssistantLlmUsage
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.llm_router import assistant_llm_router
+from services.text_normalizer import TextNormalizer
 
 MAX_HISTORY_MESSAGES = 12
 MAX_MESSAGE_CHARS = 2000
@@ -21,8 +23,29 @@ _FALLBACK_REPLY = (
 )
 
 
+# Asking for an appointment, in the widget's languages (accent-free, lower case). « termin » alone: the French
+# « terminé » folds to « termine ».
+_APPOINTMENT_INTENT = re.compile(
+    r"\b(rendez[- ]?vous|rdv|creneaux?|reserver|reservation|afspraak|afspraken|reserveren|reservatie|"
+    r"termin|terminvereinbarung|reservieren|appointment|appointments|booking|book)\b"
+)
+
+
 class AiAssistantChatService:
     """Turns a visitor's message into a grounded, multilingual reply from the prospect's assistant."""
+
+    @staticmethod
+    def asks_for_appointment(message: str) -> bool:
+        """
+        Whether a visitor's message asks for an appointment (the widget then opens its appointment panel).
+
+        Args:
+            message: The visitor's latest message.
+
+        Returns:
+            True when it names an appointment, a slot or a booking.
+        """
+        return _APPOINTMENT_INTENT.search(TextNormalizer.fold(message or "")) is not None
 
     async def answer(
         self,

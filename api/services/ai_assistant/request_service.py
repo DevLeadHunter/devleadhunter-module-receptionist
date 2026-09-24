@@ -25,6 +25,7 @@ from core.database import SessionLocal
 from enums.ai_assistant_photo import AiAssistantPhotoUrgency
 from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus, AiAssistantRequestType
 from models.ai_assistant import AiAssistant
+from models.ai_assistant_appointment import AiAssistantAppointment
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_message import AiAssistantMessage
 from models.ai_assistant_request import AiAssistantRequest
@@ -211,10 +212,18 @@ class AiAssistantRequestService:
             transcript=transcript,
             eu_only=bool(assistant.eu_only),
         )
-        # Half-days picked in the widget make it an appointment request, unless the words say it is urgent.
+        # Half-days or a slot picked in the widget make it an appointment request, unless the words say it is urgent.
+        booked = (
+            db.query(AiAssistantAppointment.id)
+            .filter(
+                AiAssistantAppointment.request_id == request.id,
+                AiAssistantAppointment.google_event_id.isnot(None),
+            )
+            .first()
+        )
         analyzed = (
             AiAssistantRequestType.APPOINTMENT
-            if request.appointment_slots_json and analysis.type != AiAssistantRequestType.URGENT
+            if (request.appointment_slots_json or booked is not None) and analysis.type != AiAssistantRequestType.URGENT
             else analysis.type
         )
         request_type = self._type_with_photos(analyzed, request)

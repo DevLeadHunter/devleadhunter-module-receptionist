@@ -11,6 +11,8 @@ from enums.ai_assistant_request import (
     AiAssistantRequestStatus,
     AiAssistantRequestType,
 )
+from enums.assistant_booking_mode import AssistantBookingMode
+from enums.assistant_visitor_channel import AssistantVisitorChannel
 
 
 class AiAssistantCreateRequest(BaseModel):
@@ -178,6 +180,8 @@ class AiAssistantChatResponse(BaseModel):
     """The assistant's reply to a chat request."""
 
     reply: str
+    # The visitor asks for an appointment: the widget opens its appointment panel under the reply.
+    offer_booking: bool = False
 
 
 class AiAssistantSlotChoice(BaseModel):
@@ -194,11 +198,31 @@ class AiAssistantAppointmentDay(BaseModel):
     periods: list[AiAssistantDayPeriod]
 
 
-class AiAssistantAppointmentSlotsResponse(BaseModel):
-    """The next open half-days, from tomorrow (the business confirms one; no agenda is booked)."""
+class AiAssistantAppointmentTime(BaseModel):
+    """A free slot of the connected agenda (aware, business time zone)."""
 
+    start: datetime
+    end: datetime
+
+
+class AiAssistantAppointmentSlotsResponse(BaseModel):
+    """What the appointment panel offers: free slots of the agenda, or open half-days to wish (from tomorrow)."""
+
+    mode: AssistantBookingMode = AssistantBookingMode.REQUEST
     days: list[AiAssistantAppointmentDay] = Field(default_factory=list)
     max_chosen: int
+    times: list[AiAssistantAppointmentTime] = Field(default_factory=list)
+    has_more: bool = False
+    # Kinds of appointment the visitor picks from, when the agenda offers some.
+    types: list[str] = Field(default_factory=list)
+    duration_minutes: int | None = None
+
+
+class AiAssistantBookingChoice(BaseModel):
+    """A free slot of the agenda the visitor picked, and its kind."""
+
+    start: datetime
+    type: str | None = Field(default=None, max_length=64)
 
 
 class AiAssistantLeadRequest(BaseModel):
@@ -214,6 +238,8 @@ class AiAssistantLeadRequest(BaseModel):
     internal: bool = False
     # Half-days picked for an appointment: the request becomes an appointment request.
     slots: list[AiAssistantSlotChoice] = Field(default_factory=list, max_length=2)
+    # A free slot of the connected agenda: the appointment is booked in it.
+    booking: AiAssistantBookingChoice | None = None
 
 
 class AiAssistantPhotoResponse(BaseModel):
@@ -232,6 +258,10 @@ class AiAssistantLeadResponse(BaseModel):
     """Acknowledgement that a lead was recorded."""
 
     ok: bool
+    # The appointment's start when it was booked in the agenda (None: a request the business confirms).
+    booked_start: datetime | None = None
+    # How the visitor gets the confirmation of a booked appointment (None: no mobile nor email to use).
+    confirmation_channel: AssistantVisitorChannel | None = None
 
 
 class AiAssistantLeadItem(BaseModel):
@@ -275,6 +305,8 @@ class AiAssistantRequestItem(BaseModel):
     photo_urls: list[str] = Field(default_factory=list)
     # Wished half-days of an appointment request, in French (« lun. 28/09, matin »).
     appointment_slots: list[str] = Field(default_factory=list)
+    # The appointment booked in the agenda (« mar. 29/09 à 14:30 (Révision) »).
+    appointment_booked: str | None = None
     created_at: datetime
     handled_at: datetime | None = None
 

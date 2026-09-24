@@ -10,7 +10,7 @@ guesses: no rows, no row for the day or unreadable hours mean unknown (``None``)
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, tzinfo
 from typing import ClassVar
 
 from services.text_normalizer import TextNormalizer
@@ -56,6 +56,11 @@ class OpeningHoursCalendar:
     def business_now() -> datetime:
         """Current local time of the business (Paris time; UTC when tzdata is missing)."""
         return datetime.now(_BUSINESS_TIMEZONE) if _BUSINESS_TIMEZONE else datetime.now(UTC)
+
+    @staticmethod
+    def business_timezone() -> tzinfo:
+        """The business time zone (Paris; UTC when tzdata is missing)."""
+        return _BUSINESS_TIMEZONE or UTC
 
     @staticmethod
     def to_business_time(utc_moment: datetime) -> datetime:

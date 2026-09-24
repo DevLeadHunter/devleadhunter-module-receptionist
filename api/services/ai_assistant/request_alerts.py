@@ -30,6 +30,7 @@ from models.ai_assistant_subscription import AiAssistantSubscription
 from models.prospect_db import ProspectDB
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
+from services.ai_assistant.calendar_service import ai_assistant_calendar_service
 from services.ai_assistant.client_links import AiAssistantClientLinks
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_analyzer import TranscriptLine, ai_assistant_request_analyzer
@@ -197,6 +198,7 @@ class AlertSms:
         has_photos: bool,
         link: str | None = None,
         slots: tuple[str, ...] = (),
+        booked: str | None = None,
     ) -> str:
         """
         The SMS announcing a request (« Nouvelle demande de devis (photo) de Marc, 06… : … Suivi : … »).
@@ -209,10 +211,20 @@ class AlertSms:
             has_photos: Whether they sent photos.
             link: The client space, without scheme; dropped when it cannot fit.
             slots: Wished half-days (« mar. 22/09 après-midi »), kept before the summary and never cut.
+            booked: The appointment booked in the agenda (« mar. 29/09 à 14:30 (Révision) »): the SMS opens on it.
 
         Returns:
             A one-segment GSM-7 text.
         """
+        if booked:
+            urgent = "URGENT, " if request_type is AiAssistantRequestType.URGENT else ""
+            booked_heads = [
+                f"{urgent}RDV réservé le {booked} par {cls._clip(name, max_chars)}, "
+                f"{cls._clip(contact, cls._CONTACT_MAX_CHARS)}"
+                for max_chars in (cls._NAME_MAX_CHARS, cls._SHORT_NAME_MAX_CHARS)
+            ]
+            fitting = [head for head in booked_heads if segment_count(cls._gsm7(head) + ".") <= 1]
+            return cls._fit(fitting[0] if fitting else booked_heads[-1], summary, link)
         photos = " (photo)" if has_photos else ""
         heads = [
             f"{cls.LABELS[request_type]}{photos} de {cls._clip(name, max_chars)}, "
@@ -454,7 +466,7 @@ class AiAssistantRequestAlerts:
                     summary=request.need_summary or request.need,
                     received_local=OpeningHoursCalendar.to_business_time(request.created_at),
                     link=AiAssistantClientLinks.sms_link(assistant.id),
-                    slots=tuple(AiAssistantAppointmentSlots.short_labels(request.appointment_slots_json)),
+                    slots=self._sms_slots(db, request),
                 )
                 await self._send_sms(db, assistant, settings.phone_e164, text)
         return reminded
@@ -556,8 +568,17 @@ class AiAssistantRequestAlerts:
             has_photos=bool(ai_assistant_request_service.photo_urls(request)),
             link=AiAssistantClientLinks.sms_link(assistant.id),
             slots=tuple(AiAssistantAppointmentSlots.short_labels(request.appointment_slots_json)),
+            booked=ai_assistant_calendar_service.booked_labels(db, [request.id]).get(request.id),
         )
         return await self._send_sms(db, assistant, settings.phone_e164, text)
+
+    @staticmethod
+    def _sms_slots(db: Session, request: AiAssistantRequest) -> tuple[str, ...]:
+        """What a reminder SMS says of the appointment: the booked slot, else the wished half-days."""
+        booked = ai_assistant_calendar_service.booked_labels(db, [request.id]).get(request.id)
+        if booked:
+            return (booked,)
+        return tuple(AiAssistantAppointmentSlots.short_labels(request.appointment_slots_json))
 
     @staticmethod
     async def _send_sms(db: Session, assistant: AiAssistant, phone_e164: str, text: str) -> bool:
@@ -635,6 +656,7 @@ class AiAssistantRequestAlerts:
                     is_reminder=is_reminder,
                     client_space_url=AiAssistantClientLinks.url(assistant.id),
                     appointment_slots=tuple(AiAssistantAppointmentSlots.labels(request.appointment_slots_json)),
+                    appointment_booked=ai_assistant_calendar_service.booked_labels(db, [request.id]).get(request.id),
                 )
             )
             result = await EmailSendingService(db).send_via_user_identity(

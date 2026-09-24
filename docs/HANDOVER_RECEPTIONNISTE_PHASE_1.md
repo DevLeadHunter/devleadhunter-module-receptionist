@@ -13,8 +13,8 @@ conflit. Rien n'est mergé, `main` n'a pas été poussé.
 | R11 — 79 €, 5 emails + 5 SMS de prospection, textes de /ia | 1218810139755803 | `e46cf0a` | livré (périmètre prix / modèles / page) |
 | R9 — rapport mensuel au client + drapeau churn | 1218810013839351 | `d38c6fa` | livré (sans la page espace client) |
 | R8 — espace client par lien magique | 1218821404873061 | `2fafebd` | livré |
-| R2 — rendez-vous : demande de créneaux sans agenda (R2a) | 1218810064722315 | voir la section | livré |
-| R2 — rendez-vous : Google Agenda (R2b) | 1218810064722315 | — | à venir |
+| R2 — rendez-vous : demande de créneaux sans agenda (R2a) | 1218810064722315 | `ff96da8` | livré |
+| R2 — rendez-vous : Google Agenda (R2b) | 1218810064722315 | voir la section | livré ; en attente de la vérification Google (R15) |
 | R1 — base de connaissance complète | 1218810139188474 | — | non commencé |
 
 Chaque ticket a reçu sur Asana un commentaire « fait / reste / comment tester ». La documentation
@@ -28,8 +28,8 @@ Hors de cette branche : R12 (verticales, détection « déjà équipé », score
 
 ```bash
 cd api
-python migrations/run_migrations.py      # idempotent ; les 9 migrations de la phase 1 sont listées plus bas
-python -m pytest -q                      # attendu : 1006 passed, 3 failed (préexistants, voir plus bas)
+python migrations/run_migrations.py      # idempotent ; les 12 migrations de la phase 1 sont listées plus bas
+python -m pytest -q                      # attendu : 1077 passed, 3 failed (préexistants, voir plus bas)
 ruff format --check . && ruff check .    # attendu : propre
 cd ..
 npm --prefix web run lint                # prettier + eslint propres ; typecheck : 5 erreurs préexistantes
@@ -49,6 +49,7 @@ Migrations de la phase 1, dans l'ordre de `MIGRATION_MODULES` :
 9. `add_ai_assistant_reports_table` (R9) : table `ai_assistant_reports`.
 10. `add_assistant_subscription_cancel_at_period_end` (R8) : colonne `ai_assistant_subscriptions.cancel_at_period_end`.
 11. `add_ai_assistant_request_appointment_slots` (R2a) : colonne `ai_assistant_requests.appointment_slots_json`.
+12. `add_ai_assistant_calendars_tables` (R2b) : tables `ai_assistant_calendars` et `ai_assistant_appointments`.
 
 Tests par ticket (depuis `api/`, avec `python -m pytest -q`) :
 
@@ -62,6 +63,7 @@ Tests par ticket (depuis `api/`, avec `python -m pytest -q`) :
 | R9 | `tests/test_assistant_reports.py tests/test_ai_assistant_conversations.py` | 26 + 5 |
 | R8 | `tests/test_assistant_client_space.py` | 14 |
 | R2a | `tests/test_assistant_appointments.py` | 16 |
+| R2b | `tests/test_assistant_calendar.py` | 41 |
 
 Échecs et erreurs **préexistants**, identiques sur `main` à `a0e6205` (revérifié sur un worktree de
 `main`) :
@@ -332,6 +334,44 @@ relus dans le code, pas cliqués.
 
 ---
 
+## R2b — Rendez-vous dans Google Agenda
+
+**Fichiers**
+- API :
+  - `services/ai_assistant/google_calendar_client.py` : consentement, échange et rafraîchissement des jetons, adresse du compte, freeBusy, création d'événement (identifiant fixé par nous), révocation
+  - `services/ai_assistant/calendar_service.py` : `state` OAuth signé, connexion, réglages, offre (premier créneau libre par demi-journée), réservation sous verrou, repli sur la demi-journée, libellés « réservé »
+  - `services/ai_assistant/appointment_notices.py` : textes du visiteur en 4 langues, fichier `.ics`, confirmation, rappel J-1, passe de la boucle
+  - `models/ai_assistant_calendar.py`, `models/ai_assistant_appointment.py`, `enums/assistant_calendar_status.py`, `enums/assistant_booking_mode.py`, `migrations/add_ai_assistant_calendars_tables.py`
+  - routes : offre publique en mode agenda (`after`), `booking` de `POST …/lead` (409 si pris), `offer_booking` du chat ; espace client `calendar/connect`, `PATCH`/`DELETE calendar`, retour Google `calendar/google/callback`
+  - `request_alerts.py` (SMS « RDV réservé le … par … »), `request_email.py` (bloc « Dans votre agenda »), `request_service.follow_up` (reste un rendez-vous), `request_runner.py` (passe des messages au visiteur), `chat_service.asks_for_appointment`, règle du prompt (`knowledge_builder.py`), `client_space_email.render_calendar_connected`, `opening_hours.business_timezone`
+  - `core/config.py` et `.env.example` : `GOOGLE_CALENDAR_REDIRECT_URI`
+- Widget : mode agenda du panneau (types, 3 créneaux, « Autres créneaux », réservation, 409), ouverture par le chat, `types/AiAssistant.ts`.
+- Demo-host : `components/ClientSpaceCalendar.vue` (Connexions), `ClientSpaceAppointments.vue` (prochains rendez-vous), `utils/ContactLinkUtils.ts` (partagé avec `ClientSpaceRequests.vue`), page `client/[token].vue`.
+- Web : « Rendez-vous réservé dans l'agenda du client » dans la liste des demandes.
+
+**Vérifié**
+- Tests (41, Google simulé) : `state` (expiration, falsification) ; client HTTP par `httpx.MockTransport` (URL de consentement, jetons et permissions, freeBusy en UTC, événement à l'heure de Paris, identifiant d'agenda encodé, 401 / `invalid_grant` / permissions manquantes = reconnexion, limite de débit non, 409 = déjà créé) ; connexion (jetons chiffrés, démo refusée, permission décochée = rien d'enregistré) ; rafraîchissement du jeton ; offre (premier créneau par demi-journée, délai, pause de midi, fermeture, week-end, horaires inconnus, pages, rendez-vous déjà réservés) ; réservation (événement, rappel, grille, type obligatoire, créneau pris, une réservation par demande, deux visiteurs sur le même créneau, relance après une réponse perdue avec le même identifiant, cache vidé après un créneau pris, refus en lecture seule gardé comme dernier problème, plafond de 20 par jour) ; SMS réservés aux mobiles des pays servis ; identifiant d'agenda vérifié (rien n'est changé s'il est illisible) ; reconnexion d'un autre compte ; rappel J-1 seulement la veille entre 9 h et 20 h, abandonné le jour même, email « Rappel » ; canal de confirmation renvoyé au widget ; repli et agenda « à reconnecter » ; canaux du visiteur ; SMS d'un segment dans les 4 langues ; email et `.ics` ; réservation unique des messages ; rappels dus, trop tardifs ; confirmation perdue reprise ; routes publiques (offre, repli, réservation, 409) ; intention de rendez-vous du chat (FR, NL, DE, EN, « terminé » ignoré) ; espace client (états, rendez-vous à venir, connexion, réglages, 422, déconnexion et révocation, page de retour) ; alertes au commerçant ; migration rejouable.
+- Navigateur (Chromium, API locale sur SQLite avec un faux Google + `nuxt dev`) : réservation complète dans l'iframe de 440 × 680 et sur mobile (types, pages, confirmation) ; créneau pris par un autre visiteur (message, nouvelle offre) ; ouverture du panneau par une question au chat ; espace client connecté (demande « réservée », prochains rendez-vous, réglages enregistrés) et non connecté (l'onglet part bien vers `accounts.google.com`, que le bac à sable ne laisse pas charger).
+
+**Non vérifié** : vrai Google (pas de client OAuth ici), SMS et email réels au visiteur, rendu de l'email dans Gmail.
+
+**Décisions prises seul**
+- Permissions : `calendar.events` ne suffit pas à lire les disponibilités ; `calendar.freebusy` est demandé en plus (le plus étroit des accès acceptés par freeBusy).
+- Pas de choix de l'agenda dans une liste (il faudrait l'accès `calendar.calendarlist.readonly`) : `primary` par défaut, ou l'identifiant collé par le client.
+- Retour de Google dans un nouvel onglet, sur une page de l'API qui ne porte aucun lien de l'espace client ; la page d'origine se recharge quand on y revient.
+- Aucune révocation chez Google, ni à la reconnexion ni à la déconnexion : révoquer un jeton révoque toute l'autorisation du compte (les nouveaux jetons, un autre assistant, les connexions Google de l'opérateur s'il teste avec son compte). La déconnexion efface les jetons ici et explique comment retirer l'accès côté Google.
+- Pas de verrou de base pendant les appels à Google : la session SQLAlchemy est synchrone dans des routes asynchrones et l'API tourne sur un seul worker ; une attente de verrou bloquerait toute l'API. Verrou en mémoire par agenda, événement créé avant la ligne, transactions courtes.
+- Garde-fous contre l'envoi de SMS à n'importe qui depuis le widget public : 20 réservations au plus par assistant et par 24 h, SMS seulement vers un mobile FR / BE / LU / CH / DE, en plus de la limite de 8 demandes par 5 min et par IP.
+- Offre : le premier créneau libre de chaque demi-journée, trois par page, pour proposer des moments différents plutôt que trois créneaux collés.
+- Défauts : 1 h, 24 h de délai minimum ; créneaux de 6 h à 21 h 30 dans les horaires ; lundi-vendredi 9 h-12 h et 14 h-18 h quand les horaires sont inconnus.
+- Une demande n'a qu'un rendez-vous ; le visiteur qui veut le déplacer appelle le commerce (pas d'annulation en ligne).
+- Le `state` OAuth n'est pas lié au navigateur qui l'a demandé (valable 15 min) : un lien de consentement qui fuiterait permettrait à un autre compte Google de s'attacher ; l'email d'avis envoyé au commerçant à chaque connexion le signale.
+- La demande reste « à traiter » après une réservation : le commerçant la marque traitée comme les autres.
+- Le visiteur est prévenu par le canal qu'il a laissé : SMS pour un mobile, email (avec `.ics`) pour une adresse ; rappel J-1 par email quand il n'a pas laissé de mobile.
+- Une visite `?internal=1` réserve pour de vrai, avec un événement « [Test] … » : c'est ce qui permet le test d'acceptation (événement dans l'agenda de test, SMS reçu).
+
+---
+
 ## Questions pour Léo
 
 1. **Mistral** :
@@ -353,6 +393,12 @@ relus dans le code, pas cliqués.
 15. **Lien de l'espace client** : pas de révocation individuelle (un lien fuité reste valable jusqu'à son expiration, 30 jours). Faut-il un bouton « révoquer les liens » (une version par assistant dans la signature) ?
 16. **Standards du demo-host** : l'espace client y vit (demande du prompt) avec des appels publics par lien signé. À acter comme exception à la règle « pas d'appels API authentifiés / privés ».
 17. **Créneaux sans agenda** : faut-il proposer le jour même (l'après-midi, le matin) ? Aujourd'hui l'offre commence le lendemain.
+18. **Google Agenda (R15)** :
+    - Déclarer `GOOGLE_CALENDAR_REDIRECT_URI` (`https://<api>/api/v1/ai-assistants/calendar/google/callback`) dans le client OAuth Google.
+    - Ajouter les accès `calendar.events` et `calendar.freebusy` à l'écran de consentement, puis lancer la vérification de l'application.
+    - Tant qu'elle est en mode « Test », seuls les comptes testeurs peuvent se connecter et les jetons expirent au bout de 7 jours : l'agenda passe alors « à reconnecter ».
+19. **Expéditeur des SMS au visiteur** : ce sont les SMS de confirmation et de rappel. Ils partent avec le nom d'expéditeur de Paramètres → Relance SMS (ex. « Dibodev »), le nom du commerce étant en tête du texte. Faut-il un expéditeur au nom de chaque commerce (11 caractères, à déclarer chez smsmode) ?
+20. **Déplacer ou annuler** : le visiteur appelle le commerce, qui modifie l'événement dans son agenda. Faut-il un lien d'annulation dans la confirmation ?
 
 ## Petits points laissés en l'état
 
@@ -364,5 +410,4 @@ relus dans le code, pas cliqués.
 
 ## Non commencés
 
-- **R2b** — prise de rendez-vous dans Google Agenda : OAuth, créneaux libres, événement, confirmation et rappel SMS.
 - **R1** — base de connaissance complète : documents, re-crawl, sources, navigation du site.

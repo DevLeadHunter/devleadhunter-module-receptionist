@@ -18,6 +18,7 @@ from core.database import get_db
 from enums.ai_assistant_photo import AiAssistantPhotoRejection
 from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
 from enums.ai_assistant_status import AiAssistantStatus
+from enums.assistant_visitor_channel import AssistantVisitorChannel
 from enums.demo_video_status import DemoVideoStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_lead import AiAssistantLead
@@ -28,6 +29,7 @@ from schemas.ai_assistant import (
     AiAssistantAlertSettings,
     AiAssistantAppointmentDay,
     AiAssistantAppointmentSlotsResponse,
+    AiAssistantAppointmentTime,
     AiAssistantChatRequest,
     AiAssistantChatResponse,
     AiAssistantConversationItem,
@@ -51,12 +53,15 @@ from schemas.ai_assistant import (
     AssistantSubscriptionListResponse,
 )
 from schemas.ai_assistant_client_space import AiAssistantClientLinkRequest, AiAssistantClientLinkResponse
+from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentSlot
 from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.calendar_service import SlotTakenError, ai_assistant_calendar_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
 from services.ai_assistant.client_space_service import ai_assistant_client_space_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ConversationCounts, ai_assistant_conversation_service
+from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.photo_service import (
     MAX_PHOTO_BYTES,
     MAX_PHOTOS_PER_SESSION,
@@ -199,7 +204,9 @@ def _alert_settings(assistant: AiAssistant) -> AiAssistantAlertSettings:
     )
 
 
-def _to_request_item(request: AiAssistantRequest, business_name: str) -> AiAssistantRequestItem:
+def _to_request_item(
+    request: AiAssistantRequest, business_name: str, booked: str | None = None
+) -> AiAssistantRequestItem:
     return AiAssistantRequestItem(
         id=request.id,
         assistant_id=request.assistant_id,
@@ -218,6 +225,7 @@ def _to_request_item(request: AiAssistantRequest, business_name: str) -> AiAssis
         owner_note=request.owner_note,
         photo_urls=ai_assistant_request_service.photo_urls(request),
         appointment_slots=AiAssistantAppointmentSlots.labels(request.appointment_slots_json),
+        appointment_booked=booked,
         created_at=request.created_at,
         handled_at=request.handled_at,
     )
@@ -337,8 +345,9 @@ async def list_assistant_requests(
 ) -> AiAssistantRequestsResponse:
     """The requests visitors left across the caller's assistants, newest first."""
     rows = ai_assistant_request_service.list_for_owner(db, user.id, assistant_id=assistant_id, status=status_filter)
+    booked = ai_assistant_calendar_service.booked_labels(db, [request.id for request, _name in rows])
     return AiAssistantRequestsResponse(
-        requests=[_to_request_item(request, business_name) for request, business_name in rows],
+        requests=[_to_request_item(request, business_name, booked.get(request.id)) for request, business_name in rows],
         pending_count=ai_assistant_request_service.pending_count(db, user.id),
     )
 
@@ -358,7 +367,8 @@ async def update_assistant_request(
         db, record, status=payload.status, owner_note=payload.owner_note
     )
     assistant = db.get(AiAssistant, updated.assistant_id)
-    return _to_request_item(updated, assistant.business_name if assistant else "")
+    booked = ai_assistant_calendar_service.booked_labels(db, [updated.id]).get(updated.id)
+    return _to_request_item(updated, assistant.business_name if assistant else "", booked)
 
 
 def _to_subscription_item(
@@ -802,16 +812,19 @@ async def chat_with_assistant(
         )
     except Exception:
         logger.warning("Assistant conversation journal failed for slug %s", slug, exc_info=True)
-    return AiAssistantChatResponse(reply=reply)
+    return AiAssistantChatResponse(
+        reply=reply, offer_booking=ai_assistant_chat_service.asks_for_appointment(history[-1]["content"])
+    )
 
 
 @router.get("/public/{slug}/appointment-slots", response_model=AiAssistantAppointmentSlotsResponse)
 async def get_assistant_appointment_slots(
     slug: str,
     request: Request,
+    after: datetime | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> AiAssistantAppointmentSlotsResponse:
-    """The next open half-days a visitor may wish an appointment in (read from the business's hours)."""
+    """What the appointment panel offers: the agenda's next free slots (3 at a time), else open half-days."""
     if not assistant_chat_limiter.allow(f"slots:{slug}:{client_ip(request)}"):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de demandes, réessayez plus tard"
@@ -819,9 +832,19 @@ async def get_assistant_appointment_slots(
     assistant = ai_assistant_service.get_public_by_slug(db, slug)
     if not assistant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found or inactive")
-    days = AiAssistantAppointmentSlots.offer_for(assistant)
+    offer = await ai_assistant_calendar_service.offer(db, assistant, after=after)
+    if offer.slots is not None and offer.settings is not None:
+        return AiAssistantAppointmentSlotsResponse(
+            mode=offer.mode,
+            max_chosen=1,
+            times=[AiAssistantAppointmentTime(start=slot.start, end=slot.end) for slot in offer.slots.slots],
+            has_more=offer.slots.has_more,
+            types=list(offer.settings.appointment_types),
+            duration_minutes=offer.settings.duration_minutes,
+        )
     return AiAssistantAppointmentSlotsResponse(
-        days=[AiAssistantAppointmentDay(date=item.day, periods=list(item.periods)) for item in days],
+        mode=offer.mode,
+        days=[AiAssistantAppointmentDay(date=item.day, periods=list(item.periods)) for item in offer.days],
         max_chosen=AiAssistantAppointmentSlots.MAX_CHOSEN,
     )
 
@@ -874,8 +897,27 @@ async def submit_assistant_lead(
             )
         return AiAssistantLeadResponse(ok=True)
 
+    booked_start: datetime | None = None
+    channel: AssistantVisitorChannel | None = None
+    if payload.booking is not None:
+        try:
+            outcome = await ai_assistant_calendar_service.book_request(
+                db, assistant, captured, start=payload.booking.start, type_label=payload.booking.type
+            )
+        except SlotTakenError as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        if outcome.appointment is not None:
+            ai_assistant_appointment_notices.schedule_confirmation(outcome.appointment.id)
+            booked_start = OpeningHoursCalendar.to_business_time(outcome.appointment.starts_at)
+            if outcome.appointment.visitor_phone_e164:
+                channel = AssistantVisitorChannel.SMS
+            elif outcome.appointment.visitor_email:
+                channel = AssistantVisitorChannel.EMAIL
+
     ai_assistant_request_service.schedule_follow_up(captured.id)
-    return AiAssistantLeadResponse(ok=True)
+    return AiAssistantLeadResponse(ok=True, booked_start=booked_start, confirmation_channel=channel)
 
 
 # Room for the multipart envelope and the three text fields around the photo itself.

@@ -156,6 +156,9 @@ class AiAssistantKnowledgeBuilder:
             "- Fais avancer la conversation : UNE seule question à la fois pour cerner le besoin, puis "
             "propose UNE action concrète parmi ce que l'entreprise propose réellement ci-dessous, ou à défaut "
             "d'être rappelé. Pour recontacter quelqu'un, demande son prénom et un téléphone ou un e-mail.",
+            "- Rendez-vous : le visiteur choisit lui-même son créneau dans le calendrier qui s'ouvre sous la "
+            "conversation (bouton « Prendre rendez-vous »). Quand il en veut un, invite-le en une phrase à y "
+            "choisir son créneau ; ne propose et ne confirme jamais toi-même une date ou une heure.",
             f"- Style : {wording['style']}, comme un excellent accueil en personne. Reste "
             f"{wording['concise']} (2 à 4 phrases), sans jargon ni liste à puces. Mets en valeur ce qui "
             "distingue la maison quand c'est utile.",

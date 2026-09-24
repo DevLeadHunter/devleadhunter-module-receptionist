@@ -1,10 +1,12 @@
 """Contracts of a sold assistant's client space (the magic-link page) and of its link, issued from the dashboard."""
 
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
+from enums.assistant_calendar_status import AssistantCalendarConnection
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
 from enums.assistant_widget_language import AssistantWidgetLanguage
 
@@ -24,6 +26,8 @@ class AiAssistantClientRequestItem(BaseModel):
     photo_urls: list[str] = Field(default_factory=list)
     # Wished half-days of an appointment request (« lun. 28/09, matin »).
     appointment_slots: list[str] = Field(default_factory=list)
+    # The appointment booked in the agenda (« mar. 29/09 à 14:30 (Révision) »).
+    appointment_booked: str | None = None
 
 
 class AiAssistantClientReport(BaseModel):
@@ -74,6 +78,32 @@ class AiAssistantClientLanguageOption(BaseModel):
     label: str
 
 
+class AiAssistantClientCalendar(BaseModel):
+    """The agenda section: its connection and the booking settings (defaults applied)."""
+
+    status: AssistantCalendarConnection
+    account_email: str | None = None
+    calendar_id: str
+    duration_minutes: int
+    min_notice_hours: int
+    appointment_types: list[str] = Field(default_factory=list)
+    # The last problem met with the agenda (« 24/09 à 10:05 : agenda introuvable… »), cleared by a booking.
+    last_error: str | None = None
+    duration_choices: list[int] = Field(default_factory=list)
+    min_notice_choices: list[int] = Field(default_factory=list)
+
+
+class AiAssistantClientAppointmentItem(BaseModel):
+    """An upcoming appointment the assistant booked."""
+
+    id: int
+    # « mar. 29/09 à 14:30 », business time.
+    start_label: str
+    type_label: str | None = None
+    name: str
+    contact: str
+
+
 class AiAssistantClientSpaceResponse(BaseModel):
     """Everything the client-space page shows."""
 
@@ -88,6 +118,8 @@ class AiAssistantClientSpaceResponse(BaseModel):
     settings: AiAssistantClientSettings
     language_options: list[AiAssistantClientLanguageOption] = Field(default_factory=list)
     subscription: AiAssistantClientSubscription | None = None
+    calendar: AiAssistantClientCalendar
+    appointments: list[AiAssistantClientAppointmentItem] = Field(default_factory=list)
 
 
 class AiAssistantClientSettingsUpdate(BaseModel):
@@ -99,6 +131,24 @@ class AiAssistantClientSettingsUpdate(BaseModel):
     alert_phone: str | None = Field(default=None, max_length=32)
     alert_sms_enabled: bool | None = None
     alert_email_enabled: bool | None = None
+
+
+class AiAssistantClientCalendarUpdate(BaseModel):
+    """A client's booking settings edit (partial; choices checked by the service)."""
+
+    calendar_id: str | None = Field(default=None, max_length=255)
+    duration_minutes: int | None = None
+    min_notice_hours: int | None = None
+    # Longer kinds are cut to 40 characters by the service.
+    appointment_types: list[Annotated[str, StringConstraints(max_length=200)]] | None = Field(
+        default=None, max_length=6
+    )
+
+
+class AiAssistantClientCalendarConnect(BaseModel):
+    """The Google consent page to open in a new tab."""
+
+    url: str
 
 
 class AiAssistantClientPortalResponse(BaseModel):

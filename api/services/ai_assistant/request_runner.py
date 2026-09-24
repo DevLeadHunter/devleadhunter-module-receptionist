@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
 from services.ai_assistant.request_alerts import ai_assistant_request_alerts
 from services.ai_assistant.request_service import ai_assistant_request_service
 
@@ -12,7 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 class AiAssistantRequestRunner:
-    """Every few minutes: lost announcements, held SMS, J+1 reminders and the operator's 48 h warnings."""
+    """Every few minutes: lost announcements, held SMS, J+1 reminders, the operator's 48 h warnings, and the
+    visitors' appointment confirmations (lost ones) and J-1 reminders."""
 
     @staticmethod
     async def run_loop(interval_seconds: int = 300) -> None:
@@ -30,6 +32,7 @@ class AiAssistantRequestRunner:
             except Exception:
                 logger.exception("Assistant request runner pass failed")
             await ai_assistant_request_alerts.run_pass()
+            await ai_assistant_appointment_notices.run_pass_in_background()
             await asyncio.sleep(interval_seconds)
 
 

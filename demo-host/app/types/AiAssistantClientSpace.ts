@@ -7,8 +7,9 @@ export type AiAssistantClientRequestType = 'question' | 'quote' | 'appointment' 
 export type AiAssistantClientRequestStatus = 'new' | 'handled' | 'dropped'
 
 /**
- * One request as its client sees it; `received_label` is already in business time (« 14/09 à 10:05 ») and
- * `appointment_slots` are the wished half-days of an appointment request (« lun. 28/09, matin »), to confirm.
+ * One request as its client sees it; `received_label` is already in business time (« 14/09 à 10:05 »),
+ * `appointment_slots` are the wished half-days of an appointment request (« lun. 28/09, matin »), to confirm,
+ * and `appointment_booked` the appointment already in the agenda (« mar. 29/09 à 14:30 (Révision) »).
  */
 export type AiAssistantClientRequest = {
   id: number
@@ -21,6 +22,7 @@ export type AiAssistantClientRequest = {
   received_outside_hours: boolean | null
   photo_urls: string[]
   appointment_slots: string[]
+  appointment_booked: string | null
 }
 
 /** The latest monthly report of the assistant; its sentences come ready-made, like in the report email. */
@@ -68,6 +70,44 @@ export type AiAssistantClientLanguageOption = {
   label: string
 }
 
+/** Where the agenda stands: Google not configured on the server, not connected, connected, or its access lost. */
+export type AiAssistantClientCalendarStatus = 'unavailable' | 'disconnected' | 'connected' | 'error'
+
+/**
+ * The agenda section: its connection, the booking settings (defaults applied), the choices offered, and the last
+ * problem met with the agenda (`last_error`, cleared by a booking).
+ */
+export type AiAssistantClientCalendar = {
+  status: AiAssistantClientCalendarStatus
+  account_email: string | null
+  calendar_id: string
+  duration_minutes: number
+  min_notice_hours: number
+  appointment_types: string[]
+  last_error: string | null
+  duration_choices: number[]
+  min_notice_choices: number[]
+}
+
+/** A client's booking settings edit; every field is optional. */
+export type AiAssistantClientCalendarUpdate = Partial<
+  Pick<AiAssistantClientCalendar, 'calendar_id' | 'duration_minutes' | 'min_notice_hours' | 'appointment_types'>
+>
+
+/** The Google consent page to open in a new tab. */
+export type AiAssistantClientCalendarConnect = {
+  url: string
+}
+
+/** An upcoming appointment the assistant booked; `start_label` is in business time (« mar. 29/09 à 14:30 »). */
+export type AiAssistantClientAppointment = {
+  id: number
+  start_label: string
+  type_label: string | null
+  name: string
+  contact: string
+}
+
 /** Everything the client-space page shows, as served by the API. */
 export type AiAssistantClientSpace = {
   business_name: string
@@ -80,6 +120,8 @@ export type AiAssistantClientSpace = {
   settings: AiAssistantClientSettings
   language_options: AiAssistantClientLanguageOption[]
   subscription: AiAssistantClientSubscription | null
+  calendar: AiAssistantClientCalendar
+  appointments: AiAssistantClientAppointment[]
 }
 
 /** A client's settings edit; every field is optional. */
