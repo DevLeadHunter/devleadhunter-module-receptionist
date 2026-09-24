@@ -23,6 +23,9 @@ from models.user import User
 from schemas.ai_assistant import (
     AiAssistantChatRequest,
     AiAssistantChatResponse,
+    AiAssistantConversationItem,
+    AiAssistantConversationMessageItem,
+    AiAssistantConversationsResponse,
     AiAssistantCreateRequest,
     AiAssistantInterestRequest,
     AiAssistantLeadItem,
@@ -39,6 +42,7 @@ from schemas.ai_assistant import (
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ai_assistant_chat_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
+from services.ai_assistant.conversation_service import ConversationCounts, ai_assistant_conversation_service
 from services.assistant_subscription_service import assistant_subscription_service
 from services.assistant_video_service import (
     ASSISTANT_PRESENTER_MODULE,
@@ -103,7 +107,9 @@ def _owner_public_fields(assistant: AiAssistant) -> dict[str, str | None]:
     return fields
 
 
-def _to_owner_response(assistant: AiAssistant, subscription: object | None = None) -> AiAssistantResponse:
+def _to_owner_response(
+    assistant: AiAssistant, subscription: object | None = None, conversations: ConversationCounts | None = None
+) -> AiAssistantResponse:
     return AiAssistantResponse(
         id=assistant.id,
         slug=assistant.slug,
@@ -125,6 +131,8 @@ def _to_owner_response(assistant: AiAssistant, subscription: object | None = Non
         subscription_status=getattr(subscription, "status", None),
         subscription_amount_cents=getattr(subscription, "amount_cents", None),
         subscription_interval=getattr(subscription, "interval", None),
+        conversations_7d=conversations.last_7_days if conversations else 0,
+        conversations_30d=conversations.last_30_days if conversations else 0,
         created_at=assistant.created_at,
     )
 
@@ -155,8 +163,44 @@ async def list_assistants(
         query = query.filter(AiAssistant.prospect_id == prospect_id)
     assistants = query.order_by(AiAssistant.created_at.desc()).all()
     subscriptions = assistant_subscription_service.active_by_assistant_ids(db, [a.id for a in assistants])
+    conversation_counts = ai_assistant_conversation_service.counts_for_assistants(db, [a.id for a in assistants])
     return AiAssistantListResponse(
-        assistants=[_to_owner_response(assistant, subscriptions.get(assistant.id)) for assistant in assistants]
+        assistants=[
+            _to_owner_response(assistant, subscriptions.get(assistant.id), conversation_counts.get(assistant.id))
+            for assistant in assistants
+        ]
+    )
+
+
+@router.get("/{assistant_id}/conversations", response_model=AiAssistantConversationsResponse)
+async def list_assistant_conversations(
+    assistant_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantConversationsResponse:
+    """The latest conversations visitors had with one of the caller's assistants (read-only journal)."""
+    assistant = _owned_assistant_or_404(db, assistant_id, user.id)
+    conversations = ai_assistant_conversation_service.recent_for_assistant(db, assistant.id)
+    return AiAssistantConversationsResponse(
+        assistant_id=assistant.id,
+        business_name=assistant.business_name,
+        conversations=[
+            AiAssistantConversationItem(
+                id=conversation.id,
+                session_id=conversation.session_id,
+                language=conversation.language,
+                message_count=conversation.message_count,
+                started_at=conversation.started_at,
+                last_message_at=conversation.last_message_at,
+                messages=[
+                    AiAssistantConversationMessageItem(
+                        id=message.id, role=message.role, content=message.content, created_at=message.created_at
+                    )
+                    for message in conversation.messages
+                ],
+            )
+            for conversation in conversations
+        ],
     )
 
 
@@ -592,6 +636,18 @@ async def chat_with_assistant(
         tone=assistant.tone,
         history=history,
     )
+    # The journal must never cost the visitor their answer.
+    try:
+        ai_assistant_conversation_service.record_turn(
+            db,
+            assistant=assistant,
+            session_id=payload.session_id,
+            language=payload.language,
+            visitor_message=history[-1]["content"],
+            reply=reply,
+        )
+    except Exception:
+        logger.warning("Assistant conversation journal failed for slug %s", slug, exc_info=True)
     return AiAssistantChatResponse(reply=reply)
 
 

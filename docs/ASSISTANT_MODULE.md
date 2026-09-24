@@ -132,6 +132,22 @@ bulle masquée) — la media query de l'iframe ne dit rien de l'écran du client
 écran sur mobile), donc aucune zone morte au-dessus du site hôte ; `dlh-assistant-unavailable`
 (slug inconnu, démo expirée) fait retirer l'iframe. Page hôte de test : `/embed-test.html?slug=…`.
 
+### Journal des conversations (`services/ai_assistant/conversation_service.py`)
+
+Chaque tour de chat public est journalisé côté serveur : `ai_assistant_conversations` (une ligne par
+`session_id` généré et conservé par le widget, avec langue, `started_at`, `last_message_at`,
+`message_count`) + `ai_assistant_messages` (rôle, contenu borné à 2 000 caractères). Le journal ne
+bloque jamais la réponse (échec = warning). L'owner lit les 20 dernières conversations d'un assistant
+(`GET /ai-assistants/{id}/conversations`, drawer « Ce que vos visiteurs ont demandé » de la page
+Assistants IA) et voit `conversations_7d` / `conversations_30d` dans la liste ; purge après 90 jours
+sans message par la boucle de nettoyage. C'est la seule visibilité une fois le widget vendu (sur le
+site du client, hors PostHog).
+
+Tracking PostHog : `useDemoTracking.init` accepte l'iframe pour la surface `assistant` (la page embed la
+passe), donc `assistant_opened` / `assistant_message_sent` / `assistant_lead_submitted` partent aussi
+depuis un site client tant que la démo est `active` ; un assistant vendu n'est plus tracé (journal
+serveur seulement).
+
 ## Intégration campagnes
 
 `{lien_assistant}` (résolu vers l'assistant **actif** de l'expéditeur pour ce prospect — jamais celui

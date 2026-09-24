@@ -245,6 +245,8 @@ const isBusy: Ref<boolean> = ref(false)
 const draft: Ref<string> = ref('')
 const lang: Ref<AssistantWidgetLang> = ref(DEFAULT_LANG)
 const messages: Ref<AssistantChatMessage[]> = ref([])
+// Random id sent with every turn so the server journal groups this visitor's conversation.
+const sessionId: Ref<string> = ref('')
 const messagesEl: Ref<HTMLElement | null> = ref(null)
 const showLeadForm: Ref<boolean> = ref(false)
 const leadSent: Ref<boolean> = ref(false)
@@ -327,7 +329,8 @@ function restoreConversation(): boolean {
   try {
     const raw: string | null = localStorage.getItem(storageKey())
     if (!raw) return false
-    const saved: { lang?: unknown; messages?: unknown } = JSON.parse(raw)
+    const saved: { lang?: unknown; messages?: unknown; sessionId?: unknown } = JSON.parse(raw)
+    if (typeof saved.sessionId === 'string' && saved.sessionId) sessionId.value = saved.sessionId
     if (
       typeof saved.lang === 'string' &&
       offeredLanguages.value.some((code: AssistantWidgetLang): boolean => code === saved.lang)
@@ -349,7 +352,11 @@ function persistConversation(): void {
   try {
     localStorage.setItem(
       storageKey(),
-      JSON.stringify({ lang: lang.value, messages: messages.value.slice(-MAX_STORED_MESSAGES) }),
+      JSON.stringify({
+        lang: lang.value,
+        sessionId: sessionId.value,
+        messages: messages.value.slice(-MAX_STORED_MESSAGES),
+      }),
     )
   } catch {
     // Storage unavailable (private mode) or full: the widget keeps working from memory.
@@ -397,7 +404,7 @@ async function sendText(text: string): Promise<void> {
   try {
     const answer: AssistantChatReply = await $fetch<AssistantChatReply>(
       `${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${props.config.slug}/chat`,
-      { method: 'POST', body: { messages: messages.value } },
+      { method: 'POST', body: { messages: messages.value, session_id: sessionId.value, language: lang.value } },
     )
     messages.value.push({ role: 'assistant', content: answer.reply })
   } catch {
@@ -489,6 +496,15 @@ watch(launcherEl, (launcher: HTMLElement | null): void => {
   if (launcher && launcherObserver) launcherObserver.observe(launcher)
 })
 
+/**
+ * A random id for this visitor's conversation (the browser's UUID when available).
+ * @returns The new session id.
+ */
+function newSessionId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+}
+
 // Restore a returning visitor's conversation; otherwise open in their browser language when offered.
 onMounted((): void => {
   const restored: boolean = restoreConversation()
@@ -496,6 +512,7 @@ onMounted((): void => {
     const preferred: AssistantWidgetLang | null = detectPreferredLang()
     if (preferred) lang.value = preferred
   }
+  if (!sessionId.value) sessionId.value = newSessionId()
   isEmbedded.value = window.parent !== window
   if (isEmbedded.value) {
     window.addEventListener('message', onHostMessage)

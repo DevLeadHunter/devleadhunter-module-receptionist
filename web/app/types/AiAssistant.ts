@@ -20,6 +20,8 @@ export interface AiAssistantSummary {
   subscription_status: string | null
   subscription_amount_cents: number | null
   subscription_interval: string | null
+  conversations_7d: number
+  conversations_30d: number
   created_at: string
 }
 
@@ -103,4 +105,30 @@ export type AiAssistantLead = {
 /** The leads captured across the current user's assistants. */
 export type AiAssistantLeadsResponse = {
   leads: AiAssistantLead[]
+}
+
+/** One turn of a journaled conversation. */
+export type AiAssistantConversationMessage = {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  created_at: string
+}
+
+/** One visitor conversation with an assistant, as the owner reads it. */
+export type AiAssistantConversation = {
+  id: number
+  session_id: string
+  language: string | null
+  message_count: number
+  started_at: string
+  last_message_at: string
+  messages: AiAssistantConversationMessage[]
+}
+
+/** The latest conversations of one assistant, newest first. */
+export type AiAssistantConversationsResponse = {
+  assistant_id: number
+  business_name: string
+  conversations: AiAssistantConversation[]
 }

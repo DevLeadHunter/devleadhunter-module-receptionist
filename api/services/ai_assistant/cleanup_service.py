@@ -7,6 +7,7 @@ import logging
 
 from core.database import SessionLocal
 from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.conversation_service import ai_assistant_conversation_service
 from services.assistant_subscription_service import assistant_subscription_service
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,9 @@ class AiAssistantCleanupRunner:
                 purged: int = assistant_subscription_service.purge_stale_incomplete_rows(db)
                 if purged:
                     logger.info("Purged stale unpaid assistant checkouts: %s", purged)
+                forgotten: int = ai_assistant_conversation_service.purge_old(db)
+                if forgotten:
+                    logger.info("Purged assistant conversations past retention: %s", forgotten)
             except Exception as exc:
                 logger.exception("Assistant demo expiry failed: %s", exc)
             finally:

@@ -1,5 +1,6 @@
 import { ApiClient } from '~/services/api'
 import type {
+  AiAssistantConversationsResponse,
   AiAssistantLeadsResponse,
   AiAssistantListResponse,
   AiAssistantSummary,
@@ -43,6 +44,15 @@ export class AiAssistantService {
       `${BASE_URL}?prospect_id=${prospectId}`,
     )
     return response.assistants[0] ?? null
+  }
+
+  /**
+   * List the leads captured across the user's assistants, newest first.
+   *
+   * @returns The captured leads.
+   */
+  static listConversations(assistantId: number): Promise<AiAssistantConversationsResponse> {
+    return ApiClient.get<AiAssistantConversationsResponse>(`${BASE_URL}/${assistantId}/conversations`)
   }
 
   /**

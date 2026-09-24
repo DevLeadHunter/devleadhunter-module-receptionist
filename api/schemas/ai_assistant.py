@@ -50,6 +50,9 @@ class AiAssistantResponse(BaseModel):
     subscription_status: str | None = None
     subscription_amount_cents: int | None = None
     subscription_interval: str | None = None
+    # Visitor conversations journaled over the last 7 / 30 days (the owner's window once sold).
+    conversations_7d: int = 0
+    conversations_30d: int = 0
     created_at: datetime
 
 
@@ -125,6 +128,9 @@ class AiAssistantChatRequest(BaseModel):
     """A visitor's chat request: the conversation so far, ending on the visitor's message."""
 
     messages: list[AiAssistantChatMessage] = Field(default_factory=list)
+    # Random id the widget keeps with the visitor's conversation, so the journal groups its turns.
+    session_id: str | None = Field(default=None, max_length=64)
+    language: str | None = Field(default=None, max_length=8)
 
 
 class AiAssistantChatResponse(BaseModel):
@@ -166,3 +172,32 @@ class AiAssistantLeadsResponse(BaseModel):
     """The leads captured across the caller's assistants, newest first."""
 
     leads: list[AiAssistantLeadItem] = Field(default_factory=list)
+
+
+class AiAssistantConversationMessageItem(BaseModel):
+    """One turn of a journaled conversation."""
+
+    id: int
+    role: str
+    content: str
+    created_at: datetime
+
+
+class AiAssistantConversationItem(BaseModel):
+    """One visitor conversation with its turns, for the owner's read-only journal."""
+
+    id: int
+    session_id: str
+    language: str | None = None
+    message_count: int
+    started_at: datetime
+    last_message_at: datetime
+    messages: list[AiAssistantConversationMessageItem] = Field(default_factory=list)
+
+
+class AiAssistantConversationsResponse(BaseModel):
+    """The latest conversations of one assistant, newest first."""
+
+    assistant_id: int
+    business_name: str
+    conversations: list[AiAssistantConversationItem] = Field(default_factory=list)
