@@ -14,6 +14,7 @@ from enums.assistant_subscription_status import AssistantSubscriptionStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_subscription import AiAssistantSubscription
 from services import assistant_subscription_service as sub_module
+from services.ai_assistant.assistant_service import ai_assistant_service
 from services.assistant_subscription_service import AssistantSubscriptionService
 
 
@@ -159,6 +160,7 @@ def test_activation_marks_the_sold_assistant_delivered(db: Session) -> None:
     service.activate_from_session(db, {"metadata": {"assistant_subscription_id": str(row.id)}, "subscription": "sub_1"})
     db.refresh(assistant)
     assert assistant.status == AiAssistantStatus.DELIVERED.value  # protected from the demo TTL
+    assert ai_assistant_service.get_public_by_slug(db, "barbershop-63") is not None  # the widget keeps answering
 
 
 def test_is_active_for_assistant(db: Session) -> None:

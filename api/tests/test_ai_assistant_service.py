@@ -2,6 +2,7 @@
 
 import importlib
 import pkgutil
+from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
@@ -69,15 +70,24 @@ def test_create_persists_active_assistant_with_unique_slug(db) -> None:
     assert first.status == "active"
 
 
-def test_get_public_by_slug_returns_active_only(db) -> None:
-    """The public lookup returns an active assistant and never an unknown or inactive one."""
+def test_get_public_by_slug_returns_active_or_delivered_only(db) -> None:
+    """The public lookup serves a demo and a sold assistant, never an unknown, expired or deleted one."""
     created = ai_assistant_service.create(
         db, user_id=1, business_name="Cabinet Meyer", country="FR", use_brand_color=False
     )
     assert ai_assistant_service.get_public_by_slug(db, created.slug) is not None
     assert ai_assistant_service.get_public_by_slug(db, "inexistant") is None
 
+    created.status = "delivered"
+    db.commit()
+    assert ai_assistant_service.get_public_by_slug(db, created.slug) is not None
+
     created.status = "expired"
+    db.commit()
+    assert ai_assistant_service.get_public_by_slug(db, created.slug) is None
+
+    created.status = "delivered"
+    created.deleted_at = datetime.utcnow()
     db.commit()
     assert ai_assistant_service.get_public_by_slug(db, created.slug) is None
 

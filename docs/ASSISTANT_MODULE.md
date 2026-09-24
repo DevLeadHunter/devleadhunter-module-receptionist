@@ -223,5 +223,9 @@ de chaque user (Stripe Connect + application fee), comme la facture du site.
 Fichiers : `api/services/assistant_subscription_service.py`, `api/models/ai_assistant_subscription.py`,
 `api/enums/assistant_subscription_status.py`, `api/services/assistant_pricing_service.py`.
 
-Le reste du module est **prêt à vendre** : génération, personnalisation, régénération, démo, widget
-multilingue, capture de leads, vidéo de prospection (desktop + serveur), campagnes (email + SMS) et suivi.
+## Statuts servis publiquement
+
+Les endpoints publics (`/ai-assistants/public/{slug}` : config, chat, lead, intérêt) servent un assistant
+`active` (la démo) **ou** `delivered` (vendu, intégré sur le site du client). Un assistant `expired`,
+`failed` ou supprimé répond 404.
+Le bandeau de contact de la page hébergée ne s'affiche que sur la démo (`active`).

@@ -18,6 +18,8 @@ from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.enrichment_service import enrichment_service
 
+_PUBLICLY_SERVED_STATUSES: tuple[str, ...] = (AiAssistantStatus.ACTIVE.value, AiAssistantStatus.DELIVERED.value)
+
 
 class AiAssistantService:
     """Creates an assistant for a prospect and serves it publicly by slug."""
@@ -257,13 +259,17 @@ class AiAssistantService:
         return lead
 
     def get_public_by_slug(self, db: Session, slug: str) -> AiAssistant | None:
-        """Return the active, non-deleted assistant for a public slug, or None."""
+        """Return the publicly served, non-deleted assistant for a slug, or None.
+
+        Serves the demo (``active``) and the sold assistant (``delivered``): a paying client's widget
+        must never stop answering. Expired, failed and deleted assistants stay private.
+        """
         return (
             db.query(AiAssistant)
             .filter(
                 AiAssistant.slug == slug,
                 AiAssistant.deleted_at.is_(None),
-                AiAssistant.status == AiAssistantStatus.ACTIVE.value,
+                AiAssistant.status.in_(_PUBLICLY_SERVED_STATUSES),
             )
             .first()
         )
