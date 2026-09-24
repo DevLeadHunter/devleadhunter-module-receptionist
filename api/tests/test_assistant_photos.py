@@ -144,7 +144,7 @@ def test_a_relevant_photo_is_described_journaled_and_kept(db: Session, cloud: di
     assert "Carrossier" in prompt[1]["content"][0]["text"]
     assert prompt[1]["content"][1]["image_url"]["url"] == photo.url
     conversation = db.query(AiAssistantConversation).one()
-    assert [message.content for message in conversation.messages] == ["📷 Photo envoyée", photo.reply]
+    assert [message.content for message in conversation.messages] == ["Photo envoyée", photo.reply]
 
 
 def test_an_off_topic_photo_is_refused_politely_and_deleted_at_once(db: Session, cloud: dict[str, Any]) -> None:

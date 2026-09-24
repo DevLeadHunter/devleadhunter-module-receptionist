@@ -43,7 +43,7 @@ export const SUGGESTIONS: Record<AssistantWidgetLang, string[]> = {
 
 /** Placeholder of the message field. */
 export const UI_PLACEHOLDER: Record<AssistantWidgetLang, string> = {
-  fr: 'Écrivez votre message…',
+  fr: 'Votre message…',
   nl: 'Typ uw bericht…',
   en: 'Type your message…',
   de: 'Ihre Nachricht…',
@@ -125,7 +125,7 @@ export const DATE_LOCALES: Record<AssistantWidgetLang, string> = {
 /** Texts of the appointment chip, button and slot panel. */
 export const APPOINTMENT_LABELS: Record<AssistantWidgetLang, AssistantAppointmentLabels> = {
   fr: {
-    chip: '📅 Prendre rendez-vous',
+    chip: 'Prendre rendez-vous',
     button: 'Prendre rendez-vous',
     title: 'Choisissez 1 ou 2 créneaux qui vous arrangent : on vous confirme l’un des deux.',
     titleCalendar: 'Choisissez un créneau libre : il est réservé tout de suite.',
@@ -148,7 +148,7 @@ export const APPOINTMENT_LABELS: Record<AssistantWidgetLang, AssistantAppointmen
     sent: 'Merci ! Votre demande de rendez-vous est transmise ({slots}). On vous recontacte pour confirmer.',
   },
   nl: {
-    chip: '📅 Afspraak maken',
+    chip: 'Afspraak maken',
     button: 'Afspraak maken',
     title: 'Kies 1 of 2 momenten die u passen: we bevestigen er één.',
     titleCalendar: 'Kies een vrij moment: het wordt meteen gereserveerd.',
@@ -171,7 +171,7 @@ export const APPOINTMENT_LABELS: Record<AssistantWidgetLang, AssistantAppointmen
     sent: 'Bedankt! Uw afspraakverzoek is doorgegeven ({slots}). We nemen contact op om te bevestigen.',
   },
   en: {
-    chip: '📅 Book an appointment',
+    chip: 'Book an appointment',
     button: 'Book an appointment',
     title: 'Pick 1 or 2 times that suit you: we will confirm one of them.',
     titleCalendar: 'Pick a free slot: it is booked right away.',
@@ -194,7 +194,7 @@ export const APPOINTMENT_LABELS: Record<AssistantWidgetLang, AssistantAppointmen
     sent: 'Thank you! Your appointment request has been sent ({slots}). We will contact you to confirm.',
   },
   de: {
-    chip: '📅 Termin vereinbaren',
+    chip: 'Termin vereinbaren',
     button: 'Termin vereinbaren',
     title: 'Wählen Sie 1 oder 2 passende Zeitfenster: Wir bestätigen eines davon.',
     titleCalendar: 'Wählen Sie einen freien Termin: Er wird sofort gebucht.',
@@ -217,7 +217,7 @@ export const APPOINTMENT_LABELS: Record<AssistantWidgetLang, AssistantAppointmen
     sent: 'Danke! Ihre Terminanfrage wurde übermittelt ({slots}). Wir melden uns zur Bestätigung.',
   },
   lu: {
-    chip: '📅 Rendez-vous huelen',
+    chip: 'Rendez-vous huelen',
     button: 'Rendez-vous huelen',
     title: 'Wielt 1 oder 2 Zäitfënsteren, déi Iech passen: mir confirméieren eng dovun.',
     titleCalendar: 'Wielt eng fräi Zäit: si gëtt direkt reservéiert.',
@@ -244,51 +244,51 @@ export const APPOINTMENT_LABELS: Record<AssistantWidgetLang, AssistantAppointmen
 /** Texts of the photo chip, button and panel, and of its errors. */
 export const PHOTO_LABELS: Record<AssistantWidgetLang, AssistantPhotoLabels> = {
   fr: {
-    chip: '📷 Envoyer une photo pour un devis',
+    chip: 'Envoyer une photo pour un devis',
     button: 'Envoyer une photo',
     note: "Votre photo sert uniquement à préparer votre devis et elle est supprimée au bout de 90 jours. Évitez d'y montrer des personnes.",
     pick: 'Choisir une photo',
-    sent: '📷 Photo envoyée',
+    sent: 'Photo envoyée',
     invalid: 'Je ne peux pas lire ce fichier. Envoyez une photo au format JPEG ou PNG.',
     tooLarge: 'Cette photo est trop lourde (8 Mo maximum).',
     quota: "Vous avez déjà envoyé 3 photos : c'est suffisant pour préparer le devis.",
   },
   nl: {
-    chip: '📷 Stuur een foto voor een offerte',
+    chip: 'Stuur een foto voor een offerte',
     button: 'Foto sturen',
     note: 'Uw foto dient alleen om uw offerte voor te bereiden en wordt na 90 dagen verwijderd. Zet er liefst geen personen op.',
     pick: 'Foto kiezen',
-    sent: '📷 Foto verzonden',
+    sent: 'Foto verzonden',
     invalid: 'Ik kan dit bestand niet lezen. Stuur een foto in JPEG- of PNG-formaat.',
     tooLarge: 'Deze foto is te groot (max. 8 MB).',
     quota: "U hebt al 3 foto's gestuurd: dat volstaat voor de offerte.",
   },
   en: {
-    chip: '📷 Send a photo for a quote',
+    chip: 'Send a photo for a quote',
     button: 'Send a photo',
     note: 'Your photo is only used to prepare your quote and is deleted after 90 days. Please avoid showing people.',
     pick: 'Choose a photo',
-    sent: '📷 Photo sent',
+    sent: 'Photo sent',
     invalid: "I can't read this file. Please send a JPEG or PNG photo.",
     tooLarge: 'This photo is too large (8 MB max).',
     quota: "You've already sent 3 photos, that's enough to prepare the quote.",
   },
   de: {
-    chip: '📷 Foto für ein Angebot senden',
+    chip: 'Foto für ein Angebot senden',
     button: 'Foto senden',
     note: 'Ihr Foto dient nur zur Vorbereitung Ihres Angebots und wird nach 90 Tagen gelöscht. Bitte keine Personen zeigen.',
     pick: 'Foto auswählen',
-    sent: '📷 Foto gesendet',
+    sent: 'Foto gesendet',
     invalid: 'Diese Datei kann ich nicht lesen. Bitte senden Sie ein JPEG- oder PNG-Foto.',
     tooLarge: 'Dieses Foto ist zu groß (max. 8 MB).',
     quota: 'Sie haben bereits 3 Fotos gesendet, das reicht für das Angebot.',
   },
   lu: {
-    chip: '📷 Eng Foto fir en Devis schécken',
+    chip: 'Eng Foto fir en Devis schécken',
     button: 'Foto schécken',
     note: 'Är Foto déngt nëmme fir Ären Devis virzebereeden a gëtt no 90 Deeg geläscht. Weist w.e.g. keng Persounen drop.',
     pick: 'Foto auswielen',
-    sent: '📷 Foto geschéckt',
+    sent: 'Foto geschéckt',
     invalid: 'Ech kann dëse Fichier net liesen. Schéckt w.e.g. eng JPEG- oder PNG-Foto.',
     tooLarge: 'Dës Foto ass ze grouss (max. 8 MB).',
     quota: 'Dir hutt schonn 3 Fotoe geschéckt, dat geet duer fir den Devis.',

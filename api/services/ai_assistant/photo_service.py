@@ -48,7 +48,7 @@ RETENTION = timedelta(days=90)
 # Photos count toward one quote request for as long as a visit can add to it (the request merge window).
 QUOTA_WINDOW = timedelta(hours=24)
 # How a photo shows in the conversation journal (the owner reads it in French).
-PHOTO_JOURNAL_MARKER = "📷 Photo envoyée"
+PHOTO_JOURNAL_MARKER = "Photo envoyée"
 _MAX_FIELD_CHARS = 255
 _MAX_REPLY_CHARS = 600
 

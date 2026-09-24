@@ -69,9 +69,43 @@
         <div v-if="isBusy" class="ai-typing" aria-label="Rédaction en cours"><i /><i /><i /></div>
       </div>
 
-      <div v-if="messages.length <= 1 && !isSlotPanelOpen && !showLeadForm" class="ai-chips">
-        <button type="button" @click="openPhotoPanel">{{ PHOTO_LABELS[lang].chip }}</button>
-        <button type="button" @click="openSlotPanel">{{ APPOINTMENT_LABELS[lang].chip }}</button>
+      <div v-if="messages.length <= 1 && !isSlotPanelOpen && !isPhotoPanelOpen && !showLeadForm" class="ai-chips">
+        <button type="button" class="ai-chips__action" @click="openPhotoPanel">
+          <svg
+            class="ai-chips__icon"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+            <circle cx="12" cy="13" r="3" />
+          </svg>
+          {{ PHOTO_LABELS[lang].chip }}
+        </button>
+        <button type="button" class="ai-chips__action" @click="openSlotPanel">
+          <svg
+            class="ai-chips__icon"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3.5" y="5" width="17" height="15" rx="2" />
+            <path d="M3.5 10h17M8 3v4M16 3v4" />
+          </svg>
+          {{ APPOINTMENT_LABELS[lang].chip }}
+        </button>
         <button v-for="suggestion in suggestions" :key="suggestion" type="button" @click="sendText(suggestion)">
           {{ suggestion }}
         </button>
@@ -165,7 +199,7 @@
         </div>
       </div>
 
-      <div v-if="!leadSent && !isSlotPanelOpen" class="ai-book">
+      <div v-if="!leadSent && !isSlotPanelOpen && !isPhotoPanelOpen" class="ai-book">
         <button v-if="!showLeadForm" type="button" class="ai-book__open" @click="showLeadForm = true">
           {{ LEAD_LABELS[lang].open }}
         </button>
@@ -1209,6 +1243,14 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   border-color: var(--ai-accent);
   color: var(--ai-accent);
 }
+.ai-chips__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ai-chips__icon {
+  flex: none;
+}
 .ai-book {
   padding: 4px 15px 10px;
   background: var(--ai-paper-2);
@@ -1313,6 +1355,12 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   max-height: 96px;
   min-height: 44px;
   line-height: 1.4;
+}
+/* An empty field keeps its hint on one line, however narrow the bar is beside its tool buttons. */
+.ai-compose textarea:placeholder-shown {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ai-compose textarea:focus {
   outline: 2px solid var(--ai-accent);
