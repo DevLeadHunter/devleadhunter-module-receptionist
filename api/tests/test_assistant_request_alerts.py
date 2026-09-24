@@ -6,24 +6,20 @@ SQLite. Times are naive UTC, the business is in Paris (UTC+2 in September).
 """
 
 import asyncio
-import importlib
-import pkgutil
 from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 import migrations.add_ai_assistant_alerts as alerts_migration
-import models
 import services.ai_assistant.request_alerts as alerts_module
 import services.ai_assistant.request_analyzer as analyzer_module
 import services.ai_assistant.request_service as request_module
 import services.email_sending_service as email_sending_module
 import services.sms_service as sms_module
-from core.database import Base
 from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_request import AiAssistantRequest
@@ -36,11 +32,8 @@ from services.ai_assistant.request_alerts import AiAssistantRequestAlerts, Alert
 from services.ai_assistant.request_service import AiAssistantRequestService
 from services.sms.gsm_segments import segment_count
 from services.sms.phone_normalizer import to_e164_mobile
-from services.sms.sms_provider import SmsSendResult
 from services.sms_automation_service import SmsAutomationService
-
-for _module in pkgutil.iter_modules(models.__path__):
-    importlib.import_module("models." + _module.name)
+from tests.assistant_fakes import AcceptingSmsProvider, AsyncCallRecorder
 
 # 22:00 in Paris on Monday 21 September 2026 (CEST, UTC+2).
 _MONDAY_22H_UTC = datetime(2026, 9, 21, 20, 0)
@@ -48,55 +41,14 @@ _TUESDAY_8H_UTC = datetime(2026, 9, 22, 6, 0)
 
 
 @pytest.fixture
-def engine():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture
-def db(engine) -> Session:
-    session = sessionmaker(bind=engine)()
-    try:
-        yield session
-    finally:
-        session.close()
-
-
-class _Recorder:
-    """Collects the calls of a mocked async function."""
-
-    def __init__(self, result: Any = None) -> None:
-        self.calls: list[dict[str, Any]] = []
-        self.result = result
-
-    async def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        self.calls.append(kwargs)
-        return self.result
-
-
-class _Provider:
-    """A configured SMS provider that accepts everything."""
-
-    is_configured = True
-
-    def __init__(self) -> None:
-        self.texts: list[str] = []
-
-    async def send(self, *, to_e164: str, sender: str, text: str, **_: Any) -> SmsSendResult:
-        self.texts.append(text)
-        return SmsSendResult(success=True, provider_message_id=f"m{len(self.texts)}", price_cents=6)
-
-
-@pytest.fixture
 def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Mock the model (a quote), the email, the SMS provider and every push."""
-    model = _Recorder({"type": "quote", "summary": "Tuiles déplacées côté rue, devis demandé."})
-    email = _Recorder({"success": True})
-    push = _Recorder()
-    waiting = _Recorder()
-    sms_event = _Recorder()
-    provider = _Provider()
+    model = AsyncCallRecorder({"type": "quote", "summary": "Tuiles déplacées côté rue, devis demandé."})
+    email = AsyncCallRecorder({"success": True})
+    push = AsyncCallRecorder()
+    waiting = AsyncCallRecorder()
+    sms_event = AsyncCallRecorder()
+    provider = AcceptingSmsProvider()
     monkeypatch.setattr(analyzer_module.assistant_llm_router, "complete_json", model)
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
     monkeypatch.setattr(request_module.notification_service, "notify_assistant_lead", push)

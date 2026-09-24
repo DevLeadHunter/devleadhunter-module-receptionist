@@ -1,14 +1,11 @@
 """Every chat turn is journaled per widget session; the owner reads the latest ones and old ones are purged."""
 
-import importlib
-import pkgutil
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-import models
 from core.database import Base
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_conversation import AiAssistantConversation
@@ -20,10 +17,6 @@ from services.ai_assistant.conversation_service import (
     RETENTION_DAYS,
     ai_assistant_conversation_service,
 )
-
-# Load every model so SQLAlchemy can configure the mappers (relationships resolve across models).
-for _module in pkgutil.iter_modules(models.__path__):
-    importlib.import_module("models." + _module.name)
 
 
 @pytest.fixture

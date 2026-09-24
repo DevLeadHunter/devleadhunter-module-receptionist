@@ -7,27 +7,22 @@ SQLite. Routes are called directly. Business times are Paris; stored times naive
 """
 
 import asyncio
-import importlib
-import pkgutil
 from datetime import date, datetime
 from typing import Any
 
 import pytest
 from fastapi import HTTPException
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
-from starlette.requests import Request
 
 import api.v1.routes.ai_assistant_widget as routes
 import migrations.add_ai_assistant_request_appointment_slots as slots_migration
-import models
 import services.ai_assistant.request_alerts as alerts_module
 import services.ai_assistant.request_analyzer as analyzer_module
 import services.ai_assistant.request_service as request_module
 import services.email_sending_service as email_sending_module
 import services.sms_service as sms_module
-from core.database import Base
 from enums.ai_assistant_request import AiAssistantDayPeriod, AiAssistantRequestType
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_request import AiAssistantRequest
@@ -41,12 +36,8 @@ from services.ai_assistant.request_email import AiAssistantRequestEmail, Request
 from services.ai_assistant.request_service import AiAssistantRequestService
 from services.rate_limiter import SlidingWindowRateLimiter
 from services.sms.gsm_segments import segment_count
-from services.sms.sms_provider import SmsSendResult
+from tests.assistant_fakes import VISITOR_REQUEST, AcceptingSmsProvider, AsyncCallRecorder
 
-for _module in pkgutil.iter_modules(models.__path__):
-    importlib.import_module("models." + _module.name)
-
-_VISITOR = Request({"type": "http", "headers": [], "client": ("203.0.113.9", 0)})
 _MORNING = AiAssistantDayPeriod.MORNING
 _AFTERNOON = AiAssistantDayPeriod.AFTERNOON
 # A roofer's week: Tuesday afternoons and Thursday mornings only, closed on Wednesday and the weekend.
@@ -67,57 +58,16 @@ _TUESDAY_14H_UTC = datetime(2026, 9, 22, 12, 0)
 
 
 @pytest.fixture
-def engine():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture
-def db(engine) -> Session:
-    session = sessionmaker(bind=engine)()
-    try:
-        yield session
-    finally:
-        session.close()
-
-
-class _Recorder:
-    """Collects the calls of a mocked async function."""
-
-    def __init__(self, result: Any = None) -> None:
-        self.calls: list[dict[str, Any]] = []
-        self.result = result
-
-    async def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        self.calls.append(kwargs)
-        return self.result
-
-
-class _Provider:
-    """A configured SMS provider that accepts everything."""
-
-    is_configured = True
-
-    def __init__(self) -> None:
-        self.texts: list[str] = []
-
-    async def send(self, *, to_e164: str, sender: str, text: str, **_: Any) -> SmsSendResult:
-        self.texts.append(text)
-        return SmsSendResult(success=True, provider_message_id=f"m{len(self.texts)}", price_cents=6)
-
-
-@pytest.fixture
 def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Mock the model (it reads a quote), the email, the SMS provider and every push."""
-    model = _Recorder({"type": "quote", "summary": "Fuite sous l'évier, veut un passage."})
-    email = _Recorder({"success": True})
-    provider = _Provider()
+    model = AsyncCallRecorder({"type": "quote", "summary": "Fuite sous l'évier, veut un passage."})
+    email = AsyncCallRecorder({"success": True})
+    provider = AcceptingSmsProvider()
     monkeypatch.setattr(analyzer_module.assistant_llm_router, "complete_json", model)
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
-    monkeypatch.setattr(request_module.notification_service, "notify_assistant_lead", _Recorder())
-    monkeypatch.setattr(alerts_module.notification_service, "notify_assistant_requests_waiting", _Recorder())
-    monkeypatch.setattr(sms_module.notification_service, "notify_sms_event", _Recorder())
+    monkeypatch.setattr(request_module.notification_service, "notify_assistant_lead", AsyncCallRecorder())
+    monkeypatch.setattr(alerts_module.notification_service, "notify_assistant_requests_waiting", AsyncCallRecorder())
+    monkeypatch.setattr(sms_module.notification_service, "notify_sms_event", AsyncCallRecorder())
     monkeypatch.setattr(sms_module.sms_service, "_provider", provider)
     monkeypatch.setattr(alerts_module, "_utc_now", lambda: _TUESDAY_14H_UTC)
     return {"model": model, "email": email, "sms": provider}
@@ -416,7 +366,7 @@ def test_the_email_lists_the_wished_half_days() -> None:
 def test_the_public_slots_route_serves_the_offer(db: Session, public_routes: list[int]) -> None:
     assistant = _assistant(db, status="active")
 
-    offer = asyncio.run(routes.get_assistant_appointment_slots(assistant.slug, _VISITOR, after=None, db=db))
+    offer = asyncio.run(routes.get_assistant_appointment_slots(assistant.slug, VISITOR_REQUEST, after=None, db=db))
 
     assert offer.max_chosen == 2
     assert [(item.date, item.periods) for item in offer.days][:2] == [
@@ -424,7 +374,7 @@ def test_the_public_slots_route_serves_the_offer(db: Session, public_routes: lis
         (date(2026, 9, 22), [_AFTERNOON]),
     ]
     with pytest.raises(HTTPException) as missing:
-        asyncio.run(routes.get_assistant_appointment_slots("inconnu", _VISITOR, after=None, db=db))
+        asyncio.run(routes.get_assistant_appointment_slots("inconnu", VISITOR_REQUEST, after=None, db=db))
     assert missing.value.status_code == 404
 
 
@@ -439,7 +389,7 @@ def test_the_lead_route_takes_the_half_days_and_answers_422_for_one_withdrawn(
         slots=[AiAssistantSlotChoice(date=date(2026, 9, 21), period=_MORNING)],
     )
 
-    asyncio.run(routes.submit_assistant_lead(assistant.slug, payload, _VISITOR, db))
+    asyncio.run(routes.submit_assistant_lead(assistant.slug, payload, VISITOR_REQUEST, db))
 
     [stored] = db.query(AiAssistantRequest).all()
     assert stored.appointment_slots_json == [{"date": "2026-09-21", "period": "morning"}]
@@ -449,7 +399,7 @@ def test_the_lead_route_takes_the_half_days_and_answers_422_for_one_withdrawn(
         update={"session_id": "session-2", "slots": [AiAssistantSlotChoice(date=date(2026, 9, 23), period=_MORNING)]}
     )
     with pytest.raises(HTTPException) as refused:
-        asyncio.run(routes.submit_assistant_lead(assistant.slug, withdrawn, _VISITOR, db))
+        asyncio.run(routes.submit_assistant_lead(assistant.slug, withdrawn, VISITOR_REQUEST, db))
     assert refused.value.status_code == 422
     assert refused.value.detail == "Ce créneau n'est plus proposé"
     assert db.query(AiAssistantRequest).count() == 1
@@ -467,7 +417,7 @@ def test_a_refusal_not_written_for_the_visitor_answers_a_plain_sentence(
     monkeypatch.setattr(routes.ai_assistant_request_service, "capture", broken_capture)
 
     with pytest.raises(HTTPException) as refused:
-        asyncio.run(routes.submit_assistant_lead(assistant.slug, payload, _VISITOR, db))
+        asyncio.run(routes.submit_assistant_lead(assistant.slug, payload, VISITOR_REQUEST, db))
 
     assert refused.value.status_code == 422
     assert refused.value.detail == "Demande invalide : vérifiez vos informations et réessayez."

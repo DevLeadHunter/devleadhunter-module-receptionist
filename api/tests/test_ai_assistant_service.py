@@ -1,7 +1,5 @@
 """Tests for the AI assistant generation and public lookup service."""
 
-import importlib
-import pkgutil
 from datetime import datetime
 from types import SimpleNamespace
 
@@ -9,13 +7,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import models
 from core.database import Base
 from services.ai_assistant.assistant_service import ai_assistant_service
-
-# Load every model so SQLAlchemy can configure the mappers (relationships resolve across models).
-for _module in pkgutil.iter_modules(models.__path__):
-    importlib.import_module("models." + _module.name)
 
 _ENRICHMENT = {
     "logo_url": None,

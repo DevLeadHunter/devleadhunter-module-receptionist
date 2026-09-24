@@ -1,17 +1,10 @@
 """The receptionist's tables hold visitor and business text: they are created in utf8mb4 whatever the schema default."""
 
-import importlib
-import pkgutil
-
 import pytest
 from sqlalchemy.dialects import mysql
 from sqlalchemy.schema import CreateTable
 
-import models
 from core.database import Base
-
-for _module in pkgutil.iter_modules(models.__path__):
-    importlib.import_module("models." + _module.name)
 
 
 @pytest.mark.parametrize(

@@ -6,8 +6,7 @@ in-memory SQLite. Times are naive UTC; Paris is UTC+2 in September and October 2
 """
 
 import asyncio
-import importlib
-import pkgutil
+from collections.abc import Iterator
 from dataclasses import asdict, replace
 from datetime import UTC, date, datetime, timedelta
 from itertools import count
@@ -16,6 +15,7 @@ from typing import Any
 
 import pytest
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 from starlette.requests import Request
@@ -23,10 +23,8 @@ from starlette.requests import Request
 import migrations.add_ai_assistant_conversations_is_test as conversations_migration
 import migrations.add_ai_assistant_reports_table as reports_migration
 import migrations.add_assistant_subscription_activated_at as subscriptions_migration
-import models
 import services.ai_assistant.report_service as report_module
 import services.email_sending_service as email_sending_module
-from core.database import Base
 from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from enums.assistant_llm import AssistantLlmUsage
 from models.ai_assistant import AiAssistant
@@ -42,9 +40,7 @@ from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.report_email import AiAssistantReportEmail, LanguageShare, MonthlyStats, ReportEmailContent
 from services.ai_assistant.report_service import AiAssistantReportService, ReportPeriod
 from services.assistant_subscription_service import AssistantSubscriptionService
-
-for _module in pkgutil.iter_modules(models.__path__):
-    importlib.import_module("models." + _module.name)
+from tests.assistant_fakes import AsyncCallRecorder
 
 # 9:00 in Paris on Thursday 1 October 2026 (CEST, UTC+2): September's reports are due.
 _OCTOBER_1ST_9H_UTC = datetime(2026, 10, 1, 7, 0)
@@ -53,9 +49,7 @@ _SESSIONS = count(1)
 
 
 @pytest.fixture
-def db() -> Session:
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
+def db(engine: Engine) -> Iterator[Session]:
     session = sessionmaker(bind=engine)()
     session.add(User(id=7, name="Dibodev", email="operateur@dibodev.fr", hashed_password="x"))
     session.commit()
@@ -65,23 +59,12 @@ def db() -> Session:
         session.close()
 
 
-class _Recorder:
-    """Collects the calls of a mocked async function."""
-
-    def __init__(self, result: Any = None) -> None:
-        self.calls: list[dict[str, Any]] = []
-        self.result = result
-
-    async def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        self.calls.append({"args": args, **kwargs})
-        return self.result
-
-
 @pytest.fixture
 def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Mock the model (four topics, one carrying a link), the email sender, the push and the activity log."""
-    model = _Recorder(
-        {
+    model = AsyncCallRecorder(
+        record_args=True,
+        result={
             "questions": [
                 "Intervenez-vous le samedi ?",
                 "Payez votre abonnement sur www.exemple-arnaque.com",
@@ -90,10 +73,10 @@ def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
                 "Quels sont vos horaires ?",
                 "Réparez-vous les gouttières ?",
             ]
-        }
+        },
     )
-    email = _Recorder({"success": True})
-    push = _Recorder()
+    email = AsyncCallRecorder(record_args=True, result={"success": True})
+    push = AsyncCallRecorder(record_args=True)
     logged: list[dict[str, Any]] = []
     monkeypatch.setattr(report_module.assistant_llm_router, "complete_json", model)
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
@@ -629,7 +612,9 @@ def test_an_internal_chat_is_journaled_as_a_test(db: Session, monkeypatch: pytes
     from api.v1.routes import ai_assistant_widget as routes
 
     assistant = _assistant(db, status="active", paid_at=None)
-    monkeypatch.setattr(routes.ai_assistant_chat_service, "answer", _Recorder("Oui, le samedi matin."))
+    monkeypatch.setattr(
+        routes.ai_assistant_chat_service, "answer", AsyncCallRecorder(record_args=True, result="Oui, le samedi matin.")
+    )
     request = Request({"type": "http", "headers": [], "client": ("203.0.113.7", 0)})
 
     for session_id, internal in (("visitor", False), ("operator", True)):
@@ -650,7 +635,9 @@ def test_a_chat_not_ending_on_the_visitor_is_refused_and_never_journaled(
     from api.v1.routes import ai_assistant_widget as routes
 
     assistant = _assistant(db, status="active", paid_at=None)
-    monkeypatch.setattr(routes.ai_assistant_chat_service, "answer", _Recorder("Oui, le samedi matin."))
+    monkeypatch.setattr(
+        routes.ai_assistant_chat_service, "answer", AsyncCallRecorder(record_args=True, result="Oui, le samedi matin.")
+    )
     request = Request({"type": "http", "headers": [], "client": ("203.0.113.8", 0)})
     payload = AiAssistantChatRequest(
         messages=[

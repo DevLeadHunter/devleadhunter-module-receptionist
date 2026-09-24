@@ -7,23 +7,17 @@ operator). Everything runs on in-memory SQLite with the model, the email and the
 """
 
 import asyncio
-import importlib
-import pkgutil
 from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
-from starlette.requests import Request
 
 import migrations.add_ai_assistant_requests_table as requests_migration
-import models
 import services.ai_assistant.request_analyzer as analyzer_module
 import services.ai_assistant.request_service as request_module
 import services.email_sending_service as email_sending_module
-from core.database import Base
 from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_lead import AiAssistantLead
@@ -35,30 +29,11 @@ from services.ai_assistant.request_analyzer import TranscriptLine
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
 from services.ai_assistant.request_links import AiAssistantRequestLinks
 from services.ai_assistant.request_service import AiAssistantRequestService
-
-# Load every model so SQLAlchemy can configure the mappers (relationships resolve across models).
-for _module in pkgutil.iter_modules(models.__path__):
-    importlib.import_module("models." + _module.name)
+from tests.assistant_fakes import VISITOR_REQUEST, AsyncCallRecorder
 
 _HOURS = [{"day": "lundi", "hours": "08:00–12:00, 14:00–18:00"}]
 _MONDAY_EVENING = datetime(2026, 9, 21, 21, 30)
 _MONDAY_MORNING = datetime(2026, 9, 21, 9, 0)
-
-
-@pytest.fixture
-def engine():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture
-def db(engine) -> Session:
-    session = sessionmaker(bind=engine)()
-    try:
-        yield session
-    finally:
-        session.close()
 
 
 def _assistant(db: Session, *, status: str = "active", email: str | None = None) -> AiAssistant:
@@ -80,9 +55,6 @@ def _assistant(db: Session, *, status: str = "active", email: str | None = None)
     assistant.email = email
     db.commit()
     return assistant
-
-
-_VISITOR = Request({"type": "http", "headers": [], "client": ("203.0.113.9", 0)})
 
 
 def _capture(db: Session, assistant: AiAssistant, **overrides: Any) -> tuple[AiAssistantRequest, bool]:
@@ -201,24 +173,12 @@ def test_the_request_links_the_session_conversation(db: Session) -> None:
     ]
 
 
-class _Recorder:
-    """Collects the calls of a mocked async function."""
-
-    def __init__(self, result: Any = None) -> None:
-        self.calls: list[dict[str, Any]] = []
-        self.result = result
-
-    async def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        self.calls.append(kwargs)
-        return self.result
-
-
 @pytest.fixture
-def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, _Recorder]:
+def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, AsyncCallRecorder]:
     """Mock the model (a valid quote analysis), the summary email and the operator push."""
-    model = _Recorder({"type": "quote", "summary": "Tuiles déplacées côté rue, devis demandé."})
-    email = _Recorder({"success": True})
-    push = _Recorder()
+    model = AsyncCallRecorder({"type": "quote", "summary": "Tuiles déplacées côté rue, devis demandé."})
+    email = AsyncCallRecorder({"success": True})
+    push = AsyncCallRecorder()
     monkeypatch.setattr(analyzer_module.assistant_llm_router, "complete_json", model)
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
     monkeypatch.setattr(request_module.notification_service, "notify_assistant_lead", push)
@@ -226,7 +186,7 @@ def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, _Recorder]:
 
 
 def test_follow_up_types_summarizes_and_announces_a_sold_assistant_request_once(
-    db: Session, outbox: dict[str, _Recorder]
+    db: Session, outbox: dict[str, AsyncCallRecorder]
 ) -> None:
     assistant = _assistant(db, status="delivered", email="patron@toitures-morel.fr")
     request, _ = _capture(db, assistant)
@@ -249,7 +209,9 @@ def test_follow_up_types_summarizes_and_announces_a_sold_assistant_request_once(
     assert outbox["push"].calls[0]["received_outside_hours"] is True
 
 
-def test_the_business_email_falls_back_on_the_prospect_address(db: Session, outbox: dict[str, _Recorder]) -> None:
+def test_the_business_email_falls_back_on_the_prospect_address(
+    db: Session, outbox: dict[str, AsyncCallRecorder]
+) -> None:
     assistant = _assistant(db, status="delivered")
     request, _ = _capture(db, assistant)
 
@@ -258,7 +220,7 @@ def test_the_business_email_falls_back_on_the_prospect_address(db: Session, outb
     assert outbox["email"].calls[0]["recipient_email"] == "contact@toitures-morel.fr"
 
 
-def test_a_demo_request_never_writes_to_the_prospect(db: Session, outbox: dict[str, _Recorder]) -> None:
+def test_a_demo_request_never_writes_to_the_prospect(db: Session, outbox: dict[str, AsyncCallRecorder]) -> None:
     assistant = _assistant(db, status="active", email="patron@toitures-morel.fr")
     request, _ = _capture(db, assistant)
 
@@ -268,7 +230,9 @@ def test_a_demo_request_never_writes_to_the_prospect(db: Session, outbox: dict[s
     assert len(outbox["push"].calls) == 1
 
 
-def test_an_internal_test_request_is_typed_but_never_announced(db: Session, outbox: dict[str, _Recorder]) -> None:
+def test_an_internal_test_request_is_typed_but_never_announced(
+    db: Session, outbox: dict[str, AsyncCallRecorder]
+) -> None:
     assistant = _assistant(db, status="delivered", email="patron@toitures-morel.fr")
     request, _ = _capture(db, assistant, is_test=True)
 
@@ -337,16 +301,24 @@ def test_the_handled_link_only_confirms_on_open_and_acts_on_a_signed_post(db: Se
     expires_at = int(url.split("exp=")[1].split("&")[0])
     token = url.split("token=")[1]
 
-    opened = asyncio.run(confirm_request_handled_page(request.id, _VISITOR, exp=expires_at, token=token, db=db))
+    opened = asyncio.run(confirm_request_handled_page(request.id, VISITOR_REQUEST, exp=expires_at, token=token, db=db))
     assert opened.status_code == 200
     assert '<form method="post"' in opened.body.decode()
     assert request.status == AiAssistantRequestStatus.NEW.value
 
-    forged = asyncio.run(mark_request_handled_from_email(request.id, _VISITOR, exp=expires_at, token="0" * 64, db=db))
+    forged = asyncio.run(
+        mark_request_handled_from_email(request.id, VISITOR_REQUEST, exp=expires_at, token="0" * 64, db=db)
+    )
     # A link names its request: its signature marks no other one.
-    borrowed = asyncio.run(mark_request_handled_from_email(other.id, _VISITOR, exp=expires_at, token=token, db=db))
-    valid = asyncio.run(mark_request_handled_from_email(request.id, _VISITOR, exp=expires_at, token=token, db=db))
-    reopened = asyncio.run(confirm_request_handled_page(request.id, _VISITOR, exp=expires_at, token=token, db=db))
+    borrowed = asyncio.run(
+        mark_request_handled_from_email(other.id, VISITOR_REQUEST, exp=expires_at, token=token, db=db)
+    )
+    valid = asyncio.run(
+        mark_request_handled_from_email(request.id, VISITOR_REQUEST, exp=expires_at, token=token, db=db)
+    )
+    reopened = asyncio.run(
+        confirm_request_handled_page(request.id, VISITOR_REQUEST, exp=expires_at, token=token, db=db)
+    )
 
     assert forged.status_code == 400
     assert borrowed.status_code == 400
@@ -371,7 +343,9 @@ def test_a_handled_link_opened_too_often_from_one_address_waits(db: Session, mon
     )
 
     pages = [
-        asyncio.run(routes.confirm_request_handled_page(request.id, _VISITOR, exp=expires_at, token=token, db=db))
+        asyncio.run(
+            routes.confirm_request_handled_page(request.id, VISITOR_REQUEST, exp=expires_at, token=token, db=db)
+        )
         for _ in range(3)
     ]
 
@@ -380,7 +354,7 @@ def test_a_handled_link_opened_too_often_from_one_address_waits(db: Session, mon
 
 
 def test_lost_announcements_are_picked_up_once_by_the_runner(
-    engine, db: Session, outbox: dict[str, _Recorder], monkeypatch: pytest.MonkeyPatch
+    engine, db: Session, outbox: dict[str, AsyncCallRecorder], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     assistant = _assistant(db)
     now = datetime.utcnow()

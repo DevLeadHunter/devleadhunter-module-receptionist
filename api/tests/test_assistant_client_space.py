@@ -6,26 +6,21 @@ called directly.
 """
 
 import asyncio
-import importlib
-import pkgutil
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
-from starlette.requests import Request
 
 import api.v1.routes.ai_assistant_client_space as routes
 import api.v1.routes.ai_assistants as owner_routes
-import models
 import services.ai_assistant.client_space_service as client_space_module
 import services.email_sending_service as email_sending_module
 from core.config import settings
-from core.database import Base
 from enums.ai_assistant_request import AiAssistantRequestType
 from enums.assistant_widget_language import AssistantWidgetLanguage
 from models.ai_assistant import AiAssistant
@@ -41,18 +36,13 @@ from services.ai_assistant.request_alerts import AlertSms
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
 from services.rate_limiter import SlidingWindowRateLimiter
 from services.sms.gsm_segments import segment_count
+from tests.assistant_fakes import VISITOR_REQUEST, AsyncCallRecorder
 
-for _module in pkgutil.iter_modules(models.__path__):
-    importlib.import_module("models." + _module.name)
-
-_VISITOR = Request({"type": "http", "headers": [], "client": ("203.0.113.9", 0)})
 _LINK = "demo.dibodev.fr/client/1234.tneuo0.K4lzdHZLLanlAxWK"
 
 
 @pytest.fixture
-def db() -> Session:
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
+def db(engine: Engine) -> Iterator[Session]:
     session = sessionmaker(bind=engine)()
     session.add(User(id=7, name="Dibodev", email="operateur@dibodev.fr", hashed_password="x"))
     session.add(User(id=8, name="Autre", email="autre@exemple.fr", hashed_password="x"))
@@ -61,18 +51,6 @@ def db() -> Session:
         yield session
     finally:
         session.close()
-
-
-class _Recorder:
-    """Collects the calls of a mocked async function."""
-
-    def __init__(self, result: Any = None) -> None:
-        self.calls: list[dict[str, Any]] = []
-        self.result = result
-
-    async def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        self.calls.append(kwargs)
-        return self.result
 
 
 @pytest.fixture(autouse=True)
@@ -86,7 +64,7 @@ def fresh_limits(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Mock the email sender and the activity log."""
-    email = _Recorder({"success": True})
+    email = AsyncCallRecorder({"success": True})
     logged: list[dict[str, Any]] = []
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
     monkeypatch.setattr(client_space_module.activity_log_service, "record", lambda **kwargs: logged.append(kwargs))
@@ -189,7 +167,7 @@ def test_the_page_shows_the_assistant_requests_report_settings_and_subscription(
     )
     db.commit()
 
-    page = asyncio.run(routes.get_client_space(_token(assistant), _VISITOR, db))
+    page = asyncio.run(routes.get_client_space(_token(assistant), VISITOR_REQUEST, db))
 
     assert (page.business_name, page.pending_count) == ("Toitures Morel", 2)
     # The requests still waiting come first, the handled ones after.
@@ -217,8 +195,8 @@ def test_a_token_never_reaches_another_assistant(db: Session) -> None:
     own = _request(db, assistant)
     token = _token(assistant)
 
-    status_code, _detail = _status_of(routes.mark_client_request_handled(token, foreign.id, _VISITOR, db))
-    handled = asyncio.run(routes.mark_client_request_handled(token, own.id, _VISITOR, db))
+    status_code, _detail = _status_of(routes.mark_client_request_handled(token, foreign.id, VISITOR_REQUEST, db))
+    handled = asyncio.run(routes.mark_client_request_handled(token, own.id, VISITOR_REQUEST, db))
 
     assert status_code == 404
     assert handled.status.value == "handled"
@@ -234,12 +212,12 @@ def test_an_expired_link_asks_for_a_new_one_and_a_forged_or_demo_link_opens_noth
     # Past the renewal window, a new link could not be sent: the page must not offer one.
     forgotten = _token(sold, now=datetime.now(UTC) - timedelta(days=150))
 
-    assert _status_of(routes.get_client_space(expired, _VISITOR, db)) == (
+    assert _status_of(routes.get_client_space(expired, VISITOR_REQUEST, db)) == (
         401,
         "Ce lien a expiré : demandez un nouveau lien.",
     )
     for token in (_token(demo), _token(deleted), forgotten, "12.abc.AAAAAAAAAAAAAAAA", "n'importe quoi"):
-        assert _status_of(routes.get_client_space(token, _VISITOR, db))[0] == 404
+        assert _status_of(routes.get_client_space(token, VISITOR_REQUEST, db))[0] == 404
 
 
 def test_the_client_changes_only_its_own_settings_and_keeps_the_operator_languages(
@@ -254,12 +232,12 @@ def test_the_client_changes_only_its_own_settings_and_keeps_the_operator_languag
             AiAssistantClientSettingsUpdate(
                 assistant_name="Léa", languages=["fr", "lu"], alert_phone="06 12 34 56 78", alert_sms_enabled=False
             ),
-            _VISITOR,
+            VISITOR_REQUEST,
             db,
         )
     )
     untouched = asyncio.run(
-        routes.update_client_settings(token, AiAssistantClientSettingsUpdate(languages=None), _VISITOR, db)
+        routes.update_client_settings(token, AiAssistantClientSettingsUpdate(languages=None), VISITOR_REQUEST, db)
     )
 
     assert (saved.assistant_name, saved.alert_phone, saved.alert_sms_enabled) == ("Léa", "+33612345678", False)
@@ -282,7 +260,7 @@ def test_a_bad_or_foreign_alert_mobile_saves_nothing(db: Session, outbox: dict[s
     for phone in ("01 23 45 67 89", "+44 7700 900123"):
         status_code, _detail = _status_of(
             routes.update_client_settings(
-                token, AiAssistantClientSettingsUpdate(assistant_name="Zoé", alert_phone=phone), _VISITOR, db
+                token, AiAssistantClientSettingsUpdate(assistant_name="Zoé", alert_phone=phone), VISITOR_REQUEST, db
             )
         )
         assert status_code == 422
@@ -297,11 +275,11 @@ def test_a_new_alert_mobile_is_announced_to_the_business_and_the_operator(db: Se
 
     asyncio.run(
         routes.update_client_settings(
-            token, AiAssistantClientSettingsUpdate(alert_phone="+352 621 123 456"), _VISITOR, db
+            token, AiAssistantClientSettingsUpdate(alert_phone="+352 621 123 456"), VISITOR_REQUEST, db
         )
     )
     asyncio.run(
-        routes.update_client_settings(token, AiAssistantClientSettingsUpdate(assistant_name="Léa"), _VISITOR, db)
+        routes.update_client_settings(token, AiAssistantClientSettingsUpdate(assistant_name="Léa"), VISITOR_REQUEST, db)
     )
 
     [notice] = outbox["email"].calls
@@ -330,14 +308,14 @@ def test_the_billing_portal_returns_to_the_client_space(db: Session, monkeypatch
         subscription_module.assistant_subscription_service._stripe.billing_portal.Session, "create", create
     )
 
-    assert _status_of(routes.open_client_billing_portal(token, _VISITOR, db))[0] == 404
+    assert _status_of(routes.open_client_billing_portal(token, VISITOR_REQUEST, db))[0] == 404
     db.add(
         AiAssistantSubscription(
             user_id=7, ai_assistant_id=assistant.id, amount_cents=7900, status="active", stripe_customer_id="cus_9"
         )
     )
     db.commit()
-    portal = asyncio.run(routes.open_client_billing_portal(token, _VISITOR, db))
+    portal = asyncio.run(routes.open_client_billing_portal(token, VISITOR_REQUEST, db))
 
     assert portal.url == "https://billing.stripe.com/p/session_1"
     assert sessions == [
@@ -350,9 +328,9 @@ def test_a_recently_expired_link_emails_a_fresh_one_within_the_limits(db: Sessio
     expired = _token(assistant, now=datetime.now(UTC) - timedelta(days=40))
     forgotten = _token(assistant, now=datetime.now(UTC) - timedelta(days=150))
 
-    answers = [asyncio.run(routes.renew_client_link(expired, _VISITOR, db)).sent for _ in range(3)]
-    limited = _status_of(routes.renew_client_link(expired, _VISITOR, db))
-    too_old = _status_of(routes.renew_client_link(forgotten, _VISITOR, db))
+    answers = [asyncio.run(routes.renew_client_link(expired, VISITOR_REQUEST, db)).sent for _ in range(3)]
+    limited = _status_of(routes.renew_client_link(expired, VISITOR_REQUEST, db))
+    too_old = _status_of(routes.renew_client_link(forgotten, VISITOR_REQUEST, db))
 
     assert answers == [True, True, True]
     assert (limited[0], too_old[0]) == (429, 404)

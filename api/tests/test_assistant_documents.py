@@ -6,25 +6,21 @@ The database is an in-memory SQLite; routes are called directly.
 """
 
 import asyncio
-import importlib
 import io
-import pkgutil
+from collections.abc import Iterator
 from datetime import datetime
 from typing import Any
 
 import pytest
 from fastapi import HTTPException
 from pypdf import PdfReader, PdfWriter
-from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 from starlette.requests import Request
 
 import api.v1.routes.ai_assistant_sources as sources_routes
-import models
 import services.ai_assistant.document_service as document_module
 import services.ai_assistant.source_service as source_module
-from core.database import Base
 from enums.assistant_knowledge_source import AssistantKnowledgeSource
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_document import AiAssistantDocument
@@ -37,9 +33,6 @@ from services.ai_assistant.document_text import AiAssistantDocumentText, Documen
 from services.ai_assistant.knowledge_budget import AiAssistantKnowledgeBudget, KnowledgeSourceText
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.source_service import AiAssistantSourceService, SourceToggles
-
-for _module in pkgutil.iter_modules(models.__path__):
-    importlib.import_module("models." + _module.name)
 
 
 def _pdf(pages: list[list[str]]) -> bytes:
@@ -199,9 +192,7 @@ def test_without_a_question_the_site_comes_before_the_documents() -> None:
 
 
 @pytest.fixture
-def db() -> Session:
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
+def db(engine: Engine) -> Iterator[Session]:
     session = sessionmaker(bind=engine)()
     session.add(User(id=7, name="Dibodev", email="operateur@dibodev.fr", hashed_password="x"))
     session.add(User(id=8, name="Autre", email="autre@exemple.fr", hashed_password="x"))

@@ -5,23 +5,17 @@ R2, the vision model, the pushes and the email are mocked; the database is an in
 """
 
 import asyncio
-import importlib
 import io
-import pkgutil
 from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
 from PIL import Image
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.orm import Session
 
-import models
 import services.ai_assistant.photo_service as photo_module
 import services.ai_assistant.request_service as request_module
 import services.email_sending_service as email_sending_module
-from core.database import Base
 from enums.ai_assistant_photo import AiAssistantPhotoRejection, AiAssistantPhotoUrgency
 from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestType
 from enums.assistant_llm import AssistantLlmUsage
@@ -36,9 +30,7 @@ from services.ai_assistant.photo_service import (
     PhotoRejectedError,
 )
 from services.ai_assistant.request_service import AiAssistantRequestService
-
-for _module in pkgutil.iter_modules(models.__path__):
-    importlib.import_module("models." + _module.name)
+from tests.assistant_fakes import AsyncCallRecorder
 
 _SCRATCH = {
     "relevant": True,
@@ -49,34 +41,6 @@ _SCRATCH = {
     "reply": "Je vois une rayure profonde sur l'aile avant gauche, la peinture est à refaire. "
     "Quelle est la marque du véhicule ? Laissez-moi votre prénom et un téléphone pour le devis.",
 }
-
-
-@pytest.fixture
-def engine():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture
-def db(engine) -> Session:
-    session = sessionmaker(bind=engine)()
-    try:
-        yield session
-    finally:
-        session.close()
-
-
-class _Recorder:
-    """Collects the calls of a mocked async function."""
-
-    def __init__(self, result: Any = None) -> None:
-        self.calls: list[dict[str, Any]] = []
-        self.result = result
-
-    async def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        self.calls.append({"args": args, **kwargs})
-        return self.result
 
 
 class _Model:
@@ -120,9 +84,13 @@ def cloud(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     monkeypatch.setattr(photo_module.r2_storage, "delete_async", storage.delete)
     monkeypatch.setattr(photo_module.assistant_llm_router, "complete_json", vision)
     monkeypatch.setattr(
-        email_sending_module.EmailSendingService, "send_via_user_identity", _Recorder({"success": True})
+        email_sending_module.EmailSendingService,
+        "send_via_user_identity",
+        AsyncCallRecorder(record_args=True, result={"success": True}),
     )
-    monkeypatch.setattr(request_module.notification_service, "notify_assistant_lead", _Recorder())
+    monkeypatch.setattr(
+        request_module.notification_service, "notify_assistant_lead", AsyncCallRecorder(record_args=True)
+    )
     return {"storage": storage, "vision": vision}
 
 

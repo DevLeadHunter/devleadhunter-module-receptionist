@@ -5,8 +5,6 @@ Migrations run against an in-memory SQLite holding just the columns they touch.
 """
 
 import asyncio
-import importlib
-import pkgutil
 from datetime import UTC, datetime
 
 import pytest
@@ -16,7 +14,6 @@ from sqlalchemy.pool import StaticPool
 
 import migrations.raise_assistant_default_price as price_migration
 import migrations.rewrite_assistant_emails_missed_requests as emails_migration
-import models
 from core.config import settings
 from core.database import Base
 from models.prospect_db import ProspectDB
@@ -26,9 +23,6 @@ from services.assistant_pricing_service import DEFAULT_MONTHLY_PRICE_CENTS, Assi
 from services.sms.gsm_segments import segment_count
 from services.sms.templates import SMS_TEMPLATE_LIBRARY
 from services.sms_service import sms_service
-
-for _module in pkgutil.iter_modules(models.__path__):
-    importlib.import_module("models." + _module.name)
 
 _ASSISTANT_EMAILS = [
     template for template in EMAIL_TEMPLATE_LIBRARY if str(template["name"]).startswith("Assistant IA")
