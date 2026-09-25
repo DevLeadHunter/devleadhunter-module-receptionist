@@ -155,5 +155,7 @@ def test_the_system_prompt_asks_for_the_trailing_line_and_for_lists_when_enumera
     prompt = ai_assistant_knowledge_builder.render_system_prompt(_KB, assistant_name="Sofia")
 
     assert "Termine TOUJOURS ta réponse par une dernière ligne exacte « §SUITE: " in prompt
+    # The chips are the visitor's next questions to the business, never the business's questions to the visitor.
+    assert "Jamais une question que l'entreprise poserait au client" in prompt
     assert "UNE ligne par élément commençant par « - »" in prompt
     assert "liste à puces" not in prompt

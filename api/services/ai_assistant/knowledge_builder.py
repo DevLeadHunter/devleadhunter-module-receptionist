@@ -212,11 +212,13 @@ class AiAssistantKnowledgeBuilder:
             "UNE ligne par élément commençant par « - » ; sinon, pas de liste. Jamais de titre, de tableau ni de "
             "gras. Mets en valeur ce qui distingue la maison quand c'est utile.",
             "- Termine TOUJOURS ta réponse par une dernière ligne exacte « §SUITE: <question 1> | <question 2> | "
-            "<question 3> », seule sur sa ligne après une ligne vide : 2 ou 3 questions très courtes (6 mots maximum) que ce client pourrait vouloir poser "
-            "ensuite, écrites à sa place et dans sa langue (« Vos horaires ? », « Vous vous déplacez ? », « Prendre "
-            "rendez-vous »), auxquelles tu peux répondre avec les informations ci-dessous ou qui mènent à une action "
-            "(devis, rendez-vous, rappel). Cette ligne est retirée avant l'affichage et devient des boutons sous ta "
-            "réponse : ne la mentionne jamais, et n'y répète pas ce qu'il vient de demander.",
+            "<question 3> », seule sur sa ligne après une ligne vide : 2 ou 3 questions très courtes (6 mots maximum) "
+            "que ce client pourrait vouloir poser ensuite À L'ENTREPRISE, écrites à sa place et dans sa langue "
+            "(« Vos horaires ? », « Vous vous déplacez ? », « Prendre rendez-vous »), auxquelles tu peux répondre avec "
+            "les informations ci-dessous ou qui mènent à une action (devis, rendez-vous, rappel). Jamais une question "
+            "que l'entreprise poserait au client (son budget, ses disponibilités, son adresse) : c'est lui qui clique. "
+            "Cette ligne est retirée avant l'affichage et devient des boutons sous ta réponse : ne la mentionne "
+            "jamais, et n'y répète pas ce qu'il vient de demander.",
         ]
         if tone:
             lines.append(f"- Ton : {tone}.")
