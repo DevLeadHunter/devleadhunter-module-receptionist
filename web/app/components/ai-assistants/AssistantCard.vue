@@ -93,7 +93,6 @@ import type { UseLazyPreviewReturn } from '~/types/Composables'
 import { useLazyPreview } from '~/composables/useLazyPreview'
 import { assistantLifetimeLabel, assistantStatusLabel, demoUrlWithInternal } from '~/utils/aiAssistantLabels'
 
-/** Assistant summary card: live scaled preview of its demo page, stretched-link navigation, open and copy. */
 const props: AiAssistantCardProps = defineProps({
   assistant: {
     type: Object as PropType<AiAssistantSummary>,

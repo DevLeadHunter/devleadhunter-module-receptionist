@@ -25,7 +25,6 @@ export type AiAssistantConfig = {
   languages: string[]
   accent_color: string | null
   status: string
-  /** The business as its Google listing shows it, for the demo page's scene. */
   city?: string | null
   trade_label?: string | null
   google_rating?: number | null

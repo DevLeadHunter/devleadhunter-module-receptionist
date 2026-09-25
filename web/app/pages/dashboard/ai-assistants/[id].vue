@@ -632,7 +632,7 @@ function startVideoPolling(): void {
       stopVideoPolling()
       return
     }
-    void refreshAssistant()
+    refreshAssistant()
   }, 5000)
 }
 

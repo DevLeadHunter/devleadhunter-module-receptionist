@@ -238,7 +238,6 @@ import { contactHref } from '~/utils/contactLink'
 import { formatShortMonthDayTime } from '~/utils/date'
 import { REQUEST_STATUS_LABELS, REQUEST_TYPE_LABELS } from '~/utils/aiAssistantLabels'
 
-/** One visitor request: coordinates, need, photos, the conversation, a note, and the owner's actions. */
 const props: UiAssistantRequestDrawerProps = defineProps({
   open: {
     type: Boolean,

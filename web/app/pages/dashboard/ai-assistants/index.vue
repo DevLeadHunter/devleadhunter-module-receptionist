@@ -130,10 +130,7 @@ import type { SelectFieldOption } from '~/types/SelectField'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { useDrawerStackStore } from '~/stores/drawerStack'
 
-/**
- * The assistants generated for the user's prospects, as cards with a live preview of their demo page.
- * Generation happens from a prospect; each card opens the assistant's detail page.
- */
+/** The assistants generated for the user's prospects, as cards previewing their demo page; each opens its detail page. */
 definePageMeta({ layout: 'dashboard', middleware: 'auth' })
 
 useSeoMeta({ title: 'Assistants IA — DevLeadHunter' })
@@ -261,7 +258,7 @@ watch(
 watch(
   (): number => drawerStack.requestMutationCounter,
   (): void => {
-    void refreshPendingRequestCount()
+    refreshPendingRequestCount()
   },
 )
 

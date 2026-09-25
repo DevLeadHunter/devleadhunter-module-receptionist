@@ -9,7 +9,6 @@ import type { ComputedRef } from 'vue'
 import { computed } from 'vue'
 import type { AssistantAvatarProps } from '~/types/AssistantAvatar'
 
-/** The assistant's monogram: her initial on the business's strong accent, the same mark in the launcher and the header. */
 const props: AssistantAvatarProps = defineProps({
   name: {
     type: String,

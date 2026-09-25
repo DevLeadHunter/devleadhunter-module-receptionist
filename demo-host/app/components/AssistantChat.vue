@@ -511,7 +511,7 @@ function openLeadForm(): void {
   isPhotoPanelOpen.value = false
   isSlotPanelOpen.value = false
   showLeadForm.value = true
-  void scrollToLatest()
+  scrollToLatest()
   void nextTick((): void => leadNameEl.value?.focus())
 }
 
