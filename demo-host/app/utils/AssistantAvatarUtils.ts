@@ -2,6 +2,7 @@ import { createAvatar } from '@dicebear/core'
 import type { Options as NotionistsOptions } from '@dicebear/notionists'
 import * as notionists from '@dicebear/notionists'
 import type { AiAssistantPersonaGender } from '~/types/AiAssistant'
+import { ASSISTANT_DEFAULT_PORTRAITS, ASSISTANT_PORTRAIT_SLUGS } from '~/constants/assistantPortraits'
 
 /** One hair style of the illustration set. */
 type HairStyle = NonNullable<NotionistsOptions['hair']>[number]
@@ -67,11 +68,26 @@ const BEARD_PROBABILITY: number = 40
 const GLASSES_PROBABILITY: number = 20
 
 /**
- * The assistant's portrait: a line-art bust drawn from the persona's first name, the same face everywhere.
+ * The assistant's portrait: a photo shipped for the persona when there is one, else a bust drawn from the name.
  */
 export class AssistantAvatarUtils {
   /**
-   * The portrait as an SVG data URI, ready for an `<img>`.
+   * The portrait to show, the same everywhere the assistant appears.
+   * @param name - The persona's first name.
+   * @param gender - The persona's gender.
+   * @param backgroundColor - The disc behind a drawn bust, as a hex colour.
+   * @returns The address of a shipped photo, or a data URI of the drawn bust.
+   */
+  static portraitUrl(name: string, gender: AiAssistantPersonaGender | null, backgroundColor: string): string {
+    const slug: string = AssistantAvatarUtils.slug(name)
+    if (ASSISTANT_PORTRAIT_SLUGS.includes(slug)) return `/avatars/${slug}.webp`
+    const resolvedGender: AiAssistantPersonaGender = gender ?? 'feminine'
+    if (ASSISTANT_DEFAULT_PORTRAITS[resolvedGender]) return `/avatars/default-${resolvedGender}.webp`
+    return AssistantAvatarUtils.dataUri(name, gender, backgroundColor)
+  }
+
+  /**
+   * A bust drawn from the persona's first name, as an SVG data URI ready for an `<img>`.
    * @param name - The persona's first name: the seed of the drawing.
    * @param gender - The persona's gender, which picks the hair styles and allows a beard.
    * @param backgroundColor - The disc behind the bust, as a hex colour.
@@ -89,5 +105,20 @@ export class AssistantAvatarUtils {
       gestureProbability: 0,
       bodyIconProbability: 0,
     }).toDataUri()
+  }
+
+  /**
+   * A first name as a file name (« Léa » → `lea`, « Jean-Pierre » → `jean-pierre`).
+   * @param name - The first name.
+   * @returns The slug.
+   */
+  private static slug(name: string): string {
+    return name
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
   }
 }

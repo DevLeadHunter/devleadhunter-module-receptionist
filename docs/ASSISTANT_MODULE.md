@@ -184,10 +184,12 @@ Ce que voit le prospect : le widget, sa page de démo et le script qui l'install
 C'est le **produit** que le client colle sur son site. Il porte :
 
 - **Interface (refonte des 25 et 26/09)** : sobre et claire, l'accent du commerce ne sert jamais de fond sous du
-  texte sombre. **Portrait de l'assistante** dessiné à partir de son prénom (`utils/AssistantAvatarUtils.ts`, style
-  d'illustration au trait `@dicebear/notionists`, coiffures triées par genre, barbe possible pour un prénom masculin,
-  disque de fond à la teinte de l'accent) : le même visage sur le lanceur, l'en-tête et à côté de la dernière réponse
-  d'une suite de réponses. Panneau blanc à filet avec un liseré de 3 px à l'accent fort en haut, en-tête blanc
+  texte sombre. **Portrait de l'assistante** (`utils/AssistantAvatarUtils.portraitUrl`) : une photo livrée dans
+  `demo-host/public/avatars/` quand le prénom y est (`{prenom-en-slug}.webp`, déclaré dans
+  `constants/assistantPortraits.ts`), sinon le portrait par défaut du genre (`default-feminine.webp` /
+  `default-masculine.webp`, déclarés au même endroit), sinon un buste dessiné à partir du prénom
+  (`@dicebear/notionists`, coiffures triées par genre, disque à la teinte de l'accent). Le même visage sur le
+  lanceur, l'en-tête et à côté de la dernière réponse d'une suite de réponses. Panneau blanc à filet, en-tête blanc
   (portrait 44 px avec point vert, prénom en Fraunces, « Assistante Nom du commerce » sur deux lignes au plus, pilule
   « en ligne »), bulles de l'assistante blanches à filet, bulles du visiteur sur l'accent fort en texte blanc,
   **puces d'action dans le fil** avant le premier échange (photo pour un devis, prendre rendez-vous, deux suggestions,
@@ -255,17 +257,17 @@ Surface de **vente**, à l'**accent du prospect** (typographie Fraunces et Inter
   propres mots (« Ce soir, 21h40. Un client cherche *couvreur Rennes*, tombe sur votre fiche Google… » ; métier et
   ville viennent des champs publics `trade_label` / `city`, note et avis Google de `google_rating` /
   `google_reviews_count`).
-- **D'abord, où elle vous trouve** : une fiche Google Maps stylisée (nom, note, métier, ville, boutons Itinéraire /
-  Appeler / Site web / Prendre rendez-vous en ligne) qui explique où se pose le lien.
 - **Téléphone du client** (gauche) : le **widget réel** en mode `inline`, plein écran, avec lequel le prospect
   peut discuter, envoyer une photo, choisir des créneaux et laisser ses coordonnées.
 - **Téléphone du patron** (droite) : un écran verrouillé (heure, date en français) avec une notification Messages
   construite par `utils/AssistantDemoScenarioUtils.ts` : exemple par métier tant que rien n'est envoyé (« Nouvelle
   demande de devis (photo) de … : … », au libellé du vrai SMS), puis **la vraie demande** dès que le widget émet
   `lead-sent` (sur mobile, la page défile jusqu'au second téléphone).
-- **Composants (26/09)** : la fiche Google est `AssistantDemoGoogleListing`, chaque téléphone une
-  `AssistantDemoPhoneFrame` (coque, îlot, barre d'état ; `screen="app"` ou `"lock"`) dont le contenu est le widget
-  ou `AssistantDemoLockScreen` (date, heure, notification, indication).
+- **Composants (26/09)** : chaque téléphone est une `AssistantDemoPhoneFrame` (coque, îlot, barre d'état ;
+  `screen="app"` ou `"lock"`) dont le contenu est le widget ou `AssistantDemoLockScreen` (horloge en haut,
+  notification Messages empilée en bas au-dessus de la barre d'accueil, lampe et appareil photo, comme l'écran
+  verrouillé d'un iPhone récent). La fiche Google a disparu au profit d'une phrase du chapeau ; le titre reste sur
+  une ligne, sans mot en italique, comme la page vidéo du module site.
 - **Trois résultats** en une ligne (répond 24 h/24 dans les langues de l'assistant, devis sur photo, rendez-vous),
   l'encart d'estimation (ci-dessous), la **pilule de prix** (`monthly_price_label`, masquée une fois vendu et au
   retour du paiement `?subscribed=1`) avec le lien d'abonnement, et la signature de l'owner. Le bandeau « me
@@ -879,4 +881,5 @@ dashboard (non instrumenté).
 | Widget : conversation, protocole iframe, composants | `demo-host/app/composables/useAssistantConversation.ts`, `useAssistantWidgetFrame.ts`, `demo-host/app/components/AssistantChat*.vue`, `AssistantIcon*.vue` |
 | Portrait, palette, dates des créneaux | `demo-host/app/utils/AssistantAvatarUtils.ts`, `AssistantAccentUtils.ts`, `AssistantScheduleUtils.ts` |
 | Page de démo : scénario des deux téléphones, composants | `demo-host/app/utils/AssistantDemoScenarioUtils.ts`, `demo-host/app/components/AssistantDemo*.vue` |
+| Portraits livrés (photos par prénom, défauts par genre) | `demo-host/public/avatars/`, `demo-host/app/constants/assistantPortraits.ts` |
 | Clip présentateur (réglages) | `web/app/components/settings/AssistantPresenterClipCard.vue` |

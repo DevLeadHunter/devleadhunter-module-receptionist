@@ -229,7 +229,11 @@ const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<str
   '--ai-accent-tint': palette.value.tint,
 }))
 const avatarUrl: ComputedRef<string> = computed((): string =>
-  AssistantAvatarUtils.dataUri(props.config.assistant_name, props.config.assistant_gender ?? null, palette.value.tint),
+  AssistantAvatarUtils.portraitUrl(
+    props.config.assistant_name,
+    props.config.assistant_gender ?? null,
+    palette.value.tint,
+  ),
 )
 const roleLabel: ComputedRef<string> = computed((): string =>
   AssistantPersonaUtils.roleLabel(props.config.assistant_gender),
@@ -335,7 +339,6 @@ onBeforeUnmount((): void => {
   height: min(628px, calc(100vh - 44px));
   background: var(--ai-card);
   border: 1px solid var(--ai-line);
-  border-top: 3px solid var(--ai-accent-strong);
   border-radius: 22px;
   box-shadow: 0 30px 70px -30px rgba(23, 19, 13, 0.45);
   display: flex;

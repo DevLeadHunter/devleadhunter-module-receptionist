@@ -903,6 +903,26 @@ B2B, et un vrai tour UI/UX »)** :
 - Vérifié en local par un parcours Playwright complet (lanceur, ouverture, carte photo, carte créneaux, formulaire,
   message réel, barre « Être rappelé », page /ia, dashboard desktop et mobile), zéro erreur console.
 
+**Quatrième passage le 26/09 (retours de Léo : avatar pas assez humain, liseré, mockup iPhone, page /ia, responsive
+des demandes)** :
+
+- **Portrait** : Léo veut une vraie photo, comme Lola et Lily côté PrePeers (portraits générés, fond uni, sourire).
+  Aucun générateur d'images n'est disponible depuis la session (pas de clé, Weave non lié), donc le code est prêt et
+  attend les fichiers : `AssistantAvatarUtils.portraitUrl` sert `public/avatars/{prenom}.webp` quand le prénom est
+  déclaré dans `constants/assistantPortraits.ts`, sinon `default-feminine.webp` / `default-masculine.webp` quand ils
+  sont déclarés, sinon le buste dessiné actuel. **À faire par Léo** : générer au moins `default-feminine.webp` (Sofia,
+  le prénom par défaut) et `default-masculine.webp`, carrés 512 px, fond uni clair et chaud (beige ou gris chaud, pas
+  de bleu), tête et épaules centrées, sourire, tenue simple ; les déposer dans `demo-host/public/avatars/` et passer
+  les deux entrées de `ASSISTANT_DEFAULT_PORTRAITS` à `true`. Un prénom personnalisé (« Léa ») prend son propre
+  fichier `lea.webp` ajouté à `ASSISTANT_PORTRAIT_SLUGS`.
+- Le liseré à l'accent en haut du panneau est retiré.
+- **Mockup iPhone** : écran verrouillé refait comme iOS 17 (date et grande horloge en haut, notification Messages
+  empilée en bas au-dessus de la barre d'accueil, lampe et appareil photo, animation d'arrivée).
+- **Page /ia** : titre sur une ligne sans italique, fiche Google retirée (l'idée vit dans le chapeau), même
+  composition que la page vidéo du module site : chapeau, scène, résultats, prix, signature.
+- **Demandes** : la colonne « Demande » est un bloc (badge et marques au-dessus, résumé qui va à la ligne en entier),
+  sur mobile comme sur desktop.
+
 **À tester par Léo** (toujours avec `?internal=1` sur les pages du demo-host) : `/ia/{slug}` sur desktop et
 mobile (une demande envoyée depuis le téléphone de gauche doit mettre à jour la notification de droite), le widget
 embarqué (`/embed-test.html?slug=…&internal=1`), puis `/dashboard/ai-assistants`, la page de détail et

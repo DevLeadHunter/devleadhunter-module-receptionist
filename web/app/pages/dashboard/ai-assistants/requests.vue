@@ -88,33 +88,23 @@
                   }}</span>
                 </BaseTableTd>
 
-                <BaseTableTd label="Demande">
-                  <span class="block min-w-0 text-left">
-                    <span class="flex items-start gap-2">
-                      <span
-                        class="app-badge mt-0.5 shrink-0"
-                        :class="request.type === 'urgent' ? 'app-badge--danger' : ''"
-                      >
-                        {{ REQUEST_TYPE_LABELS[request.type] }}
-                      </span>
-                      <span class="line-clamp-2 text-sm leading-relaxed text-[var(--app-ink)]">
-                        {{ requestSummary(request) }}
-                      </span>
+                <BaseTableTd class="min-w-[18rem]">
+                  <span class="flex flex-wrap items-center gap-1.5">
+                    <span class="app-badge" :class="request.type === 'urgent' ? 'app-badge--danger' : ''">
+                      {{ REQUEST_TYPE_LABELS[request.type] }}
                     </span>
-                    <span
-                      v-if="requestFlags(request).length > 0"
-                      class="mt-1.5 flex items-center gap-2 text-[var(--app-faint)]"
-                    >
-                      <UIcon
-                        v-for="flag in requestFlags(request)"
-                        :key="flag.icon"
-                        :name="flag.icon"
-                        class="h-3.5 w-3.5"
-                        role="img"
-                        :aria-label="flag.label"
-                        :title="flag.label"
-                      />
-                    </span>
+                    <UIcon
+                      v-for="flag in requestFlags(request)"
+                      :key="flag.icon"
+                      :name="flag.icon"
+                      class="h-3.5 w-3.5 text-[var(--app-faint)]"
+                      role="img"
+                      :aria-label="flag.label"
+                      :title="flag.label"
+                    />
+                  </span>
+                  <span class="mt-1.5 block text-sm leading-relaxed text-[var(--app-ink)]">
+                    {{ requestSummary(request) }}
                   </span>
                 </BaseTableTd>
 
