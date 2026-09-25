@@ -15,7 +15,8 @@ import { AiAssistantService } from '~/services/aiAssistantService'
 import { DemoSiteService } from '~/services/demoSiteService'
 import { ProfilePhotoService } from '~/services/profilePhotoService'
 import { getScraperSidecarInfo } from '~/services/scraperSidecarService'
-import { pollAndFetchBuild, readSidecarError, type SidecarBuildOutcome } from '~/services/sidecarVideoBuild'
+import type { SidecarBuildOutcome } from '~/services/sidecarVideoBuild'
+import { pollAndFetchBuild, readSidecarError } from '~/services/sidecarVideoBuild'
 import type { AiAssistantSummary } from '~/types/AiAssistant'
 
 /** The presenter clip the assistant video uses (a speech about the assistant, not the site). */

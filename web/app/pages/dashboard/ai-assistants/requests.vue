@@ -32,9 +32,11 @@
       </div>
 
       <section class="flex flex-col gap-3">
-        <div class="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--app-line)]">
+        <div
+          class="flex flex-col gap-3 border-b border-[var(--app-line)] @xl:flex-row @xl:items-end @xl:justify-between"
+        >
           <UiFilterTabs v-model="statusTab" :tabs="statusTabs" />
-          <div class="flex flex-col gap-2 pb-2 @xl:flex-row @xl:items-center">
+          <div class="flex w-full flex-col gap-2 pb-3 @xl:w-auto @xl:flex-row @xl:items-center @xl:pb-2">
             <div class="relative w-full @xl:w-64">
               <UIcon
                 name="i-lucide-search"
@@ -165,7 +167,7 @@ import { REQUEST_STATUS_LABELS, REQUEST_TYPE_LABELS } from '~/utils/aiAssistantL
 import { formatShortMonthDayTime, parseApiDate } from '~/utils/date'
 
 /** The inbox of the requests visitors left across the user's assistants; each row opens its drawer. */
-definePageMeta({ layout: 'dashboard', middleware: 'auth' })
+definePageMeta({ layout: 'dashboard', middleware: ['auth', 'ai-assistant-module'] })
 
 useSeoMeta({ title: 'Demandes — DevLeadHunter' })
 

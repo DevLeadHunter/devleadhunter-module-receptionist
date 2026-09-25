@@ -227,7 +227,7 @@ const { init: initTracking }: ReturnType<typeof useDemoTracking> = useDemoTracki
 onMounted((): void => {
   const current: AiAssistantConfig | null | undefined = assistant.value
   if (!current) return
-  void initTracking(current.slug, current.status, null, DemoBeaconUtils.channelFromQuery(route.query.src), 'assistant')
+  initTracking(current.slug, current.status, null, DemoBeaconUtils.channelFromQuery(route.query.src), 'assistant')
 })
 
 useHead({

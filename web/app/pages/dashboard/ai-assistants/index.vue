@@ -131,7 +131,7 @@ import { AiAssistantService } from '~/services/aiAssistantService'
 import { useDrawerStackStore } from '~/stores/drawerStack'
 
 /** The assistants generated for the user's prospects, as cards previewing their demo page; each opens its detail page. */
-definePageMeta({ layout: 'dashboard', middleware: 'auth' })
+definePageMeta({ layout: 'dashboard', middleware: ['auth', 'ai-assistant-module'] })
 
 useSeoMeta({ title: 'Assistants IA — DevLeadHunter' })
 

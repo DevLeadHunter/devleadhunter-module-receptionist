@@ -885,6 +885,24 @@ assombri jusqu'à ce que le blanc y soit lisible (`palette.strong`), puces neutr
 réception des demandes est une `BaseTable` comme les abonnements (visiteur, demande, assistant, reçue, statut ;
 cartes empilées sur mobile), sans action en ligne : tout se fait dans le volet.
 
+**Troisième passage le 26/09 (retours de Léo : « `ref<T>()` interdit, découpe au maximum en composants, propreté du
+B2B, et un vrai tour UI/UX »)** :
+
+- **Identité du chat** : portrait dessiné de l'assistante à partir de son prénom (`@dicebear/notionists`, coiffures
+  triées par genre, disque à la teinte de l'accent), sur le lanceur, l'en-tête et à côté des réponses ; liseré à
+  l'accent en haut du panneau ; pilule « en ligne » ; la suggestion « Je souhaite être recontacté » qui doublait la
+  puce « Être rappelé » est retirée.
+- **Découpage** : `AssistantChat.vue` passe de 1 735 à 330 lignes (deux composables, treize composants, cinq
+  pictos) ; `pages/ia/[slug].vue` de 914 à 570 (fiche Google, coque de téléphone, écran verrouillé) ; la page de
+  détail du dashboard de 707 à 330 (six cartes). Un type par composant dans `app/types/`, aucun `ref<T>()`, aucun
+  `void` devant un appel async, imports `type` séparés, utils suffixés `Utils` (`AssistantDemoScenarioUtils`).
+- **Responsive** : `UiFilterTabs` défile horizontalement sur mobile au lieu de passer à la ligne (toutes les pages
+  qui l'utilisent) ; sur Demandes, la recherche et le filtre d'assistant prennent toute la largeur.
+- **Module** : les trois pages du module portent le middleware `ai-assistant-module` ; arriver par l'adresse
+  bascule le sélecteur sur « Assistant IA » (avant, la nav « Sites web » restait affichée).
+- Vérifié en local par un parcours Playwright complet (lanceur, ouverture, carte photo, carte créneaux, formulaire,
+  message réel, barre « Être rappelé », page /ia, dashboard desktop et mobile), zéro erreur console.
+
 **À tester par Léo** (toujours avec `?internal=1` sur les pages du demo-host) : `/ia/{slug}` sur desktop et
 mobile (une demande envoyée depuis le téléphone de gauche doit mettre à jour la notification de droite), le widget
 embarqué (`/embed-test.html?slug=…&internal=1`), puis `/dashboard/ai-assistants`, la page de détail et

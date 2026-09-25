@@ -184,17 +184,30 @@ Ce que voit le prospect : le widget, sa page de démo et le script qui l'install
 C'est le **produit** que le client colle sur son site. Il porte :
 
 - **Interface (refonte des 25 et 26/09)** : sobre et claire, l'accent du commerce ne sert jamais de fond sous du
-  texte sombre. En-tête blanc à filet (monogramme de l'assistante = son initiale sur l'accent « fort », prénom en
-  Fraunces, « Assistante Nom du commerce » sur deux lignes au plus, point vert « en ligne »), bulles de l'assistante
-  blanches à filet, bulles du visiteur sur l'accent fort en texte blanc, **puces d'action dans le fil** avant le
-  premier échange (photo pour un devis, prendre rendez-vous, suggestions, « Être rappelé ») puis une barre « Être
-  rappelé » discrète, panneaux photo / créneaux / coordonnées rendus **dans le fil** comme des cartes, boutons ronds
-  dans la barre de saisie, bouton d'envoi sur l'accent fort. Palette calculée par `utils/AssistantAccentUtils.palette()`
-  : `accent` (points, filets, teintes), `strong` (l'accent assombri jusqu'à ce que le blanc y soit lisible : le seul
-  fond qui porte du texte) et `text` (l'accent assombri jusqu'à être lisible en texte sur le papier). Le lanceur est
-  le même monogramme, avec la bulle « Une question ? Sofia vous répond, 24h/24 ». Prop `inline` : le widget se rend
+  texte sombre. **Portrait de l'assistante** dessiné à partir de son prénom (`utils/AssistantAvatarUtils.ts`, style
+  d'illustration au trait `@dicebear/notionists`, coiffures triées par genre, barbe possible pour un prénom masculin,
+  disque de fond à la teinte de l'accent) : le même visage sur le lanceur, l'en-tête et à côté de la dernière réponse
+  d'une suite de réponses. Panneau blanc à filet avec un liseré de 3 px à l'accent fort en haut, en-tête blanc
+  (portrait 44 px avec point vert, prénom en Fraunces, « Assistante Nom du commerce » sur deux lignes au plus, pilule
+  « en ligne »), bulles de l'assistante blanches à filet, bulles du visiteur sur l'accent fort en texte blanc,
+  **puces d'action dans le fil** avant le premier échange (photo pour un devis, prendre rendez-vous, deux suggestions,
+  « Être rappelé ») puis une barre « Être rappelé » discrète, panneaux photo / créneaux / coordonnées rendus **dans le
+  fil** comme des cartes, boutons ronds dans la barre de saisie, bouton d'envoi sur l'accent fort. Palette calculée
+  par `utils/AssistantAccentUtils.palette()` : `accent` (points, filets), `strong` (l'accent assombri jusqu'à ce que
+  le blanc y soit lisible : le seul fond qui porte du texte), `text` (l'accent assombri jusqu'à être lisible en texte
+  sur le papier) et `tint` (l'accent délavé vers le blanc, fond du portrait). Prop `inline` : le widget se rend
   ouvert, sans bulle ni bouton de fermeture, pour remplir l'écran d'un téléphone sur la page de démo ; il émet
   `lead-sent` (nom, contact, besoin, type, créneaux, réservé, photo jointe) après une demande envoyée.
+- **Découpage (26/09)** : `AssistantChat.vue` n'est plus qu'un orchestrateur. La conversation vit dans le composable
+  `useAssistantConversation(config, inline)` (fil, langue, session, persistance `localStorage`, envoi, photo,
+  créneaux, coordonnées, résumé de la demande) et le dialogue avec le loader dans `useAssistantWidgetFrame` (taille
+  de l'iframe, viewport de l'hôte, mode mobile). Chaque bloc est un composant : `AssistantChatLauncher`,
+  `AssistantChatHeader`, `AssistantChatLanguagePills`, `AssistantChatMessageBubble`, `AssistantChatTypingIndicator`,
+  `AssistantChatQuickReplies`, `AssistantChatCard` (coque titre / note / deux boutons, `tag="form"` pour la carte qui
+  soumet), `AssistantChatPhotoCard`, `AssistantChatSlotsCard`, `AssistantChatContactForm`, `AssistantChatCallbackBar`,
+  `AssistantChatComposer`, avec un type par composant dans `app/types/`. Les pictos passent par `AssistantIcon`
+  (`camera`, `calendar`, `close`, `send`, `pencil`). Les dates des créneaux se formatent dans
+  `utils/AssistantScheduleUtils.ts`.
 - **5 langues d'interface** (FR / NL / DE / EN / LU) : accueil, suggestions, placeholder, libellés du
   formulaire de rappel, réponse de secours — un jeu complet par langue.
 - **Ouverture dans la langue du visiteur** : au montage, la langue du navigateur est choisie si
@@ -247,9 +260,12 @@ Surface de **vente**, à l'**accent du prospect** (typographie Fraunces et Inter
 - **Téléphone du client** (gauche) : le **widget réel** en mode `inline`, plein écran, avec lequel le prospect
   peut discuter, envoyer une photo, choisir des créneaux et laisser ses coordonnées.
 - **Téléphone du patron** (droite) : un écran verrouillé (heure, date en français) avec une notification Messages
-  construite par `utils/AssistantDemoScenario.ts` : exemple par métier tant que rien n'est envoyé (« Nouvelle
-  demande de devis de … pour … : … »), puis **la vraie demande** dès que le widget émet `lead-sent` (sur mobile, la
-  page défile jusqu'au second téléphone).
+  construite par `utils/AssistantDemoScenarioUtils.ts` : exemple par métier tant que rien n'est envoyé (« Nouvelle
+  demande de devis (photo) de … : … », au libellé du vrai SMS), puis **la vraie demande** dès que le widget émet
+  `lead-sent` (sur mobile, la page défile jusqu'au second téléphone).
+- **Composants (26/09)** : la fiche Google est `AssistantDemoGoogleListing`, chaque téléphone une
+  `AssistantDemoPhoneFrame` (coque, îlot, barre d'état ; `screen="app"` ou `"lock"`) dont le contenu est le widget
+  ou `AssistantDemoLockScreen` (date, heure, notification, indication).
 - **Trois résultats** en une ligne (répond 24 h/24 dans les langues de l'assistant, devis sur photo, rendez-vous),
   l'encart d'estimation (ci-dessous), la **pilule de prix** (`monthly_price_label`, masquée une fois vendu et au
   retour du paiement `?subscribed=1`) avec le lien d'abonnement, et la signature de l'owner. Le bandeau « me
@@ -783,10 +799,12 @@ pile Pinia `drawerStack`) :
   dans N j », demandes et conversations sur 30 jours, boutons Ouvrir la démo / Détails / Copier le lien. Toute la
   carte mène au détail.
 - **Détail** (`[id].vue`, `GET /ai-assistants/{id}`) : en-tête (commerce, prénom, slug, statut), actions
-  Conversations / Sources / Personnaliser / Ouvrir la démo, résumé (statut, prénom, langues, ton, couleur, email du
-  commerçant, mobile d'alerte, modèle, création), lien de la démo et **script à coller** (copie en un clic), actions
-  (régénérer depuis le prospect, vidéo, lien d'abonnement, envoyer l'espace client, supprimer) et les dernières
-  demandes de cet assistant.
+  Conversations / Sources / Personnaliser / Ouvrir la démo, puis des cartes de `components/ai-assistants/` :
+  `AssistantSummaryCard` (résumé, lien de la démo, **script à coller**), `AssistantActionsCard` (régénérer, envoyer
+  l'espace client, supprimer), `AssistantVideoCard`, `AssistantSubscriptionCard` (liens mensuel / annuel), les
+  quatre compteurs en `UiStatCard`, `AssistantRecentRequests` et `AssistantDemoPreviewCard`. Les trois pages du
+  module portent le middleware `ai-assistant-module` : arriver par l'adresse bascule le sélecteur de module sur
+  « Assistant IA ».
 - **Demandes** (`requests.vue`, entrée « Demandes » de la nav, `GET /ai-assistants/requests?status=&assistant_id=`) :
   boîte de réception de toutes les demandes, onglets À traiter / Toutes / Traitées / Sans suite, recherche et filtre
   par assistant, en **table** (`BaseTable`, comme les abonnements et les ventes ; cartes empilées sous 768 px) :
@@ -857,6 +875,8 @@ dashboard (non instrumenté).
 | Page vidéo | `demo-host/app/pages/va/[slug].vue` |
 | Page embed | `demo-host/app/pages/embed/[slug].vue` |
 | Loader embed | `demo-host/public/ai-assistant.js` |
-| Dashboard (liste, détail, demandes) | `web/app/pages/dashboard/ai-assistants/index.vue`, `[id].vue`, `requests.vue`, `web/app/components/ai-assistants/AssistantCard.vue`, `web/app/components/ui/AssistantRequestDrawer.vue`, `web/app/utils/aiAssistantLabels.ts`, `web/app/utils/dashboardModules.ts` |
-| Page de démo : scénario des deux téléphones, palette | `demo-host/app/utils/AssistantDemoScenario.ts`, `demo-host/app/utils/AssistantAccentUtils.ts` |
+| Dashboard (liste, détail, demandes) | `web/app/pages/dashboard/ai-assistants/index.vue`, `[id].vue`, `requests.vue`, `web/app/components/ai-assistants/*` (carte, cartes du détail), `web/app/components/ui/AssistantRequestDrawer.vue`, `web/app/middleware/ai-assistant-module.ts`, `web/app/utils/aiAssistantLabels.ts`, `web/app/utils/dashboardModules.ts` |
+| Widget : conversation, protocole iframe, composants | `demo-host/app/composables/useAssistantConversation.ts`, `useAssistantWidgetFrame.ts`, `demo-host/app/components/AssistantChat*.vue`, `AssistantIcon*.vue` |
+| Portrait, palette, dates des créneaux | `demo-host/app/utils/AssistantAvatarUtils.ts`, `AssistantAccentUtils.ts`, `AssistantScheduleUtils.ts` |
+| Page de démo : scénario des deux téléphones, composants | `demo-host/app/utils/AssistantDemoScenarioUtils.ts`, `demo-host/app/components/AssistantDemo*.vue` |
 | Clip présentateur (réglages) | `web/app/components/settings/AssistantPresenterClipCard.vue` |

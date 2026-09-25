@@ -1,14 +1,16 @@
 /** A colour as red, green and blue components from 0 to 255. */
 type RgbColor = { r: number; g: number; b: number }
 
-/** The three shades the widget derives from a business's accent. */
+/** The shades the widget derives from a business's accent. */
 export type AssistantAccentPalette = {
-  /** The accent itself: presence dots, rings, hairlines and light tints, never a fill under text. */
+  /** The accent itself: presence dots, rings, hairlines, never a fill under text. */
   accent: string
   /** The accent deepened until white reads on it: the one fill that carries text (visitor bubbles, buttons). */
   strong: string
   /** The accent deepened until it reads as text on the widget's paper: links, chip icons, selected pills. */
   text: string
+  /** The accent washed towards white: the avatar's background and light bands. */
+  tint: string
 }
 
 /** WCAG contrast a text colour must reach on its background (AA, normal text). */
@@ -20,6 +22,9 @@ const PAPER: RgbColor = { r: 251, g: 249, b: 243 }
 /** The white written on the strong shade. */
 const ON_STRONG: RgbColor = { r: 255, g: 255, b: 255 }
 
+/** How far the tint moves from the accent towards white (0 = the accent, 1 = white). */
+const TINT_WASH: number = 0.72
+
 /**
  * The accent colour of the assistant's widget and pages, and the shades that keep it readable whatever its hue.
  */
@@ -30,7 +35,7 @@ export class AssistantAccentUtils {
   /**
    * The palette the widget paints with, from a business's accent (a hex colour; anything else falls back).
    * @param accent - The accent as stored, or null.
-   * @returns The accent, its strong fill and its text shade.
+   * @returns The accent, its strong fill, its text shade and its tint.
    */
   static palette(accent: string | null | undefined): AssistantAccentPalette {
     const rgb: RgbColor | null = AssistantAccentUtils.parse(accent ?? '')
@@ -39,6 +44,7 @@ export class AssistantAccentUtils {
       accent: AssistantAccentUtils.format(rgb),
       strong: AssistantAccentUtils.format(AssistantAccentUtils.darkenUntilReadable(rgb, ON_STRONG)),
       text: AssistantAccentUtils.format(AssistantAccentUtils.darkenUntilReadable(rgb, PAPER)),
+      tint: AssistantAccentUtils.format(AssistantAccentUtils.mixWithWhite(rgb, TINT_WASH)),
     }
   }
 
@@ -106,5 +112,19 @@ export class AssistantAccentUtils {
       shade = { r: shade.r * 0.88, g: shade.g * 0.88, b: shade.b * 0.88 }
     }
     return shade
+  }
+
+  /**
+   * Move a colour towards white.
+   * @param rgb - The colour.
+   * @param amount - How far to go, from 0 (unchanged) to 1 (white).
+   * @returns The washed colour.
+   */
+  private static mixWithWhite(rgb: RgbColor, amount: number): RgbColor {
+    return {
+      r: rgb.r + (255 - rgb.r) * amount,
+      g: rgb.g + (255 - rgb.g) * amount,
+      b: rgb.b + (255 - rgb.b) * amount,
+    }
   }
 }

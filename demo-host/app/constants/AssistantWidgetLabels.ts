@@ -34,11 +34,11 @@ export const GREETINGS: Record<AssistantWidgetLang, string> = {
 
 /** Questions offered as chips before the visitor's first message. */
 export const SUGGESTIONS: Record<AssistantWidgetLang, string[]> = {
-  fr: ['Quels sont vos horaires ?', 'Quels services proposez-vous ?', 'Je souhaite être recontacté'],
-  nl: ['Wat zijn jullie openingstijden?', 'Welke diensten bieden jullie aan?', 'Ik wil graag teruggebeld worden'],
-  en: ['What are your opening hours?', 'What services do you offer?', "I'd like to be contacted"],
-  de: ['Wie sind Ihre Öffnungszeiten?', 'Welche Leistungen bieten Sie an?', 'Ich möchte zurückgerufen werden'],
-  lu: ['Wéi sinn Är Ëffnungszäiten?', 'Wéi eng Servicer bitt Dir un?', 'Ech wëll zréckgeruff ginn'],
+  fr: ['Quels sont vos horaires ?', 'Quels services proposez-vous ?'],
+  nl: ['Wat zijn jullie openingstijden?', 'Welke diensten bieden jullie aan?'],
+  en: ['What are your opening hours?', 'What services do you offer?'],
+  de: ['Wie sind Ihre Öffnungszeiten?', 'Welche Leistungen bieten Sie an?'],
+  lu: ['Wéi sinn Är Ëffnungszäiten?', 'Wéi eng Servicer bitt Dir un?'],
 }
 
 /** Placeholder of the message field. */

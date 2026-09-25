@@ -2,4 +2,5 @@
 export type AiAssistantDetailStat = {
   label: string
   value: string | number
+  icon: string
 }

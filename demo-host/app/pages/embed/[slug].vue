@@ -36,7 +36,7 @@ onMounted((): void => {
     window.parent.postMessage({ type: 'dlh-assistant-unavailable' }, '*')
     return
   }
-  void initTracking(current.slug, current.status, null, DemoBeaconUtils.channelFromQuery(route.query.src), 'assistant')
+  initTracking(current.slug, current.status, null, DemoBeaconUtils.channelFromQuery(route.query.src), 'assistant')
 })
 
 useHead({
