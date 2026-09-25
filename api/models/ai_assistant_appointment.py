@@ -24,7 +24,8 @@ class AiAssistantAppointment(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     assistant_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    request_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    # One appointment per request: the database guarantees it, whatever the process lock misses.
+    request_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
     starts_at: Mapped[datetime] = mapped_column(nullable=False)
     ends_at: Mapped[datetime] = mapped_column(nullable=False)
     type_label: Mapped[str | None] = mapped_column(String(64), nullable=True)

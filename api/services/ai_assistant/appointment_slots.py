@@ -23,6 +23,10 @@ class AppointmentRefused(ValueError):
     """A slot or kind the visitor must choose again, with the sentence shown to them."""
 
 
+class SlotNoLongerOffered(AppointmentRefused):
+    """The half-day or slot the visitor picked is not offered any more (a 409 for the widget: pick again)."""
+
+
 @dataclass(frozen=True)
 class AppointmentDay:
     """An open day and its open half-days."""
@@ -119,7 +123,7 @@ class AiAssistantAppointmentSlots:
             raise AppointmentRefused("Deux créneaux au plus")
         offered = {(item.day, period) for item in cls.offer(opening_hours, today=today) for period in item.periods}
         if any((slot.day, slot.period) not in offered for slot in distinct):
-            raise AppointmentRefused("Ce créneau n'est plus proposé")
+            raise SlotNoLongerOffered("Ce créneau n'est plus proposé")
         return distinct
 
     @classmethod

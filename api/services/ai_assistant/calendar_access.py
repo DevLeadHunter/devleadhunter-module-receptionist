@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import logging
 import time as clock
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
-from typing import ClassVar
+from typing import ClassVar, TypeVar
 
 from sqlalchemy.orm import Session
 
@@ -26,6 +27,8 @@ from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.encryption_service import encryption_service
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 class AiAssistantCalendarAccess:
@@ -80,10 +83,12 @@ class AiAssistantCalendarAccess:
             return cached[1]
         start = OpeningHoursCalendar.to_utc(local_now)
         end = start + timedelta(days=AiAssistantCalendarSlotGrid.LOOK_AHEAD_DAYS + 1)
+        calendar_id = CalendarSettings.of(calendar).calendar_id
         try:
-            access_token = await self.access_token(db, calendar)
-            busy = await google_calendar_client.busy_periods(
-                access_token, CalendarSettings.of(calendar).calendar_id, start=start, end=end
+            busy = await self.with_fresh_token(
+                db,
+                calendar,
+                lambda token: google_calendar_client.busy_periods(token, calendar_id, start=start, end=end),
             )
         except GoogleCalendarError as exc:
             assistant = db.query(AiAssistant).filter(AiAssistant.id == calendar.assistant_id).first()
@@ -115,6 +120,22 @@ class AiAssistantCalendarAccess:
         access_token = self._decrypt(calendar.access_token_encrypted)
         if access_token and calendar.token_expires_at and calendar.token_expires_at > now_utc + timedelta(minutes=2):
             return access_token
+        return await self.refresh_access_token(db, calendar)
+
+    async def refresh_access_token(self, db: Session, calendar: AiAssistantCalendar) -> str:
+        """
+        A new access token from the stored refresh token, saved at once.
+
+        Args:
+            db: Active database session.
+            calendar: The agenda.
+
+        Returns:
+            The fresh access token.
+
+        Raises:
+            GoogleCalendarError: When the agenda has no lasting access, or Google refuses to refresh it.
+        """
         refresh_token = self._decrypt(calendar.refresh_token_encrypted)
         if not refresh_token:
             raise GoogleCalendarError("Agenda sans accès durable", needs_reconnect=True)
@@ -126,6 +147,32 @@ class AiAssistantCalendarAccess:
         # Saved at once, in its own short transaction: no write stays open while Google answers next.
         db.commit()
         return tokens.access_token
+
+    async def with_fresh_token(
+        self, db: Session, calendar: AiAssistantCalendar, operation: Callable[[str], Awaitable[T]]
+    ) -> T:
+        """
+        Run a Calendar call with a valid token; a 401 (a token Google dropped early) is refreshed once and replayed.
+
+        Args:
+            db: Active database session.
+            calendar: The agenda.
+            operation: The call, given the access token.
+
+        Returns:
+            What the call returns.
+
+        Raises:
+            GoogleCalendarError: When the call fails again, or the refresh is refused (then a reconnection is due).
+        """
+        access_token = await self.access_token(db, calendar)
+        try:
+            return await operation(access_token)
+        except GoogleCalendarError as exc:
+            if exc.status_code != 401:
+                raise
+        access_token = await self.refresh_access_token(db, calendar)
+        return await operation(access_token)
 
     def record_failure(
         self, db: Session, assistant: AiAssistant, calendar: AiAssistantCalendar, exc: GoogleCalendarError

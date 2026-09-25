@@ -58,6 +58,14 @@ class BusyPeriod:
 
 
 @dataclass(frozen=True)
+class CalendarEventState:
+    """An event of ours as the agenda holds it now: cancelled or not, and its start (naive UTC) when timed."""
+
+    cancelled: bool
+    start: datetime | None
+
+
+@dataclass(frozen=True)
 class CalendarEventDraft:
     """The event created for a booked appointment; times are aware (business time zone)."""
 
@@ -205,8 +213,12 @@ class GoogleCalendarClient:
         if not isinstance(entry, dict):
             raise GoogleCalendarError("Agenda absent de la réponse de Google")
         if entry.get("errors"):
-            reasons = ", ".join(str(error.get("reason")) for error in entry["errors"] if isinstance(error, dict))
-            raise GoogleCalendarError(f"Agenda illisible ({reasons or 'erreur inconnue'})")
+            reasons = [str(error.get("reason")) for error in entry["errors"] if isinstance(error, dict)]
+            # freeBusy answers 200 even for an agenda it cannot find: keep the status a client can act on.
+            status_code = 404 if "notFound" in reasons else None
+            raise GoogleCalendarError(
+                f"Agenda illisible ({', '.join(reasons) or 'erreur inconnue'})", status_code=status_code
+            )
         periods: list[BusyPeriod] = []
         for busy in entry.get("busy") or []:
             try:
@@ -247,6 +259,32 @@ class GoogleCalendarClient:
                 return draft.event_id
             raise
         return str(payload.get("id") or draft.event_id)
+
+    async def get_event(self, access_token: str, calendar_id: str, event_id: str) -> CalendarEventState | None:
+        """
+        What became of an event we created: still there (and when), cancelled, or gone.
+
+        Args:
+            access_token: A valid access token.
+            calendar_id: The agenda.
+            event_id: The event's id (ours).
+
+        Returns:
+            The event's state, or None when the agenda no longer has it.
+
+        Raises:
+            GoogleCalendarError: When the agenda cannot be read.
+        """
+        url = self.EVENT_URL.format(calendar_id=quote(calendar_id, safe=""), event_id=quote(event_id, safe=""))
+        try:
+            payload = await self._call("GET", url, access_token=access_token)
+        except GoogleCalendarError as exc:
+            if exc.status_code in (404, 410):
+                return None
+            raise
+        start_value = (payload.get("start") or {}).get("dateTime")
+        start = self._parse(str(start_value)) if start_value else None
+        return CalendarEventState(cancelled=payload.get("status") == "cancelled", start=start)
 
     async def _token_request(self, form: dict[str, str]) -> dict[str, Any]:
         """POST to the token endpoint; an ``invalid_grant`` means the client must connect again."""

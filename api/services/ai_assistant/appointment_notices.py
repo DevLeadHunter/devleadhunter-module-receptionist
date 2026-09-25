@@ -25,6 +25,9 @@ from core.database import SessionLocal
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
+from services.ai_assistant.calendar_access import ai_assistant_calendar_access
+from services.ai_assistant.calendar_settings import CalendarSettings
+from services.ai_assistant.google_calendar_client import GoogleCalendarError, google_calendar_client
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RenderedEmail
 from services.email_attachment import EmailAttachment
@@ -460,13 +463,16 @@ class AiAssistantAppointmentNotices:
             )
         return True
 
-    async def send_reminder(self, db: Session, appointment: AiAssistantAppointment) -> bool:
+    async def send_reminder(
+        self, db: Session, appointment: AiAssistantAppointment, *, now: datetime | None = None
+    ) -> bool:
         """
         Remind the visitor the day before (SMS; by email when they left no mobile), once.
 
         Args:
             db: Active database session.
             appointment: The booked appointment.
+            now: Current time, naive UTC (tests); defaults to now.
 
         Returns:
             True when this call claimed the reminder.
@@ -475,6 +481,8 @@ class AiAssistantAppointmentNotices:
             return False
         assistant = db.get(AiAssistant, appointment.assistant_id)
         if assistant is None:
+            return True
+        if not await self._still_scheduled(db, assistant, appointment, now=now or _utc_now()):
             return True
         card = BusinessCard.of(assistant)
         language = AppointmentTexts.language(appointment.language)
@@ -488,6 +496,52 @@ class AiAssistantAppointmentNotices:
             )
         elif appointment.visitor_email:
             await self._send_email(db, assistant, appointment, card, language, start_local, is_reminder=True)
+        return True
+
+    @staticmethod
+    async def _still_scheduled(
+        db: Session, assistant: AiAssistant, appointment: AiAssistantAppointment, *, now: datetime
+    ) -> bool:
+        """
+        Whether the event still stands in the agenda for tomorrow, read from Google before the reminder leaves.
+
+        A cancelled or deleted event drops the reminder; an event the business moved updates the row, and the
+        reminder leaves only if the new day is still tomorrow. An agenda that cannot be read leaves it as stored.
+
+        Args:
+            db: Active database session.
+            assistant: The assistant.
+            appointment: The appointment whose reminder is due.
+            now: Current time, naive UTC.
+        """
+        calendar = ai_assistant_calendar_access.calendar_of(db, assistant)
+        if calendar is None or not appointment.google_event_id:
+            return True
+        calendar_id = CalendarSettings.of(calendar).calendar_id
+        event_id = appointment.google_event_id
+        try:
+            state = await ai_assistant_calendar_access.with_fresh_token(
+                db, calendar, lambda token: google_calendar_client.get_event(token, calendar_id, event_id)
+            )
+        except GoogleCalendarError:
+            logger.warning("Appointment %s: agenda unreadable before the reminder, sent as stored", appointment.id)
+            return True
+        if state is None or state.cancelled:
+            AiAssistantAppointmentNotices._log_failure(
+                assistant, appointment, "Rappel non envoyé : le rendez-vous n'est plus dans l'agenda."
+            )
+            return False
+        if state.start is not None and state.start != appointment.starts_at:
+            duration = appointment.ends_at - appointment.starts_at
+            appointment.starts_at = state.start
+            appointment.ends_at = state.start + duration
+            db.commit()
+            tomorrow = OpeningHoursCalendar.to_business_time(now).date() + timedelta(days=1)
+            if OpeningHoursCalendar.to_business_time(state.start).date() != tomorrow:
+                AiAssistantAppointmentNotices._log_failure(
+                    assistant, appointment, "Rappel non envoyé : le rendez-vous a été déplacé à une autre date."
+                )
+                return False
         return True
 
     async def run_pass(self, db: Session, *, now: datetime | None = None) -> int:
@@ -538,7 +592,7 @@ class AiAssistantAppointmentNotices:
                 continue
             if not self.REMINDER_FROM <= local_now.time().replace(tzinfo=None) < self.REMINDER_UNTIL:
                 continue
-            claimed += int(await self.send_reminder(db, appointment))
+            claimed += int(await self.send_reminder(db, appointment, now=current))
         return claimed
 
     async def run_pass_in_background(self) -> None:

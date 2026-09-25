@@ -400,7 +400,8 @@ def test_the_lead_route_takes_the_half_days_and_answers_422_for_one_withdrawn(
     )
     with pytest.raises(HTTPException) as refused:
         asyncio.run(routes.submit_assistant_lead(assistant.slug, withdrawn, VISITOR_REQUEST, db))
-    assert refused.value.status_code == 422
+    # A withdrawn half-day is a 409, like a taken slot: the widget reloads the offer instead of showing an error.
+    assert refused.value.status_code == 409
     assert refused.value.detail == "Ce créneau n'est plus proposé"
     assert db.query(AiAssistantRequest).count() == 1
 

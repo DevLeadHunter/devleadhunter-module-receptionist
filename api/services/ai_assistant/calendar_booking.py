@@ -29,17 +29,26 @@ from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.calendar_access import ai_assistant_calendar_access
 from services.ai_assistant.calendar_settings import CalendarSettings
 from services.ai_assistant.calendar_slot_grid import AiAssistantCalendarSlotGrid
-from services.ai_assistant.google_calendar_client import CalendarEventDraft, GoogleCalendarError, google_calendar_client
+from services.ai_assistant.google_calendar_client import (
+    CalendarEventDraft,
+    CalendarEventState,
+    GoogleCalendarError,
+    google_calendar_client,
+)
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_email import AiAssistantRequestEmail
 from services.french_date_formatter import FrenchDateFormatter
-from services.sms.phone_normalizer import SERVED_MOBILE_PREFIXES, to_e164_mobile
+from services.sms.phone_normalizer import to_served_mobile
 
 logger = logging.getLogger(__name__)
 
 
 class SlotTakenError(Exception):
     """The slot is no longer free: booked in between, or busy in the agenda."""
+
+
+class DailyBookingCapReached(Exception):
+    """The assistant booked as many appointments as a day allows: the pick is kept as a wish."""
 
 
 @dataclass(frozen=True)
@@ -96,13 +105,12 @@ class AiAssistantCalendarBooking:
         """
         local_now = OpeningHoursCalendar.localize(now or OpeningHoursCalendar.business_now())
         calendar = ai_assistant_calendar_access.usable_calendar(db, assistant)
-        if calendar is not None and self._bookings_today(db, assistant, local_now) >= self.MAX_BOOKINGS_PER_DAY:
-            # A day's bookings are capped: past the cap (a script, a flood), picks become wishes and no message
-            # leaves for a visitor.
-            logger.warning("Assistant %s reached %s bookings in 24 h", assistant.id, self.MAX_BOOKINGS_PER_DAY)
-            calendar = None
         if calendar is not None:
             phone, email = self.visitor_channels(db, assistant, request.contact)
+            if self._has_upcoming_appointment(db, assistant, phone=phone, email=email, except_request_id=request.id):
+                raise AppointmentRefused(
+                    "Un rendez-vous est déjà réservé avec ce contact. Pour le modifier, appelez directement le commerce."
+                )
             try:
                 appointment = await self.book(
                     db,
@@ -115,6 +123,9 @@ class AiAssistantCalendarBooking:
                     visitor_email=email,
                     now=local_now,
                 )
+            except DailyBookingCapReached:
+                # Past the cap (a script, a flood), picks become wishes and no message leaves for a visitor.
+                logger.warning("Assistant %s reached %s bookings in 24 h", assistant.id, self.MAX_BOOKINGS_PER_DAY)
             except GoogleCalendarError:
                 logger.warning("Booking of request %s falls back on a wished half-day", request.id)
             else:
@@ -123,20 +134,46 @@ class AiAssistantCalendarBooking:
                 return BookingOutcome(appointment=appointment)
 
         local_start = OpeningHoursCalendar.localize(start)
-        look_ahead = timedelta(days=AiAssistantCalendarSlotGrid.LOOK_AHEAD_DAYS + 1)
-        if not local_now <= local_start <= local_now + look_ahead:
-            raise AppointmentRefused("Ce créneau n'est plus proposé")
         period = (
             AiAssistantDayPeriod.MORNING
             if AiAssistantCalendarSlotGrid.is_morning(local_start)
             else AiAssistantDayPeriod.AFTERNOON
         )
-        request.appointment_slots_json = AiAssistantAppointmentSlots.to_json(
-            [AppointmentSlot(day=local_start.date(), period=period)]
+        # The wished half-day obeys the same rules as one picked in the half-day panel (open day, from tomorrow).
+        wished = AiAssistantAppointmentSlots.check(
+            AiAssistantAppointmentSlots.opening_hours_of(assistant),
+            [AppointmentSlot(day=local_start.date(), period=period)],
+            today=local_now.date(),
         )
+        request.appointment_slots_json = AiAssistantAppointmentSlots.to_json(wished)
         self._mark_appointment(request)
         db.commit()
         return BookingOutcome(appointment=None)
+
+    @staticmethod
+    def _has_upcoming_appointment(
+        db: Session, assistant: AiAssistant, *, phone: str | None, email: str | None, except_request_id: int
+    ) -> bool:
+        """Whether this contact already holds a future appointment with the assistant (one at a time per contact)."""
+        if phone is None and email is None:
+            return False
+        contact_filter = (
+            AiAssistantAppointment.visitor_phone_e164 == phone
+            if phone is not None
+            else AiAssistantAppointment.visitor_email == email
+        )
+        now_utc = datetime.now(UTC).replace(tzinfo=None)
+        return (
+            db.query(AiAssistantAppointment.id)
+            .filter(
+                AiAssistantAppointment.assistant_id == assistant.id,
+                AiAssistantAppointment.request_id != except_request_id,
+                AiAssistantAppointment.ends_at > now_utc,
+                contact_filter,
+            )
+            .first()
+            is not None
+        )
 
     @staticmethod
     def visitor_channels(db: Session, assistant: AiAssistant, contact: str) -> tuple[str | None, str | None]:
@@ -154,8 +191,7 @@ class AiAssistantCalendarBooking:
         cleaned = " ".join((contact or "").split())
         if AiAssistantRequestEmail.is_email(cleaned):
             return None, cleaned.lower()[:255]
-        mobile = to_e164_mobile(cleaned, country=ai_assistant_service.business_country(db, assistant))
-        return (mobile if mobile and mobile.startswith(SERVED_MOBILE_PREFIXES) else None), None
+        return to_served_mobile(cleaned, country=ai_assistant_service.business_country(db, assistant)), None
 
     async def book(
         self,
@@ -210,6 +246,8 @@ class AiAssistantCalendarBooking:
         async with self._lock_for(calendar.id):
             # A fresh transaction: the checks below see the bookings committed a moment ago.
             db.commit()
+            if self._bookings_today(db, assistant, local_now) >= self.MAX_BOOKINGS_PER_DAY:
+                raise DailyBookingCapReached()
             already = (
                 db.query(AiAssistantAppointment)
                 .filter(
@@ -230,32 +268,46 @@ class AiAssistantCalendarBooking:
                 )
                 .first()
             )
+            calendar_id = booking_settings.calendar_id
+            event_id = self._event_id(request.id, start_utc)
             try:
-                access_token = await ai_assistant_calendar_access.access_token(db, calendar)
-                busy = await google_calendar_client.busy_periods(
-                    access_token, booking_settings.calendar_id, start=start_utc, end=end_utc
+                busy = await ai_assistant_calendar_access.with_fresh_token(
+                    db,
+                    calendar,
+                    lambda token: google_calendar_client.busy_periods(token, calendar_id, start=start_utc, end=end_utc),
                 )
             except GoogleCalendarError as exc:
                 ai_assistant_calendar_access.record_failure(db, assistant, calendar, exc)
                 raise
-            if taken is not None or AiAssistantCalendarSlotGrid.overlaps(busy, local_start, local_start + duration):
+            if taken is not None:
                 ai_assistant_calendar_access.forget_busy(calendar.id)
                 raise SlotTakenError("Ce créneau vient d'être pris")
+            already_created = False
+            if AiAssistantCalendarSlotGrid.overlaps(busy, local_start, local_start + duration):
+                # The busy stretch may be our own event, created before a lost answer or a failed write of the row.
+                own_event = await self._own_event(db, calendar, calendar_id, event_id)
+                if own_event is None:
+                    ai_assistant_calendar_access.forget_busy(calendar.id)
+                    raise SlotTakenError("Ce créneau vient d'être pris")
+                already_created = True
 
-            draft = CalendarEventDraft(
-                event_id=self._event_id(request.id, start_utc),
-                summary=self._event_summary(request, chosen_type),
-                description=self._event_description(assistant, request),
-                start=local_start,
-                end=local_start + duration,
-                time_zone=getattr(tz, "key", "UTC"),
-                request_id=request.id,
-            )
-            try:
-                event_id = await self._insert_event(access_token, booking_settings.calendar_id, draft)
-            except GoogleCalendarError as exc:
-                ai_assistant_calendar_access.record_failure(db, assistant, calendar, exc)
-                raise
+            if not already_created:
+                draft = CalendarEventDraft(
+                    event_id=event_id,
+                    summary=self._event_summary(request, chosen_type),
+                    description=self._event_description(assistant, request),
+                    start=local_start,
+                    end=local_start + duration,
+                    time_zone=getattr(tz, "key", "UTC"),
+                    request_id=request.id,
+                )
+                try:
+                    event_id = await ai_assistant_calendar_access.with_fresh_token(
+                        db, calendar, lambda token: self._insert_event(token, calendar_id, draft)
+                    )
+                except GoogleCalendarError as exc:
+                    ai_assistant_calendar_access.record_failure(db, assistant, calendar, exc)
+                    raise
             appointment = AiAssistantAppointment(
                 user_id=assistant.user_id,
                 assistant_id=assistant.id,
@@ -370,6 +422,19 @@ class AiAssistantCalendarBooking:
         return self._locks.setdefault(calendar_id, asyncio.Lock())
 
     @staticmethod
+    async def _own_event(
+        db: Session, calendar: AiAssistantCalendar, calendar_id: str, event_id: str
+    ) -> CalendarEventState | None:
+        """The event this booking would create, when a previous attempt already created it and it still stands."""
+        try:
+            state = await ai_assistant_calendar_access.with_fresh_token(
+                db, calendar, lambda token: google_calendar_client.get_event(token, calendar_id, event_id)
+            )
+        except GoogleCalendarError:
+            return None
+        return state if state is not None and not state.cancelled else None
+
+    @staticmethod
     def _event_id(request_id: int, start_utc: datetime) -> str:
         """Our id of the Google event of a request's slot: the same request and slot always give the same id."""
         message = f"assistant-event:{request_id}:{start_utc.isoformat()}".encode()
@@ -377,15 +442,21 @@ class AiAssistantCalendarBooking:
         # Google accepts the letters a to v and digits: hexadecimal fits.
         return f"dlh{digest}"
 
-    @staticmethod
-    async def _insert_event(access_token: str, calendar_id: str, draft: CalendarEventDraft) -> str:
-        """Create the event, once more after a network failure (the same id makes the retry harmless)."""
-        try:
-            return await google_calendar_client.insert_event(access_token, calendar_id, draft)
-        except GoogleCalendarError as exc:
-            if exc.status_code is not None:
-                raise
-            return await google_calendar_client.insert_event(access_token, calendar_id, draft)
+    # Pauses before the second and third attempt at creating the event, after a lost answer, a 5xx or a 429.
+    INSERT_RETRY_DELAYS: ClassVar[tuple[float, ...]] = (1.0, 3.0)
+
+    @classmethod
+    async def _insert_event(cls, access_token: str, calendar_id: str, draft: CalendarEventDraft) -> str:
+        """Create the event, again after a lost answer, a Google outage or a rate limit (the id makes it harmless)."""
+        for delay in (*cls.INSERT_RETRY_DELAYS, None):
+            try:
+                return await google_calendar_client.insert_event(access_token, calendar_id, draft)
+            except GoogleCalendarError as exc:
+                retryable = exc.status_code is None or exc.status_code == 429 or exc.status_code >= 500
+                if not retryable or delay is None:
+                    raise
+                await asyncio.sleep(delay)
+        raise GoogleCalendarError("Google Agenda injoignable")
 
     @staticmethod
     def _bookings_today(db: Session, assistant: AiAssistant, local_now: datetime) -> int:

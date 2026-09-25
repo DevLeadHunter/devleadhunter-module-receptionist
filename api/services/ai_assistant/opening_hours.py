@@ -227,7 +227,8 @@ class OpeningHoursCalendar:
         """Map each weekday (Monday = 0) to its normalized hours text; the first row of a day wins."""
         hours_by_weekday: dict[int, str] = {}
         for row in opening_hours or []:
-            if not isinstance(row, dict):
+            # A public holiday's row describes that day only, never the weekday's usual hours.
+            if not isinstance(row, dict) or row.get("holiday"):
                 continue
             day = cls._normalize(str(row.get("day") or ""))
             for weekday, names in enumerate(cls.WEEKDAY_NAMES):
