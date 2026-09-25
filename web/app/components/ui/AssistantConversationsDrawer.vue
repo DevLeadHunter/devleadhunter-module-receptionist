@@ -58,7 +58,17 @@
                 class="flex"
                 :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
               >
+                <button
+                  v-if="message.photo_url !== null"
+                  type="button"
+                  class="block h-28 w-28 cursor-pointer overflow-hidden rounded-lg border border-[var(--app-line)] transition-opacity hover:opacity-90"
+                  aria-label="Agrandir la photo envoyée par le visiteur"
+                  @click="lightboxIndex = lightboxPhotos.indexOf(message.photo_url)"
+                >
+                  <img :src="message.photo_url" alt="" loading="lazy" class="h-full w-full object-cover" />
+                </button>
                 <p
+                  v-else
                   class="max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-line"
                   :class="
                     message.role === 'user'
@@ -74,13 +84,20 @@
         </div>
       </div>
     </Transition>
+
+    <UiImageLightbox v-if="open && lightboxPhotos.length > 0" v-model="lightboxIndex" :photos="lightboxPhotos" />
   </Teleport>
 </template>
 
 <script lang="ts" setup>
-import type { EmitFn, PropType, Ref } from 'vue'
-import { ref, watch } from 'vue'
-import type { AiAssistantConversation, AiAssistantConversationsResponse, AiAssistantSummary } from '~/types/AiAssistant'
+import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import type {
+  AiAssistantConversation,
+  AiAssistantConversationMessage,
+  AiAssistantConversationsResponse,
+  AiAssistantSummary,
+} from '~/types/AiAssistant'
 import type {
   UiAssistantConversationsDrawerEmits,
   UiAssistantConversationsDrawerProps,
@@ -107,6 +124,17 @@ const emit: EmitFn<UiAssistantConversationsDrawerEmits> = defineEmits<UiAssistan
 
 const conversations: Ref<AiAssistantConversation[]> = ref([])
 const isLoading: Ref<boolean> = ref(false)
+/** Index of the photo shown full screen, null when the lightbox is closed. */
+const lightboxIndex: Ref<number | null> = ref(null)
+
+/** Every photo of the listed conversations, in reading order, so the lightbox can step through them. */
+const lightboxPhotos: ComputedRef<string[]> = computed((): string[] =>
+  conversations.value.flatMap((conversation: AiAssistantConversation): string[] =>
+    conversation.messages
+      .map((message: AiAssistantConversationMessage): string | null => message.photo_url)
+      .filter((url: string | null): url is string => url !== null),
+  ),
+)
 
 /**
  * Load the assistant's latest conversations.
@@ -139,6 +167,7 @@ watch(
   (): number | null => (props.open && props.assistant ? props.assistant.id : null),
   (assistantId: number | null): void => {
     conversations.value = []
+    lightboxIndex.value = null
     if (assistantId !== null) void loadConversations(assistantId)
   },
   { immediate: true },

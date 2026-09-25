@@ -155,11 +155,19 @@ export function useAssistantConversation(
     if (chosenTime.value) return `${labels.appointment} : ${chosenTimeLine.value}`
     return ''
   })
-  /** The opening chips show under the greeting only, until the visitor writes or opens a panel. */
-  const showChips: ComputedRef<boolean> = computed(
-    (): boolean =>
-      messages.value.length <= 1 && !isSlotPanelOpen.value && !isPhotoPanelOpen.value && !showLeadForm.value,
+  /** No panel or form in the thread: the chips may sit under the last message. */
+  const isThreadClear: ComputedRef<boolean> = computed(
+    (): boolean => !isSlotPanelOpen.value && !isPhotoPanelOpen.value && !showLeadForm.value,
   )
+  /** The opening chips show under the greeting only, until the visitor writes or opens a panel. */
+  const showChips: ComputedRef<boolean> = computed((): boolean => messages.value.length <= 1 && isThreadClear.value)
+  /** The questions the last reply offers next, as chips under it, until the visitor goes on. */
+  const followUps: ComputedRef<string[]> = computed((): string[] => {
+    const last: AssistantChatMessage | undefined = messages.value[messages.value.length - 1]
+    if (!last || last.role !== 'assistant' || !last.follow_ups?.length) return []
+    if (isBusy.value || isStreaming.value || !isThreadClear.value) return []
+    return last.follow_ups
+  })
   /** A slim way to leave one's details stays above the composer, from the greeting until the request is sent. */
   const showCallbackBar: ComputedRef<boolean> = computed(
     (): boolean => !leadSent.value && !showLeadForm.value && !isSlotPanelOpen.value && !isPhotoPanelOpen.value,
@@ -173,7 +181,11 @@ export function useAssistantConversation(
   function isChatMessage(value: unknown): value is AssistantChatMessage {
     if (typeof value !== 'object' || value === null) return false
     const entry: Record<string, unknown> = value as Record<string, unknown>
-    return (entry.role === 'user' || entry.role === 'assistant') && typeof entry.content === 'string'
+    const hasFollowUps: boolean =
+      entry.follow_ups === undefined ||
+      (Array.isArray(entry.follow_ups) &&
+        entry.follow_ups.every((question: unknown): boolean => typeof question === 'string'))
+    return (entry.role === 'user' || entry.role === 'assistant') && typeof entry.content === 'string' && hasFollowUps
   }
 
   /**
@@ -510,7 +522,10 @@ export function useAssistantConversation(
     isBusy.value = true
     let offerBooking: boolean = false
     const body: AssistantChatRequestBody = {
-      messages: messages.value.slice(-MAX_STORED_MESSAGES),
+      // The turns alone: the questions offered under a reply are the widget's, not part of the conversation.
+      messages: messages.value
+        .slice(-MAX_STORED_MESSAGES)
+        .map(({ role, content }: AssistantChatMessage): AssistantChatMessage => ({ role, content })),
       session_id: sessionId.value,
       language: lang.value,
       internal: DemoBeaconUtils.isInternalVisit(),
@@ -519,7 +534,7 @@ export function useAssistantConversation(
       let answer: AssistantChatReply | null = await streamReply(body)
       if (!answer) {
         answer = await $fetch<AssistantChatReply>(`${publicEndpoint}/chat`, { method: 'POST', body })
-        messages.value.push({ role: 'assistant', content: answer.reply })
+        messages.value.push(replyMessage(answer.reply, answer.follow_ups))
       }
       offerBooking = answer.offer_booking
     } catch {
@@ -567,8 +582,21 @@ export function useAssistantConversation(
     }
     const bubble: AssistantChatMessage | undefined = messages.value[bubbleIndex]
     if (bubble && closing.reply) bubble.content = closing.reply
-    else if (!bubble && closing.reply) messages.value.push({ role: 'assistant', content: closing.reply })
+    else if (!bubble && closing.reply) messages.value.push(replyMessage(closing.reply, closing.follow_ups))
+    if (bubble && closing.follow_ups.length > 0) bubble.follow_ups = closing.follow_ups
     return closing
+  }
+
+  /**
+   * A reply as a message of the thread, with the questions it offers next when there are any.
+   * @param reply - The reply text.
+   * @param followUps - The questions offered next (possibly missing from an older API).
+   * @returns The message to push.
+   */
+  function replyMessage(reply: string, followUps: string[] | undefined): AssistantChatMessage {
+    return followUps && followUps.length > 0
+      ? { role: 'assistant', content: reply, follow_ups: followUps }
+      : { role: 'assistant', content: reply }
   }
 
   /**
@@ -790,6 +818,7 @@ export function useAssistantConversation(
     canContinueBooking,
     pickedSummary,
     showChips,
+    followUps,
     showCallbackBar,
     lastLeadSummary,
     hasPlayedExample,

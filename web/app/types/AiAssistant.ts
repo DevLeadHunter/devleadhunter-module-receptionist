@@ -188,6 +188,8 @@ export type AiAssistantRequestUpdatePayload = {
 export type AiAssistantTranscriptLine = {
   role: 'user' | 'assistant'
   content: string
+  /** The photo the visitor's turn carried, null for a text turn or once the photo left storage. */
+  photo_url: string | null
 }
 
 /** A request with the conversation that led to it. */
@@ -196,11 +198,12 @@ export type AiAssistantRequestDetail = {
   transcript: AiAssistantTranscriptLine[]
 }
 
-/** One turn of a journaled conversation. */
+/** One turn of a journaled conversation; `photo_url` when the visitor's turn was a photo (null once purged). */
 export type AiAssistantConversationMessage = {
   id: number
   role: 'user' | 'assistant'
   content: string
+  photo_url: string | null
   created_at: string
 }
 

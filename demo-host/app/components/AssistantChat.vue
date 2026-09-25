@@ -59,6 +59,14 @@
           @suggest="sendText"
           @example="playScriptedExample"
         />
+        <AssistantChatQuickReplies
+          v-else-if="followUps.length > 0"
+          :lang="lang"
+          :suggestions="followUps"
+          :can-send-photo="false"
+          :can-book-appointment="false"
+          @suggest="sendText"
+        />
 
         <AssistantChatPhotoCard
           v-if="isPhotoPanelOpen"
@@ -188,6 +196,7 @@ const {
   canContinueBooking,
   pickedSummary,
   showChips,
+  followUps,
   showCallbackBar,
   lastLeadSummary,
   hasPlayedExample,
@@ -304,6 +313,8 @@ watch(
     (): number => messages.value.length,
     (): string => messages.value[messages.value.length - 1]?.content ?? '',
     isBusy,
+    // The follow-up chips appear once the reply has fully streamed: the thread scrolls to show them.
+    isStreaming,
     isPhotoPanelOpen,
     isSlotPanelOpen,
     showLeadForm,

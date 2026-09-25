@@ -269,7 +269,9 @@ async def chat_with_assistant(
     )
     _journal_turn(db, assistant, slug=slug, payload=payload, answer=answer)
     return AiAssistantChatResponse(
-        reply=answer.reply, offer_booking=ai_assistant_chat_service.asks_for_appointment(history[-1]["content"])
+        reply=answer.reply,
+        offer_booking=ai_assistant_chat_service.asks_for_appointment(history[-1]["content"]),
+        follow_ups=list(answer.follow_ups),
     )
 
 
@@ -281,7 +283,7 @@ async def stream_chat_with_assistant(
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
     """Answer a visitor's message as it is written: ``data: {"delta"}`` events, then ``data: {"done", "reply",
-    "offer_booking"}`` with the whole reply. The turn is journaled once the reply is complete.
+    "offer_booking", "follow_ups"}`` with the whole reply. The turn is journaled once the reply is complete.
     """
     assistant, history = _open_chat(slug, payload, request, db)
     assistant_id = assistant.id
@@ -309,7 +311,9 @@ async def stream_chat_with_assistant(
             elif delta.text:
                 yield _sse_event({"delta": delta.text})
         _journal_streamed_turn(assistant_id, slug=slug, payload=payload, answer=answer)
-        yield _sse_event({"done": True, "reply": answer.reply, "offer_booking": offer_booking})
+        yield _sse_event(
+            {"done": True, "reply": answer.reply, "offer_booking": offer_booking, "follow_ups": list(answer.follow_ups)}
+        )
 
     return StreamingResponse(
         events(),

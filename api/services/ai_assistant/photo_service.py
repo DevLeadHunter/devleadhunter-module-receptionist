@@ -26,6 +26,7 @@ from enums.ai_assistant_photo import AiAssistantPhotoRejection, AiAssistantPhoto
 from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus
 from enums.assistant_llm import AssistantLlmUsage
 from models.ai_assistant import AiAssistant
+from models.ai_assistant_message import AiAssistantMessage
 from models.ai_assistant_photo import AiAssistantPhoto
 from models.ai_assistant_request import AiAssistantRequest
 from services.ai_assistant.assistant_service import ai_assistant_service
@@ -365,6 +366,7 @@ class AiAssistantPhotoService:
                 visitor_message=PHOTO_JOURNAL_MARKER,
                 reply=analysis.reply,
                 is_test=is_test,
+                visitor_photo_url=photo.url,
             )
         except Exception:
             logger.warning("Photo %s: journal failed", photo.id, exc_info=True)
@@ -470,6 +472,11 @@ class AiAssistantPhotoService:
                 forgotten.append(photo)
                 if url:
                     gone_urls.add(url)
+        if gone_urls:
+            # The journal showed the photo beside the visitor's turn: the link goes with the file.
+            db.query(AiAssistantMessage).filter(AiAssistantMessage.photo_url.in_(gone_urls)).update(
+                {AiAssistantMessage.photo_url: None}, synchronize_session=False
+            )
         request_ids = {photo.request_id for photo in forgotten if photo.request_id is not None}
         if request_ids:
             for request in db.query(AiAssistantRequest).filter(AiAssistantRequest.id.in_(request_ids)).all():

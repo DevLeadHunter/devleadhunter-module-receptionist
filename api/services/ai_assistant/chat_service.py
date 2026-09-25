@@ -4,7 +4,9 @@ The reply is grounded strictly on the assistant's knowledge base (built in ``kno
 the system prompt forbids inventing anything, and the model answers in the visitor's language. When
 the model is unavailable, a safe fallback keeps the conversation alive instead of failing. A reply
 that starts with the « §MANQUE: » line (the visitor asked for something the knowledge lacks) is
-cleaned of it, and the question it carried travels with the answer for the business to see.
+cleaned of it, and the question it carried travels with the answer for the business to see. A reply that ends
+with the « §SUITE: » line (the questions the visitor may ask next) is cleaned of it too, and the questions travel
+with the answer for the widget to offer as chips.
 """
 
 import logging
@@ -14,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from enums.assistant_llm import AssistantLlmUsage
+from services.ai_assistant.follow_up_marker import FollowUpMarker, FollowUpMarkerStream
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.llm_router import assistant_llm_router
 from services.ai_assistant.missing_info_marker import (
@@ -49,10 +52,11 @@ _APPOINTMENT_INTENT = re.compile(
 
 @dataclass(frozen=True)
 class ChatAnswer:
-    """The assistant's reply as the visitor reads it, and the question it flagged as unanswerable, if any."""
+    """The reply as the visitor reads it, the question it flagged as unanswerable, the questions it offers next."""
 
     reply: str
     unanswered_question: str | None = None
+    follow_ups: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -100,7 +104,8 @@ class AiAssistantChatService:
             eu_only: The assistant only allows Mistral (no Groq fallback).
 
         Returns:
-            The cleaned reply (a safe fallback when the model is unavailable) and the unanswered question.
+            The cleaned reply (a safe fallback when the model is unavailable), the unanswered question and the
+            follow-up questions.
         """
         turns = self._bounded_history(history)
         # Only a conversation ending on the visitor's message is a question to answer (the models refuse others).
@@ -109,8 +114,11 @@ class AiAssistantChatService:
         messages = self._messages(knowledge, assistant_name=assistant_name, languages=languages, tone=tone, turns=turns)
         raw = await assistant_llm_router.chat(AssistantLlmUsage.CHAT, messages, eu_only=eu_only)
         reply, question = MissingInfoMarker.split(raw or "")
+        reply, follow_ups = FollowUpMarker.split(reply)
         return ChatAnswer(
-            reply=reply or _FALLBACK_REPLY, unanswered_question=self._question_to_file(reply, question, turns)
+            reply=reply or _FALLBACK_REPLY,
+            unanswered_question=self._question_to_file(reply, question, turns),
+            follow_ups=follow_ups,
         )
 
     async def answer_stream(
@@ -134,7 +142,7 @@ class AiAssistantChatService:
             eu_only: The assistant only allows Mistral (no Groq fallback).
 
         Yields:
-            The text deltas of the cleaned reply (the marker line never among them), then the whole answer as
+            The text deltas of the cleaned reply (the marker lines never among them), then the whole answer as
             the last item; the safe fallback as one delta when the model is unavailable.
         """
         turns = self._bounded_history(history)
@@ -144,20 +152,22 @@ class AiAssistantChatService:
             return
         messages = self._messages(knowledge, assistant_name=assistant_name, languages=languages, tone=tone, turns=turns)
         marker = MissingInfoMarkerStream()
+        follow_ups = FollowUpMarkerStream()
         async for chunk in assistant_llm_router.chat_stream(AssistantLlmUsage.CHAT, messages, eu_only=eu_only):
-            text = marker.feed(chunk)
+            text = follow_ups.feed(marker.feed(chunk))
             if text:
                 yield ChatDelta(text=text)
-        text = marker.finish()
+        text = follow_ups.feed(marker.finish()) + follow_ups.finish()
         if text:
             yield ChatDelta(text=text)
-        reply = marker.reply
+        reply = follow_ups.reply
         if not reply:
             yield ChatDelta(text=_FALLBACK_REPLY)
         yield ChatDelta(
             final=ChatAnswer(
                 reply=reply or _FALLBACK_REPLY,
                 unanswered_question=self._question_to_file(reply, marker.question, turns),
+                follow_ups=follow_ups.follow_ups,
             )
         )
 

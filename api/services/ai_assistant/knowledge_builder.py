@@ -207,8 +207,16 @@ class AiAssistantKnowledgeBuilder:
             "conversation (bouton « Prendre rendez-vous »). Quand il en veut un, invite-le en une phrase à y "
             "choisir son créneau ; ne propose et ne confirme jamais toi-même une date ou une heure.",
             f"- Style : {wording['style']}, comme un excellent accueil en personne. Reste "
-            f"{wording['concise']} (2 à 3 phrases courtes, c'est une bulle de chat), sans jargon ni liste à "
-            "puces. Mets en valeur ce qui distingue la maison quand c'est utile.",
+            f"{wording['concise']} (2 à 3 phrases courtes, c'est une bulle de chat), sans jargon. Quand tu "
+            "énumères (prestations, étapes, horaires, pièces à prévoir) : une courte phrase d'introduction, puis "
+            "UNE ligne par élément commençant par « - » ; sinon, pas de liste. Jamais de titre, de tableau ni de "
+            "gras. Mets en valeur ce qui distingue la maison quand c'est utile.",
+            "- Termine TOUJOURS ta réponse par une dernière ligne exacte « §SUITE: <question 1> | <question 2> | "
+            "<question 3> », seule sur sa ligne après une ligne vide : 2 ou 3 questions très courtes (6 mots maximum) que ce client pourrait vouloir poser "
+            "ensuite, écrites à sa place et dans sa langue (« Vos horaires ? », « Vous vous déplacez ? », « Prendre "
+            "rendez-vous »), auxquelles tu peux répondre avec les informations ci-dessous ou qui mènent à une action "
+            "(devis, rendez-vous, rappel). Cette ligne est retirée avant l'affichage et devient des boutons sous ta "
+            "réponse : ne la mentionne jamais, et n'y répète pas ce qu'il vient de demander.",
         ]
         if tone:
             lines.append(f"- Ton : {tone}.")

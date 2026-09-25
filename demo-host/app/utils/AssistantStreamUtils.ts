@@ -24,7 +24,13 @@ export class AssistantStreamUtils {
         const parsed: AssistantChatStreamFrame | null = AssistantStreamUtils.parse(frame)
         if (!parsed) continue
         if (parsed.delta) onDelta(parsed.delta)
-        if (parsed.done) closing = { reply: parsed.reply ?? '', offer_booking: parsed.offer_booking ?? false }
+        if (parsed.done) {
+          closing = {
+            reply: parsed.reply ?? '',
+            offer_booking: parsed.offer_booking ?? false,
+            follow_ups: parsed.follow_ups ?? [],
+          }
+        }
       }
     }
     return closing

@@ -95,7 +95,11 @@ async def list_assistant_conversations(
                 last_message_at=conversation.last_message_at,
                 messages=[
                     AiAssistantConversationMessageItem(
-                        id=message.id, role=message.role, content=message.content, created_at=message.created_at
+                        id=message.id,
+                        role=message.role,
+                        content=message.content,
+                        photo_url=message.photo_url,
+                        created_at=message.created_at,
                     )
                     for message in conversation.messages
                 ],
@@ -169,7 +173,7 @@ async def get_assistant_request(
     return AiAssistantRequestDetail(
         request=_to_request_item(record, assistant.business_name if assistant else "", booked),
         transcript=[
-            AiAssistantTranscriptLine(role=line.role, content=line.content)
+            AiAssistantTranscriptLine(role=line.role, content=line.content, photo_url=line.photo_url)
             for line in transcript
             if line.role in ("user", "assistant")
         ],

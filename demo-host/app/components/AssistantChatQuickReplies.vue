@@ -7,7 +7,7 @@
       <AssistantIcon name="camera" class="ai-chip__icon" />
       {{ PHOTO_LABELS[props.lang].chip }}
     </button>
-    <button type="button" class="ai-chip" @click="emit('appointment')">
+    <button v-if="props.canBookAppointment" type="button" class="ai-chip" @click="emit('appointment')">
       <AssistantIcon name="calendar" class="ai-chip__icon" />
       {{ APPOINTMENT_LABELS[props.lang].chip }}
     </button>
@@ -45,6 +45,10 @@ const props: AssistantChatQuickRepliesProps = defineProps({
   canPlayExample: {
     type: Boolean,
     default: false,
+  },
+  canBookAppointment: {
+    type: Boolean,
+    default: true,
   },
 })
 

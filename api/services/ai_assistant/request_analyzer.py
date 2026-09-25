@@ -35,10 +35,11 @@ class RequestAnalysis:
 
 @dataclass(frozen=True)
 class TranscriptLine:
-    """One conversation turn, as shown to the model and in the summary email."""
+    """One conversation turn, as shown to the model and in the summary email; ``photo_url`` for a photo turn."""
 
     role: str
     content: str
+    photo_url: str | None = None
 
 
 class AiAssistantRequestAnalyzer:

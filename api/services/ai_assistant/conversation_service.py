@@ -44,6 +44,7 @@ class AiAssistantConversationService:
         visitor_message: str,
         reply: str,
         is_test: bool = False,
+        visitor_photo_url: str | None = None,
     ) -> AiAssistantConversation:
         """Append a visitor message and the assistant's reply to the session's conversation.
 
@@ -55,6 +56,7 @@ class AiAssistantConversationService:
             visitor_message: What the visitor wrote.
             reply: What the assistant answered.
             is_test: Sent from an internal visit (``?internal=1``): the conversation stays out of the counts.
+            visitor_photo_url: The photo the visitor's turn carried, when it was one.
 
         Returns:
             The conversation the turn was appended to.
@@ -63,9 +65,11 @@ class AiAssistantConversationService:
         if is_test:
             conversation.is_test = True
         now: datetime = datetime.now(UTC).replace(tzinfo=None)
-        for role, content in (("user", visitor_message), ("assistant", reply)):
+        for role, content, photo_url in (("user", visitor_message, visitor_photo_url), ("assistant", reply, None)):
             conversation.messages.append(
-                AiAssistantMessage(role=role, content=content.strip()[:MAX_STORED_MESSAGE_CHARS], created_at=now)
+                AiAssistantMessage(
+                    role=role, content=content.strip()[:MAX_STORED_MESSAGE_CHARS], photo_url=photo_url, created_at=now
+                )
             )
         conversation.message_count += 2
         conversation.last_message_at = now

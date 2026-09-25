@@ -12,8 +12,13 @@
         Toutes les demandes
       </NuxtLink>
     </div>
-    <p v-if="props.requests.length === 0" class="px-5 py-8 text-center text-sm text-[var(--app-ink-soft)]">
-      Aucune demande pour l'instant.
+    <p
+      v-if="props.requests.length === 0"
+      class="px-5 py-8 text-center text-sm leading-relaxed text-[var(--app-ink-soft)]"
+    >
+      Aucune demande pour l'instant.<br />
+      Une demande naît quand un visiteur laisse ses coordonnées (rappel, rendez-vous ou photo acceptée) ; une
+      conversation sans coordonnées reste dans le journal des conversations.
     </p>
     <ul v-else class="divide-y divide-[var(--app-line-soft)]">
       <li v-for="request in props.requests" :key="request.id">

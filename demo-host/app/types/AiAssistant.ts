@@ -47,16 +47,24 @@ export type AiAssistantConfig = {
   closed_hours?: AiAssistantClosedHours | null
 }
 
-/** A single conversation turn exchanged with the assistant. */
+/**
+ * A single conversation turn exchanged with the assistant; `follow_ups` on a reply are the questions it offers the
+ * visitor to ask next (chips under it while it is the last message).
+ */
 export type AssistantChatMessage = {
   role: 'user' | 'assistant'
   content: string
+  follow_ups?: string[]
 }
 
-/** The assistant's reply to a chat request; `offer_booking` when the visitor asks for an appointment. */
+/**
+ * The assistant's reply to a chat request; `offer_booking` when the visitor asks for an appointment, `follow_ups`
+ * the questions offered next.
+ */
 export type AssistantChatReply = {
   reply: string
   offer_booking: boolean
+  follow_ups: string[]
 }
 
 /** Localized labels for the lead-capture form. */
@@ -213,4 +221,5 @@ export type AssistantChatStreamFrame = {
   done?: boolean
   reply?: string
   offer_booking?: boolean
+  follow_ups?: string[]
 }

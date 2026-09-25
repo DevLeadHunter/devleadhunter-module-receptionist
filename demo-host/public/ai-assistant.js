@@ -47,17 +47,17 @@
   var CSS =
     '.dlh-launcher{position:fixed;right:max(22px,env(safe-area-inset-right,0px));bottom:max(22px,env(safe-area-inset-bottom,0px));z-index:2147483000;display:flex;align-items:center;gap:12px;margin:0;padding:0;border:0;background:transparent;cursor:pointer;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#17130d;text-align:left;line-height:1.4}' +
     '.dlh-launcher[hidden]{display:none}' +
-    '.dlh-launcher__say{background:#fff;color:#17130d;border:1px solid rgba(23,19,13,.12);border-radius:14px;padding:10px 14px;font-size:14px;max-width:220px;box-shadow:0 18px 44px -24px rgba(23,19,13,.45)}' +
+    '.dlh-launcher__say{background:#fff;color:#17130d;border:1px solid rgba(23,19,13,.12);border-radius:14px;padding:11px 16px;font-size:14px;max-width:300px;box-shadow:0 18px 44px -24px rgba(23,19,13,.45)}' +
     '.dlh-launcher__say strong{font-weight:600}' +
-    '.dlh-launcher__portrait{position:relative;width:58px;height:58px;flex:none;border-radius:50%;box-shadow:0 0 0 3px #fff,0 0 0 4px var(--dlh-strong),0 12px 28px -12px rgba(23,19,13,.55);transition:transform .15s ease}' +
+    '.dlh-launcher__portrait{position:relative;width:50px;height:50px;flex:none;border-radius:50%;box-shadow:0 0 0 3px #fff,0 0 0 4px var(--dlh-strong),0 12px 28px -12px rgba(23,19,13,.55);transition:transform .15s ease}' +
     '.dlh-launcher:hover .dlh-launcher__portrait{transform:translateY(-2px)}' +
     '.dlh-launcher__disc{display:block;width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--dlh-tint);background:radial-gradient(circle at 32% 22%,color-mix(in srgb,var(--dlh-tint) 55%,#fff),var(--dlh-tint) 72%)}' +
     '.dlh-launcher__disc img{display:block;width:100%;height:100%;object-fit:cover}' +
-    '.dlh-launcher__initial{display:flex;width:100%;height:100%;align-items:center;justify-content:center;font-weight:600;font-size:22px;color:#17130d}' +
+    '.dlh-launcher__initial{display:flex;width:100%;height:100%;align-items:center;justify-content:center;font-weight:600;font-size:20px;color:#17130d}' +
     '.dlh-launcher__dot{position:absolute;right:2px;bottom:2px;width:12px;height:12px;border-radius:50%;background:#2f9e5b;box-shadow:0 0 0 2px #fff}' +
     '.dlh-launcher--loading .dlh-launcher__portrait{animation:dlh-pulse 1s ease-in-out infinite}' +
     '@keyframes dlh-pulse{50%{opacity:.55}}' +
-    '@media (max-width:559px),(max-height:639px){.dlh-launcher__say{display:none}}' +
+    '@media (max-width:559px),(max-height:639px){.dlh-launcher__say{display:none}.dlh-launcher__portrait{width:46px;height:46px}}' +
     '@media (prefers-reduced-motion:reduce){.dlh-launcher__portrait{transition:none}.dlh-launcher--loading .dlh-launcher__portrait{animation:none}}'
 
   var launcher = null

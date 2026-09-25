@@ -11,16 +11,20 @@
         class="ai-m__photo"
       />
       <template v-else-if="props.message.role === 'assistant'">
-        <template v-for="(part, partIndex) in MessageLinkUtils.parts(props.message.content)" :key="partIndex">
-          <a
-            v-if="part.kind === 'link'"
-            :href="part.value"
-            target="_blank"
-            rel="noopener noreferrer nofollow"
-            class="ai-m__link"
-            >{{ part.value }}</a
-          >
-          <template v-else>{{ part.value }}</template>
+        <template v-for="(block, blockIndex) in blocks" :key="blockIndex">
+          <p v-if="block.kind === 'paragraph'" class="ai-m__p">
+            <AssistantChatMessageInline :parts="block.parts" />
+          </p>
+          <ol v-else-if="block.ordered" class="ai-m__list">
+            <li v-for="(item, itemIndex) in block.items" :key="itemIndex">
+              <AssistantChatMessageInline :parts="item" />
+            </li>
+          </ol>
+          <ul v-else class="ai-m__list">
+            <li v-for="(item, itemIndex) in block.items" :key="itemIndex">
+              <AssistantChatMessageInline :parts="item" />
+            </li>
+          </ul>
         </template>
       </template>
       <template v-else>{{ props.message.content }}</template>
@@ -29,10 +33,13 @@
 </template>
 
 <script lang="ts" setup>
-import type { PropType } from 'vue'
+import type { ComputedRef, PropType } from 'vue'
+import { computed } from 'vue'
 import type { AssistantChatMessage } from '~/types/AiAssistant'
 import type { AssistantChatMessageBubbleProps } from '~/types/AssistantChatMessageBubble'
-import { MessageLinkUtils } from '~/utils/MessageLinkUtils'
+import type { AssistantMessageBlock } from '~/types/AssistantMessage'
+import AssistantChatMessageInline from '~/components/AssistantChatMessageInline.vue'
+import { MessageFormatUtils } from '~/utils/MessageFormatUtils'
 
 const props: AssistantChatMessageBubbleProps = defineProps({
   message: {
@@ -56,6 +63,11 @@ const props: AssistantChatMessageBubbleProps = defineProps({
     required: true,
   },
 })
+
+/** The reply laid out: paragraphs and lists, re-read as the streamed text grows. */
+const blocks: ComputedRef<AssistantMessageBlock[]> = computed((): AssistantMessageBlock[] =>
+  MessageFormatUtils.blocks(props.message.content),
+)
 </script>
 
 <style scoped>
@@ -103,7 +115,6 @@ const props: AssistantChatMessageBubbleProps = defineProps({
   padding: 10px 14px;
   font-size: 0.9rem;
   line-height: 1.5;
-  white-space: pre-wrap;
   word-wrap: break-word;
   border-radius: 16px;
 }
@@ -117,6 +128,8 @@ const props: AssistantChatMessageBubbleProps = defineProps({
   background: var(--ai-accent-strong);
   color: var(--ai-on-strong);
   border-bottom-right-radius: 5px;
+  /* The visitor's own line breaks are kept as typed. */
+  white-space: pre-wrap;
 }
 .ai-m__bubble--photo {
   padding: 4px;
@@ -128,10 +141,24 @@ const props: AssistantChatMessageBubbleProps = defineProps({
   border-radius: 12px;
   object-fit: cover;
 }
-.ai-m__link {
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  overflow-wrap: anywhere;
+/* Blocks of a laid-out reply: a beat between two paragraphs or a paragraph and its list. */
+.ai-m__p,
+.ai-m__list {
+  margin: 0;
+}
+.ai-m__p + .ai-m__p,
+.ai-m__p + .ai-m__list,
+.ai-m__list + .ai-m__p,
+.ai-m__list + .ai-m__list {
+  margin-top: 8px;
+}
+.ai-m__list {
+  padding-left: 1.2em;
+}
+.ai-m__list li + li {
+  margin-top: 4px;
+}
+.ai-m__list li::marker {
+  color: var(--ai-accent-text);
 }
 </style>

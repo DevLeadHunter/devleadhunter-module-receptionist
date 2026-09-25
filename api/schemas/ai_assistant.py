@@ -220,6 +220,8 @@ class AiAssistantChatResponse(BaseModel):
     reply: str
     # The visitor asks for an appointment: the widget opens its appointment panel under the reply.
     offer_booking: bool = False
+    # Questions the visitor may want to ask next, offered as chips under the reply.
+    follow_ups: list[str] = Field(default_factory=list)
 
 
 class AiAssistantSlotChoice(BaseModel):
@@ -366,10 +368,11 @@ class AiAssistantRequestsResponse(BaseModel):
 
 
 class AiAssistantTranscriptLine(BaseModel):
-    """One turn of the conversation a request came out of."""
+    """One turn of the conversation a request came out of; ``photo_url`` when the visitor's turn was a photo."""
 
     role: Literal["user", "assistant"]
     content: str
+    photo_url: str | None = None
 
 
 class AiAssistantRequestDetail(BaseModel):
@@ -387,11 +390,12 @@ class AiAssistantRequestUpdateRequest(BaseModel):
 
 
 class AiAssistantConversationMessageItem(BaseModel):
-    """One turn of a journaled conversation."""
+    """One turn of a journaled conversation; ``photo_url`` when the visitor's turn was a photo (gone once purged)."""
 
     id: int
     role: str
     content: str
+    photo_url: str | None = None
     created_at: datetime
 
 

@@ -145,6 +145,7 @@ def test_a_relevant_photo_is_described_journaled_and_kept(db: Session, cloud: di
     assert prompt[1]["content"][1]["image_url"]["url"] == photo.url
     conversation = db.query(AiAssistantConversation).one()
     assert [message.content for message in conversation.messages] == ["Photo envoyée", photo.reply]
+    assert [message.photo_url for message in conversation.messages] == [photo.url, None]
 
 
 def test_an_off_topic_photo_is_refused_politely_and_deleted_at_once(db: Session, cloud: dict[str, Any]) -> None:
@@ -249,6 +250,8 @@ def test_photos_leave_storage_after_90_days_and_their_links_leave_the_request(
     assert photo.url is None and photo.deleted_at is not None
     assert cloud["storage"].objects == {}
     assert AiAssistantRequestService.photo_urls(request) == []
+    [journaled] = [message for message in db.query(AiAssistantConversation).one().messages if message.role == "user"]
+    assert journaled.photo_url is None
     assert request.photos_json[0]["damage"] == "rayure profonde, peinture à refaire"
 
 

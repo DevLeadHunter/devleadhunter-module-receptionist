@@ -42,6 +42,7 @@ export type UseAssistantConversationReturn = {
   canContinueBooking: ComputedRef<boolean>
   pickedSummary: ComputedRef<string>
   showChips: ComputedRef<boolean>
+  followUps: ComputedRef<string[]>
   showCallbackBar: ComputedRef<boolean>
   lastLeadSummary: Ref<AssistantLeadSummary | null>
   hasPlayedExample: Ref<boolean>

@@ -21,6 +21,8 @@ class AiAssistantMessage(Base):
     )
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    # The photo a visitor's turn carried, so the owner's journal shows it (NULL once the photo left storage).
+    photo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
 
     conversation: Mapped[AiAssistantConversation] = relationship("AiAssistantConversation", back_populates="messages")

@@ -81,10 +81,10 @@ defineExpose({ rootElement, focus })
   color: var(--ai-ink);
   border: 1px solid var(--ai-line);
   border-radius: 14px;
-  padding: 10px 14px;
+  padding: 11px 16px;
   font-size: 0.85rem;
   line-height: 1.4;
-  max-width: 220px;
+  max-width: 300px;
   text-align: left;
   box-shadow: 0 18px 44px -24px rgba(23, 19, 13, 0.45);
 }
@@ -94,8 +94,8 @@ defineExpose({ rootElement, focus })
 }
 .ai-launcher__portrait {
   position: relative;
-  width: 58px;
-  height: 58px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   box-shadow:
     0 0 0 3px var(--ai-card),

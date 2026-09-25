@@ -292,7 +292,10 @@ class AiAssistantRequestService:
             .order_by(AiAssistantMessage.id)
             .all()
         )
-        return [TranscriptLine(role=message.role, content=message.content) for message in messages]
+        return [
+            TranscriptLine(role=message.role, content=message.content, photo_url=message.photo_url)
+            for message in messages
+        ]
 
     def list_for_owner(
         self,

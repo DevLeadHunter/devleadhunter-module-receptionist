@@ -996,3 +996,35 @@ avec le modèle 34 « Assistant IA - réponses 24/7 » (campagne 21, journal d'e
 **dibodev.fr** (`nuxt.config.ts` du dépôt `dibodev.fr-frontend`, script en production seulement, déployé par OVH) et
 vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34 réponses 24/7 · 35 multilingue ·
 36 devis par photo · 38 le prix cash · 37 relance (leurs noms disent encore « Assistant IA »).
+
+## Neuvième passage — premiers retours de Léo (26/09, codé sur `feat/receptionist-polish`, pas encore déployé)
+
+- **Questions de suite.** Le prompt demande une dernière ligne « `§SUITE: q1 | q2 | q3` » (2 ou 3 questions courtes
+  que le client pourrait poser ensuite). `services/ai_assistant/follow_up_marker.py` la retire du flux comme
+  `missing_info_marker.py` retire « §MANQUE: » (ligne tenue tant qu'elle peut être le marqueur, y compris collée à la
+  fin d'une phrase à partir du « § »). `ChatAnswer.follow_ups`, `follow_ups` dans la réponse de `/chat` et dans la
+  trame `done` du stream. Le widget les garde sur le message (`AssistantChatMessage.follow_ups`) et les propose en
+  puces sous la dernière réponse (`followUps` du composable), jamais renvoyées à l'API.
+- **Mise en forme des réponses.** Le prompt autorise les listes « - » (une ligne par élément) quand on énumère ;
+  `MessageFormatUtils` (remplace `MessageLinkUtils`) découpe la réponse en paragraphes, listes, gras et liens, rendus
+  par `AssistantChatMessageInline` dans la bulle.
+- **Photo dans le journal.** `ai_assistant_messages.photo_url` (migration `add_ai_assistant_messages_photo_url`),
+  posé par `record_turn(visitor_photo_url=…)` depuis le chemin photo, mis à NULL par la purge des photos. Exposé dans
+  les conversations et la transcription d'une demande ; le dashboard montre la vignette, agrandie dans
+  `UiImageLightbox` (volets conversations et demande).
+- **Dashboard.** La page de détail a deux onglets dans la colonne de gauche (Résumé / Configuration) ; le formulaire
+  `AssistantSettingsForm` remplace le volet « Personnaliser » (supprimé, entrée `assistant-settings` retirée de la
+  pile). Le ton se choisit par puces (`assistantTones.ts`, `assistantTone.ts` lit et écrit la phrase stockée) ; la
+  section alertes est aérée. L'aperçu (`AssistantDemoPreviewCard`, `reloadKey`) se recharge après chaque
+  enregistrement, et un bouton « Recharger » existe. L'état vide des dernières demandes explique qu'une demande naît
+  quand un visiteur laisse ses coordonnées.
+- **Page /ia.** Plus de barre du haut ; colonne 1120 px ; les deux téléphones sont remplacés par la conversation en
+  fenêtre (`.ia__window`, à essayer) et par `AssistantDemoOwnerFeed` (la notification SMS sur une carte) ;
+  `AssistantDemoPhoneFrame` / `AssistantDemoLockScreen` supprimés. Le CTA est le composant partagé `DemoCtaLink`
+  (pilule noire, halo + balayage), aussi utilisé par la page vidéo `/v`.
+- **Bulle fermée.** Loader : portrait 50 px (46 px sous 560 px), bulle jusqu'à 300 px ; même chose pour
+  `AssistantChatLauncher`.
+- **Workflow prod.** Option `report` (lecture seule) de `prod-receptionist-for-business.yml` : compteurs, conversations
+  avec leurs messages, demandes et FAQ d'une entreprise, pour diagnostiquer sans jeton de prod. Dibodev le 25/09 :
+  2 conversations (3 photos hors sujet, 1 question répondue), 0 demande car aucune coordonnée laissée, 0 question sans
+  réponse car rien de manquant : le tableau de bord était cohérent.

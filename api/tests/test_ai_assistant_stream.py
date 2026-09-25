@@ -367,7 +367,7 @@ def test_the_stream_route_sends_the_cleaned_deltas_then_done_and_journals_the_tu
     assert frames == [
         'data: {"delta": "Nous ne "}\n\n',
         'data: {"delta": "livrons pas."}\n\n',
-        'data: {"done": true, "reply": "Nous ne livrons pas.", "offer_booking": true}\n\n',
+        'data: {"done": true, "reply": "Nous ne livrons pas.", "offer_booking": true, "follow_ups": []}\n\n',
     ]
     assert "MANQUE" not in "".join(frames)
     [conversation] = db.query(AiAssistantConversation).all()

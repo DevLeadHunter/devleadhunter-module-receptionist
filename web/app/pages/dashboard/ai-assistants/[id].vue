@@ -14,10 +14,6 @@
           <UIcon name="i-lucide-library" class="h-4 w-4" />
           Sources
         </button>
-        <button type="button" class="btn-secondary inline-flex items-center gap-2" @click="openSettings">
-          <UIcon name="i-lucide-pencil" class="h-4 w-4" />
-          Personnaliser
-        </button>
         <button type="button" class="btn-primary inline-flex items-center gap-2" @click="openExternalUrl(demoUrl)">
           <UIcon name="i-lucide-external-link" class="h-4 w-4" />
           Ouvrir la démo
@@ -62,21 +58,35 @@
 
       <div class="grid items-start gap-6 @4xl:grid-cols-[360px_1fr]">
         <aside class="card space-y-5 p-5 @4xl:sticky @4xl:top-6 @4xl:max-h-[calc(100vh-3rem)] @4xl:overflow-y-auto">
-          <AssistantSummaryCard :assistant="assistant" />
-          <AssistantActionsCard
-            :status="assistant.status"
-            :is-regenerating="isRegenerating"
-            :is-sending-client-link="isSendingClientLink"
-            :is-deleting="isDeleting"
-            @regenerate="regenerateAssistant"
-            @send-client-space="clientSpaceConfirmModal?.open()"
-            @remove="deleteConfirmModal?.open()"
-          />
-          <AssistantVideoCard :assistant="assistant" :is-busy="isVideoBusy" @generate="generateVideo" />
-          <AssistantSubscriptionCard :assistant="assistant" />
+          <UiTabs v-model="activeTab" :tabs="asideTabs" />
+
+          <template v-if="activeTab === 'resume'">
+            <AssistantSummaryCard :assistant="assistant" />
+            <AssistantActionsCard
+              :status="assistant.status"
+              :is-regenerating="isRegenerating"
+              :is-sending-client-link="isSendingClientLink"
+              :is-deleting="isDeleting"
+              @regenerate="regenerateAssistant"
+              @send-client-space="clientSpaceConfirmModal?.open()"
+              @remove="deleteConfirmModal?.open()"
+            />
+            <AssistantVideoCard :assistant="assistant" :is-busy="isVideoBusy" @generate="generateVideo" />
+            <AssistantSubscriptionCard :assistant="assistant" />
+          </template>
+
+          <AssistantSettingsForm v-else :assistant="assistant" @saved="onAssistantSaved" />
         </aside>
 
-        <section class="space-y-6">
+        <section v-if="activeTab === 'config'" class="space-y-6">
+          <AssistantDemoPreviewCard
+            :demo-url="demoUrl"
+            :reload-key="previewReloadKey"
+            height-class="h-[calc(100vh-11rem)] min-h-[640px]"
+          />
+        </section>
+
+        <section v-else class="space-y-6">
           <div class="grid grid-cols-2 gap-4 @5xl:grid-cols-4">
             <UiStatCard
               v-for="stat in stats"
@@ -99,7 +109,7 @@
 
           <AssistantInstallGuideCard :embed-snippet="assistant.embed_snippet" />
 
-          <AssistantDemoPreviewCard :demo-url="demoUrl" />
+          <AssistantDemoPreviewCard :demo-url="demoUrl" :reload-key="previewReloadKey" />
         </section>
       </div>
     </template>
@@ -136,12 +146,14 @@ import type {
 } from '~/types/AiAssistant'
 import type { AssistantMutationNotice, AssistantRequestMutationNotice } from '~/types/DrawerStack'
 import type { AiAssistantDetailStat } from '~/types/AiAssistantDetailPage'
+import type { UiTab } from '~/types/UiTabs'
 import AssistantActionsCard from '~/components/ai-assistants/AssistantActionsCard.vue'
 import AssistantDemoPreviewCard from '~/components/ai-assistants/AssistantDemoPreviewCard.vue'
 import AssistantFaqCard from '~/components/ai-assistants/AssistantFaqCard.vue'
 import AssistantInstallGuideCard from '~/components/ai-assistants/AssistantInstallGuideCard.vue'
 import AssistantPortrait from '~/components/ai-assistants/AssistantPortrait.vue'
 import AssistantRecentRequests from '~/components/ai-assistants/AssistantRecentRequests.vue'
+import AssistantSettingsForm from '~/components/ai-assistants/AssistantSettingsForm.vue'
 import AssistantSubscriptionCard from '~/components/ai-assistants/AssistantSubscriptionCard.vue'
 import AssistantSummaryCard from '~/components/ai-assistants/AssistantSummaryCard.vue'
 import AssistantVideoCard from '~/components/ai-assistants/AssistantVideoCard.vue'
@@ -164,8 +176,17 @@ const { openExternalUrl }: UseOpenExternalUrlReturn = useOpenExternalUrl()
 /** How many of the assistant's requests the detail page lists. */
 const RECENT_REQUESTS_LIMIT: number = 6
 
+/** The aside's tabs: the summary and actions, or the configuration with the demo preview beside it. */
+const asideTabs: UiTab[] = [
+  { key: 'resume', label: 'Résumé', icon: 'i-lucide-clipboard-list' },
+  { key: 'config', label: 'Configuration', icon: 'i-lucide-sliders-horizontal' },
+]
+
 const assistantId: ComputedRef<number> = computed((): number => Number(route.params.id))
 const assistant: Ref<AiAssistantSummary | null> = ref(null)
+const activeTab: Ref<string> = ref('resume')
+/** Bumped after each save so the demo preview shows the new persona, colour or name at once. */
+const previewReloadKey: Ref<number> = ref(0)
 const requests: Ref<AiAssistantRequestItem[]> = ref([])
 const pending: Ref<boolean> = ref(true)
 const loadError: Ref<string | null> = ref(null)
@@ -234,9 +255,14 @@ function openSources(): void {
   if (assistant.value) drawerStack.push({ kind: 'assistant-sources', assistant: assistant.value })
 }
 
-/** Open the settings drawer: identity, alerts, model. */
-function openSettings(): void {
-  if (assistant.value) drawerStack.push({ kind: 'assistant-settings', assistant: assistant.value })
+/**
+ * The configuration was saved: show the assistant as the API returned it, everywhere, preview included.
+ * @param updated - The assistant as the API returned it.
+ */
+function onAssistantSaved(updated: AiAssistantSummary): void {
+  assistant.value = updated
+  drawerStack.notifyAssistantUpdated(updated)
+  previewReloadKey.value += 1
 }
 
 /**

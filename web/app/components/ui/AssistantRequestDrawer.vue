@@ -130,18 +130,29 @@
               Le visiteur a laissé ses coordonnées sans écrire à l'assistant.
             </p>
             <ol v-else class="flex flex-col gap-2">
-              <li
-                v-for="(line, index) in transcript"
-                :key="index"
-                class="max-w-[88%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap"
-                :class="
-                  line.role === 'user'
-                    ? 'self-end bg-[var(--app-ink)] text-[var(--app-bg)]'
-                    : 'self-start border border-[var(--app-line)] bg-[var(--app-surface-2)] text-[var(--app-ink)]'
-                "
-              >
-                {{ line.content }}
-              </li>
+              <template v-for="(line, index) in transcript" :key="index">
+                <li v-if="line.photo_url !== null" class="self-end">
+                  <button
+                    type="button"
+                    class="block h-28 w-28 cursor-pointer overflow-hidden rounded-2xl border border-[var(--app-line)] transition-opacity hover:opacity-90"
+                    aria-label="Agrandir la photo envoyée par le visiteur"
+                    @click="lightboxIndex = lightboxPhotos.indexOf(line.photo_url)"
+                  >
+                    <img :src="line.photo_url" alt="" loading="lazy" class="h-full w-full object-cover" />
+                  </button>
+                </li>
+                <li
+                  v-else
+                  class="max-w-[88%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap"
+                  :class="
+                    line.role === 'user'
+                      ? 'self-end bg-[var(--app-ink)] text-[var(--app-bg)]'
+                      : 'self-start border border-[var(--app-line)] bg-[var(--app-surface-2)] text-[var(--app-ink)]'
+                  "
+                >
+                  {{ line.content }}
+                </li>
+              </template>
             </ol>
           </section>
 
@@ -210,11 +221,7 @@
       </div>
     </Transition>
 
-    <UiImageLightbox
-      v-if="open && request && request.photo_urls.length > 0"
-      v-model="lightboxIndex"
-      :photos="request.photo_urls"
-    />
+    <UiImageLightbox v-if="open && lightboxPhotos.length > 0" v-model="lightboxIndex" :photos="lightboxPhotos" />
   </Teleport>
 </template>
 
@@ -273,6 +280,15 @@ const isSaving: Ref<boolean> = ref(false)
 const note: Ref<string> = ref('')
 /** Index of the photo shown full screen, null when the lightbox is closed. */
 const lightboxIndex: Ref<number | null> = ref(null)
+
+/** The request's photos, then those of the conversation not attached to it, so the lightbox steps through all. */
+const lightboxPhotos: ComputedRef<string[]> = computed((): string[] => {
+  const photos: string[] = [...(props.request?.photo_urls ?? [])]
+  for (const line of transcript.value) {
+    if (line.photo_url !== null && !photos.includes(line.photo_url)) photos.push(line.photo_url)
+  }
+  return photos
+})
 
 const isLoadingTranscript: ComputedRef<boolean> = computed((): boolean => loadingRequestId.value !== null)
 

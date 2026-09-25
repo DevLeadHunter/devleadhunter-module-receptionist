@@ -54,6 +54,7 @@ def test_record_turn_journals_the_visitor_and_the_reply_per_session(db) -> None:
     assert first.message_count == 4
     assert [message.role for message in first.messages] == ["user", "assistant", "user", "assistant"]
     assert first.messages[0].content == "Vous êtes ouverts ?"
+    assert [message.photo_url for message in first.messages] == [None, None, None, None]
     assert first.user_id == 1 and first.prospect_id == 42 and first.language == "fr"
     assert other.language == "de"
 
