@@ -9,6 +9,7 @@ import pytest
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.demo_video_status import DemoVideoStatus
 from services import video_pipeline
+from services.assistant_space_chapter import AssistantSpaceChapter
 from services.assistant_video_service import AssistantVideoService
 from services.video_pipeline import VideoGenerationError
 
@@ -62,6 +63,23 @@ def _patch_presenter(monkeypatch: pytest.MonkeyPatch, presenter: SimpleNamespace
         "services.presenter_video_service.presenter_video_service.get_for_user",
         lambda *args, **kwargs: presenter,
     )
+
+
+def test_the_space_chapter_takes_the_end_of_a_long_enough_segment() -> None:
+    """Seven seconds of example space after a widget scene of at least six; nothing on a short clip."""
+    assert AssistantSpaceChapter.seconds_for(20) == 7.0
+    assert AssistantSpaceChapter.seconds_for(13) == 7.0
+    assert AssistantSpaceChapter.seconds_for(12.9) == 0.0
+    assert (
+        AssistantSpaceChapter.url_for("https://demo.dibodev.fr/ia/toitures-morel?internal=1")
+        == "https://demo.dibodev.fr/client/exemple?demo=toitures-morel"
+    )
+    # A beat at the top, an eased scroll to the requests, then a hold.
+    assert AssistantSpaceChapter.scroll_position(0.0, 600) == 0
+    assert AssistantSpaceChapter.scroll_position(0.1, 600) == 0
+    assert 0 < AssistantSpaceChapter.scroll_position(0.4, 600) < 600
+    assert AssistantSpaceChapter.scroll_position(0.6, 600) == 600
+    assert AssistantSpaceChapter.scroll_position(1.0, 600) == 600
 
 
 def test_reconcile_marks_orphaned_generations_failed() -> None:

@@ -1033,6 +1033,11 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
   `api/scripts/capture_client_space_example.py` avec les serveurs locaux, à relancer quand l'espace change) sous le
   titre « Vous gardez la main », avec l'événement PostHog `assistant_space_example_opened` sur le clic. Cure de texte
   de la page /ia au passage (chapô, outcomes, estimation, note du CTA).
+- **Chapitre « espace » de la vidéo.** `services/assistant_space_chapter.py` (partagé par la capture VPS
+  `assistant_video_service` et la capture desktop `assistant_widget_clip_service`) : quand le segment du milieu
+  dure au moins 13 s, ses 7 dernières secondes montrent `/client/exemple?demo=<slug>` (bandeau masqué), un temps
+  en haut puis un défilement doux jusqu'à la carte des demandes. En dessous de 13 s, pas de chapitre ; si l'espace
+  ne se charge pas, le widget tient jusqu'à la fin. Le prompteur de Léo doit dire une phrase de plus sur l'après.
 - **Espace client.** Ses réglages gagnent les types de demandes envoyés par SMS et la plage « ne pas déranger »
   (`alert_sms_types`, `alert_quiet_start_hour`, `alert_quiet_end_hour` dans `AiAssistantClientSettings`, mêmes
   règles que le dashboard). Rappel du parcours : l'espace n'existe que pour un assistant vendu (`delivered`) ; son

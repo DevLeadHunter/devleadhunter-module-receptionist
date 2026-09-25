@@ -3,7 +3,9 @@
 The assistant's video is its own thing (a *different* recording from the site video, per the module
 brief): the user's assistant-module presenter clip full-screen for the intro/outro, and in the middle
 a screen capture of the widget **answering** — it opens, a question is asked, the grounded reply
-writes itself, and the lead form appears. It reuses the shared primitives both modules build on: the
+writes itself, and the lead form appears; when the clip leaves enough time, the last seconds switch to the
+example client space, where the requests land (:mod:`services.assistant_space_chapter`). It reuses the shared
+primitives both modules build on: the
 picture-in-picture ffmpeg montage (:mod:`services.video_montage`) and the presenter/memory/semaphore
 helpers (:mod:`services.video_pipeline`). Only the *capture* and the *storage namespace* change.
 
@@ -30,6 +32,7 @@ from enums.demo_video_status import DemoVideoStatus
 from models.ai_assistant import AiAssistant
 from models.presenter_video import PresenterVideo
 from services import video_montage, video_pipeline
+from services.assistant_space_chapter import AssistantSpaceChapter
 from services.r2_storage_service import r2_storage
 from services.video_pipeline import (
     MIN_FREE_MEMORY_MB_FOR_CAPTURE,
@@ -285,10 +288,11 @@ class AssistantVideoService:
             shutil.rmtree(work_dir, ignore_errors=True)
 
     def _capture_assistant_sync(self, url: str, seconds: float, work_dir: Path) -> tuple[Path, float, Path]:
-        """Blocking Playwright capture: the widget opening, answering a question, and the lead form.
+        """Blocking Playwright capture: the widget opening, answering a question, the lead form, then the space.
 
         Uses Playwright's SYNC API in a worker thread (a plain thread has no event loop, so spawning
-        the browser works on every platform — same reason as the site capture).
+        the browser works on every platform — same reason as the site capture). The example client space
+        takes the last seconds when the segment is long enough; when it cannot be shown, the widget holds.
 
         Args:
             url: The assistant demo page (``/ia/{slug}``); visited with ``?internal=1``.
@@ -355,15 +359,28 @@ class AssistantVideoService:
                     pass
                 page.wait_for_timeout(1500)
 
-                # Show the lead capture near the end, then hold on it until the segment is filled.
-                if deadline - time.monotonic() > 4:
+                # Show the lead capture near the end of the widget scene, then hold on it.
+                chapter_seconds = AssistantSpaceChapter.seconds_for(seconds)
+                widget_deadline = deadline - chapter_seconds
+                if widget_deadline - time.monotonic() > 4:
                     try:
                         page.click(".ai-book__open", timeout=2000)
                     except Exception:
                         pass
-                remaining_ms = int(max(0.0, deadline - time.monotonic()) * 1000)
+                remaining_ms = int(max(0.0, widget_deadline - time.monotonic()) * 1000)
                 if remaining_ms > 0:
                     page.wait_for_timeout(remaining_ms)
+
+                # The last chapter: the example space, scrolled to the requests. Never fails the video.
+                if chapter_seconds > 0:
+                    try:
+                        target = AssistantSpaceChapter.open(page, AssistantSpaceChapter.url_for(url))
+                        AssistantSpaceChapter.play(page, target, max(0.0, deadline - time.monotonic()))
+                    except Exception:
+                        logger.warning("Assistant video: the space chapter could not be shown", exc_info=True)
+                        remaining_ms = int(max(0.0, deadline - time.monotonic()) * 1000)
+                        if remaining_ms > 0:
+                            page.wait_for_timeout(remaining_ms)
 
                 video = page.video
                 context.close()

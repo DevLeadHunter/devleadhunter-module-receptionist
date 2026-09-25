@@ -47,7 +47,8 @@
       </section>
 
       <p v-if="isExample" class="cs__example">
-        Exemple d’espace client, avec des données fictives : le vôtre arrive avec votre réceptionniste.
+        Exemple d’espace client, avec des données fictives : le vôtre arrive avec votre réceptionniste. Elle se présente
+        toujours comme réceptionniste IA et ne donne jamais un prix à votre place : elle note, vous décidez.
         <NuxtLink v-if="demoSlug" :to="`/ia/${demoSlug}`" class="cs__example-link">Revenir à ma démo</NuxtLink>
       </p>
 

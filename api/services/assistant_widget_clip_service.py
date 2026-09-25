@@ -7,7 +7,9 @@ Playwright's ``record_video`` (whose bundled ffmpeg the frozen sidecar has no co
 
 Unlike the site background, this needs **no authenticated session**: the widget is public, so the capture
 is a plain headless recording of ``/ia/{slug}?internal=1`` opening, answering a suggested question, and
-revealing the lead form. The VPS montage later overlays the webcam PiP and the « Bonjour {Prénom} » pill.
+revealing the lead form; the last seconds switch to the example client space, where the requests land
+(:mod:`services.assistant_space_chapter`, shared with the VPS capture). The VPS montage later overlays the
+webcam PiP and the « Bonjour {Prénom} » pill.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from services import video_montage
+from services.assistant_space_chapter import AssistantSpaceChapter
 
 logger = logging.getLogger(__name__)
 
@@ -109,8 +112,10 @@ class AssistantWidgetClipService:
         from playwright.sync_api import sync_playwright
 
         total_frames = max(1, round(fps * total_seconds))
-        ask_at = max(1, round(total_frames * _ASK_QUESTION_AT))
-        open_form_at = max(ask_at + 1, round(total_frames * _OPEN_LEAD_FORM_AT))
+        chapter_frames = round(fps * AssistantSpaceChapter.seconds_for(total_seconds))
+        widget_frames = max(1, total_frames - chapter_frames)
+        ask_at = max(1, round(widget_frames * _ASK_QUESTION_AT))
+        open_form_at = max(ask_at + 1, round(widget_frames * _OPEN_LEAD_FORM_AT))
         interval_ms = max(8, round(1000 / fps))
         internal_url = self._as_internal_url(demo_url)
         try:
@@ -136,7 +141,7 @@ class AssistantWidgetClipService:
 
                 asked = False
                 form_opened = False
-                for index in range(total_frames):
+                for index in range(widget_frames):
                     if index == ask_at and not asked:
                         # Ask a question by clicking the first suggested reply (localised, always present).
                         try:
@@ -151,6 +156,20 @@ class AssistantWidgetClipService:
                             pass
                         form_opened = True
                     page.screenshot(path=str(frames_dir / f"f{index:05d}.png"))
+                    page.wait_for_timeout(interval_ms)
+
+                # The last chapter: the example space, scrolled to the requests (the widget holds when it fails).
+                target: int | None = None
+                if chapter_frames > 0:
+                    try:
+                        target = AssistantSpaceChapter.open(page, AssistantSpaceChapter.url_for(demo_url))
+                    except Exception:
+                        logger.warning("Assistant clip: the space chapter could not be shown", exc_info=True)
+                for index in range(chapter_frames):
+                    if target is not None:
+                        position = AssistantSpaceChapter.scroll_position(index / chapter_frames, target)
+                        page.evaluate(f"window.scrollTo(0, {position})")
+                    page.screenshot(path=str(frames_dir / f"f{widget_frames + index:05d}.png"))
                     page.wait_for_timeout(interval_ms)
 
                 context.close()
