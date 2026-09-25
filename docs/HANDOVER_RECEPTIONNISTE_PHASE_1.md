@@ -941,11 +941,10 @@ jusqu'à ce que ça te plaise à toi »)** :
 - **Prompt** : en cas d'information manquante, une phrase simple puis ce que l'assistante peut faire (jamais « je ne
   dispose pas d'informations ») ; deux à trois phrases courtes par réponse.
 
-**À faire par Léo** : générer les six portraits avec Gemini ou ChatGPT (prompt donné dans la conversation du
-25/09 : portrait carré, tête et épaules, fond gris neutre uni `#dcdcdc`, tee-shirt noir à col rond, sourire chaleureux,
-objectif 85 mm, lumière douce sans couleur) et les déposer dans `demo-host/public/avatars/` sous `sofia.webp`,
-`hugo.webp`, `lea.webp`, `marc.webp`, `ines.webp`, `nathan.webp` (carrés 512 px). Rien à déclarer dans le code :
-tant qu'un fichier manque, le buste dessiné s'affiche à sa place.
+**Fait par Léo le 25/09** : les six portraits générés avec ChatGPT (Gemini comparé et écarté : lumière froide,
+visage plus petit dans le cercle), détourés sur fond transparent, déposés dans `demo-host/public/avatars/` et
+ré-encodés en 512 px WebP avec transparence. Le disque à la teinte de l'accent sert de fond ; le détourage est propre
+jusque dans les cheveux d'Inès et de Sofia. Rien à déclarer dans le code.
 
 **À tester par Léo** (toujours avec `?internal=1` sur les pages du demo-host) : `/ia/{slug}` sur desktop et
 mobile (une demande envoyée depuis le téléphone de gauche doit mettre à jour la notification de droite), le widget

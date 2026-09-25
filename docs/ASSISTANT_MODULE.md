@@ -195,9 +195,10 @@ C'est le **produit** que le client colle sur son site. Il porte :
   `demo-host/app/constants/AssistantCasting.ts`, `web/app/constants/assistantCasting.ts` et `PERSONA_FIRST_NAMES`
   côté API. À la création, l'API attribue le prénom par rotation sur l'id du prospect ; dans Personnaliser, le
   client choisit un visage (`AssistantPersonaPicker`, six cartes) ou tape un autre prénom, qui garde le visage d'un
-  des six du même genre (`AssistantAvatarUtils.portraitUrl`, choix stable par hachage du prénom). Les portraits sont
-  attendus dans `demo-host/public/avatars/{slug}.webp` (carrés, fond gris neutre, tee-shirt noir, sourire, aucune
-  lumière colorée : l'accent ne teinte plus la photo, il cercle le portrait) ; tant qu'un fichier manque,
+  des six du même genre (`AssistantAvatarUtils.portraitUrl`, choix stable par hachage du prénom). Les six portraits sont
+  livrés dans `demo-host/public/avatars/{slug}.webp` (512 px, détourés sur fond transparent, tee-shirt noir,
+  sourire ; générés par Léo avec ChatGPT le 25/09) : le disque derrière la photo prend la teinte de l'accent et le
+  cercle l'accent lui-même, la photo elle-même n'est jamais teintée ; si un fichier venait à manquer,
   `AssistantAvatar` retombe sur le buste dessiné (`@dicebear/notionists`, sur `@error` et à l'hydratation quand
   l'image a déjà échoué côté serveur).
 - **Polices servies par le demo-host (25/09)** : Fraunces et Inter (licence OFL) en woff2 dans `public/fonts/`,
