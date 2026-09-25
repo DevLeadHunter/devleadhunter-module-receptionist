@@ -979,3 +979,20 @@ Léo a demandé de livrer tous les axes proposés après le cinquième passage, 
   réponses ancrées sur le site, prix refusé, trois questions hors connaissance classées comme de vraies questions,
   demande de rappel arrivée sur le téléphone de droite et dans les demandes. Mistral n'est pas configuré en local :
   son obéissance au marqueur reste à observer en prod, le filet couvre le cas contraire.
+
+## Parcours client réel sur dibodev.fr (25/09, nuit)
+
+Léo se met à la place d'un client sur son propre site. Sans jeton de prod dans la session, le chemin est le
+workflow manuel **`prod-receptionist-for-business.yml`** (Actions → « Réceptionniste IA pour une entreprise ») : il
+mint un jeton sur le VPS et passe par les routes du dashboard (`POST /prospects`, `POST /ai-assistants`), donc par
+exactement le code que Léo utilise à la main. Idempotent (prospect retrouvé par nom, assistant réutilisé).
+Options : `list_templates` (liste les modèles d'e-mail, id et nom), `template_id` (crée ou retrouve la campagne
+« Parcours client — {nom} » d'un seul prospect, la lance, puis envoie l'e-mail tout de suite par `send-now`),
+`pause_campaign` (met la campagne en pause, sinon la file enverrait le J1 une seconde fois dans la fenêtre d'envoi).
+
+Fait ce soir : prospect **Dibodev** (id 228, site dibodev.fr, téléphone et e-mail de test de Léo) → réceptionniste
+**Sofia** (assistant id 2, `https://demo.dibodev.fr/ia/dibodev`) → e-mail de démo envoyé à `modricfoot@gmail.com`
+avec le modèle 34 « Assistant IA - réponses 24/7 » (campagne 21, journal d'e-mail 159) → widget installé sur le vrai
+**dibodev.fr** (`nuxt.config.ts` du dépôt `dibodev.fr-frontend`, script en production seulement, déployé par OVH) et
+vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34 réponses 24/7 · 35 multilingue ·
+36 devis par photo · 38 le prix cash · 37 relance (leurs noms disent encore « Assistant IA »).
