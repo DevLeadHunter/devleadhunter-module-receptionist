@@ -10,5 +10,4 @@ export type AssistantChatQuickRepliesEmits = {
   photo: []
   appointment: []
   suggest: [text: string]
-  callback: []
 }

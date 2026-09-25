@@ -11,7 +11,7 @@
       Une question&nbsp;? <strong>{{ props.assistantName }}</strong> vous répond, 24h/24.
     </span>
     <span class="ai-launcher__portrait" aria-hidden="true">
-      <AssistantAvatar :url="props.avatarUrl" :alt="props.assistantName" />
+      <AssistantAvatar :url="props.avatarUrl" :fallback-url="props.avatarFallbackUrl" :alt="props.assistantName" />
       <i class="ai-launcher__dot" />
     </span>
   </button>
@@ -28,6 +28,10 @@ const props: AssistantChatLauncherProps = defineProps({
     required: true,
   },
   avatarUrl: {
+    type: String,
+    required: true,
+  },
+  avatarFallbackUrl: {
     type: String,
     required: true,
   },

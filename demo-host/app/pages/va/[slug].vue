@@ -232,12 +232,6 @@ onMounted((): void => {
 
 useHead({
   title: computed((): string => `${assistant.value?.business_name ?? 'Assistant'} — votre assistant en vidéo`),
-  link: [
-    {
-      rel: 'stylesheet',
-      href: 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&display=swap',
-    },
-  ],
 })
 </script>
 

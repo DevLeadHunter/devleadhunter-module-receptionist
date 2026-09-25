@@ -1,16 +1,27 @@
 <template>
   <span class="assistant-avatar">
-    <img :src="props.url" :alt="props.alt" class="assistant-avatar__photo" draggable="false" />
-    <i class="assistant-avatar__tint" aria-hidden="true" />
-    <i class="assistant-avatar__light" aria-hidden="true" />
+    <img
+      ref="photoElement"
+      :src="shownUrl"
+      :alt="props.alt"
+      class="assistant-avatar__photo"
+      draggable="false"
+      @error="showFallback"
+    />
   </span>
 </template>
 
 <script lang="ts" setup>
+import type { ComputedRef, Ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import type { AssistantAvatarProps } from '~/types/AssistantAvatar'
 
 const props: AssistantAvatarProps = defineProps({
   url: {
+    type: String,
+    required: true,
+  },
+  fallbackUrl: {
     type: String,
     required: true,
   },
@@ -19,47 +30,45 @@ const props: AssistantAvatarProps = defineProps({
     required: true,
   },
 })
+
+const photoElement: Ref<HTMLImageElement | null> = ref(null)
+const hasPhotoFailed: Ref<boolean> = ref(false)
+
+const shownUrl: ComputedRef<string> = computed((): string => (hasPhotoFailed.value ? props.fallbackUrl : props.url))
+
+/** Show the drawn bust when the persona's photo is not shipped. */
+function showFallback(): void {
+  hasPhotoFailed.value = true
+}
+
+watch(
+  (): string => props.url,
+  (): void => {
+    hasPhotoFailed.value = false
+  },
+)
+
+onMounted((): void => {
+  // Server-rendered, the photo may have failed before the error listener was attached: read the outcome off the element.
+  const photo: HTMLImageElement | null = photoElement.value
+  if (photo && photo.complete && photo.naturalWidth === 0) showFallback()
+})
 </script>
 
 <style scoped>
-/* The portrait is lit in the business's colour: a neutral studio photo takes the accent like a coloured gel. */
 .assistant-avatar {
-  position: relative;
   display: block;
   width: 100%;
   height: 100%;
   border-radius: 50%;
   overflow: hidden;
-  isolation: isolate;
-  background: radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--ai-accent) 55%, white), var(--ai-accent) 75%);
+  background: var(--ai-accent-tint);
   user-select: none;
 }
 .assistant-avatar__photo {
-  position: absolute;
-  inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: saturate(0.9) contrast(1.05);
-}
-.assistant-avatar__tint,
-.assistant-avatar__light {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.assistant-avatar__tint {
-  background: var(--ai-accent);
-  mix-blend-mode: color;
-  opacity: 0.5;
-}
-.assistant-avatar__light {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--ai-accent) 60%, transparent),
-    transparent 55%,
-    color-mix(in srgb, var(--ai-accent) 35%, transparent)
-  );
-  mix-blend-mode: soft-light;
 }
 </style>

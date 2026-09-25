@@ -61,12 +61,14 @@ class AiAssistantService:
         use_brand_color: bool = True,
         website: dict[str, Any] | None = None,
         generated_site: dict[str, Any] | None = None,
+        persona_seed: int | None = None,
     ) -> dict[str, Any]:
         """Assemble the persistable fields of an assistant from a prospect's data (pure, no DB).
 
         Args:
             website: The crawl of the prospect's own site, when it has one.
             generated_site: The ``content_json`` of the demo site generated for the prospect, when one exists.
+            persona_seed: The prospect id, which picks the default persona of the casting.
 
         Returns:
             A dict of column values for :class:`AiAssistant` (identity, persona, ``knowledge_json``).
@@ -78,6 +80,7 @@ class AiAssistantService:
             languages=languages,
             tone=tone,
             use_brand_color=use_brand_color,
+            persona_seed=persona_seed,
         )
         knowledge = ai_assistant_knowledge_builder.build_knowledge(
             business_name=business_name,
@@ -225,6 +228,7 @@ class AiAssistantService:
             use_brand_color=use_brand_color,
             website=website,
             generated_site=generated_site,
+            persona_seed=prospect_id,
         )
         assistant = AiAssistant(
             user_id=user_id,

@@ -1,4 +1,5 @@
 import type {
+  AiAssistantPersonaGender,
   AssistantAppointmentLabels,
   AssistantLeadLabels,
   AssistantPhotoLabels,
@@ -23,22 +24,58 @@ export const LANGUAGE_NAMES: Record<AssistantWidgetLang, string> = {
   lu: 'Lëtzebuergesch',
 }
 
-/** The assistant's first message, when the visitor opens the widget. */
-export const GREETINGS: Record<AssistantWidgetLang, string> = {
-  fr: 'Bonjour et bienvenue. Comment puis-je vous aider ?',
-  nl: 'Hallo en welkom. Hoe kan ik u helpen?',
-  en: 'Hello and welcome. How can I help you?',
-  de: 'Guten Tag und willkommen. Wie kann ich Ihnen helfen?',
-  lu: 'Moien a wëllkomm. Wéi kann ech Iech hëllefen?',
+/** The persona's role under its name in the header, by language and gender (« Réceptionniste IA »). */
+export const ROLE_LABELS: Record<AssistantWidgetLang, Record<AiAssistantPersonaGender, string>> = {
+  fr: { feminine: 'Réceptionniste IA', masculine: 'Réceptionniste IA' },
+  nl: { feminine: 'AI-receptioniste', masculine: 'AI-receptionist' },
+  en: { feminine: 'AI receptionist', masculine: 'AI receptionist' },
+  de: { feminine: 'KI-Rezeptionistin', masculine: 'KI-Rezeptionist' },
+  lu: { feminine: 'KI-Receptionistin', masculine: 'KI-Receptionist' },
 }
 
-/** Questions offered as chips before the visitor's first message. */
+/** The « en ligne » pill of the header. */
+export const ONLINE_LABELS: Record<AssistantWidgetLang, string> = {
+  fr: 'en ligne',
+  nl: 'online',
+  en: 'online',
+  de: 'online',
+  lu: 'online',
+}
+
+/**
+ * The assistant's first message: it introduces itself as the business's AI receptionist, then asks. `{name}` is
+ * its first name, `{business}` the business, `{of_business}` the French « de X » / « d'X ».
+ */
+export const GREETING_TEMPLATES: Record<AssistantWidgetLang, Record<AiAssistantPersonaGender, string>> = {
+  fr: {
+    feminine: 'Bonjour, je suis {name}, la réceptionniste IA {of_business}. Comment puis-je vous aider ?',
+    masculine: 'Bonjour, je suis {name}, le réceptionniste IA {of_business}. Comment puis-je vous aider ?',
+  },
+  nl: {
+    feminine: 'Hallo, ik ben {name}, de AI-receptioniste van {business}. Hoe kan ik u helpen?',
+    masculine: 'Hallo, ik ben {name}, de AI-receptionist van {business}. Hoe kan ik u helpen?',
+  },
+  en: {
+    feminine: "Hello, I'm {name}, the AI receptionist at {business}. How can I help you?",
+    masculine: "Hello, I'm {name}, the AI receptionist at {business}. How can I help you?",
+  },
+  de: {
+    feminine: 'Guten Tag, ich bin {name}, die KI-Rezeptionistin von {business}. Wie kann ich Ihnen helfen?',
+    masculine: 'Guten Tag, ich bin {name}, der KI-Rezeptionist von {business}. Wie kann ich Ihnen helfen?',
+  },
+  lu: {
+    feminine: "Moien, ech sinn d'{name}, d'KI-Receptionistin bei {business}. Wéi kann ech Iech hëllefen?",
+    masculine: 'Moien, ech sinn de {name}, de KI-Receptionist bei {business}. Wéi kann ech Iech hëllefen?',
+  },
+}
+
+/** The question offered as a chip before the visitor's first message, beside the photo and appointment ones. */
 export const SUGGESTIONS: Record<AssistantWidgetLang, string[]> = {
-  fr: ['Quels sont vos horaires ?', 'Quels services proposez-vous ?'],
-  nl: ['Wat zijn jullie openingstijden?', 'Welke diensten bieden jullie aan?'],
-  en: ['What are your opening hours?', 'What services do you offer?'],
-  de: ['Wie sind Ihre Öffnungszeiten?', 'Welche Leistungen bieten Sie an?'],
-  lu: ['Wéi sinn Är Ëffnungszäiten?', 'Wéi eng Servicer bitt Dir un?'],
+  fr: ['Quels services proposez-vous ?'],
+  nl: ['Welke diensten bieden jullie aan?'],
+  en: ['What services do you offer?'],
+  de: ['Welche Leistungen bieten Sie an?'],
+  lu: ['Wéi eng Servicer bitt Dir un?'],
 }
 
 /** Placeholder of the message field. */

@@ -66,13 +66,13 @@ class SourceToggles:
 
 _WORDING_BY_GENDER: dict[AiAssistantPersonaGender, dict[str, str]] = {
     AiAssistantPersonaGender.FEMININE: {
-        "role": "l'assistante virtuelle",
+        "role": "la réceptionniste IA",
         "first_person": "féminin (« je suis ravie », « désolée »)",
         "style": "chaleureuse, humaine et confiante",
         "concise": "CONCISE",
     },
     AiAssistantPersonaGender.MASCULINE: {
-        "role": "l'assistant virtuel",
+        "role": "le réceptionniste IA",
         "first_person": "masculin (« je suis ravi », « désolé »)",
         "style": "chaleureux, humain et confiant",
         "concise": "CONCIS",
@@ -185,10 +185,13 @@ class AiAssistantKnowledgeBuilder:
             "pour le confirmer.",
             f"- {self._languages_line(languages)}",
             f"- Tu parles de toi au {wording['first_person']}.",
+            f"- Si on te demande si tu es un humain ou une IA, dis simplement que tu es {wording['role']} de "
+            f"{business_name} et reviens à la demande.",
             "- Sois d'abord VRAIMENT utile : réponds concrètement avec ce que tu sais et, quand c'est "
             "pertinent, un conseil simple du métier — sans jamais promettre un prix ni un délai.",
-            "- Si une information manque (prix, horaire, disponibilité, prestation), dis-le avec naturel et "
-            "propose de noter la demande pour que l'entreprise rappelle, en variant tes formulations — "
+            "- Si une information manque (prix, horaire, disponibilité, prestation), dis-le en une phrase simple "
+            "et enchaîne tout de suite sur ce que tu peux faire : noter la demande pour que l'entreprise rappelle. "
+            "Jamais de formule de robot (« je ne dispose pas d'informations », « je n'ai pas accès à… »), et "
             "jamais deux fois la même phrase toute faite.",
             "- Fais avancer la conversation : UNE seule question à la fois pour cerner le besoin, puis "
             "propose UNE action concrète parmi ce que l'entreprise propose réellement ci-dessous, ou à défaut "
@@ -197,8 +200,8 @@ class AiAssistantKnowledgeBuilder:
             "conversation (bouton « Prendre rendez-vous »). Quand il en veut un, invite-le en une phrase à y "
             "choisir son créneau ; ne propose et ne confirme jamais toi-même une date ou une heure.",
             f"- Style : {wording['style']}, comme un excellent accueil en personne. Reste "
-            f"{wording['concise']} (2 à 4 phrases), sans jargon ni liste à puces. Mets en valeur ce qui "
-            "distingue la maison quand c'est utile.",
+            f"{wording['concise']} (2 à 3 phrases courtes, c'est une bulle de chat), sans jargon ni liste à "
+            "puces. Mets en valeur ce qui distingue la maison quand c'est utile.",
         ]
         if tone:
             lines.append(f"- Ton : {tone}.")

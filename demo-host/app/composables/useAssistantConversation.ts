@@ -23,7 +23,7 @@ import { captureDemoEvent } from '~/composables/useDemoTracking'
 import {
   APPOINTMENT_LABELS,
   FALLBACK_REPLY,
-  GREETINGS,
+  GREETING_TEMPLATES,
   LANGUAGE_LABELS,
   LEAD_LABELS,
   PHOTO_LABELS,
@@ -31,10 +31,17 @@ import {
 } from '~/constants/AssistantWidgetLabels'
 import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
 import { AssistantScheduleUtils } from '~/utils/AssistantScheduleUtils'
+import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 import { PhotoCompressionUtils } from '~/utils/PhotoCompressionUtils'
 
 const DEFAULT_LANG: AssistantWidgetLang = 'fr'
+
+/** Laid out in a page, the greeting is typed before it appears, like a first reply; the panel is on screen already. */
+const INLINE_GREETING_DELAY_MS: number = 900
+
+/** A French word starting with a vowel or a mute h takes « d' » (« d'Atelier ») rather than « de ». */
+const FRENCH_ELISION_START: RegExp = /^[aeiouyàâäéèêëîïôöùûüh]/i
 
 /** A returning visitor keeps their conversation across page loads, bounded so storage never grows unchecked. */
 const MAX_STORED_MESSAGES: number = 40
@@ -117,14 +124,9 @@ export function useAssistantConversation(config: AiAssistantConfig, inline: bool
     (): boolean =>
       messages.value.length <= 1 && !isSlotPanelOpen.value && !isPhotoPanelOpen.value && !showLeadForm.value,
   )
-  /** Once the conversation runs, a slim way to leave one's details stays above the composer. */
+  /** A slim way to leave one's details stays above the composer, from the greeting until the request is sent. */
   const showCallbackBar: ComputedRef<boolean> = computed(
-    (): boolean =>
-      messages.value.length > 1 &&
-      !leadSent.value &&
-      !showLeadForm.value &&
-      !isSlotPanelOpen.value &&
-      !isPhotoPanelOpen.value,
+    (): boolean => !leadSent.value && !showLeadForm.value && !isSlotPanelOpen.value && !isPhotoPanelOpen.value,
   )
 
   /**
@@ -217,9 +219,35 @@ export function useAssistantConversation(config: AiAssistantConfig, inline: bool
     if (!sessionId.value) sessionId.value = newSessionId()
   }
 
-  /** Open the thread with the greeting, once. */
-  function greet(): void {
-    if (messages.value.length === 0) messages.value.push({ role: 'assistant', content: GREETINGS[lang.value] })
+  /**
+   * The greeting in a language: the persona introduces itself as the business's AI receptionist, then asks.
+   * @param code - The language of the greeting.
+   * @returns The greeting text.
+   */
+  function greetingText(code: AssistantWidgetLang): string {
+    const business: string = BusinessNameUtils.short(config.business_name)
+    const ofBusiness: string = FRENCH_ELISION_START.test(business) ? `d'${business}` : `de ${business}`
+    return GREETING_TEMPLATES[code][config.assistant_gender ?? 'feminine']
+      .replace('{name}', config.assistant_name)
+      .replace('{business}', business)
+      .replace('{of_business}', ofBusiness)
+  }
+
+  /**
+   * Open the thread with the greeting, once; laid out in a page it is typed first, as a real first reply would be.
+   * @returns A promise resolved once the greeting is in the thread.
+   */
+  async function greet(): Promise<void> {
+    if (messages.value.length !== 0) return
+    if (inline) {
+      isBusy.value = true
+      await new Promise<void>((resolve: () => void): void => {
+        setTimeout(resolve, INLINE_GREETING_DELAY_MS)
+      })
+      isBusy.value = false
+      if (messages.value.length !== 0) return
+    }
+    messages.value.push({ role: 'assistant', content: greetingText(lang.value) })
   }
 
   /** Laid out in a page, the panel is open on arrival: the opening counts at the visitor's first interaction. */
@@ -236,7 +264,7 @@ export function useAssistantConversation(config: AiAssistantConfig, inline: bool
   function setLang(code: AssistantWidgetLang): void {
     lang.value = code
     const greeting: AssistantChatMessage | undefined = messages.value[0]
-    if (messages.value.length === 1 && greeting?.role === 'assistant') greeting.content = GREETINGS[code]
+    if (messages.value.length === 1 && greeting?.role === 'assistant') greeting.content = greetingText(code)
   }
 
   /** Forget the half-days, the free slot and the kind picked. */

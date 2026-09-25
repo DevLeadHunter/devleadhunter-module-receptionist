@@ -19,13 +19,4 @@ export class AssistantPersonaUtils {
   static capitalizedSubjectPronoun(gender: AiAssistantPersonaGender | undefined): string {
     return gender === 'masculine' ? 'Il' : 'Elle'
   }
-
-  /**
-   * Role label shown under the persona name in the widget header.
-   * @param gender - The persona gender from the public config; feminine when absent.
-   * @returns 'Assistant' for a masculine persona, 'Assistante' otherwise.
-   */
-  static roleLabel(gender: AiAssistantPersonaGender | undefined): string {
-    return gender === 'masculine' ? 'Assistant' : 'Assistante'
-  }
 }

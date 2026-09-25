@@ -906,20 +906,9 @@ B2B, et un vrai tour UI/UX »)** :
 **Quatrième passage le 26/09 (retours de Léo : avatar pas assez humain, liseré, mockup iPhone, page /ia, responsive
 des demandes)** :
 
-- **Portrait** : Léo veut une vraie photo, comme Lola et Lily côté PrePeers (portraits générés, fond uni, sourire).
-  `AssistantAvatarUtils.portraitUrl` sert `public/avatars/{prenom}.webp` quand le prénom est déclaré dans
-  `constants/assistantPortraits.ts`, sinon `default-feminine.webp` / `default-masculine.webp` (déclarés au même
-  endroit), sinon le buste dessiné en repli. Les deux portraits par défaut ont été générés depuis la session avec le
-  générateur ouvert Pollinations (modèle Sana, sans compte), recadrés tête et épaules en 512 px WebP, fond beige.
-  Pour les remplacer par des portraits Gemini comme Lola : mêmes noms de fichiers, même format. Un prénom personnalisé
-  (« Léa ») prend son propre fichier `lea.webp` ajouté à `ASSISTANT_PORTRAIT_SLUGS`.
-- **DA de l'avatar (décision du 26/09, sur les références B2C de Léo : portraits photo sous lumière colorée)** : la
-  photo de base est neutre et le widget applique la couleur du commerce comme un gel de studio (`AssistantAvatar`,
-  calques `mix-blend-mode`). Les deux bases livrées viennent du générateur gratuit (qualité limitée, rendu un peu
-  lisse) ; **pour des bases vraiment photoréalistes, les générer avec Gemini** avec ce cahier des charges : portrait
-  carré 1024 px, tête et épaules centrées, fond gris clair uni de studio, haut uni noir ou blanc, grand sourire ou
-  rire franc, lumière douce neutre (pas de couleur : c'est le widget qui la met), peau naturelle. Fichiers :
-  `default-feminine.webp` (Sofia) et `default-masculine.webp`.
+- **Portrait** : Léo veut une vraie photo, comme Lola et Lily côté PrePeers. Les deux portraits « par défaut »
+  générés avec Pollinations et la teinte « gel de studio » de ce passage ont été **abandonnés au cinquième passage**
+  (jugés médiocres par Léo et par la relecture) au profit du casting de six réceptionnistes décrit plus bas.
 - Le liseré à l'accent en haut du panneau est retiré.
 - **Mockup iPhone** : écran verrouillé refait comme iOS 17 (date et grande horloge en haut, notification Messages
   empilée en bas au-dessus de la barre d'accueil, lampe et appareil photo, animation d'arrivée).
@@ -928,10 +917,42 @@ des demandes)** :
 - **Demandes** : la colonne « Demande » est un bloc (badge et marques au-dessus, résumé qui va à la ligne en entier),
   sur mobile comme sur desktop.
 
+**Cinquième passage, même journée (audit honnête demandé par Léo ; plan validé « je suivrai tes recommandations
+jusqu'à ce que ça te plaise à toi »)** :
+
+- **Décision de DA** : DA propre au module (pas de DA par prospect, ni d'hybride teinté) : portrait photo neutre,
+  l'accent du commerce ne sert qu'au cercle du portrait, aux bulles du visiteur et aux boutons. La teinte
+  `mix-blend-mode` est retirée de `AssistantAvatar`.
+- **Casting de six réceptionnistes** (Sofia, Hugo, Léa, Marc, Inès, Nathan) : liste unique côté demo-host
+  (`constants/AssistantCasting.ts`), web (`constants/assistantCasting.ts`) et API (`PERSONA_FIRST_NAMES`,
+  `build_config(persona_seed=prospect_id)` : rotation sur l'id du prospect à la création). Dans Personnaliser, une
+  grille de six visages (`AssistantPersonaPicker`) au-dessus du champ « Prénom affiché » ; un autre prénom garde le
+  visage d'un des six du même genre.
+- **Transparence IA** : en-tête « Réceptionniste IA · Commerce » (par langue), premier message « Bonjour, je suis
+  Sofia, la réceptionniste IA d'Atelier X. Comment puis-je vous aider ? », prompt « Tu es Sofia, la réceptionniste IA
+  de X » + règle « si on te demande si tu es humaine, dis que tu es l'IA de l'entreprise ». La note de prix de /ia
+  dit « se présente toujours comme réceptionniste IA ».
+- **Puces** : trois (photo, rendez-vous, « Quels services proposez-vous ? ») ; la barre « Être rappelé » est visible
+  dès l'accueil, la puce du même nom disparaît.
+- **Mouvement** : entrée du panneau flottant (220 ms), des bulles, de l'indicateur de frappe et des puces (180 ms,
+  décalage 120 ms), `prefers-reduced-motion` respecté ; sur /ia le premier message est tapé 900 ms avant d'apparaître.
+- **Polices** : Fraunces et Inter servies par le demo-host (`public/fonts/`, `assets/css/fonts.css`), liens Google
+  Fonts et `preconnect` retirés de toutes les pages (`/ia`, `/embed`, `/v`, `/va`, `/client`).
+- **Prompt** : en cas d'information manquante, une phrase simple puis ce que l'assistante peut faire (jamais « je ne
+  dispose pas d'informations ») ; deux à trois phrases courtes par réponse.
+
+**À faire par Léo** : générer les six portraits avec Gemini ou ChatGPT (prompt donné dans la conversation du
+25/09 : portrait carré, tête et épaules, fond gris neutre uni `#dcdcdc`, tee-shirt noir à col rond, sourire chaleureux,
+objectif 85 mm, lumière douce sans couleur) et les déposer dans `demo-host/public/avatars/` sous `sofia.webp`,
+`hugo.webp`, `lea.webp`, `marc.webp`, `ines.webp`, `nathan.webp` (carrés 512 px). Rien à déclarer dans le code :
+tant qu'un fichier manque, le buste dessiné s'affiche à sa place.
+
 **À tester par Léo** (toujours avec `?internal=1` sur les pages du demo-host) : `/ia/{slug}` sur desktop et
 mobile (une demande envoyée depuis le téléphone de gauche doit mettre à jour la notification de droite), le widget
 embarqué (`/embed-test.html?slug=…&internal=1`), puis `/dashboard/ai-assistants`, la page de détail et
-`/dashboard/ai-assistants/requests` (ouvrir une demande, lire la transcription, noter, marquer traitée).
+`/dashboard/ai-assistants/requests` (ouvrir une demande, lire la transcription, noter, marquer traitée). Cinquième
+passage : dans Personnaliser, cliquer un visage doit remplir « Prénom affiché » et, après Enregistrer, changer le
+prénom et le portrait sur `/ia/{slug}`.
 
 **Restes** : `AssistantChat.vue` fait encore ~1 300 lignes (à découper en composants), l'aperçu de carte charge la
 page /ia entière (léger avec quelques assistants, à remplacer par une capture si la liste grandit), avatar de Léa,

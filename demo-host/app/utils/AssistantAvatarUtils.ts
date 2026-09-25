@@ -1,8 +1,8 @@
 import { createAvatar } from '@dicebear/core'
 import type { Options as NotionistsOptions } from '@dicebear/notionists'
 import * as notionists from '@dicebear/notionists'
-import type { AiAssistantPersonaGender } from '~/types/AiAssistant'
-import { ASSISTANT_DEFAULT_PORTRAITS, ASSISTANT_PORTRAIT_SLUGS } from '~/constants/assistantPortraits'
+import type { AiAssistantPersona, AiAssistantPersonaGender } from '~/types/AiAssistant'
+import { ASSISTANT_CASTING, ASSISTANT_DEFAULT_PERSONA } from '~/constants/AssistantCasting'
 
 /** One hair style of the illustration set. */
 type HairStyle = NonNullable<NotionistsOptions['hair']>[number]
@@ -68,22 +68,19 @@ const BEARD_PROBABILITY: number = 40
 const GLASSES_PROBABILITY: number = 20
 
 /**
- * The assistant's portrait: a photo shipped for the persona when there is one, else a bust drawn from the name.
+ * The assistant's portrait: the photo of its casting persona, with a bust drawn from the name when the photo is
+ * not shipped.
  */
 export class AssistantAvatarUtils {
   /**
-   * The portrait to show, the same everywhere the assistant appears.
+   * The photo to show, the same everywhere the assistant appears: the persona's own when the first name belongs
+   * to the casting, else the face of a casting persona of the same gender, always the same for a given name.
    * @param name - The persona's first name.
-   * @param gender - The persona's gender.
-   * @param backgroundColor - The disc behind a drawn bust, as a hex colour.
-   * @returns The address of a shipped photo, or a data URI of the drawn bust.
+   * @param gender - The persona's gender, as the API resolved it from the first name.
+   * @returns The address of the shipped photo.
    */
-  static portraitUrl(name: string, gender: AiAssistantPersonaGender | null, backgroundColor: string): string {
-    const slug: string = AssistantAvatarUtils.slug(name)
-    if (ASSISTANT_PORTRAIT_SLUGS.includes(slug)) return `/avatars/${slug}.webp`
-    const resolvedGender: AiAssistantPersonaGender = gender ?? 'feminine'
-    if (ASSISTANT_DEFAULT_PORTRAITS[resolvedGender]) return `/avatars/default-${resolvedGender}.webp`
-    return AssistantAvatarUtils.dataUri(name, gender, backgroundColor)
+  static portraitUrl(name: string, gender: AiAssistantPersonaGender | null): string {
+    return `/avatars/${AssistantAvatarUtils.persona(name, gender).slug}.webp`
   }
 
   /**
@@ -108,6 +105,24 @@ export class AssistantAvatarUtils {
   }
 
   /**
+   * The casting persona whose face a first name takes.
+   * @param name - The persona's first name.
+   * @param gender - The persona's gender; feminine when unknown.
+   * @returns The persona of that name, else one of the same gender picked from the name.
+   */
+  private static persona(name: string, gender: AiAssistantPersonaGender | null): AiAssistantPersona {
+    const slug: string = AssistantAvatarUtils.slug(name)
+    const own: AiAssistantPersona | undefined = ASSISTANT_CASTING.find(
+      (persona: AiAssistantPersona): boolean => persona.slug === slug,
+    )
+    if (own) return own
+    const sameGender: AiAssistantPersona[] = ASSISTANT_CASTING.filter(
+      (persona: AiAssistantPersona): boolean => persona.gender === (gender ?? 'feminine'),
+    )
+    return sameGender[AssistantAvatarUtils.hash(slug) % sameGender.length] ?? ASSISTANT_DEFAULT_PERSONA
+  }
+
+  /**
    * A first name as a file name (« Léa » → `lea`, « Jean-Pierre » → `jean-pierre`).
    * @param name - The first name.
    * @returns The slug.
@@ -120,5 +135,16 @@ export class AssistantAvatarUtils {
       .replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
+  }
+
+  /**
+   * A small stable number for a text, to pick the same face for the same name every time.
+   * @param value - The text.
+   * @returns A non-negative integer.
+   */
+  private static hash(value: string): number {
+    let hash: number = 0
+    for (const character of value) hash = (hash * 31 + character.charCodeAt(0)) >>> 0
+    return hash
   }
 }

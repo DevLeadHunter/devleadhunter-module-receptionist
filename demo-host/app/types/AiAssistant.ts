@@ -1,6 +1,13 @@
 /** Grammatical gender the persona speaks in, resolved by the API from its first name. */
 export type AiAssistantPersonaGender = 'feminine' | 'masculine'
 
+/** One receptionist of the casting: a first name, the slug of its portrait file, and its gender. */
+export type AiAssistantPersona = {
+  name: string
+  slug: string
+  gender: AiAssistantPersonaGender
+}
+
 /**
  * The demo page's estimate: how long the business is closed from 7:00 to 22:00 (its Google hours), over a week and
  * over `month` (1 to 12), and the requests that would come in meanwhile, on a base of `monthly_requests` for its

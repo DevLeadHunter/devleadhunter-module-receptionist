@@ -5,6 +5,7 @@
       ref="launcherComponent"
       :assistant-name="props.config.assistant_name"
       :avatar-url="avatarUrl"
+      :avatar-fallback-url="avatarFallbackUrl"
       :is-mobile-layout="isMobileLayout"
       @open="open"
     />
@@ -22,7 +23,9 @@
         :assistant-name="props.config.assistant_name"
         :business-name="props.config.business_name"
         :role-label="roleLabel"
+        :online-label="onlineLabel"
         :avatar-url="avatarUrl"
+        :avatar-fallback-url="avatarFallbackUrl"
         :can-close="!props.inline"
         @close="close"
       />
@@ -42,6 +45,7 @@
             :message="message"
             :photo-preview-url="photoPreviews[index] ?? null"
             :avatar-url="closesAssistantRun(index) ? avatarUrl : null"
+            :avatar-fallback-url="avatarFallbackUrl"
             :assistant-name="props.config.assistant_name"
           />
           <AssistantChatTypingIndicator v-if="isBusy" />
@@ -55,7 +59,6 @@
           @photo="openPhotoPanel"
           @appointment="openSlotPanel"
           @suggest="sendText"
-          @callback="openLeadForm"
         />
 
         <AssistantChatPhotoCard
@@ -132,10 +135,10 @@ import AssistantChatSlotsCard from '~/components/AssistantChatSlotsCard.vue'
 import { useAssistantConversation } from '~/composables/useAssistantConversation'
 import { useAssistantWidgetFrame } from '~/composables/useAssistantWidgetFrame'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
+import { ONLINE_LABELS, ROLE_LABELS } from '~/constants/AssistantWidgetLabels'
 import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { AssistantAvatarUtils } from '~/utils/AssistantAvatarUtils'
-import { AssistantPersonaUtils } from '~/utils/AssistantPersonaUtils'
 
 const props: AssistantChatProps = defineProps({
   config: {
@@ -229,15 +232,15 @@ const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<str
   '--ai-accent-tint': palette.value.tint,
 }))
 const avatarUrl: ComputedRef<string> = computed((): string =>
-  AssistantAvatarUtils.portraitUrl(
-    props.config.assistant_name,
-    props.config.assistant_gender ?? null,
-    palette.value.tint,
-  ),
+  AssistantAvatarUtils.portraitUrl(props.config.assistant_name, props.config.assistant_gender ?? null),
 )
-const roleLabel: ComputedRef<string> = computed((): string =>
-  AssistantPersonaUtils.roleLabel(props.config.assistant_gender),
+const avatarFallbackUrl: ComputedRef<string> = computed((): string =>
+  AssistantAvatarUtils.dataUri(props.config.assistant_name, props.config.assistant_gender ?? null, palette.value.tint),
 )
+const roleLabel: ComputedRef<string> = computed(
+  (): string => ROLE_LABELS[lang.value][props.config.assistant_gender ?? 'feminine'],
+)
+const onlineLabel: ComputedRef<string> = computed((): string => ONLINE_LABELS[lang.value])
 
 /**
  * Whether the message ends a run of assistant replies: the portrait sits beside that one only.
@@ -344,6 +347,17 @@ onBeforeUnmount((): void => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: ai-panel-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes ai-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .ai-panel--inline {
   position: relative;
@@ -354,6 +368,12 @@ onBeforeUnmount((): void => {
   border: 0;
   border-radius: 0;
   box-shadow: none;
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-panel {
+    animation: none;
+  }
 }
 .ai-panel--mobile {
   right: 0;

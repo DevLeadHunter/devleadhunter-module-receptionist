@@ -1,7 +1,7 @@
 <template>
   <div class="ai-m" :class="[`ai-m--${props.message.role}`, { 'ai-m--with-portrait': props.avatarUrl !== null }]">
     <span v-if="props.avatarUrl !== null" class="ai-m__portrait" aria-hidden="true">
-      <AssistantAvatar :url="props.avatarUrl" :alt="props.assistantName" />
+      <AssistantAvatar :url="props.avatarUrl" :fallback-url="props.avatarFallbackUrl" :alt="props.assistantName" />
     </span>
     <div class="ai-m__bubble" :class="{ 'ai-m__bubble--photo': props.photoPreviewUrl !== null }">
       <img
@@ -47,6 +47,10 @@ const props: AssistantChatMessageBubbleProps = defineProps({
     type: String as PropType<string | null>,
     default: null,
   },
+  avatarFallbackUrl: {
+    type: String,
+    required: true,
+  },
   assistantName: {
     type: String,
     required: true,
@@ -60,6 +64,22 @@ const props: AssistantChatMessageBubbleProps = defineProps({
   align-items: flex-end;
   gap: 8px;
   max-width: 88%;
+  animation: ai-bubble-in 0.18s ease-out both;
+}
+@keyframes ai-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-m {
+    animation: none;
+  }
 }
 .ai-m--assistant {
   align-self: flex-start;

@@ -183,21 +183,34 @@ Ce que voit le prospect : le widget, sa page de démo et le script qui l'install
 
 C'est le **produit** que le client colle sur son site. Il porte :
 
+- **Réceptionniste IA, pas « assistante » (25/09)** : le persona se présente comme réceptionniste IA partout, c'est
+  le nom du module et la transparence exigée par l'AI Act (art. 50) : en-tête « Réceptionniste IA · Nom du
+  commerce » (libellé par langue et genre, `ROLE_LABELS`), premier message « Bonjour, je suis Sofia, la
+  réceptionniste IA d'Atelier X. Comment puis-je vous aider ? » (`GREETING_TEMPLATES` dans les cinq langues,
+  élision française « de / d' » gérée), prompt système (« Tu es Sofia, la réceptionniste IA de X », plus la règle :
+  si on lui demande si elle est humaine, elle dit qu'elle est l'IA de l'entreprise). Sur la page /ia le premier
+  message est « tapé » (indicateur 900 ms) avant d'apparaître ; le panneau flottant et les bulles ont une entrée
+  animée (220 / 180 ms, `prefers-reduced-motion` respecté).
+- **Casting de six réceptionnistes (25/09)** : Sofia, Hugo, Léa, Marc, Inès, Nathan, la même liste dans
+  `demo-host/app/constants/AssistantCasting.ts`, `web/app/constants/assistantCasting.ts` et `PERSONA_FIRST_NAMES`
+  côté API. À la création, l'API attribue le prénom par rotation sur l'id du prospect ; dans Personnaliser, le
+  client choisit un visage (`AssistantPersonaPicker`, six cartes) ou tape un autre prénom, qui garde le visage d'un
+  des six du même genre (`AssistantAvatarUtils.portraitUrl`, choix stable par hachage du prénom). Les portraits sont
+  attendus dans `demo-host/public/avatars/{slug}.webp` (carrés, fond gris neutre, tee-shirt noir, sourire, aucune
+  lumière colorée : l'accent ne teinte plus la photo, il cercle le portrait) ; tant qu'un fichier manque,
+  `AssistantAvatar` retombe sur le buste dessiné (`@dicebear/notionists`, sur `@error` et à l'hydratation quand
+  l'image a déjà échoué côté serveur).
+- **Polices servies par le demo-host (25/09)** : Fraunces et Inter (licence OFL) en woff2 dans `public/fonts/`,
+  déclarées dans `assets/css/fonts.css` chargé globalement ; plus aucun appel à Google Fonts depuis nos pages ni
+  depuis le widget sur le site d'un client.
 - **Interface (refonte des 25 et 26/09)** : sobre et claire, l'accent du commerce ne sert jamais de fond sous du
-  texte sombre. **Portrait de l'assistante** (`utils/AssistantAvatarUtils.portraitUrl`) : une photo livrée dans
-  `demo-host/public/avatars/` quand le prénom y est (`{prenom-en-slug}.webp`, déclaré dans
-  `constants/assistantPortraits.ts`), sinon le portrait par défaut du genre (`default-feminine.webp` /
-  `default-masculine.webp`, déclarés au même endroit), sinon un buste dessiné à partir du prénom
-  (`@dicebear/notionists`, coiffures triées par genre, disque à la teinte de l'accent). **DA de l'avatar** : la
-  photo de base est neutre (fond gris de studio, haut uni, expression joyeuse) et `AssistantAvatar` la baigne dans
-  la couleur du commerce comme un gel de studio (fond en dégradé de l'accent, calque `mix-blend-mode: color` à 50 %,
-  lumière `soft-light`) : chaque client voit « sa » réceptionniste dans sa couleur, sans photo par client. Le même
-  visage sur le lanceur, l'en-tête et à côté de la dernière réponse d'une suite de réponses. Panneau blanc à filet, en-tête blanc
-  (portrait 44 px avec point vert, prénom en Fraunces, « Assistante Nom du commerce » sur deux lignes au plus, pilule
-  « en ligne »), bulles de l'assistante blanches à filet, bulles du visiteur sur l'accent fort en texte blanc,
-  **puces d'action dans le fil** avant le premier échange (photo pour un devis, prendre rendez-vous, deux suggestions,
-  « Être rappelé ») puis une barre « Être rappelé » discrète, panneaux photo / créneaux / coordonnées rendus **dans le
-  fil** comme des cartes, boutons ronds dans la barre de saisie, bouton d'envoi sur l'accent fort. Palette calculée
+  texte sombre. Le même visage sur le lanceur, l'en-tête et à côté de la dernière réponse d'une suite de réponses.
+  Panneau blanc à filet, en-tête blanc (portrait 44 px cerclé de l'accent avec point vert, prénom en Fraunces,
+  « Réceptionniste IA · Nom du commerce » sur deux lignes au plus, pilule « en ligne »), bulles de l'assistante
+  blanches à filet, bulles du visiteur sur l'accent fort en texte blanc, **trois puces d'action dans le fil** avant
+  le premier échange (photo pour un devis, prendre rendez-vous, « Quels services proposez-vous ? ») et une barre
+  « Être rappelé » discrète au-dessus de la saisie dès l'accueil, panneaux photo / créneaux / coordonnées rendus
+  **dans le fil** comme des cartes, boutons ronds dans la barre de saisie, bouton d'envoi sur l'accent fort. Palette calculée
   par `utils/AssistantAccentUtils.palette()` : `accent` (points, filets), `strong` (l'accent assombri jusqu'à ce que
   le blanc y soit lisible : le seul fond qui porte du texte), `text` (l'accent assombri jusqu'à être lisible en texte
   sur le papier) et `tint` (l'accent délavé vers le blanc, fond du portrait). Prop `inline` : le widget se rend
@@ -884,5 +897,6 @@ dashboard (non instrumenté).
 | Widget : conversation, protocole iframe, composants | `demo-host/app/composables/useAssistantConversation.ts`, `useAssistantWidgetFrame.ts`, `demo-host/app/components/AssistantChat*.vue`, `AssistantIcon*.vue` |
 | Portrait, palette, dates des créneaux | `demo-host/app/utils/AssistantAvatarUtils.ts`, `AssistantAccentUtils.ts`, `AssistantScheduleUtils.ts` |
 | Page de démo : scénario des deux téléphones, composants | `demo-host/app/utils/AssistantDemoScenarioUtils.ts`, `demo-host/app/components/AssistantDemo*.vue` |
-| Portraits livrés (photos par prénom, défauts par genre ; générés avec Pollinations, recadrés 512 px WebP) | `demo-host/public/avatars/`, `demo-host/app/constants/assistantPortraits.ts` |
+| Casting (six prénoms, portraits `{slug}.webp`), sélecteur de visage | `demo-host/app/constants/AssistantCasting.ts`, `demo-host/public/avatars/`, `web/app/constants/assistantCasting.ts`, `web/app/components/ai-assistants/AssistantPersonaPicker.vue` |
+| Polices auto-hébergées (Fraunces, Inter) | `demo-host/app/assets/css/fonts.css`, `demo-host/public/fonts/` |
 | Clip présentateur (réglages) | `web/app/components/settings/AssistantPresenterClipCard.vue` |

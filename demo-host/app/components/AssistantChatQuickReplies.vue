@@ -17,7 +17,6 @@
     >
       {{ suggestion }}
     </button>
-    <button type="button" class="ai-chip" @click="emit('callback')">{{ LEAD_LABELS[props.lang].open }}</button>
   </div>
 </template>
 
@@ -25,7 +24,7 @@
 import type { EmitFn, PropType } from 'vue'
 import type { AssistantWidgetLang } from '~/types/AiAssistant'
 import type { AssistantChatQuickRepliesEmits, AssistantChatQuickRepliesProps } from '~/types/AssistantChatQuickReplies'
-import { APPOINTMENT_LABELS, LEAD_LABELS, PHOTO_LABELS } from '~/constants/AssistantWidgetLabels'
+import { APPOINTMENT_LABELS, PHOTO_LABELS } from '~/constants/AssistantWidgetLabels'
 
 const props: AssistantChatQuickRepliesProps = defineProps({
   lang: {
@@ -53,6 +52,23 @@ const emit: EmitFn<AssistantChatQuickRepliesEmits> = defineEmits<AssistantChatQu
   align-self: flex-start;
   max-width: 94%;
   padding-left: 30px;
+  /* The chips follow the greeting in, a beat later. */
+  animation: ai-chips-in 0.2s ease-out 0.12s both;
+}
+@keyframes ai-chips-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-chips {
+    animation: none;
+  }
 }
 .ai-chip {
   display: inline-flex;

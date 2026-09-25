@@ -228,3 +228,13 @@ export type AiAssistantClientLink = {
   sent_to: string | null
   send_error: string | null
 }
+
+/** Grammatical gender a persona speaks in, as the API resolves it from the first name. */
+export type AiAssistantPersonaGender = 'feminine' | 'masculine'
+
+/** One receptionist of the casting: a first name, the slug of its portrait on the demo host, and its gender. */
+export type AiAssistantPersona = {
+  name: string
+  slug: string
+  gender: AiAssistantPersonaGender
+}

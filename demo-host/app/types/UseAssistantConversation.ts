@@ -43,7 +43,7 @@ export type UseAssistantConversationReturn = {
   showCallbackBar: ComputedRef<boolean>
   lastLeadSummary: Ref<AssistantLeadSummary | null>
   restore: () => void
-  greet: () => void
+  greet: () => Promise<void>
   setLang: (code: AssistantWidgetLang) => void
   sendText: (text: string) => Promise<void>
   sendDraft: () => Promise<void>

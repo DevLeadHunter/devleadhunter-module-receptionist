@@ -13,6 +13,22 @@
   border: 1px solid var(--ai-line-soft);
   border-radius: 16px;
   border-bottom-left-radius: 5px;
+  animation: ai-typing-in 0.18s ease-out both;
+}
+@keyframes ai-typing-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-typing {
+    animation: none;
+  }
 }
 .ai-typing i {
   width: 6px;

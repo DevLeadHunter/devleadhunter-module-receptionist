@@ -1,14 +1,14 @@
 <template>
   <header class="ai-head">
     <span class="ai-head__portrait">
-      <AssistantAvatar :url="props.avatarUrl" :alt="props.assistantName" />
+      <AssistantAvatar :url="props.avatarUrl" :fallback-url="props.avatarFallbackUrl" :alt="props.assistantName" />
       <i class="ai-head__dot" aria-hidden="true" />
     </span>
     <span class="ai-head__who">
       <b class="ai-head__name">{{ props.assistantName }}</b>
-      <span class="ai-head__role">{{ props.roleLabel }} {{ props.businessName }}</span>
+      <span class="ai-head__role">{{ props.roleLabel }} · {{ props.businessName }}</span>
     </span>
-    <span class="ai-head__online">en ligne</span>
+    <span class="ai-head__online">{{ props.onlineLabel }}</span>
     <button
       v-if="props.canClose"
       ref="closeButton"
@@ -40,7 +40,15 @@ const props: AssistantChatHeaderProps = defineProps({
     type: String,
     required: true,
   },
+  onlineLabel: {
+    type: String,
+    required: true,
+  },
   avatarUrl: {
+    type: String,
+    required: true,
+  },
+  avatarFallbackUrl: {
     type: String,
     required: true,
   },
@@ -76,6 +84,8 @@ defineExpose({ focusClose })
   width: 44px;
   height: 44px;
   flex: none;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--ai-accent);
 }
 .ai-head__dot {
   position: absolute;

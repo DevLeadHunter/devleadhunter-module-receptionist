@@ -126,9 +126,10 @@ def test_render_system_prompt_agrees_with_the_persona_gender() -> None:
     sofia = ai_assistant_knowledge_builder.render_system_prompt(kb, assistant_name="Sofia")
     marc = ai_assistant_knowledge_builder.render_system_prompt(kb, assistant_name="Marc")
 
-    assert "Tu es Sofia, l'assistante virtuelle de Cabinet Meyer" in sofia
+    assert "Tu es Sofia, la réceptionniste IA de Cabinet Meyer" in sofia
+    assert "dis simplement que tu es la réceptionniste IA de Cabinet Meyer" in sofia
     assert "Tu parles de toi au féminin" in sofia
     assert "chaleureuse, humaine et confiante" in sofia
-    assert "Tu es Marc, l'assistant virtuel de Cabinet Meyer" in marc
+    assert "Tu es Marc, le réceptionniste IA de Cabinet Meyer" in marc
     assert "Tu parles de toi au masculin" in marc
     assert "chaleureux, humain et confiant" in marc
