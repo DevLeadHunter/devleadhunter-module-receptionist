@@ -183,6 +183,18 @@ export type AiAssistantRequestUpdatePayload = {
   owner_note?: string
 }
 
+/** One turn of the conversation a request came out of. */
+export type AiAssistantTranscriptLine = {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/** A request with the conversation that led to it. */
+export type AiAssistantRequestDetail = {
+  request: AiAssistantRequestItem
+  transcript: AiAssistantTranscriptLine[]
+}
+
 /** One turn of a journaled conversation. */
 export type AiAssistantConversationMessage = {
   id: number

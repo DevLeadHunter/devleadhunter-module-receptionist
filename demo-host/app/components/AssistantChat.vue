@@ -1,5 +1,5 @@
 <template>
-  <div class="ai-widget" :style="accentStyle">
+  <div class="ai-widget" :class="{ 'ai-widget--inline': props.inline }" :style="accentStyle">
     <button
       v-if="!isOpen"
       ref="launcherEl"
@@ -12,13 +12,16 @@
       <span class="ai-launcher__say">
         Une question&nbsp;? <strong>{{ config.assistant_name }}</strong> vous répond, 24h/24.
       </span>
-      <span class="ai-launcher__orb" aria-hidden="true"><AssistantAvatar /></span>
+      <span class="ai-launcher__orb" aria-hidden="true">
+        <AssistantAvatar />
+        <i class="ai-launcher__dot" />
+      </span>
     </button>
 
     <section
       v-else
       class="ai-panel"
-      :class="{ 'ai-panel--mobile': isMobileLayout }"
+      :class="{ 'ai-panel--mobile': isMobileLayout && !props.inline, 'ai-panel--inline': props.inline }"
       role="dialog"
       :aria-label="config.assistant_name"
       @keydown.esc="close"
@@ -26,18 +29,23 @@
       <header class="ai-head">
         <span class="ai-head__av"><AssistantAvatar /></span>
         <span class="ai-head__who">
-          <b>{{ config.assistant_name }}</b>
-          <span>{{ roleLabel }} {{ config.business_name }} · en ligne</span>
+          <b class="ai-head__name">{{ config.assistant_name }}</b>
+          <span class="ai-head__role">{{ roleLabel }} {{ config.business_name }}</span>
         </span>
-        <button ref="closeEl" type="button" class="ai-head__x" aria-label="Fermer" @click="close">✕</button>
+        <span class="ai-head__online"><i aria-hidden="true" />en ligne</span>
+        <button v-if="!props.inline" ref="closeEl" type="button" class="ai-head__x" aria-label="Fermer" @click="close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
       </header>
-      <p class="ai-sub">{{ languagesLine }}</p>
 
-      <div v-if="offeredLanguages.length > 1" class="ai-langs">
+      <div v-if="offeredLanguages.length > 1" class="ai-langs" role="group" aria-label="Langue">
         <button
           v-for="code in offeredLanguages"
           :key="code"
           type="button"
+          class="ai-langs__pill"
           :aria-pressed="code === lang"
           @click="setLang(code)"
         >
@@ -68,155 +76,137 @@
           </template>
           <template v-else>{{ message.content }}</template>
         </div>
+
         <div v-if="isBusy" class="ai-typing" aria-label="Rédaction en cours"><i /><i /><i /></div>
-      </div>
 
-      <div v-if="messages.length <= 1 && !isSlotPanelOpen && !isPhotoPanelOpen && !showLeadForm" class="ai-chips">
-        <button type="button" class="ai-chips__action" @click="openPhotoPanel">
-          <svg
-            class="ai-chips__icon"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-            <circle cx="12" cy="13" r="3" />
-          </svg>
-          {{ PHOTO_LABELS[lang].chip }}
-        </button>
-        <button type="button" class="ai-chips__action" @click="openSlotPanel">
-          <svg
-            class="ai-chips__icon"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="3.5" y="5" width="17" height="15" rx="2" />
-            <path d="M3.5 10h17M8 3v4M16 3v4" />
-          </svg>
-          {{ APPOINTMENT_LABELS[lang].chip }}
-        </button>
-        <button v-for="suggestion in suggestions" :key="suggestion" type="button" @click="sendText(suggestion)">
-          {{ suggestion }}
-        </button>
-      </div>
-
-      <div v-if="isPhotoPanelOpen" class="ai-sheet ai-photo">
-        <p class="ai-sheet__note">{{ PHOTO_LABELS[lang].note }}</p>
-        <div class="ai-actions">
-          <button type="button" class="ai-actions__primary" :disabled="isBusy" @click="photoInputEl?.click()">
-            {{ PHOTO_LABELS[lang].pick }}
+        <div v-if="showChips" class="ai-chips">
+          <button type="button" class="ai-chip" @click="openPhotoPanel">
+            <svg class="ai-chip__icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+              <circle cx="12" cy="13" r="3" />
+            </svg>
+            {{ PHOTO_LABELS[lang].chip }}
           </button>
-          <button type="button" class="ai-actions__secondary" @click="isPhotoPanelOpen = false">
-            {{ LEAD_LABELS[lang].cancel }}
+          <button type="button" class="ai-chip" @click="openSlotPanel">
+            <svg class="ai-chip__icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3.5" y="5" width="17" height="15" rx="2" />
+              <path d="M3.5 10h17M8 3v4M16 3v4" />
+            </svg>
+            {{ APPOINTMENT_LABELS[lang].chip }}
           </button>
+          <button
+            v-for="suggestion in suggestions"
+            :key="suggestion"
+            type="button"
+            class="ai-chip"
+            @click="sendText(suggestion)"
+          >
+            {{ suggestion }}
+          </button>
+          <button type="button" class="ai-chip" @click="openLeadForm">{{ LEAD_LABELS[lang].open }}</button>
         </div>
-        <input ref="photoInputEl" type="file" accept="image/*" class="ai-photo__input" @change="onPhotoPicked" />
-      </div>
 
-      <div v-if="isSlotPanelOpen" ref="slotPanelEl" class="ai-sheet ai-slots" tabindex="-1">
-        <p class="ai-sheet__note">
-          {{ bookingMode === 'calendar' ? APPOINTMENT_LABELS[lang].titleCalendar : APPOINTMENT_LABELS[lang].title }}
-        </p>
-        <p v-if="slotsState === 'loading'" class="ai-sheet__note">{{ APPOINTMENT_LABELS[lang].loading }}</p>
-        <p v-else-if="slotsState === 'error'" class="ai-sheet__note">{{ APPOINTMENT_LABELS[lang].error }}</p>
-        <template v-else-if="bookingMode === 'calendar'">
-          <div
-            v-if="appointmentKinds.length > 0"
-            class="ai-slots__kinds"
-            role="group"
-            :aria-label="APPOINTMENT_LABELS[lang].kind"
-          >
-            <span class="ai-slots__label">{{ APPOINTMENT_LABELS[lang].kind }}</span>
-            <button
-              v-for="kind in appointmentKinds"
-              :key="kind"
-              type="button"
-              class="ai-slots__chip"
-              :aria-pressed="chosenKind === kind"
-              @click="chosenKind = kind"
-            >
-              {{ kind }}
+        <div v-if="isPhotoPanelOpen" class="ai-card ai-photo">
+          <p class="ai-card__title">{{ PHOTO_LABELS[lang].button }}</p>
+          <p class="ai-card__note">{{ PHOTO_LABELS[lang].note }}</p>
+          <div class="ai-actions">
+            <button type="button" class="ai-actions__primary" :disabled="isBusy" @click="photoInputEl?.click()">
+              {{ PHOTO_LABELS[lang].pick }}
+            </button>
+            <button type="button" class="ai-actions__secondary" @click="isPhotoPanelOpen = false">
+              {{ LEAD_LABELS[lang].cancel }}
             </button>
           </div>
-          <p v-if="slotTimes.length === 0" class="ai-sheet__note">{{ APPOINTMENT_LABELS[lang].none }}</p>
-          <ul v-else class="ai-slots__list">
-            <li v-for="time in slotTimes" :key="time.start">
+          <input ref="photoInputEl" type="file" accept="image/*" class="ai-photo__input" @change="onPhotoPicked" />
+        </div>
+
+        <div v-if="isSlotPanelOpen" ref="slotPanelEl" class="ai-card ai-slots" tabindex="-1">
+          <p class="ai-card__title">
+            {{ bookingMode === 'calendar' ? APPOINTMENT_LABELS[lang].titleCalendar : APPOINTMENT_LABELS[lang].title }}
+          </p>
+          <p v-if="slotsState === 'loading'" class="ai-card__note">{{ APPOINTMENT_LABELS[lang].loading }}</p>
+          <p v-else-if="slotsState === 'error'" class="ai-card__note">{{ APPOINTMENT_LABELS[lang].error }}</p>
+          <template v-else-if="bookingMode === 'calendar'">
+            <div
+              v-if="appointmentKinds.length > 0"
+              class="ai-slots__kinds"
+              role="group"
+              :aria-label="APPOINTMENT_LABELS[lang].kind"
+            >
+              <span class="ai-slots__label">{{ APPOINTMENT_LABELS[lang].kind }}</span>
               <button
+                v-for="kind in appointmentKinds"
+                :key="kind"
                 type="button"
-                class="ai-slots__time"
-                :aria-pressed="chosenTime?.start === time.start"
-                @click="chosenTime = time"
+                class="ai-slots__chip"
+                :aria-pressed="chosenKind === kind"
+                @click="chosenKind = kind"
               >
-                {{ timeLabel(time.start) }}
+                {{ kind }}
+              </button>
+            </div>
+            <p v-if="slotTimes.length === 0" class="ai-card__note">{{ APPOINTMENT_LABELS[lang].none }}</p>
+            <ul v-else class="ai-slots__list">
+              <li v-for="time in slotTimes" :key="time.start">
+                <button
+                  type="button"
+                  class="ai-slots__time"
+                  :aria-pressed="chosenTime?.start === time.start"
+                  @click="chosenTime = time"
+                >
+                  {{ timeLabel(time.start) }}
+                </button>
+              </li>
+            </ul>
+            <div class="ai-slots__pages">
+              <button v-if="slotsAfter !== null" type="button" class="ai-slots__more" @click="loadSlots(null)">
+                {{ APPOINTMENT_LABELS[lang].first }}
+              </button>
+              <button v-if="hasMoreTimes" type="button" class="ai-slots__more" @click="showMoreTimes">
+                {{ APPOINTMENT_LABELS[lang].more }}
+              </button>
+            </div>
+          </template>
+          <p v-else-if="slotDays.length === 0" class="ai-card__note">{{ APPOINTMENT_LABELS[lang].none }}</p>
+          <ul v-else class="ai-slots__days">
+            <li v-for="day in slotDays" :key="day.date" class="ai-slots__day">
+              <span class="ai-slots__date">{{ dayLabel(day.date) }}</span>
+              <button
+                v-for="period in DAY_PERIODS"
+                :key="period"
+                type="button"
+                class="ai-slots__slot"
+                :disabled="!day.periods.includes(period)"
+                :aria-pressed="isChosen(day.date, period)"
+                :aria-label="slotLabel({ date: day.date, period })"
+                @click="toggleSlot(day.date, period)"
+              >
+                {{ APPOINTMENT_LABELS[lang].periods[period] }}
               </button>
             </li>
           </ul>
-          <div class="ai-slots__pages">
-            <button v-if="slotsAfter !== null" type="button" class="ai-slots__more" @click="loadSlots(null)">
-              {{ APPOINTMENT_LABELS[lang].first }}
+          <div class="ai-actions">
+            <button type="button" class="ai-actions__primary" :disabled="!canContinue" @click="confirmSlots">
+              {{ APPOINTMENT_LABELS[lang].next }}
             </button>
-            <button v-if="hasMoreTimes" type="button" class="ai-slots__more" @click="showMoreTimes">
-              {{ APPOINTMENT_LABELS[lang].more }}
+            <button type="button" class="ai-actions__secondary" @click="closeSlotPanel">
+              {{ LEAD_LABELS[lang].cancel }}
             </button>
           </div>
-        </template>
-        <p v-else-if="slotDays.length === 0" class="ai-sheet__note">{{ APPOINTMENT_LABELS[lang].none }}</p>
-        <ul v-else class="ai-slots__days">
-          <li v-for="day in slotDays" :key="day.date" class="ai-slots__day">
-            <span class="ai-slots__date">{{ dayLabel(day.date) }}</span>
-            <button
-              v-for="period in DAY_PERIODS"
-              :key="period"
-              type="button"
-              class="ai-slots__slot"
-              :disabled="!day.periods.includes(period)"
-              :aria-pressed="isChosen(day.date, period)"
-              :aria-label="slotLabel({ date: day.date, period })"
-              @click="toggleSlot(day.date, period)"
-            >
-              {{ APPOINTMENT_LABELS[lang].periods[period] }}
-            </button>
-          </li>
-        </ul>
-        <div class="ai-actions">
-          <button type="button" class="ai-actions__primary" :disabled="!canContinue" @click="confirmSlots">
-            {{ APPOINTMENT_LABELS[lang].next }}
-          </button>
-          <button type="button" class="ai-actions__secondary" @click="closeSlotPanel">
-            {{ LEAD_LABELS[lang].cancel }}
-          </button>
         </div>
-      </div>
 
-      <div v-if="!leadSent && !isSlotPanelOpen && !isPhotoPanelOpen" class="ai-book">
-        <button v-if="!showLeadForm" type="button" class="ai-book__open" @click="openLeadForm">
-          {{ LEAD_LABELS[lang].open }}
-        </button>
-        <form v-else class="ai-leadform" @submit.prevent="submitLead">
-          <p class="ai-leadform__title">{{ LEAD_LABELS[lang].title }}</p>
-          <p v-if="chosenSlots.length > 0" class="ai-leadform__note">
+        <form v-if="showLeadForm && !leadSent" class="ai-card ai-leadform" @submit.prevent="submitLead">
+          <p class="ai-card__title">{{ LEAD_LABELS[lang].title }}</p>
+          <p v-if="chosenSlots.length > 0" class="ai-card__note">
             {{ APPOINTMENT_LABELS[lang].chosen }} : {{ chosenSlotsLine }}
           </p>
-          <p v-else-if="chosenTime" class="ai-leadform__note">
+          <p v-else-if="chosenTime" class="ai-card__note">
             {{ APPOINTMENT_LABELS[lang].appointment }} : {{ chosenTimeLine }}
           </p>
           <input
             ref="leadNameEl"
             v-model="leadName"
-            class="ai-leadform__field"
+            class="ai-field"
             maxlength="255"
             autocomplete="name"
             :placeholder="LEAD_LABELS[lang].name"
@@ -224,7 +214,7 @@
           />
           <input
             v-model="leadContact"
-            class="ai-leadform__field"
+            class="ai-field"
             maxlength="255"
             autocomplete="tel"
             :placeholder="LEAD_LABELS[lang].contact"
@@ -232,25 +222,35 @@
           />
           <input
             v-model="leadNeed"
-            class="ai-leadform__field"
+            class="ai-field"
             maxlength="2000"
             autocomplete="off"
             :placeholder="LEAD_LABELS[lang].need"
             :aria-label="LEAD_LABELS[lang].need"
           />
-          <div class="ai-leadform__row">
+          <div class="ai-actions">
             <button
               type="submit"
-              class="ai-leadform__send"
+              class="ai-actions__primary"
               :disabled="isSubmittingLead || !leadName.trim() || !leadContact.trim()"
             >
               {{ LEAD_LABELS[lang].send }}
             </button>
-            <button type="button" class="ai-leadform__cancel" @click="cancelLeadForm">
+            <button type="button" class="ai-actions__secondary" @click="cancelLeadForm">
               {{ LEAD_LABELS[lang].cancel }}
             </button>
           </div>
         </form>
+      </div>
+
+      <div v-if="showCallbackBar" class="ai-callback">
+        <button type="button" class="ai-callback__btn" @click="openLeadForm">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+          {{ LEAD_LABELS[lang].open }}
+        </button>
       </div>
 
       <form class="ai-compose" @submit.prevent="send">
@@ -262,16 +262,7 @@
           :disabled="isBusy || photosRemaining <= 0"
           @click="openPhotoPanel"
         >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
             <circle cx="12" cy="13" r="3" />
           </svg>
@@ -284,16 +275,7 @@
           :disabled="isBusy || leadSent"
           @click="openSlotPanel"
         >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
             <rect x="3.5" y="5" width="17" height="15" rx="2" />
             <path d="M3.5 10h17M8 3v4M16 3v4" />
           </svg>
@@ -307,18 +289,9 @@
           @keydown.enter.exact.prevent="send"
         />
         <button type="submit" class="ai-compose__send" aria-label="Envoyer" :disabled="isBusy || !draft.trim()">
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M22 2 11 13" />
-            <path d="M22 2 15 22l-4-9-9-4 20-7z" />
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 12h13" />
+            <path d="m13 6 6 6-6 6" />
           </svg>
         </button>
       </form>
@@ -327,7 +300,7 @@
 </template>
 
 <script lang="ts" setup>
-import type { ComputedRef, PropType, Ref } from 'vue'
+import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type {
   AiAssistantConfig,
@@ -345,7 +318,7 @@ import type {
   AssistantSlotsState,
   AssistantWidgetLang,
 } from '~/types/AiAssistant'
-import type { AssistantChatProps } from '~/types/AssistantChat'
+import type { AssistantChatEmits, AssistantChatProps, AssistantLeadSummary } from '~/types/AssistantChat'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
 import {
   APPOINTMENT_LABELS,
@@ -353,7 +326,6 @@ import {
   FALLBACK_REPLY,
   GREETINGS,
   LANGUAGE_LABELS,
-  LANGUAGE_NAMES,
   LEAD_LABELS,
   PHOTO_LABELS,
   SUGGESTIONS,
@@ -385,22 +357,30 @@ const DAY_PERIODS: AssistantDayPeriod[] = ['morning', 'afternoon']
 const BUSINESS_TIME_ZONE: string = 'Europe/Paris'
 
 /**
- * The chat widget for a prospect's AI assistant, embedded on the demo page.
+ * The chat widget of a prospect's AI assistant: floating on the demo page and on the clients' sites, or laid
+ * out in place (`inline`) when a page wants the open conversation itself, like the demo page's phone.
  * @param config Public assistant configuration returned by the API.
+ * @param inline Render the open panel in place, without a launcher.
  */
 const props: AssistantChatProps = defineProps({
   config: {
     type: Object as PropType<AiAssistantConfig>,
     required: true,
   },
+  inline: {
+    type: Boolean,
+    default: false,
+  },
 })
+
+const emit: EmitFn<AssistantChatEmits> = defineEmits<AssistantChatEmits>()
 
 const runtimeConfig: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
 const publicEndpoint: ComputedRef<string> = computed(
   (): string => `${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${props.config.slug}`,
 )
 
-const isOpen: Ref<boolean> = ref(false)
+const isOpen: Ref<boolean> = ref(props.inline)
 const isBusy: Ref<boolean> = ref(false)
 const draft: Ref<string> = ref('')
 const lang: Ref<AssistantWidgetLang> = ref(DEFAULT_LANG)
@@ -437,6 +417,8 @@ const photoInputEl: Ref<HTMLInputElement | null> = ref(null)
 const photosRemaining: Ref<number> = ref(MAX_PHOTOS)
 // Thumbnail of each photo sent in this visit, by message index — kept out of the stored conversation.
 const photoPreviews: Ref<Record<number, string>> = ref({})
+// Whether a photo was kept for the request of this visit (told to the page with the request).
+const hasSentPhoto: Ref<boolean> = ref(false)
 const isEmbedded: Ref<boolean> = ref(false)
 const viewportWidth: Ref<number | null> = ref(null)
 const viewportHeight: Ref<number | null> = ref(null)
@@ -445,7 +427,12 @@ let launcherObserver: ResizeObserver | null = null
 
 const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<string, string> => {
   const palette: AssistantAccentPalette = AssistantAccentUtils.palette(props.config.accent_color)
-  return { '--ai-accent': palette.accent, '--ai-accent-ink': palette.ink, '--ai-accent-text': palette.text }
+  return {
+    '--ai-accent': palette.accent,
+    '--ai-accent-deep': palette.deep,
+    '--ai-accent-ink': palette.ink,
+    '--ai-accent-text': palette.text,
+  }
 })
 const offeredLanguages: ComputedRef<AssistantWidgetLang[]> = computed((): AssistantWidgetLang[] => {
   const codes: AssistantWidgetLang[] = props.config.languages.filter(
@@ -453,10 +440,6 @@ const offeredLanguages: ComputedRef<AssistantWidgetLang[]> = computed((): Assist
   )
   return codes.length ? codes : [DEFAULT_LANG]
 })
-const languagesLine: ComputedRef<string> = computed(
-  (): string =>
-    `Répond en ${offeredLanguages.value.map((code: AssistantWidgetLang): string => LANGUAGE_NAMES[code]).join(' · ')}`,
-)
 const roleLabel: ComputedRef<string> = computed((): string =>
   AssistantPersonaUtils.roleLabel(props.config.assistant_gender),
 )
@@ -480,6 +463,19 @@ const isMobileLayout: ComputedRef<boolean> = computed(
     (viewportWidth.value !== null && viewportWidth.value < MOBILE_MAX_WIDTH) ||
     (viewportHeight.value !== null && viewportHeight.value < MOBILE_MAX_HEIGHT),
 )
+/** The opening chips show under the greeting only, until the visitor writes or opens a panel. */
+const showChips: ComputedRef<boolean> = computed(
+  (): boolean => messages.value.length <= 1 && !isSlotPanelOpen.value && !isPhotoPanelOpen.value && !showLeadForm.value,
+)
+/** Once the conversation runs, a slim way to leave one's details stays above the composer. */
+const showCallbackBar: ComputedRef<boolean> = computed(
+  (): boolean =>
+    messages.value.length > 1 &&
+    !leadSent.value &&
+    !showLeadForm.value &&
+    !isSlotPanelOpen.value &&
+    !isPhotoPanelOpen.value,
+)
 
 /** Open the panel, greet the visitor once, and move the keyboard focus inside. */
 function open(): void {
@@ -488,11 +484,12 @@ function open(): void {
     captureDemoEvent('assistant_opened')
     messages.value.push({ role: 'assistant', content: GREETINGS[lang.value] })
   }
-  void nextTick((): void => closeEl.value?.focus())
+  if (!props.inline) void nextTick((): void => closeEl.value?.focus())
 }
 
 /** Close the panel and give the keyboard focus back to the launcher. */
 function close(): void {
+  if (props.inline) return
   isOpen.value = false
   void nextTick((): void => launcherEl.value?.focus())
 }
@@ -500,7 +497,10 @@ function close(): void {
 /** Show the contact form for a call back: an appointment picked before is not part of it. */
 function openLeadForm(): void {
   forgetPicks()
+  isPhotoPanelOpen.value = false
+  isSlotPanelOpen.value = false
   showLeadForm.value = true
+  void scrollToLatest()
   void nextTick((): void => leadNameEl.value?.focus())
 }
 
@@ -575,7 +575,7 @@ function persistConversation(): void {
       }),
     )
   } catch {
-    // Storage unavailable (private mode) or full: the widget keeps working from memory.
+    // Storage unavailable (private mode, third-party iframe) or full: the widget keeps working from memory.
   }
 }
 
@@ -663,6 +663,7 @@ async function openSlotPanel(): Promise<void> {
   if (isBusy.value || leadSent.value) return
   hasOfferedBooking.value = true
   isPhotoPanelOpen.value = false
+  showLeadForm.value = false
   isSlotPanelOpen.value = true
   void scrollToLatest()
   // The chip that opened it disappears: keyboard focus moves into the panel.
@@ -698,6 +699,7 @@ async function loadSlots(after: string | null = null): Promise<void> {
   } catch {
     slotsState.value = 'error'
   }
+  await scrollToLatest()
 }
 
 /**
@@ -869,6 +871,7 @@ async function onPhotoPicked(event: Event): Promise<void> {
     messages.value.push({ role: 'assistant', content: answer.reply })
     photosRemaining.value = answer.remaining
     if (answer.accepted && !leadSent.value) {
+      hasSentPhoto.value = true
       if (!leadNeed.value.trim() && answer.need) leadNeed.value = answer.need
       showLeadForm.value = true
     }
@@ -916,6 +919,7 @@ async function submitLead(): Promise<void> {
     captureDemoEvent('assistant_lead_submitted')
     showLeadForm.value = false
     messages.value.push({ role: 'assistant', content: leadConfirmation(reply, booking) })
+    emit('lead-sent', leadSummary(reply, booking))
     await scrollToLatest()
   } catch (error: unknown) {
     // A slot taken or withdrawn meanwhile answers 409: the offer is read again. A 422 carries a sentence
@@ -965,6 +969,28 @@ function leadConfirmation(reply: AssistantLeadReply, booking: AssistantAppointme
 }
 
 /**
+ * What the request just sent holds, for the page showing what the business receives.
+ * @param reply - The API's answer.
+ * @param booking - The free slot picked, if any.
+ * @returns The summary the page can turn into the business's alert.
+ */
+function leadSummary(reply: AssistantLeadReply, booking: AssistantAppointmentTime | null): AssistantLeadSummary {
+  const hasAppointment: boolean = booking !== null || chosenSlots.value.length > 0 || reply.booked_start !== null
+  let slots: string = ''
+  if (reply.booked_start) slots = timeLabel(reply.booked_start)
+  else if (booking) slots = timeLabel(booking.start)
+  else if (chosenSlots.value.length > 0) slots = chosenSlotsLine.value
+  return {
+    name: leadName.value.trim(),
+    contact: leadContact.value.trim(),
+    need: leadNeed.value.trim(),
+    kind: hasAppointment ? 'appointment' : hasSentPhoto.value ? 'quote' : 'question',
+    slots,
+    hasPhoto: hasSentPhoto.value,
+  }
+}
+
+/**
  * Tell the loader iframe how big to be: the launcher's exact footprint when closed, the panel when open.
  */
 function postFrameSize(): void {
@@ -987,7 +1013,7 @@ function postFrameSize(): void {
 }
 
 /**
- * Read the host page's viewport width posted by the loader, so the layout follows the client's screen.
+ * Read the host page's viewport posted by the loader, so the layout follows the client's screen.
  * @param event - A message received from the parent window.
  */
 function onHostMessage(event: MessageEvent): void {
@@ -1033,6 +1059,11 @@ onMounted((): void => {
     if (preferred) lang.value = preferred
   }
   if (!sessionId.value) sessionId.value = newSessionId()
+  if (props.inline) {
+    // Laid out in place: the conversation is the page's content, open from the start.
+    open()
+    return
+  }
   isEmbedded.value = window.parent !== window
   if (isEmbedded.value) {
     window.addEventListener('message', onHostMessage)
@@ -1063,7 +1094,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 .ai-widget {
   --ai-paper: #f7f3ec;
   --ai-paper-2: #fbf9f3;
-  --ai-card: #fffdf9;
+  --ai-card: #ffffff;
   --ai-ink: #17130d;
   --ai-ink-dim: #6d665b;
   --ai-line: rgba(23, 19, 13, 0.14);
@@ -1073,7 +1104,11 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   font-family: var(--ai-font-b);
   color: var(--ai-ink);
 }
+.ai-widget--inline {
+  height: 100%;
+}
 
+/* ── Launcher (closed) ─────────────────────────────────────────────────── */
 .ai-launcher {
   position: fixed;
   right: max(22px, env(safe-area-inset-right, 0px));
@@ -1081,7 +1116,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   z-index: 50;
   display: flex;
   align-items: center;
-  gap: 13px;
+  gap: 12px;
   border: 0;
   background: transparent;
   padding: 0;
@@ -1091,26 +1126,44 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   background: var(--ai-card);
   color: var(--ai-ink);
   border: 1px solid var(--ai-line);
-  border-radius: 14px;
-  padding: 10px 15px;
+  border-radius: 16px;
+  padding: 11px 15px;
   font-size: 0.85rem;
   line-height: 1.4;
   max-width: 220px;
   text-align: left;
-  box-shadow: 0 24px 60px -28px rgba(23, 19, 13, 0.35);
+  box-shadow: 0 24px 60px -28px rgba(23, 19, 13, 0.4);
 }
 .ai-launcher__say strong {
   font-family: var(--ai-font-d);
   font-weight: 600;
 }
 .ai-launcher__orb {
-  width: 60px;
-  height: 60px;
-  border-radius: 16px;
+  position: relative;
+  width: 62px;
+  height: 62px;
+  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 10px 28px -12px rgba(23, 19, 13, 0.5);
+  box-shadow:
+    0 0 0 3px var(--ai-card),
+    0 14px 30px -12px rgba(23, 19, 13, 0.55);
+  transition: transform 0.15s ease;
+}
+.ai-launcher:hover .ai-launcher__orb {
+  transform: translateY(-2px);
+}
+.ai-launcher__dot {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #3fb950;
+  box-shadow: 0 0 0 2px var(--ai-card);
 }
 
+/* ── Panel ─────────────────────────────────────────────────────────────── */
 .ai-panel {
   position: fixed;
   right: max(22px, env(safe-area-inset-right, 0px));
@@ -1121,120 +1174,173 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   height: min(628px, calc(100vh - 44px));
   background: var(--ai-paper-2);
   border: 1px solid var(--ai-line);
-  border-radius: 22px;
+  border-radius: 26px;
   box-shadow: 0 34px 80px -34px rgba(23, 19, 13, 0.55);
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
+.ai-panel--inline {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.ai-panel--mobile {
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  max-width: 100vw;
+  height: 100dvh;
+  border-radius: 0;
+  border: 0;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
 .ai-head {
-  background: var(--ai-accent);
-  color: var(--ai-accent-ink);
-  padding: 16px;
   display: flex;
   align-items: center;
-  gap: 13px;
+  gap: 12px;
+  padding: 16px 16px 14px;
+  background: linear-gradient(160deg, var(--ai-accent), var(--ai-accent-deep));
+  color: var(--ai-accent-ink);
 }
 .ai-head__av {
   width: 44px;
   height: 44px;
-  border-radius: 14px;
+  border-radius: 13px;
   overflow: hidden;
   flex: none;
-  box-shadow: 0 2px 8px rgba(23, 19, 13, 0.18);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
 }
 .ai-head__who {
-  flex: 1;
+  display: grid;
+  gap: 2px;
   min-width: 0;
+  flex: 1;
 }
-.ai-head__who b {
+.ai-head__name {
   font-family: var(--ai-font-d);
-  font-size: 1.12rem;
+  font-size: 1.15rem;
   font-weight: 600;
-  display: block;
+  line-height: 1.05;
 }
-.ai-head__who span {
+.ai-head__role {
   font-size: 0.74rem;
-  opacity: 0.82;
-  display: block;
+  line-height: 1.25;
+  opacity: 0.85;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ai-head__x {
-  margin-left: auto;
-  background: rgba(244, 239, 230, 0.14);
-  border: 0;
-  color: var(--ai-accent-ink);
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  cursor: pointer;
-  flex: none;
-}
-.ai-sub {
-  margin: 0;
-  background: var(--ai-accent);
-  filter: brightness(1.12);
-  color: var(--ai-accent-ink);
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  text-align: center;
-  padding: 5px;
+.ai-head__online {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  white-space: nowrap;
   opacity: 0.92;
 }
+.ai-head__online i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8fd39a;
+  box-shadow: 0 0 0 3px rgba(143, 211, 154, 0.25);
+}
+.ai-head__x {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--ai-accent-ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.ai-head__x svg {
+  width: 15px;
+  height: 15px;
+}
+.ai-head__x:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* ── Language pills ───────────────────────────────────────────────────── */
 .ai-langs {
   display: flex;
-  gap: 6px;
-  padding: 11px 15px 5px;
   flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px 2px;
   background: var(--ai-paper-2);
 }
-.ai-langs button {
+.ai-langs__pill {
   border: 1px solid var(--ai-line);
-  background: var(--ai-paper-2);
+  background: var(--ai-card);
   color: var(--ai-ink-dim);
   font: inherit;
-  font-size: 0.74rem;
-  padding: 7px 12px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 6px 11px;
   border-radius: 999px;
   cursor: pointer;
 }
-.ai-langs button[aria-pressed='true'] {
+.ai-langs__pill[aria-pressed='true'] {
   border-color: var(--ai-accent);
   color: var(--ai-accent-text);
+  background: color-mix(in srgb, var(--ai-accent) 10%, var(--ai-card));
 }
+
+/* ── Messages ─────────────────────────────────────────────────────────── */
 .ai-msgs {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 15px;
+  padding: 16px 14px 12px;
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  gap: 10px;
   background: var(--ai-paper-2);
+  scrollbar-width: thin;
 }
 .ai-m {
-  max-width: 85%;
-  padding: 11px 14px;
-  font-size: 0.92rem;
-  line-height: 1.5;
+  max-width: 84%;
+  padding: 10px 13px;
+  font-size: 0.9rem;
+  line-height: 1.45;
   white-space: pre-wrap;
   word-wrap: break-word;
-  border-radius: 15px;
+  border-radius: 18px;
 }
 .ai-m--assistant {
+  align-self: flex-start;
   background: var(--ai-card);
   color: var(--ai-ink);
-  align-self: flex-start;
   border: 1px solid var(--ai-line-soft);
-  border-bottom-left-radius: 5px;
+  border-bottom-left-radius: 6px;
+  box-shadow: 0 6px 16px -12px rgba(23, 19, 13, 0.4);
 }
 .ai-m--user {
+  align-self: flex-end;
   background: var(--ai-accent);
   color: var(--ai-accent-ink);
-  align-self: flex-end;
-  border-bottom-right-radius: 5px;
+  border-bottom-right-radius: 6px;
+}
+.ai-m--photo {
+  padding: 4px;
+}
+.ai-m__photo {
+  display: block;
+  max-width: 180px;
+  max-height: 180px;
+  border-radius: 14px;
+  object-fit: cover;
 }
 /* A page of the business's site given in a reply: a plain link that wraps anywhere. */
 .ai-m__link {
@@ -1250,8 +1356,8 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   padding: 13px 15px;
   background: var(--ai-card);
   border: 1px solid var(--ai-line-soft);
-  border-radius: 15px;
-  border-bottom-left-radius: 5px;
+  border-radius: 18px;
+  border-bottom-left-radius: 6px;
 }
 .ai-typing i {
   width: 6px;
@@ -1278,188 +1384,69 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
     transform: translateY(-3px);
   }
 }
+
+/* ── Quick replies ───────────────────────────────────────────────────── */
 .ai-chips {
   display: flex;
-  gap: 7px;
-  padding: 5px 15px;
   flex-wrap: wrap;
-  background: var(--ai-paper-2);
+  gap: 8px;
+  align-self: flex-start;
+  max-width: 94%;
 }
-.ai-chips button {
-  border: 1px solid var(--ai-line);
-  background: var(--ai-card);
-  color: var(--ai-ink);
-  font: inherit;
-  font-size: 0.78rem;
-  padding: 7px 12px;
-  border-radius: 999px;
-  cursor: pointer;
-  text-align: left;
-}
-.ai-chips button:hover {
-  border-color: var(--ai-accent);
-  color: var(--ai-accent-text);
-}
-.ai-chips__action {
+.ai-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-.ai-chips__icon {
-  flex: none;
-}
-/* Bounded in the panel: on a short screen the form scrolls, the conversation keeps its room. */
-.ai-book {
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: 68%;
-  overflow-y: auto;
-  padding: 4px 15px 10px;
-  background: var(--ai-paper-2);
-}
-.ai-book__open {
-  width: 100%;
-  border: 1px solid var(--ai-line);
+  border: 1px solid color-mix(in srgb, var(--ai-accent) 45%, transparent);
   background: var(--ai-card);
-  color: var(--ai-ink);
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 500;
-  padding: 10px;
-  border-radius: 12px;
-  cursor: pointer;
-}
-.ai-book__open:hover {
-  border-color: var(--ai-accent);
   color: var(--ai-accent-text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.3;
+  padding: 8px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
 }
-.ai-leadform {
+.ai-chip:hover {
+  border-color: var(--ai-accent);
+  background: color-mix(in srgb, var(--ai-accent) 8%, var(--ai-card));
+}
+.ai-chip__icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Inline cards: photo, slots, contact form ───────────────────────── */
+.ai-card {
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 14px;
   background: var(--ai-card);
-  border: 1px solid var(--ai-line-soft);
-  border-radius: 14px;
-  padding: 13px;
+  border: 1px solid var(--ai-line);
+  border-radius: 18px;
+  box-shadow: 0 10px 24px -20px rgba(23, 19, 13, 0.5);
 }
-.ai-leadform__title {
+.ai-card__title {
   margin: 0;
   font-family: var(--ai-font-d);
-  font-size: 0.95rem;
+  font-size: 0.98rem;
   font-weight: 600;
+  line-height: 1.25;
 }
-.ai-leadform__field {
-  border: 1px solid var(--ai-line);
-  border-radius: 10px;
-  padding: 9px 11px;
-  font: inherit;
-  /* 16px minimum: stops iOS Safari from zooming the page on focus. */
-  font-size: 16px;
-  background: var(--ai-paper-2);
-  color: var(--ai-ink);
-}
-.ai-leadform__field:focus {
-  outline: 2px solid var(--ai-accent);
-  outline-offset: 1px;
-}
-.ai-leadform__row,
-.ai-actions {
-  display: flex;
-  gap: 8px;
-}
-.ai-leadform__send,
-.ai-leadform__cancel,
-.ai-actions__primary,
-.ai-actions__secondary {
-  flex: 1;
-  border: 0;
-  border-radius: 10px;
-  padding: 10px;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-.ai-leadform__send,
-.ai-actions__primary {
-  background: var(--ai-accent);
-  color: var(--ai-accent-ink);
-}
-.ai-leadform__send:disabled,
-.ai-actions__primary:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-.ai-leadform__cancel,
-.ai-actions__secondary {
-  background: transparent;
-  color: var(--ai-ink-dim);
-  border: 1px solid var(--ai-line);
-}
-.ai-compose {
-  display: flex;
-  gap: 9px;
-  padding: 12px 15px;
-  border-top: 1px solid var(--ai-line-soft);
-  background: var(--ai-paper-2);
-  align-items: flex-end;
-}
-.ai-compose textarea {
-  flex: 1;
-  resize: none;
-  border: 1px solid var(--ai-line);
-  border-radius: 13px;
-  padding: 11px 13px;
-  font: inherit;
-  /* 16px minimum: below it, iOS Safari zooms the whole page when the field is focused. */
-  font-size: 16px;
-  background: var(--ai-card);
-  color: var(--ai-ink);
-  max-height: 96px;
-  min-height: 44px;
-  line-height: 1.4;
-}
-/* An empty field keeps its hint on one line, however narrow the bar is beside its tool buttons. */
-.ai-compose textarea:placeholder-shown {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ai-compose textarea:focus {
-  outline: 2px solid var(--ai-accent);
-  outline-offset: 1px;
-}
-.ai-compose__tool {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
-  border: 1px solid var(--ai-line);
-  background: var(--ai-card);
-  color: var(--ai-ink);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-}
-.ai-compose__tool:hover {
-  border-color: var(--ai-accent);
-  color: var(--ai-accent-text);
-}
-.ai-compose__tool:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-.ai-sheet {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 4px 15px 10px;
-  padding: 13px;
-  background: var(--ai-card);
-  border: 1px solid var(--ai-line-soft);
-  border-radius: 14px;
-}
-.ai-sheet__note,
-.ai-leadform__note {
+.ai-card__note {
   margin: 0;
   font-size: 0.8rem;
   line-height: 1.45;
@@ -1468,12 +1455,51 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 .ai-photo__input {
   display: none;
 }
-/* Bounded in the panel: the days scroll, the note and the buttons stay in view. */
-.ai-slots {
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: 64%;
+.ai-field {
+  border: 1px solid var(--ai-line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  /* 16px minimum: stops iOS Safari from zooming the page on focus. */
+  font-size: 16px;
+  background: var(--ai-paper-2);
+  color: var(--ai-ink);
 }
+.ai-field:focus {
+  outline: 2px solid var(--ai-accent);
+  outline-offset: 1px;
+}
+.ai-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+.ai-actions__primary,
+.ai-actions__secondary {
+  flex: 1;
+  border: 0;
+  border-radius: 999px;
+  padding: 11px 12px;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ai-actions__primary {
+  background: var(--ai-accent);
+  color: var(--ai-accent-ink);
+}
+.ai-actions__primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ai-actions__secondary {
+  background: transparent;
+  color: var(--ai-ink-dim);
+  border: 1px solid var(--ai-line);
+}
+
+/* ── Slots ─────────────────────────────────────────────────────────────── */
 .ai-slots__days,
 .ai-slots__list {
   list-style: none;
@@ -1481,9 +1507,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-height: 0;
-  overflow-y: auto;
+  gap: 6px;
 }
 .ai-slots__day {
   display: grid;
@@ -1533,8 +1557,8 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   font: inherit;
   font-size: 0.85rem;
   text-align: left;
-  padding: 8px 12px;
-  border-radius: 10px;
+  padding: 9px 12px;
+  border-radius: 12px;
   cursor: pointer;
 }
 .ai-slots__time[aria-pressed='true'] {
@@ -1559,41 +1583,115 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   padding: 9px 0;
   cursor: pointer;
 }
-.ai-m--photo {
-  padding: 4px;
+
+/* ── Call-back bar + composer ────────────────────────────────────────── */
+.ai-callback {
+  padding: 0 14px 6px;
+  background: var(--ai-paper-2);
 }
-.ai-m__photo {
-  display: block;
-  max-width: 180px;
-  max-height: 180px;
-  border-radius: 11px;
-  object-fit: cover;
+.ai-callback__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px dashed var(--ai-line);
+  background: transparent;
+  color: var(--ai-ink-dim);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
 }
+.ai-callback__btn:hover {
+  border-color: var(--ai-accent);
+  color: var(--ai-accent-text);
+}
+.ai-callback__btn svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ai-compose {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--ai-line-soft);
+  background: var(--ai-card);
+  align-items: flex-end;
+}
+.ai-compose textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  border: 1px solid var(--ai-line);
+  border-radius: 21px;
+  padding: 10px 14px;
+  font: inherit;
+  /* 16px minimum: below it, iOS Safari zooms the whole page when the field is focused. */
+  font-size: 16px;
+  background: var(--ai-paper-2);
+  color: var(--ai-ink);
+  max-height: 96px;
+  min-height: 42px;
+  line-height: 1.35;
+}
+/* An empty field keeps its hint on one line, however narrow the bar is beside its tool buttons. */
+.ai-compose textarea:placeholder-shown {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ai-compose textarea:focus {
+  outline: 2px solid var(--ai-accent);
+  outline-offset: 1px;
+}
+.ai-compose__tool,
 .ai-compose__send {
   flex: none;
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.ai-compose__tool {
+  border: 1px solid var(--ai-line);
+  background: var(--ai-paper-2);
+  color: var(--ai-accent-text);
+}
+.ai-compose__tool:hover {
+  border-color: var(--ai-accent);
+}
+.ai-compose__tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ai-compose__send {
   border: 0;
   background: var(--ai-accent);
   color: var(--ai-accent-ink);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
 }
 .ai-compose__send:disabled {
   opacity: 0.45;
   cursor: default;
 }
-.ai-panel--mobile {
-  right: 0;
-  bottom: 0;
-  width: 100vw;
-  max-width: 100vw;
-  height: 100dvh;
-  border-radius: 0;
-  border: 0;
+.ai-compose__tool svg,
+.ai-compose__send svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
+
 .ai-launcher--mobile .ai-launcher__say {
   display: none;
 }

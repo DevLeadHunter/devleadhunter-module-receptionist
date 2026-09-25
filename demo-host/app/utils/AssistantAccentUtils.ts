@@ -5,6 +5,8 @@ type RgbColor = { r: number; g: number; b: number }
 export type AssistantAccentPalette = {
   /** The accent itself, for backgrounds (header, visitor bubbles, buttons). */
   accent: string
+  /** A deeper shade of the accent, the far end of the header's gradient. */
+  deep: string
   /** The ink written on the accent: light or dark, whichever contrasts more. */
   ink: string
   /** The accent darkened until it reads as text on the widget's light paper. */
@@ -39,6 +41,7 @@ export class AssistantAccentUtils {
     const onDark: number = AssistantAccentUtils.contrast(rgb, AssistantAccentUtils.parse(DARK_INK) as RgbColor)
     return {
       accent: AssistantAccentUtils.format(rgb),
+      deep: AssistantAccentUtils.format({ r: rgb.r * 0.78, g: rgb.g * 0.78, b: rgb.b * 0.78 }),
       ink: onLight >= onDark ? LIGHT_INK : DARK_INK,
       text: AssistantAccentUtils.format(AssistantAccentUtils.darkenUntilReadable(rgb)),
     }

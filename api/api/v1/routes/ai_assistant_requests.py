@@ -25,9 +25,11 @@ from schemas.ai_assistant import (
     AiAssistantConversationsResponse,
     AiAssistantLeadItem,
     AiAssistantLeadsResponse,
+    AiAssistantRequestDetail,
     AiAssistantRequestItem,
     AiAssistantRequestsResponse,
     AiAssistantRequestUpdateRequest,
+    AiAssistantTranscriptLine,
 )
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
 from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
@@ -148,6 +150,29 @@ async def list_assistant_requests(
     return AiAssistantRequestsResponse(
         requests=[_to_request_item(request, business_name, booked.get(request.id)) for request, business_name in rows],
         pending_count=ai_assistant_request_service.pending_count(db, user.id),
+    )
+
+
+@router.get("/requests/{request_id}", response_model=AiAssistantRequestDetail)
+async def get_assistant_request(
+    request_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantRequestDetail:
+    """One of the caller's requests with the conversation it came out of."""
+    record = ai_assistant_request_service.get_for_owner(db, user.id, request_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
+    assistant = db.get(AiAssistant, record.assistant_id)
+    booked = ai_assistant_calendar_booking.booked_labels(db, [record.id]).get(record.id)
+    transcript = ai_assistant_request_service.transcript(db, record)
+    return AiAssistantRequestDetail(
+        request=_to_request_item(record, assistant.business_name if assistant else "", booked),
+        transcript=[
+            AiAssistantTranscriptLine(role=line.role, content=line.content)
+            for line in transcript
+            if line.role in ("user", "assistant")
+        ],
     )
 
 

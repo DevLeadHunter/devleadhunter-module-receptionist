@@ -165,6 +165,11 @@ class AiAssistantPublicResponse(BaseModel):
     languages: list[str] = Field(default_factory=list)
     accent_color: str | None = None
     status: str
+    # The business as its Google listing shows it, for the demo page's scene (None when unknown).
+    city: str | None = None
+    trade_label: str | None = None
+    google_rating: float | None = None
+    google_reviews_count: int | None = None
     # Owner contact, shown in the « me contacter » banner so the prospect can reach the seller.
     owner_name: str | None = None
     owner_profile_photo_url: str | None = None
@@ -356,6 +361,20 @@ class AiAssistantRequestsResponse(BaseModel):
     requests: list[AiAssistantRequestItem] = Field(default_factory=list)
     # Real requests still waiting for handling (tests excluded), whatever the filter.
     pending_count: int = 0
+
+
+class AiAssistantTranscriptLine(BaseModel):
+    """One turn of the conversation a request came out of."""
+
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class AiAssistantRequestDetail(BaseModel):
+    """One request with the conversation that led to it, for the owner's request drawer."""
+
+    request: AiAssistantRequestItem
+    transcript: list[AiAssistantTranscriptLine] = Field(default_factory=list)
 
 
 class AiAssistantRequestUpdateRequest(BaseModel):

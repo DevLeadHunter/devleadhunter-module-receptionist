@@ -3,6 +3,7 @@ import type {
   AiAssistantClientLink,
   AiAssistantConversationsResponse,
   AiAssistantListResponse,
+  AiAssistantRequestDetail,
   AiAssistantRequestItem,
   AiAssistantRequestsResponse,
   AiAssistantRequestStatus,
@@ -142,11 +143,35 @@ export class AiAssistantService {
    * List the requests visitors left across the user's assistants, newest first (the 300 latest).
    *
    * @param status - Only the requests in this status, when given.
+   * @param assistantId - Only one assistant's requests, when given.
    * @returns The requests and how many still wait for handling.
    */
-  static listRequests(status?: AiAssistantRequestStatus): Promise<AiAssistantRequestsResponse> {
-    const query: string = status ? `?status=${status}` : ''
-    return ApiClient.get<AiAssistantRequestsResponse>(`${BASE_URL}/requests${query}`)
+  static listRequests(status?: AiAssistantRequestStatus, assistantId?: number): Promise<AiAssistantRequestsResponse> {
+    const params: URLSearchParams = new URLSearchParams()
+    if (status) params.set('status', status)
+    if (assistantId !== undefined) params.set('assistant_id', String(assistantId))
+    const query: string = params.toString()
+    return ApiClient.get<AiAssistantRequestsResponse>(`${BASE_URL}/requests${query ? `?${query}` : ''}`)
+  }
+
+  /**
+   * One request with the conversation it came out of.
+   *
+   * @param requestId - The request.
+   * @returns The request and its transcript.
+   */
+  static getRequest(requestId: number): Promise<AiAssistantRequestDetail> {
+    return ApiClient.get<AiAssistantRequestDetail>(`${BASE_URL}/requests/${requestId}`)
+  }
+
+  /**
+   * One of the user's assistants, with its counters and subscription.
+   *
+   * @param assistantId - The assistant.
+   * @returns The assistant as the list shows it.
+   */
+  static get(assistantId: number): Promise<AiAssistantSummary> {
+    return ApiClient.get<AiAssistantSummary>(`${BASE_URL}/${assistantId}`)
   }
 
   /**

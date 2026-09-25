@@ -20,6 +20,7 @@ from enums.ai_assistant_photo import AiAssistantPhotoRejection
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.assistant_visitor_channel import AssistantVisitorChannel
 from models.ai_assistant import AiAssistant
+from models.prospect_db import ProspectDB
 from schemas.ai_assistant import (
     BOOKABLE_YEAR_MAX,
     BOOKABLE_YEAR_MIN,
@@ -89,6 +90,27 @@ _TEST_BOOKING_REFUSED = (
 )
 
 
+def _listing_public_fields(db: Session, assistant: AiAssistant) -> dict[str, str | float | int | None]:
+    """The business as its Google listing shows it (city, trade, rating), for the demo page's scene."""
+    city = assistant.city
+    trade_label: str | None = None
+    rating: float | None = None
+    reviews_count: int | None = None
+    if assistant.prospect_id is not None:
+        prospect = db.get(ProspectDB, assistant.prospect_id)
+        if prospect is not None:
+            city = city or prospect.city
+            trade_label = prospect.category or None
+            rating = prospect.google_rating
+            reviews_count = prospect.google_reviews_count
+    return {
+        "city": city or None,
+        "trade_label": trade_label,
+        "google_rating": rating,
+        "google_reviews_count": reviews_count,
+    }
+
+
 def _owner_public_fields(assistant: AiAssistant) -> dict[str, str | None]:
     """Owner contact shown in the « me contacter » banner of a demo only: a sold widget never carries it."""
     user = assistant.user
@@ -117,6 +139,7 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
         languages=assistant.languages or [],
         accent_color=ai_assistant_service.accent_color(assistant),
         status=assistant.status,
+        **_listing_public_fields(db, assistant),
         **_owner_public_fields(assistant),
         video_available=video_ready,
         video_url=public_video_file_url(assistant.slug) if video_ready else None,

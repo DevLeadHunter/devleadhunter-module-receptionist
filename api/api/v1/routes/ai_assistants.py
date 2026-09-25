@@ -171,6 +171,17 @@ async def list_assistants(
     )
 
 
+@router.get("/{assistant_id:int}", response_model=AiAssistantResponse)
+async def get_assistant(
+    assistant_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """One of the caller's assistants, with its counters and subscription (the detail page)."""
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
+    return _to_full_owner_response(db, assistant)
+
+
 @router.patch("/{assistant_id}", response_model=AiAssistantResponse)
 async def update_assistant(
     assistant_id: int,
