@@ -881,5 +881,5 @@ dashboard (non instrumenté).
 | Widget : conversation, protocole iframe, composants | `demo-host/app/composables/useAssistantConversation.ts`, `useAssistantWidgetFrame.ts`, `demo-host/app/components/AssistantChat*.vue`, `AssistantIcon*.vue` |
 | Portrait, palette, dates des créneaux | `demo-host/app/utils/AssistantAvatarUtils.ts`, `AssistantAccentUtils.ts`, `AssistantScheduleUtils.ts` |
 | Page de démo : scénario des deux téléphones, composants | `demo-host/app/utils/AssistantDemoScenarioUtils.ts`, `demo-host/app/components/AssistantDemo*.vue` |
-| Portraits livrés (photos par prénom, défauts par genre) | `demo-host/public/avatars/`, `demo-host/app/constants/assistantPortraits.ts` |
+| Portraits livrés (photos par prénom, défauts par genre ; générés avec Pollinations, recadrés 512 px WebP) | `demo-host/public/avatars/`, `demo-host/app/constants/assistantPortraits.ts` |
 | Clip présentateur (réglages) | `web/app/components/settings/AssistantPresenterClipCard.vue` |

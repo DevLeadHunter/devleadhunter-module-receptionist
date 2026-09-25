@@ -907,14 +907,12 @@ B2B, et un vrai tour UI/UX »)** :
 des demandes)** :
 
 - **Portrait** : Léo veut une vraie photo, comme Lola et Lily côté PrePeers (portraits générés, fond uni, sourire).
-  Aucun générateur d'images n'est disponible depuis la session (pas de clé, Weave non lié), donc le code est prêt et
-  attend les fichiers : `AssistantAvatarUtils.portraitUrl` sert `public/avatars/{prenom}.webp` quand le prénom est
-  déclaré dans `constants/assistantPortraits.ts`, sinon `default-feminine.webp` / `default-masculine.webp` quand ils
-  sont déclarés, sinon le buste dessiné actuel. **À faire par Léo** : générer au moins `default-feminine.webp` (Sofia,
-  le prénom par défaut) et `default-masculine.webp`, carrés 512 px, fond uni clair et chaud (beige ou gris chaud, pas
-  de bleu), tête et épaules centrées, sourire, tenue simple ; les déposer dans `demo-host/public/avatars/` et passer
-  les deux entrées de `ASSISTANT_DEFAULT_PORTRAITS` à `true`. Un prénom personnalisé (« Léa ») prend son propre
-  fichier `lea.webp` ajouté à `ASSISTANT_PORTRAIT_SLUGS`.
+  `AssistantAvatarUtils.portraitUrl` sert `public/avatars/{prenom}.webp` quand le prénom est déclaré dans
+  `constants/assistantPortraits.ts`, sinon `default-feminine.webp` / `default-masculine.webp` (déclarés au même
+  endroit), sinon le buste dessiné en repli. Les deux portraits par défaut ont été générés depuis la session avec le
+  générateur ouvert Pollinations (modèle Sana, sans compte), recadrés tête et épaules en 512 px WebP, fond beige.
+  Pour les remplacer par des portraits Gemini comme Lola : mêmes noms de fichiers, même format. Un prénom personnalisé
+  (« Léa ») prend son propre fichier `lea.webp` ajouté à `ASSISTANT_PORTRAIT_SLUGS`.
 - Le liseré à l'accent en haut du panneau est retiré.
 - **Mockup iPhone** : écran verrouillé refait comme iOS 17 (date et grande horloge en haut, notification Messages
   empilée en bas au-dessus de la barre d'accueil, lampe et appareil photo, animation d'arrivée).
