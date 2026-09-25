@@ -189,6 +189,7 @@
     </Transition>
 
     <UiConfirmModal
+      v-if="open && assistant"
       ref="confirmModal"
       title="Supprimer le document"
       :message="`Supprimer « ${documentToDelete?.name} » ? L'assistant ne le lira plus et le fichier sera effacé.`"
@@ -227,6 +228,9 @@ const props: UiAssistantSourcesDrawerProps = defineProps({
 })
 
 const emit: EmitFn<UiAssistantSourcesDrawerEmits> = defineEmits<UiAssistantSourcesDrawerEmits>()
+
+/** The API refuses a PDF above this size before reading it. */
+const MAX_DOCUMENT_BYTES: number = 10 * 1024 * 1024
 
 const toast: UseToastReturn = useToast()
 const sources: Ref<AiAssistantSources | null> = ref(null)
@@ -378,6 +382,14 @@ async function uploadDocument(event: Event): Promise<void> {
   const file: File | undefined = input.files?.[0]
   input.value = ''
   if (!file || !props.assistant || !sources.value) return
+  if (!isPdf(file)) {
+    toast.error('Seul un PDF est accepté.')
+    return
+  }
+  if (file.size > MAX_DOCUMENT_BYTES) {
+    toast.error('Ce PDF dépasse 10 Mo.')
+    return
+  }
   const assistantId: number = props.assistant.id
   isUploading.value = true
   try {
@@ -424,6 +436,15 @@ async function toggleDocument(document: AiAssistantDocumentItem, enabled: boolea
 }
 
 /**
+ * Whether a picked file is a PDF, by type or by name (some browsers leave the type empty).
+ * @param file - The picked file.
+ * @returns True for a PDF.
+ */
+function isPdf(file: File): boolean {
+  return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+}
+
+/**
  * Ask to confirm the deletion of a document.
  * @param document - The document.
  */
@@ -459,8 +480,13 @@ async function deleteDocument(): Promise<void> {
 watch(
   (): number | null => (props.open && props.assistant ? props.assistant.id : null),
   (assistantId: number | null): void => {
+    // Another assistant, or a closed drawer: what the previous one was doing must not lock this one.
     sources.value = null
     documentToDelete.value = null
+    isRefreshing.value = false
+    isUploading.value = false
+    isSaving.value = false
+    hasLoadFailed.value = false
     if (assistantId !== null) void loadSources(assistantId)
   },
   { immediate: true },

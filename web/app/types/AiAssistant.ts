@@ -2,14 +2,15 @@
  * An AI assistant generated for a prospect, as seen by its owner. `requests_outside_hours_pct` is the
  * share of the last 30 days' requests received outside the business hours (null when they are unknown);
  * `churn_risk` flags a client subscribed for 30 days whose assistant had no conversation and no request
- * over the last 30.
+ * over the last 30. `email` is where the business's alerts, reports and client-space links go.
  */
-export interface AiAssistantSummary {
+export type AiAssistantSummary = {
   id: number
   slug: string
   prospect_id: number | null
   business_name: string
   assistant_name: string
+  email: string | null
   languages: string[]
   tone: string | null
   accent_color: string | null
@@ -51,7 +52,7 @@ export type AiAssistantAlertSettings = {
 }
 
 /** The current user's assistants. */
-export interface AiAssistantListResponse {
+export type AiAssistantListResponse = {
   assistants: AiAssistantSummary[]
 }
 
@@ -96,8 +97,8 @@ export type AiAssistantVideoContext = {
 }
 
 /**
- * Owner edits to an assistant's branding, persona and alerts (partial update). `alert_phone` is sent as
- * typed; an empty one clears it.
+ * Owner edits to an assistant's branding, persona and alerts (partial update). `alert_phone` and `email` are
+ * sent as typed; an empty one clears it.
  */
 export type AiAssistantUpdatePayload = {
   assistant_name?: string
@@ -106,6 +107,7 @@ export type AiAssistantUpdatePayload = {
   tone?: string
   use_brand_color?: boolean
   accent_color?: string
+  email?: string
   alert_phone?: string
   alert_sms_enabled?: boolean
   alert_email_enabled?: boolean
@@ -122,6 +124,7 @@ export type AiAssistantEditForm = {
   tone: string
   accent_color: string
   languages: string[]
+  email: string
   alert_phone: string
   alert_sms_enabled: boolean
   alert_email_enabled: boolean

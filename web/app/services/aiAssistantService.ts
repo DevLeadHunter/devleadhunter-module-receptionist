@@ -5,6 +5,7 @@ import type {
   AiAssistantListResponse,
   AiAssistantRequestItem,
   AiAssistantRequestsResponse,
+  AiAssistantRequestStatus,
   AiAssistantRequestUpdatePayload,
   AiAssistantSummary,
   AiAssistantUpdatePayload,
@@ -138,12 +139,14 @@ export class AiAssistantService {
   }
 
   /**
-   * List the requests visitors left across the user's assistants, newest first.
+   * List the requests visitors left across the user's assistants, newest first (the 300 latest).
    *
+   * @param status - Only the requests in this status, when given.
    * @returns The requests and how many still wait for handling.
    */
-  static listRequests(): Promise<AiAssistantRequestsResponse> {
-    return ApiClient.get<AiAssistantRequestsResponse>(`${BASE_URL}/requests`)
+  static listRequests(status?: AiAssistantRequestStatus): Promise<AiAssistantRequestsResponse> {
+    const query: string = status ? `?status=${status}` : ''
+    return ApiClient.get<AiAssistantRequestsResponse>(`${BASE_URL}/requests${query}`)
   }
 
   /**
@@ -310,9 +313,9 @@ export class AiAssistantService {
       if (errorText) {
         try {
           const errorBody: ApiErrorBody = JSON.parse(errorText)
-          errorMessage = errorBody.detail || errorMessage
+          if (typeof errorBody.detail === 'string' && errorBody.detail) errorMessage = errorBody.detail
         } catch {
-          errorMessage = errorText
+          // Not the API answering (a proxy's HTML page, say): the status text is all we can show.
         }
       }
       throw new Error(errorMessage)
