@@ -867,6 +867,16 @@ widget et la page /ia « ne faisaient pas pro », loin du niveau du module Sites
     publics `city`, `trade_label`, `google_rating`, `google_reviews_count`.
 - Petits points : la ligne de rôle de l'en-tête du widget tient sur deux lignes au lieu d'être tronquée ; la CSP
   du demo-host autorise `http://localhost:5173` (aperçus des cartes en local).
+- Deux relectures ciblées après coup (dashboard + API, widget + page /ia), corrigées dans les commits suivants :
+  demandes et volet toujours synchronisés après un changement de statut (diffusion par la pile, compteur « à
+  traiter », filtre `?assistant=` suivi), lignes de la boîte de réception sans contrôles imbriqués ; en-tête du
+  widget lisible sur toute la largeur du dégradé (il s'éloigne de l'encre : plus sombre sous une encre claire, plus
+  clair sous une encre sombre), texte « Site web → Léa » en teinte lisible, `assistant_opened` compté à la
+  première interaction sur /ia, panneau photo qui referme le formulaire, notification d'exemple typée par métier
+  (RDV / devis / photo) et au libellé du vrai SMS, mots-clés métier resserrés (« salon », « cabinet », « agence »,
+  « auto » retirés), pronoms « ce client / votre client » corrigés, mention « et la photo » conditionnelle, texte
+  de la notification borné à 4 lignes, pastille « me contacter » masquée pendant la saisie sur mobile, zone
+  `aria-live` limitée aux bulles.
 
 **À tester par Léo** (toujours avec `?internal=1` sur les pages du demo-host) : `/ia/{slug}` sur desktop et
 mobile (une demande envoyée depuis le téléphone de gauche doit mettre à jour la notification de droite), le widget

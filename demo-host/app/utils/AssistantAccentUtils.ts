@@ -5,8 +5,11 @@ type RgbColor = { r: number; g: number; b: number }
 export type AssistantAccentPalette = {
   /** The accent itself, for backgrounds (header, visitor bubbles, buttons). */
   accent: string
-  /** A deeper shade of the accent, the far end of the header's gradient. */
-  deep: string
+  /**
+   * The far end of the header's gradient: a deeper shade under a light ink, a lighter tint under a dark ink, so
+   * the ink reads at least as well there as on the accent itself.
+   */
+  edge: string
   /** The ink written on the accent: light or dark, whichever contrasts more. */
   ink: string
   /** The accent darkened until it reads as text on the widget's light paper. */
@@ -39,10 +42,15 @@ export class AssistantAccentUtils {
     if (!rgb) return AssistantAccentUtils.palette(AssistantAccentUtils.FALLBACK_ACCENT)
     const onLight: number = AssistantAccentUtils.contrast(rgb, AssistantAccentUtils.parse(LIGHT_INK) as RgbColor)
     const onDark: number = AssistantAccentUtils.contrast(rgb, AssistantAccentUtils.parse(DARK_INK) as RgbColor)
+    const isInkLight: boolean = onLight >= onDark
+    // The gradient moves away from the ink, so its far end never reads worse than the accent.
+    const edge: RgbColor = isInkLight
+      ? { r: rgb.r * 0.78, g: rgb.g * 0.78, b: rgb.b * 0.78 }
+      : { r: rgb.r + (255 - rgb.r) * 0.22, g: rgb.g + (255 - rgb.g) * 0.22, b: rgb.b + (255 - rgb.b) * 0.22 }
     return {
       accent: AssistantAccentUtils.format(rgb),
-      deep: AssistantAccentUtils.format({ r: rgb.r * 0.78, g: rgb.g * 0.78, b: rgb.b * 0.78 }),
-      ink: onLight >= onDark ? LIGHT_INK : DARK_INK,
+      edge: AssistantAccentUtils.format(edge),
+      ink: isInkLight ? LIGHT_INK : DARK_INK,
       text: AssistantAccentUtils.format(AssistantAccentUtils.darkenUntilReadable(rgb)),
     }
   }

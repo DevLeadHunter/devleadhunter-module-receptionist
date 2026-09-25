@@ -14,6 +14,8 @@ export type AssistantLeadSummary = {
   kind: 'appointment' | 'quote' | 'question'
   /** The wished half-days or the booked slot, as the widget showed them; empty when none. */
   slots: string
+  /** True when the slot was booked in the business's agenda (not only wished). */
+  booked: boolean
   hasPhoto: boolean
 }
 

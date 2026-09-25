@@ -53,31 +53,33 @@
         </button>
       </div>
 
-      <div ref="messagesEl" class="ai-msgs" role="log" aria-live="polite" aria-relevant="additions">
-        <div
-          v-for="(message, index) in messages"
-          :key="index"
-          class="ai-m"
-          :class="[`ai-m--${message.role}`, { 'ai-m--photo': photoPreviews[index] }]"
-        >
-          <img v-if="photoPreviews[index]" :src="photoPreviews[index]" :alt="message.content" class="ai-m__photo" />
-          <template v-else-if="message.role === 'assistant'">
-            <template v-for="(part, partIndex) in MessageLinkUtils.parts(message.content)" :key="partIndex">
-              <a
-                v-if="part.kind === 'link'"
-                :href="part.value"
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-                class="ai-m__link"
-                >{{ part.value }}</a
-              >
-              <template v-else>{{ part.value }}</template>
+      <div ref="messagesEl" class="ai-msgs">
+        <div class="ai-msgs__log" role="log" aria-live="polite" aria-relevant="additions">
+          <div
+            v-for="(message, index) in messages"
+            :key="index"
+            class="ai-m"
+            :class="[`ai-m--${message.role}`, { 'ai-m--photo': photoPreviews[index] }]"
+          >
+            <img v-if="photoPreviews[index]" :src="photoPreviews[index]" :alt="message.content" class="ai-m__photo" />
+            <template v-else-if="message.role === 'assistant'">
+              <template v-for="(part, partIndex) in MessageLinkUtils.parts(message.content)" :key="partIndex">
+                <a
+                  v-if="part.kind === 'link'"
+                  :href="part.value"
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  class="ai-m__link"
+                  >{{ part.value }}</a
+                >
+                <template v-else>{{ part.value }}</template>
+              </template>
             </template>
-          </template>
-          <template v-else>{{ message.content }}</template>
-        </div>
+            <template v-else>{{ message.content }}</template>
+          </div>
 
-        <div v-if="isBusy" class="ai-typing" aria-label="Rédaction en cours"><i /><i /><i /></div>
+          <div v-if="isBusy" class="ai-typing" aria-label="Rédaction en cours"><i /><i /><i /></div>
+        </div>
 
         <div v-if="showChips" class="ai-chips">
           <button type="button" class="ai-chip" @click="openPhotoPanel">
@@ -419,6 +421,8 @@ const photosRemaining: Ref<number> = ref(MAX_PHOTOS)
 const photoPreviews: Ref<Record<number, string>> = ref({})
 // Whether a photo was kept for the request of this visit (told to the page with the request).
 const hasSentPhoto: Ref<boolean> = ref(false)
+/** Inline, the panel is open on arrival: the opening is captured once, at the visitor's first interaction. */
+const hasCapturedInlineOpening: Ref<boolean> = ref(false)
 const isEmbedded: Ref<boolean> = ref(false)
 const viewportWidth: Ref<number | null> = ref(null)
 const viewportHeight: Ref<number | null> = ref(null)
@@ -429,7 +433,7 @@ const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<str
   const palette: AssistantAccentPalette = AssistantAccentUtils.palette(props.config.accent_color)
   return {
     '--ai-accent': palette.accent,
-    '--ai-accent-deep': palette.deep,
+    '--ai-accent-edge': palette.edge,
     '--ai-accent-ink': palette.ink,
     '--ai-accent-text': palette.text,
   }
@@ -481,10 +485,17 @@ const showCallbackBar: ComputedRef<boolean> = computed(
 function open(): void {
   isOpen.value = true
   if (!messages.value.length) {
-    captureDemoEvent('assistant_opened')
+    if (!props.inline) captureDemoEvent('assistant_opened')
     messages.value.push({ role: 'assistant', content: GREETINGS[lang.value] })
   }
   if (!props.inline) void nextTick((): void => closeEl.value?.focus())
+}
+
+/** Inline, count the opening at the first thing the visitor does (a floating widget counts it on the click). */
+function noteInlineOpening(): void {
+  if (!props.inline || hasCapturedInlineOpening.value) return
+  hasCapturedInlineOpening.value = true
+  captureDemoEvent('assistant_opened')
 }
 
 /** Close the panel and give the keyboard focus back to the launcher. */
@@ -496,6 +507,7 @@ function close(): void {
 
 /** Show the contact form for a call back: an appointment picked before is not part of it. */
 function openLeadForm(): void {
+  noteInlineOpening()
   forgetPicks()
   isPhotoPanelOpen.value = false
   isSlotPanelOpen.value = false
@@ -612,6 +624,7 @@ async function sendText(text: string): Promise<void> {
   if (!trimmed || isBusy.value) {
     return
   }
+  noteInlineOpening()
   messages.value.push({ role: 'user', content: trimmed })
   captureDemoEvent('assistant_message_sent')
   draft.value = ''
@@ -650,7 +663,9 @@ async function send(): Promise<void> {
 /** Show the photo panel: its privacy note comes before the file picker. */
 function openPhotoPanel(): void {
   if (photosRemaining.value <= 0 || isBusy.value) return
+  noteInlineOpening()
   isSlotPanelOpen.value = false
+  showLeadForm.value = false
   isPhotoPanelOpen.value = true
   void scrollToLatest()
 }
@@ -661,6 +676,7 @@ function openPhotoPanel(): void {
  */
 async function openSlotPanel(): Promise<void> {
   if (isBusy.value || leadSent.value) return
+  noteInlineOpening()
   hasOfferedBooking.value = true
   isPhotoPanelOpen.value = false
   showLeadForm.value = false
@@ -986,6 +1002,7 @@ function leadSummary(reply: AssistantLeadReply, booking: AssistantAppointmentTim
     need: leadNeed.value.trim(),
     kind: hasAppointment ? 'appointment' : hasSentPhoto.value ? 'quote' : 'question',
     slots,
+    booked: reply.booked_start !== null,
     hasPhoto: hasSentPhoto.value,
   }
 }
@@ -1206,7 +1223,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   align-items: center;
   gap: 12px;
   padding: 16px 16px 14px;
-  background: linear-gradient(160deg, var(--ai-accent), var(--ai-accent-deep));
+  background: linear-gradient(160deg, var(--ai-accent), var(--ai-accent-edge));
   color: var(--ai-accent-ink);
 }
 .ai-head__av {
@@ -1310,6 +1327,11 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   gap: 10px;
   background: var(--ai-paper-2);
   scrollbar-width: thin;
+}
+.ai-msgs__log {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .ai-m {
   max-width: 84%;
