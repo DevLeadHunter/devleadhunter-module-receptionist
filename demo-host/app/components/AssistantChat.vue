@@ -61,11 +61,13 @@
             @example="playScriptedExample"
           />
           <AssistantChatQuickReplies
-            v-else-if="followUps.length > 0"
+            v-else-if="followUps.length > 0 || showActionChips"
             :lang="lang"
             :suggestions="followUps"
-            :can-send-photo="false"
-            :can-book-appointment="false"
+            :can-send-photo="showActionChips && photosRemaining > 0"
+            :can-book-appointment="showActionChips && !leadSent"
+            @photo="openPhotoPanel"
+            @appointment="openSlotPanel"
             @suggest="sendText"
           />
 
@@ -199,6 +201,7 @@ const {
   pickedSummary,
   showChips,
   followUps,
+  showActionChips,
   showCallbackBar,
   lastLeadSummary,
   hasPlayedExample,

@@ -162,13 +162,26 @@ export function useAssistantConversation(
   )
   /** The opening chips show under the greeting only, until the visitor writes or opens a panel. */
   const showChips: ComputedRef<boolean> = computed((): boolean => messages.value.length <= 1 && isThreadClear.value)
+  /** The thread ends on a reply the visitor may act on: nothing typing, no panel open. */
+  const endsOnReply: ComputedRef<boolean> = computed((): boolean => {
+    const last: AssistantChatMessage | undefined = messages.value[messages.value.length - 1]
+    return (
+      messages.value.length > 1 &&
+      last?.role === 'assistant' &&
+      !isBusy.value &&
+      !isStreaming.value &&
+      isThreadClear.value
+    )
+  })
   /** The questions the last reply offers next, as chips under it, until the visitor goes on. */
   const followUps: ComputedRef<string[]> = computed((): string[] => {
     const last: AssistantChatMessage | undefined = messages.value[messages.value.length - 1]
-    if (!last || last.role !== 'assistant' || !last.follow_ups?.length) return []
-    if (isBusy.value || isStreaming.value || !isThreadClear.value) return []
-    return last.follow_ups
+    return endsOnReply.value && last?.follow_ups?.length ? last.follow_ups : []
   })
+  /** A reply without questions still offers the two actions (photo, appointment), so the visitor can click on. */
+  const showActionChips: ComputedRef<boolean> = computed(
+    (): boolean => endsOnReply.value && followUps.value.length === 0 && (photosRemaining.value > 0 || !leadSent.value),
+  )
   /** A slim way to leave one's details stays above the composer, from the greeting until the request is sent. */
   const showCallbackBar: ComputedRef<boolean> = computed(
     (): boolean => !leadSent.value && !showLeadForm.value && !isSlotPanelOpen.value && !isPhotoPanelOpen.value,
@@ -837,6 +850,7 @@ export function useAssistantConversation(
     pickedSummary,
     showChips,
     followUps,
+    showActionChips,
     showCallbackBar,
     lastLeadSummary,
     hasPlayedExample,
