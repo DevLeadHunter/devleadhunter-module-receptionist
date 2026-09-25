@@ -54,7 +54,7 @@ class AiAssistantRequestLinks:
         Returns:
             True only for an unexpired link signed for this request.
         """
-        if not token or expires_at < int((now or datetime.now(UTC)).timestamp()):
+        if not token or not token.isascii() or expires_at < int((now or datetime.now(UTC)).timestamp()):
             return False
         return hmac.compare_digest(token, cls.sign(request_id, expires_at))
 

@@ -39,7 +39,8 @@ logger = logging.getLogger(__name__)
 MAX_PHOTO_BYTES = 8 * 1024 * 1024
 MAX_PHOTOS_PER_SESSION = 3
 # A 48-megapixel phone photo passes; a small file declaring a huge canvas (decompression bomb) does not.
-MAX_PIXELS = 50_000_000
+# A PNG or WEBP decodes whole (only JPEG shrinks while decoding): 30 Mpx is about 120 Mo of pixels.
+MAX_PIXELS = 30_000_000
 MAX_EDGE_PX = 1600
 # The widget uploads a JPEG; only photo formats are decoded, never Pillow's rarer readers (EPS, PSD, TGA...).
 ACCEPTED_FORMATS = ("JPEG", "PNG", "WEBP")
@@ -309,6 +310,11 @@ class AiAssistantPhotoService:
             raise PhotoRejectedError(AiAssistantPhotoRejection.TOO_LARGE, "Photo trop lourde (8 Mo maximum).")
         # Decoding is CPU work: off the event loop, so the API keeps serving meanwhile.
         jpeg = await asyncio.to_thread(self.normalize, data)
+        # Photos sent at the same time all passed the first check: count again before keeping this one.
+        if self.kept_count(db, assistant.id, normalized_session) >= MAX_PHOTOS_PER_SESSION:
+            raise PhotoRejectedError(
+                AiAssistantPhotoRejection.QUOTA, f"{MAX_PHOTOS_PER_SESSION} photos maximum par demande."
+            )
         business_name = assistant.business_name
         eu_only = bool(assistant.eu_only)
         trade = ai_assistant_service.business_category(db, assistant)

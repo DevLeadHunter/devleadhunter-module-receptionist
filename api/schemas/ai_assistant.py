@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from enums.ai_assistant_request import (
@@ -15,6 +15,10 @@ from enums.ai_assistant_request import (
 from enums.assistant_booking_mode import AssistantBookingMode
 from enums.assistant_visitor_channel import AssistantVisitorChannel
 
+# The years an appointment or an offer page may name: anything else overflows the timezone arithmetic.
+BOOKABLE_YEAR_MIN = 2020
+BOOKABLE_YEAR_MAX = 2100
+
 
 class AiAssistantCreateRequest(BaseModel):
     """Request to generate an assistant for one of the caller's prospects."""
@@ -25,12 +29,12 @@ class AiAssistantCreateRequest(BaseModel):
 class AiAssistantUpdateRequest(BaseModel):
     """Owner edits to an assistant's branding, persona and alerts (all optional, partial update)."""
 
-    assistant_name: str | None = None
-    business_name: str | None = None
-    languages: list[str] | None = None
-    tone: str | None = None
+    assistant_name: str | None = Field(default=None, max_length=64)
+    business_name: str | None = Field(default=None, max_length=255)
+    languages: list[str] | None = Field(default=None, max_length=10)
+    tone: str | None = Field(default=None, max_length=255)
     use_brand_color: bool | None = None
-    accent_color: str | None = None
+    accent_color: str | None = Field(default=None, max_length=32)
     # The business owner's mobile for the alerts, as typed (empty clears it).
     alert_phone: str | None = Field(default=None, max_length=32)
     alert_sms_enabled: bool | None = None
@@ -246,6 +250,14 @@ class AiAssistantBookingChoice(BaseModel):
 
     start: datetime
     type: str | None = Field(default=None, max_length=64)
+
+    @field_validator("start")
+    @classmethod
+    def _within_bookable_years(cls, value: datetime) -> datetime:
+        """A start far outside the offer overflows timezone arithmetic: refuse it here."""
+        if not BOOKABLE_YEAR_MIN <= value.year <= BOOKABLE_YEAR_MAX:
+            raise ValueError("start is outside the bookable years")
+        return value
 
 
 class AiAssistantLeadRequest(BaseModel):

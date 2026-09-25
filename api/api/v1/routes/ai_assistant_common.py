@@ -16,10 +16,15 @@ from services.ai_assistant.request_email import AiAssistantRequestEmail
 
 
 def client_ip(request: Request) -> str:
-    """Best-effort visitor IP for rate limiting (honours the nginx ``X-Forwarded-For``)."""
+    """
+    Best-effort visitor IP for rate limiting.
+
+    nginx appends the address it saw to ``X-Forwarded-For``, so the last entry is the one a visitor cannot
+    forge; the first one is whatever the visitor sent. Without a proxy, the socket peer is used.
+    """
     forwarded = request.headers.get("x-forwarded-for", "")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        return forwarded.rsplit(",", 1)[-1].strip()
     return request.client.host if request.client else "unknown"
 
 

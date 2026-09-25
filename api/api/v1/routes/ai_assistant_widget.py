@@ -21,6 +21,8 @@ from enums.ai_assistant_status import AiAssistantStatus
 from enums.assistant_visitor_channel import AssistantVisitorChannel
 from models.ai_assistant import AiAssistant
 from schemas.ai_assistant import (
+    BOOKABLE_YEAR_MAX,
+    BOOKABLE_YEAR_MIN,
     AiAssistantAppointmentDay,
     AiAssistantAppointmentSlotsResponse,
     AiAssistantAppointmentTime,
@@ -34,7 +36,12 @@ from schemas.ai_assistant import (
     AiAssistantPublicResponse,
 )
 from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
-from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentRefused, AppointmentSlot
+from services.ai_assistant.appointment_slots import (
+    AiAssistantAppointmentSlots,
+    AppointmentRefused,
+    AppointmentSlot,
+    SlotNoLongerOffered,
+)
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.calendar_booking import SlotTakenError, ai_assistant_calendar_booking
 from services.ai_assistant.calendar_service import ai_assistant_calendar_service
@@ -75,12 +82,17 @@ _MAX_INCOMING_MESSAGES = 40
 
 # Shown to a visitor for a refusal whose reason is not written for them.
 _INVALID_REQUEST = "Demande invalide : vérifiez vos informations et réessayez."
+# Shown to the operator when a « ?internal=1 » visit tries to book in a client's agenda.
+_TEST_BOOKING_REFUSED = (
+    "Visite de test : aucun rendez-vous n'est réservé dans l'agenda. "
+    "Pour tester une réservation, ouvrez votre assistant de test sans ?internal=1."
+)
 
 
 def _owner_public_fields(assistant: AiAssistant) -> dict[str, str | None]:
-    """Owner contact shown in the « me contacter » banner (photo guarded on the R2 base)."""
+    """Owner contact shown in the « me contacter » banner of a demo only: a sold widget never carries it."""
     user = assistant.user
-    if user is None:
+    if user is None or assistant.status != AiAssistantStatus.ACTIVE.value:
         return {}
     fields: dict[str, str | None] = {
         "owner_name": user.name,
@@ -160,13 +172,20 @@ async def chat_with_assistant(
     history = [
         {"role": message.role, "content": message.content} for message in payload.messages[-_MAX_INCOMING_MESSAGES:]
     ]
+    knowledge = assistant.knowledge_json or {}
+    assistant_name = assistant.assistant_name
+    languages = assistant.languages
+    tone = assistant.tone
+    eu_only = bool(assistant.eu_only)
+    # The model may take tens of seconds: the pool connection goes back meanwhile (the journal opens its own).
+    db.commit()
     reply = await ai_assistant_chat_service.answer(
-        knowledge=assistant.knowledge_json or {},
-        assistant_name=assistant.assistant_name,
-        languages=assistant.languages,
-        tone=assistant.tone,
+        knowledge=knowledge,
+        assistant_name=assistant_name,
+        languages=languages,
+        tone=tone,
         history=history,
-        eu_only=bool(assistant.eu_only),
+        eu_only=eu_only,
     )
     # The journal must never cost the visitor their answer.
     try:
@@ -179,8 +198,10 @@ async def chat_with_assistant(
             reply=reply,
             is_test=payload.internal,
         )
-    except Exception:
-        logger.warning("Assistant conversation journal failed for slug %s", slug, exc_info=True)
+    except Exception as exc:
+        # No traceback: a database error would quote the visitor's message in the log.
+        logger.warning("Assistant conversation journal failed for slug %s (%s)", slug, type(exc).__name__)
+        db.rollback()
     return AiAssistantChatResponse(
         reply=reply, offer_booking=ai_assistant_chat_service.asks_for_appointment(history[-1]["content"])
     )
@@ -198,6 +219,8 @@ async def get_assistant_appointment_slots(
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de demandes, réessayez plus tard"
         )
+    if after is not None and not BOOKABLE_YEAR_MIN <= after.year <= BOOKABLE_YEAR_MAX:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_INVALID_REQUEST)
     assistant = public_assistant_or_404(db, slug)
     offer = await ai_assistant_calendar_service.offer(db, assistant, after=after)
     if offer.slots is not None and offer.settings is not None:
@@ -231,6 +254,10 @@ async def submit_assistant_lead(
     assistant = public_assistant_or_404(db, slug)
     if not payload.name.strip() or not payload.contact.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name and contact are required")
+    if payload.booking is not None and payload.internal:
+        # A test visit is never announced: booking silently in a client's agenda (and texting the visitor) would be
+        # an abuse path. The operator tests a real booking on their own test assistant, without « ?internal=1 ».
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_TEST_BOOKING_REFUSED)
 
     try:
         captured, _created = ai_assistant_request_service.capture(
@@ -244,17 +271,21 @@ async def submit_assistant_lead(
             is_test=payload.internal,
             appointment_slots=[AppointmentSlot(day=slot.date, period=slot.period) for slot in payload.slots],
         )
+    except SlotNoLongerOffered as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except AppointmentRefused as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     except ValueError as exc:
         db.rollback()
-        logger.warning("Assistant request of slug %s refused", slug, exc_info=True)
+        logger.warning("Assistant request of slug %s refused: %s", slug, exc)
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_INVALID_REQUEST) from exc
-    except Exception:
+    except Exception as exc:
         # Losing the durable row must not swallow the strongest signal — still notify the owner.
         db.rollback()
-        logger.warning("assistant request persist failed (slug=%s)", slug, exc_info=True)
+        # No traceback: a database error would quote the visitor's details in the log.
+        logger.warning("assistant request persist failed (slug=%s, %s)", slug, type(exc).__name__)
         if not payload.internal:
             await notification_service.notify_assistant_lead(
                 db,
@@ -273,12 +304,12 @@ async def submit_assistant_lead(
             outcome = await ai_assistant_calendar_booking.book_request(
                 db, assistant, captured, start=payload.booking.start, type_label=payload.booking.type
             )
-        except SlotTakenError as exc:
+        except (SlotTakenError, SlotNoLongerOffered) as exc:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
         except AppointmentRefused as exc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
-        except ValueError as exc:
-            logger.warning("Booking of slug %s refused", slug, exc_info=True)
+        except (ValueError, OverflowError) as exc:
+            logger.warning("Booking of slug %s refused: %s", slug, exc)
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_INVALID_REQUEST) from exc
         if outcome.appointment is not None:
             ai_assistant_appointment_notices.schedule_confirmation(outcome.appointment.id)
