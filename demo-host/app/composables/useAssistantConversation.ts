@@ -39,6 +39,7 @@ import { AssistantScheduleUtils } from '~/utils/AssistantScheduleUtils'
 import { AssistantStreamUtils } from '~/utils/AssistantStreamUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
+import { LanguageDetectUtils } from '~/utils/LanguageDetectUtils'
 import { PhotoCompressionUtils } from '~/utils/PhotoCompressionUtils'
 
 const DEFAULT_LANG: AssistantWidgetLang = 'fr'
@@ -508,6 +509,19 @@ export function useAssistantConversation(
   }
 
   /**
+   * Switch the widget's own language (labels, chips, language menu) to the one a text is clearly written in,
+   * when the assistant offers it; the assistant already replies in the visitor's language.
+   * @param text - The visitor's message, or the assistant's reply.
+   * @returns True when the language changed.
+   */
+  function followLanguage(text: string): boolean {
+    const detected: AssistantWidgetLang | null = LanguageDetectUtils.detect(text, offeredLanguages.value)
+    if (detected === null || detected === lang.value) return false
+    lang.value = detected
+    return true
+  }
+
+  /**
    * Send a text as the visitor's message (an internal visit is flagged so it stays out of the counts).
    * @param text - The message to send.
    * @returns A promise resolving once the reply is handled.
@@ -517,6 +531,8 @@ export function useAssistantConversation(
     if (!trimmed || isBusy.value || isStreaming.value) return
     noteInlineOpening()
     messages.value.push({ role: 'user', content: trimmed })
+    // A visitor writing in another offered language moves the widget to it; a short line leaves it as is.
+    const hasFollowedVisitor: boolean = followLanguage(trimmed)
     captureDemoEvent('assistant_message_sent')
     draft.value = ''
     isBusy.value = true
@@ -537,6 +553,8 @@ export function useAssistantConversation(
         messages.value.push(replyMessage(answer.reply, answer.follow_ups))
       }
       offerBooking = answer.offer_booking
+      // The reply is longer than the question: when the question was too short to tell, the reply decides.
+      if (!hasFollowedVisitor) followLanguage(answer.reply)
     } catch {
       messages.value.push({ role: 'assistant', content: FALLBACK_REPLY[lang.value] })
     } finally {

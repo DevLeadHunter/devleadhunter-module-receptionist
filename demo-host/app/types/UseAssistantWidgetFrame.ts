@@ -1,9 +1,12 @@
 import type { ComputedRef, Ref } from 'vue'
 
-/** `onOpenRequest` runs when the loader's own launcher on the host page asks the widget to open. */
+/**
+ * `isOpen` is what the loader must frame at panel size (the panel open, or still closing); `onOpenRequest` runs
+ * when the loader's own launcher on the host page asks the widget to open.
+ */
 export type UseAssistantWidgetFrameOptions = {
   inline: boolean
-  isOpen: Ref<boolean>
+  isOpen: Ref<boolean> | ComputedRef<boolean>
   launcherElement: Ref<HTMLElement | null>
   onOpenRequest: () => void
 }

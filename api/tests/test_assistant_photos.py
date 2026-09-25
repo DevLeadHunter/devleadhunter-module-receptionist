@@ -127,6 +127,17 @@ def test_a_photo_is_stored_as_a_bounded_jpeg_without_metadata() -> None:
         assert not image.getexif()
 
 
+def test_the_vision_prompt_judges_the_photo_with_the_trade_in_mind() -> None:
+    """A screenshot is a web agency's bread and butter: the prompt never lists screens or documents as off-topic."""
+    prompt = AiAssistantPhotoVision.SYSTEM_PROMPT
+
+    assert "AVEC CE MÉTIER en tête" in prompt
+    assert "capture de site ou d'application" in prompt and "un client montre son site actuel" in prompt
+    assert "(selfie, paysage, image choquante…)" in prompt
+    assert "écran, paysage, document" not in prompt
+    assert "un développeur parle du site montré" in prompt
+
+
 def test_a_relevant_photo_is_described_journaled_and_kept(db: Session, cloud: dict[str, Any]) -> None:
     assistant = _assistant(db)
 

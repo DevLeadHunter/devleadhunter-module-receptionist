@@ -1,130 +1,132 @@
 <template>
   <div class="ai-widget" :class="{ 'ai-widget--inline': props.inline }" :style="accentStyle">
-    <AssistantChatLauncher
-      v-if="!isOpen"
-      ref="launcherComponent"
-      :lang="lang"
-      :assistant-name="props.config.assistant_name"
-      :avatar-url="avatarUrl"
-      :avatar-fallback-url="avatarFallbackUrl"
-      :is-mobile-layout="isMobileLayout"
-      @open="open"
-    />
-
-    <section
-      v-else
-      class="ai-panel"
-      :class="{ 'ai-panel--mobile': isMobileLayout && !props.inline, 'ai-panel--inline': props.inline }"
-      role="dialog"
-      :aria-label="props.config.assistant_name"
-      @keydown.esc="close"
-    >
-      <AssistantChatHeader
-        ref="headerComponent"
+    <Transition name="ai-open" @after-leave="onAfterLeave">
+      <AssistantChatLauncher
+        v-if="!isOpen"
+        ref="launcherComponent"
+        :lang="lang"
         :assistant-name="props.config.assistant_name"
-        :business-name="props.config.business_name"
-        :role-label="roleLabel"
-        :online-label="onlineLabel"
         :avatar-url="avatarUrl"
         :avatar-fallback-url="avatarFallbackUrl"
-        :can-close="!props.inline"
-        :lang="lang"
-        :languages="offeredLanguages"
-        @close="close"
-        @change-lang="setLang"
+        :is-mobile-layout="isMobileLayout"
+        @open="open"
       />
 
-      <div ref="threadElement" class="ai-thread">
-        <div class="ai-thread__log" role="log" aria-live="polite" aria-relevant="additions">
-          <AssistantChatMessageBubble
-            v-for="(message, index) in messages"
-            :key="index"
-            :message="message"
-            :photo-preview-url="photoPreviews[index] ?? null"
-            :avatar-url="closesAssistantRun(index) ? avatarUrl : null"
-            :avatar-fallback-url="avatarFallbackUrl"
-            :assistant-name="props.config.assistant_name"
+      <section
+        v-else
+        class="ai-panel"
+        :class="{ 'ai-panel--mobile': isMobileLayout && !props.inline, 'ai-panel--inline': props.inline }"
+        role="dialog"
+        :aria-label="props.config.assistant_name"
+        @keydown.esc="close"
+      >
+        <AssistantChatHeader
+          ref="headerComponent"
+          :assistant-name="props.config.assistant_name"
+          :business-name="props.config.business_name"
+          :role-label="roleLabel"
+          :online-label="onlineLabel"
+          :avatar-url="avatarUrl"
+          :avatar-fallback-url="avatarFallbackUrl"
+          :can-close="!props.inline"
+          :lang="lang"
+          :languages="offeredLanguages"
+          @close="close"
+          @change-lang="setLang"
+        />
+
+        <div ref="threadElement" class="ai-thread">
+          <div class="ai-thread__log" role="log" aria-live="polite" aria-relevant="additions">
+            <AssistantChatMessageBubble
+              v-for="(message, index) in messages"
+              :key="index"
+              :message="message"
+              :photo-preview-url="photoPreviews[index] ?? null"
+              :avatar-url="closesAssistantRun(index) ? avatarUrl : null"
+              :avatar-fallback-url="avatarFallbackUrl"
+              :assistant-name="props.config.assistant_name"
+            />
+            <AssistantChatTypingIndicator v-if="isBusy" :lang="lang" />
+          </div>
+
+          <AssistantChatQuickReplies
+            v-if="showChips"
+            :lang="lang"
+            :suggestions="suggestions"
+            :can-send-photo="photosRemaining > 0"
+            :can-play-example="props.inline && !hasPlayedExample"
+            @photo="openPhotoPanel"
+            @appointment="openSlotPanel"
+            @suggest="sendText"
+            @example="playScriptedExample"
           />
-          <AssistantChatTypingIndicator v-if="isBusy" :lang="lang" />
+          <AssistantChatQuickReplies
+            v-else-if="followUps.length > 0"
+            :lang="lang"
+            :suggestions="followUps"
+            :can-send-photo="false"
+            :can-book-appointment="false"
+            @suggest="sendText"
+          />
+
+          <AssistantChatPhotoCard
+            v-if="isPhotoPanelOpen"
+            :lang="lang"
+            :is-busy="isBusy"
+            @pick="sendPhoto"
+            @cancel="closePhotoPanel"
+          />
+
+          <AssistantChatSlotsCard
+            v-if="isSlotPanelOpen"
+            ref="slotsCard"
+            :lang="lang"
+            :booking-mode="bookingMode"
+            :slots-state="slotsState"
+            :days="slotDays"
+            :times="slotTimes"
+            :has-more-times="hasMoreTimes"
+            :has-previous-page="hasPreviousSlotsPage"
+            :kinds="appointmentKinds"
+            :chosen-slots="chosenSlots"
+            :chosen-time="chosenTime"
+            :chosen-kind="chosenKind"
+            :can-continue="canContinueBooking"
+            @toggle-slot="toggleSlot"
+            @choose-time="chooseTime"
+            @choose-kind="chooseKind"
+            @first-page="loadFirstSlotsPage"
+            @more="showMoreTimes"
+            @confirm="confirmSlots"
+            @cancel="closeSlotPanel"
+          />
+
+          <AssistantChatContactForm
+            v-if="showLeadForm && !leadSent"
+            ref="contactForm"
+            :lang="lang"
+            :picked-summary="pickedSummary"
+            :initial-need="leadNeedPrefill"
+            :is-submitting="isSubmittingLead"
+            @submit="submitLead"
+            @cancel="cancelLeadForm"
+          />
         </div>
 
-        <AssistantChatQuickReplies
-          v-if="showChips"
+        <AssistantChatCallbackBar v-if="showCallbackBar" :lang="lang" @open="openLeadForm" />
+
+        <AssistantChatComposer
+          v-model="draft"
           :lang="lang"
-          :suggestions="suggestions"
+          :is-busy="isBusy || isStreaming"
           :can-send-photo="photosRemaining > 0"
-          :can-play-example="props.inline && !hasPlayedExample"
+          :can-book="!leadSent"
+          @send="sendDraft"
           @photo="openPhotoPanel"
           @appointment="openSlotPanel"
-          @suggest="sendText"
-          @example="playScriptedExample"
         />
-        <AssistantChatQuickReplies
-          v-else-if="followUps.length > 0"
-          :lang="lang"
-          :suggestions="followUps"
-          :can-send-photo="false"
-          :can-book-appointment="false"
-          @suggest="sendText"
-        />
-
-        <AssistantChatPhotoCard
-          v-if="isPhotoPanelOpen"
-          :lang="lang"
-          :is-busy="isBusy"
-          @pick="sendPhoto"
-          @cancel="closePhotoPanel"
-        />
-
-        <AssistantChatSlotsCard
-          v-if="isSlotPanelOpen"
-          ref="slotsCard"
-          :lang="lang"
-          :booking-mode="bookingMode"
-          :slots-state="slotsState"
-          :days="slotDays"
-          :times="slotTimes"
-          :has-more-times="hasMoreTimes"
-          :has-previous-page="hasPreviousSlotsPage"
-          :kinds="appointmentKinds"
-          :chosen-slots="chosenSlots"
-          :chosen-time="chosenTime"
-          :chosen-kind="chosenKind"
-          :can-continue="canContinueBooking"
-          @toggle-slot="toggleSlot"
-          @choose-time="chooseTime"
-          @choose-kind="chooseKind"
-          @first-page="loadFirstSlotsPage"
-          @more="showMoreTimes"
-          @confirm="confirmSlots"
-          @cancel="closeSlotPanel"
-        />
-
-        <AssistantChatContactForm
-          v-if="showLeadForm && !leadSent"
-          ref="contactForm"
-          :lang="lang"
-          :picked-summary="pickedSummary"
-          :initial-need="leadNeedPrefill"
-          :is-submitting="isSubmittingLead"
-          @submit="submitLead"
-          @cancel="cancelLeadForm"
-        />
-      </div>
-
-      <AssistantChatCallbackBar v-if="showCallbackBar" :lang="lang" @open="openLeadForm" />
-
-      <AssistantChatComposer
-        v-model="draft"
-        :lang="lang"
-        :is-busy="isBusy || isStreaming"
-        :can-send-photo="photosRemaining > 0"
-        :can-book="!leadSent"
-        @send="sendDraft"
-        @photo="openPhotoPanel"
-        @appointment="openSlotPanel"
-      />
-    </section>
+      </section>
+    </Transition>
   </div>
 </template>
 
@@ -225,6 +227,10 @@ const {
 }: UseAssistantConversationReturn = useAssistantConversation(props.config, props.inline, props.hostPage)
 
 const isOpen: Ref<boolean> = ref(props.inline)
+/** True while the panel plays its closing sheet: the loader keeps the frame large until it is gone. */
+const isPanelLeaving: Ref<boolean> = ref(false)
+/** What the loader must frame: the panel while it is open or still closing, the launcher otherwise. */
+const isFrameOpen: ComputedRef<boolean> = computed((): boolean => isOpen.value || isPanelLeaving.value)
 const launcherComponent: Ref<InstanceType<typeof AssistantChatLauncher> | null> = ref(null)
 const headerComponent: Ref<InstanceType<typeof AssistantChatHeader> | null> = ref(null)
 const slotsCard: Ref<InstanceType<typeof AssistantChatSlotsCard> | null> = ref(null)
@@ -237,7 +243,7 @@ const launcherElement: ComputedRef<HTMLElement | null> = computed(
 
 const { isMobileLayout, hostState }: UseAssistantWidgetFrameReturn = useAssistantWidgetFrame({
   inline: props.inline,
-  isOpen,
+  isOpen: isFrameOpen,
   launcherElement,
   onOpenRequest: open,
 })
@@ -292,11 +298,20 @@ function playScriptedExample(): void {
   playExample(steps)
 }
 
-/** Close the panel and give the keyboard focus back to the launcher. */
+/** Close the panel (it slides back to the launcher) and give the keyboard focus back to the launcher. */
 function close(): void {
   if (props.inline) return
+  isPanelLeaving.value = true
   isOpen.value = false
   nextTick((): void => launcherComponent.value?.focus())
+}
+
+/**
+ * The closing sheet is gone: the loader may now shrink the frame to the launcher.
+ * @param element - The element that just left (the panel, or the launcher when the panel opened).
+ */
+function onAfterLeave(element: Element): void {
+  if (element.classList.contains('ai-panel')) isPanelLeaving.value = false
 }
 
 /**
@@ -395,17 +410,8 @@ onBeforeUnmount((): void => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: ai-panel-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-@keyframes ai-panel-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  /* The sheet grows out of the launcher's portrait and shrinks back into it. */
+  transform-origin: calc(100% - 47px) calc(100% - 47px);
 }
 .ai-panel--inline {
   position: relative;
@@ -416,12 +422,6 @@ onBeforeUnmount((): void => {
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  animation: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .ai-panel {
-    animation: none;
-  }
 }
 .ai-panel--mobile {
   right: 0;
@@ -431,6 +431,64 @@ onBeforeUnmount((): void => {
   height: 100dvh;
   border-radius: 0;
   border: 0;
+}
+
+/* ── Opening and closing, the way a sheet moves on iOS: a long ease-out in, a shorter ease-in out ──── */
+.ai-open-enter-active.ai-panel {
+  transition:
+    opacity 0.42s cubic-bezier(0.32, 0.72, 0, 1),
+    transform 0.48s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.ai-open-leave-active.ai-panel {
+  transition:
+    opacity 0.24s cubic-bezier(0.4, 0, 1, 1),
+    transform 0.28s cubic-bezier(0.4, 0, 1, 1);
+}
+.ai-open-enter-from.ai-panel,
+.ai-open-leave-to.ai-panel {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0) scale(0.86);
+}
+/* Full screen on a phone: the sheet slides up from the bottom edge and back down. */
+.ai-open-enter-from.ai-panel--mobile,
+.ai-open-leave-to.ai-panel--mobile {
+  opacity: 1;
+  transform: translate3d(0, 100%, 0);
+}
+/* The launcher steps aside quickly and pops back a beat after the sheet has gone. */
+.ai-open-enter-active.ai-launcher {
+  transition:
+    opacity 0.3s cubic-bezier(0.32, 0.72, 0, 1) 0.08s,
+    transform 0.3s cubic-bezier(0.32, 0.72, 0, 1) 0.08s;
+}
+.ai-open-leave-active.ai-launcher {
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+.ai-open-enter-from.ai-launcher,
+.ai-open-leave-to.ai-launcher {
+  opacity: 0;
+  transform: scale(0.7);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-open-enter-active,
+  .ai-open-leave-active {
+    transition-duration: 0.15s;
+    transition-delay: 0s;
+  }
+  .ai-open-enter-from,
+  .ai-open-leave-to {
+    transform: none;
+  }
+}
+/* The widget's own focus ring, never the browser's blue one. */
+.ai-widget :deep(:focus:not(:focus-visible)) {
+  outline: none;
+}
+.ai-widget :deep(:focus-visible) {
+  outline: 2px solid var(--ai-accent-strong);
+  outline-offset: 2px;
 }
 .ai-thread {
   flex: 1;

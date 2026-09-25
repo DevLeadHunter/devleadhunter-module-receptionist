@@ -181,6 +181,13 @@ defineExpose({ focusClose })
   border-color: var(--ai-ink);
   color: var(--ai-ink);
 }
+/* A native select keeps the focus after a click: the widget shows it with its own border, not the browser's ring. */
+.ai-head__lang:focus,
+.ai-head__lang:focus-visible {
+  outline: none;
+  border-color: var(--ai-accent-strong);
+  color: var(--ai-ink);
+}
 .ai-head__close {
   flex: none;
   width: 32px;
@@ -198,5 +205,12 @@ defineExpose({ focusClose })
 .ai-head__close:hover {
   background: var(--ai-paper);
   color: var(--ai-ink);
+}
+.ai-head__close:focus {
+  outline: none;
+}
+.ai-head__close:focus-visible {
+  outline: 2px solid var(--ai-accent-strong);
+  outline-offset: 2px;
 }
 </style>

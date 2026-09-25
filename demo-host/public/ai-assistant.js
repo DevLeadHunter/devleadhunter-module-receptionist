@@ -45,8 +45,13 @@
   if (pageParams.get('internal') === '1') frameSrc += '&internal=1'
 
   var CSS =
-    '.dlh-launcher{position:fixed;right:max(22px,env(safe-area-inset-right,0px));bottom:max(22px,env(safe-area-inset-bottom,0px));z-index:2147483000;display:flex;align-items:center;gap:12px;margin:0;padding:0;border:0;background:transparent;cursor:pointer;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#17130d;text-align:left;line-height:1.4}' +
+    '.dlh-launcher{position:fixed;right:max(22px,env(safe-area-inset-right,0px));bottom:max(22px,env(safe-area-inset-bottom,0px));z-index:2147483000;display:flex;align-items:center;gap:12px;margin:0;padding:0;border:0;background:transparent;cursor:pointer;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#17130d;text-align:left;line-height:1.4;transform-origin:calc(100% - 25px) calc(100% - 25px);transition:opacity .16s ease,transform .16s ease}' +
     '.dlh-launcher[hidden]{display:none}' +
+    '.dlh-launcher:focus{outline:none}' +
+    '.dlh-launcher:focus-visible{outline:2px solid var(--dlh-strong);outline-offset:4px;border-radius:999px}' +
+    '.dlh-launcher--away{opacity:0;transform:scale(.7);pointer-events:none}' +
+    '.dlh-launcher--pop{animation:dlh-pop .34s cubic-bezier(.32,.72,0,1)}' +
+    '@keyframes dlh-pop{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}' +
     '.dlh-launcher__say{background:#fff;color:#17130d;border:1px solid rgba(23,19,13,.12);border-radius:14px;padding:11px 16px;font-size:14px;max-width:300px;box-shadow:0 18px 44px -24px rgba(23,19,13,.45)}' +
     '.dlh-launcher__say strong{font-weight:600}' +
     '.dlh-launcher__portrait{position:relative;width:50px;height:50px;flex:none;border-radius:50%;box-shadow:0 0 0 3px #fff,0 0 0 4px var(--dlh-strong),0 12px 28px -12px rgba(23,19,13,.55);transition:transform .15s ease}' +
@@ -58,7 +63,7 @@
     '.dlh-launcher--loading .dlh-launcher__portrait{animation:dlh-pulse 1s ease-in-out infinite}' +
     '@keyframes dlh-pulse{50%{opacity:.55}}' +
     '@media (max-width:559px),(max-height:639px){.dlh-launcher__say{display:none}.dlh-launcher__portrait{width:46px;height:46px}}' +
-    '@media (prefers-reduced-motion:reduce){.dlh-launcher__portrait{transition:none}.dlh-launcher--loading .dlh-launcher__portrait{animation:none}}'
+    '@media (prefers-reduced-motion:reduce){.dlh-launcher{transition:none}.dlh-launcher--pop{animation:none}.dlh-launcher__portrait{transition:none}.dlh-launcher--loading .dlh-launcher__portrait{animation:none}}'
 
   var launcher = null
   var iframe = null
@@ -66,6 +71,7 @@
   var isOpen = false
   var wantsOpen = false
   var assistantName = ''
+  var launcherHideTimer = null
 
   function isMobile() {
     return window.innerWidth < MOBILE_MAX_WIDTH || window.innerHeight < MOBILE_MAX_HEIGHT
@@ -123,8 +129,13 @@
     isOpen = true
     iframe.style.display = 'block'
     applySize()
-    launcher.hidden = true
-    launcher.classList.remove('dlh-launcher--loading')
+    // The launcher steps aside while the sheet grows out of it, then leaves the page.
+    launcher.classList.remove('dlh-launcher--loading', 'dlh-launcher--pop')
+    launcher.classList.add('dlh-launcher--away')
+    clearTimeout(launcherHideTimer)
+    launcherHideTimer = setTimeout(function () {
+      if (isOpen) launcher.hidden = true
+    }, 180)
     iframe.focus()
   }
 
@@ -132,7 +143,11 @@
     isOpen = false
     wantsOpen = false
     if (iframe) iframe.style.display = 'none'
+    // The widget shrank its sheet back into the launcher: it pops back where the sheet went.
+    clearTimeout(launcherHideTimer)
     launcher.hidden = false
+    launcher.classList.remove('dlh-launcher--away')
+    launcher.classList.add('dlh-launcher--pop')
     launcher.focus()
   }
 
@@ -275,6 +290,9 @@
     launcher.appendChild(say)
     launcher.appendChild(portrait)
     launcher.addEventListener('click', open)
+    launcher.addEventListener('animationend', function () {
+      launcher.classList.remove('dlh-launcher--pop')
+    })
     document.body.appendChild(launcher)
     schedulePrefetch()
   }
