@@ -9,8 +9,10 @@
  * itself, natively. The widget's iframe is created hidden once the page is idle (or on the first
  * click), so the site's own loading, its Core Web Vitals included, is never delayed by the widget.
  * Opening shows the iframe sized as the widget reports (the panel, or the whole screen on a phone);
- * closing hides it again behind the launcher. An unavailable receptionist (unknown slug, demo expired)
- * draws nothing. No dependency, no styling of the host page touched.
+ * closing hides it again behind the launcher. The visitor's conversation is kept in the host page's own
+ * storage and handed to the widget when it starts, because Safari denies storage to a third-party iframe:
+ * a visitor moving from page to page keeps their thread. An unavailable receptionist (unknown slug, demo
+ * expired) draws nothing. No dependency, no styling of the host page touched.
  */
 ;(function () {
   var current = document.currentScript
@@ -28,6 +30,7 @@
   var PREFETCH_DELAY_MS = 3000
 
   var origin = new URL(current.src).origin
+  var STORAGE_KEY = 'dlh-assistant-' + slug
   var pageParams = new URLSearchParams(window.location.search)
   var frameSrc =
     origin +
@@ -93,6 +96,28 @@
     iframe.contentWindow.postMessage({ type: 'dlh-assistant-open' }, origin)
   }
 
+  function readStoredState() {
+    try {
+      return window.localStorage.getItem(STORAGE_KEY)
+    } catch (error) {
+      return null
+    }
+  }
+
+  function writeStoredState(state) {
+    try {
+      if (typeof state === 'string') window.localStorage.setItem(STORAGE_KEY, state)
+      else window.localStorage.removeItem(STORAGE_KEY)
+    } catch (error) {
+      // Storage refused (private mode, quota): the widget keeps its own copy for this page.
+    }
+  }
+
+  function postStoredState() {
+    if (!iframe || !iframe.contentWindow) return
+    iframe.contentWindow.postMessage({ type: 'dlh-assistant-state', state: readStoredState() }, origin)
+  }
+
   function showFrame() {
     if (!iframe) return
     isOpen = true
@@ -127,10 +152,15 @@
     if (event.data.type === 'dlh-assistant-ready') {
       isFrameReady = true
       postHostViewport()
+      postStoredState()
       if (wantsOpen) {
         showFrame()
         postOpen()
       }
+      return
+    }
+    if (event.data.type === 'dlh-assistant-persist') {
+      writeStoredState(event.data.state)
       return
     }
     if (event.data.type !== 'dlh-assistant-resize') return

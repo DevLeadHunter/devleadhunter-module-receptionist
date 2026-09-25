@@ -192,6 +192,7 @@ const {
   lastLeadSummary,
   hasPlayedExample,
   restore,
+  restoreFromHost,
   greet,
   playExample,
   setLang,
@@ -225,7 +226,7 @@ const launcherElement: ComputedRef<HTMLElement | null> = computed(
   (): HTMLElement | null => launcherComponent.value?.rootElement ?? null,
 )
 
-const { isMobileLayout }: UseAssistantWidgetFrameReturn = useAssistantWidgetFrame({
+const { isMobileLayout, hostState }: UseAssistantWidgetFrameReturn = useAssistantWidgetFrame({
   inline: props.inline,
   isOpen,
   launcherElement,
@@ -332,6 +333,10 @@ watch(lastLeadSummary, (summary: AssistantLeadSummary | null): void => {
 
 watch(hasPlayedExample, (hasPlayed: boolean): void => {
   if (hasPlayed) emit('example-played')
+})
+
+watch(hostState, (raw: string | null | undefined): void => {
+  if (raw !== undefined) restoreFromHost(raw)
 })
 
 onMounted((): void => {

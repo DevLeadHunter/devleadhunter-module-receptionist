@@ -22,6 +22,7 @@ import type { AssistantContactDetails } from '~/types/AssistantChatContactForm'
 import type { AssistantDemoScriptStep, AssistantHostPage } from '~/types/AssistantDemoScript'
 import type { UseAssistantConversationReturn } from '~/types/UseAssistantConversation'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
+import { postHostPersist } from '~/composables/useAssistantWidgetFrame'
 import {
   APPOINTMENT_LABELS,
   FALLBACK_REPLY,
@@ -182,7 +183,19 @@ export function useAssistantConversation(
   function restoreConversation(): boolean {
     // Inside the try: a browser that refuses storage to a third-party iframe throws on the mere access.
     try {
-      const raw: string | null = localStorage.getItem(storageKey)
+      return restoreFromRaw(localStorage.getItem(storageKey))
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Restore a serialised conversation, as this widget or the host page saved it.
+   * @param raw - The serialised conversation, or null when there is none.
+   * @returns True when a conversation was restored.
+   */
+  function restoreFromRaw(raw: string | null): boolean {
+    try {
       if (!raw) return false
       const saved: { lang?: unknown; messages?: unknown; sessionId?: unknown } = JSON.parse(raw)
       if (typeof saved.sessionId === 'string' && saved.sessionId) sessionId.value = saved.sessionId
@@ -201,20 +214,32 @@ export function useAssistantConversation(
     }
   }
 
+  /**
+   * Take the conversation the host page kept, when this widget has nothing yet but its greeting: Safari gives a
+   * third-party iframe no storage of its own, the host page's copy carries the thread from page to page.
+   * @param raw - The serialised conversation the loader sent, or null when the host page has none.
+   */
+  function restoreFromHost(raw: string | null): void {
+    const hasSpoken: boolean = messages.value.some((message: AssistantChatMessage): boolean => message.role === 'user')
+    if (hasSpoken || !raw) return
+    restoreFromRaw(raw)
+  }
+
   /** Persist this visitor's conversation and language, bounded to the most recent messages. */
   function persistConversation(): void {
+    // An empty thread has nothing to save, and saving it would wipe the copy the host page keeps from an earlier page.
+    if (messages.value.length === 0) return
+    const raw: string = JSON.stringify({
+      lang: lang.value,
+      sessionId: sessionId.value,
+      messages: messages.value.slice(-MAX_STORED_MESSAGES),
+    })
     try {
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          lang: lang.value,
-          sessionId: sessionId.value,
-          messages: messages.value.slice(-MAX_STORED_MESSAGES),
-        }),
-      )
+      localStorage.setItem(storageKey, raw)
     } catch {
       // Storage unavailable (private mode, third-party iframe) or full: the widget keeps working from memory.
     }
+    if (!inline) postHostPersist(raw)
   }
 
   /**
@@ -769,6 +794,7 @@ export function useAssistantConversation(
     lastLeadSummary,
     hasPlayedExample,
     restore,
+    restoreFromHost,
     greet,
     playExample,
     setLang,

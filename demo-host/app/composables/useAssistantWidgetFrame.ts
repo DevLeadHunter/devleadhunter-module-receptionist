@@ -13,6 +13,16 @@ const LAUNCHER_EDGE_MARGIN: number = 22
 const LAUNCHER_SHADOW_ALLOWANCE: number = 12
 
 /**
+ * Hand the visitor's conversation to the loader, which keeps it in the host page's own storage: Safari denies
+ * storage to a third-party iframe, the host page's storage survives from page to page.
+ * @param state - The serialised conversation.
+ */
+export function postHostPersist(state: string): void {
+  if (typeof window === 'undefined' || window.parent === window) return
+  window.parent.postMessage({ type: 'dlh-assistant-persist', state }, '*')
+}
+
+/**
  * The widget's dialogue with the loader framing it on a client's site: iframe size to give, host viewport to follow,
  * open requests from the loader's own launcher to honour.
  * @param options - Whether the widget is laid out in a page, its open state, its launcher element, what to do on open.
@@ -20,6 +30,7 @@ const LAUNCHER_SHADOW_ALLOWANCE: number = 12
  */
 export function useAssistantWidgetFrame(options: UseAssistantWidgetFrameOptions): UseAssistantWidgetFrameReturn {
   const isEmbedded: Ref<boolean> = ref(false)
+  const hostState: Ref<string | null | undefined> = ref(undefined)
   const viewportWidth: Ref<number | null> = ref(null)
   const viewportHeight: Ref<number | null> = ref(null)
   let launcherObserver: ResizeObserver | null = null
@@ -60,6 +71,10 @@ export function useAssistantWidgetFrame(options: UseAssistantWidgetFrameOptions)
     if (!data) return
     if (data.type === 'dlh-assistant-open') {
       options.onOpenRequest()
+      return
+    }
+    if (data.type === 'dlh-assistant-state') {
+      hostState.value = typeof data.state === 'string' ? data.state : null
       return
     }
     if (data.type !== 'dlh-assistant-host' || typeof data.width !== 'number' || data.width <= 0) return
@@ -105,5 +120,5 @@ export function useAssistantWidgetFrame(options: UseAssistantWidgetFrameOptions)
     launcherObserver?.disconnect()
   })
 
-  return { isEmbedded, isMobileLayout }
+  return { isEmbedded, isMobileLayout, hostState }
 }

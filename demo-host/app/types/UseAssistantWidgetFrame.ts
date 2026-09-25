@@ -8,7 +8,9 @@ export type UseAssistantWidgetFrameOptions = {
   onOpenRequest: () => void
 }
 
+/** `hostState` is the conversation the host page kept, null when it has none, undefined until the loader spoke. */
 export type UseAssistantWidgetFrameReturn = {
   isEmbedded: Ref<boolean>
   isMobileLayout: ComputedRef<boolean>
+  hostState: Ref<string | null | undefined>
 }

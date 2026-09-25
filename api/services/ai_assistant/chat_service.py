@@ -16,7 +16,12 @@ from typing import Any
 from enums.assistant_llm import AssistantLlmUsage
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.llm_router import assistant_llm_router
-from services.ai_assistant.missing_info_marker import MissingInfoMarker, MissingInfoMarkerStream
+from services.ai_assistant.missing_info_marker import (
+    MissingInfoMarker,
+    MissingInfoMarkerStream,
+    admits_ignorance,
+    filed_question,
+)
 from services.text_normalizer import TextNormalizer
 
 logger = logging.getLogger(__name__)
@@ -104,7 +109,9 @@ class AiAssistantChatService:
         messages = self._messages(knowledge, assistant_name=assistant_name, languages=languages, tone=tone, turns=turns)
         raw = await assistant_llm_router.chat(AssistantLlmUsage.CHAT, messages, eu_only=eu_only)
         reply, question = MissingInfoMarker.split(raw or "")
-        return ChatAnswer(reply=reply or _FALLBACK_REPLY, unanswered_question=question)
+        return ChatAnswer(
+            reply=reply or _FALLBACK_REPLY, unanswered_question=self._question_to_file(reply, question, turns)
+        )
 
     async def answer_stream(
         self,
@@ -147,7 +154,21 @@ class AiAssistantChatService:
         reply = marker.reply
         if not reply:
             yield ChatDelta(text=_FALLBACK_REPLY)
-        yield ChatDelta(final=ChatAnswer(reply=reply or _FALLBACK_REPLY, unanswered_question=marker.question))
+        yield ChatDelta(
+            final=ChatAnswer(
+                reply=reply or _FALLBACK_REPLY,
+                unanswered_question=self._question_to_file(reply, marker.question, turns),
+            )
+        )
+
+    @staticmethod
+    def _question_to_file(reply: str, question: str | None, turns: list[dict[str, Any]]) -> str | None:
+        """The marker's question; else the visitor's own words when the reply admits it does not know."""
+        if question is not None:
+            return question
+        if reply and admits_ignorance(reply):
+            return filed_question(turns[-1]["content"])
+        return None
 
     def _messages(
         self,

@@ -46,6 +46,7 @@ export type UseAssistantConversationReturn = {
   lastLeadSummary: Ref<AssistantLeadSummary | null>
   hasPlayedExample: Ref<boolean>
   restore: () => void
+  restoreFromHost: (raw: string | null) => void
   greet: () => Promise<void>
   playExample: (steps: AssistantDemoScriptStep[]) => Promise<void>
   setLang: (code: AssistantWidgetLang) => void

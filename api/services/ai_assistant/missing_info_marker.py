@@ -106,6 +106,48 @@ class MissingInfoMarkerStream:
         return text
 
 
+# A reply that admits it does not know, in the widget's languages: the net under a model that forgot the marker.
+_IGNORANCE = re.compile(
+    r"(je ne (sais|dispose) pas|je n['’]ai pas (cette|d['’]|l['’]|les? |acc[eè]s)|je ne peux pas vous (dire|"
+    r"r[ée]pondre|confirmer|renseigner)|(aucune|pas d['’])information|"
+    r"i (do not|don['’]t) (know|have (that|this|the) information)|i (cannot|can['’]t) (tell|confirm)|"
+    r"ik weet (het |dat )?niet|ik heb (die|deze|geen) informatie niet|"
+    r"ich wei(ß|ss) (es |das )?nicht|(keine|diese) information(en)? (liegt|liegen|habe)|"
+    r"ech wees(s)? (et |dat )?net)",
+    re.IGNORECASE,
+)
+
+# What the visitor asked is filed as it was typed, cut short.
+MAX_FILED_QUESTION_CHARS = 200
+
+
+def admits_ignorance(reply: str) -> bool:
+    """
+    Whether a reply says, in one of the widget's languages, that the assistant does not have the information.
+
+    Args:
+        reply: The cleaned reply.
+
+    Returns:
+        True when the reply admits not knowing.
+    """
+    return _IGNORANCE.search(reply or "") is not None
+
+
+def filed_question(visitor_message: str) -> str | None:
+    """
+    The visitor's message as a question to file when the model wrote no marker.
+
+    Args:
+        visitor_message: The visitor's latest message.
+
+    Returns:
+        The message trimmed and cut to 200 characters, or None when empty.
+    """
+    question = " ".join((visitor_message or "").split())[:MAX_FILED_QUESTION_CHARS].strip()
+    return question or None
+
+
 class MissingInfoMarker:
     """Splits a whole reply into what the visitor reads and the question its marker carried."""
 

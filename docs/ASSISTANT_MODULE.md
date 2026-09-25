@@ -957,3 +957,25 @@ Léo a demandé de livrer tous les axes proposés après le cinquième passage, 
   IA » / « Réceptionnistes IA » partout dans le dashboard (sélecteur de module, barre latérale, titres, volet prospect,
   facturation, abonnements, monitoring, clip webcam).
 - Page /ia : « Cette démo n'est plus disponible » sur un slug inconnu.
+
+## Huitième passage (25/09, nuit) : tests « comme un client » et deux filets
+
+- **Safari sur iPhone gardait une conversation par page.** Un iframe tiers n'a pas de stockage sous Safari. Le loader
+  garde désormais la conversation dans le stockage du site hôte (`dlh-assistant-{slug}`) : à chaque sauvegarde le
+  widget envoie `dlh-assistant-persist` au loader, et au démarrage le loader renvoie `dlh-assistant-state` au widget,
+  qui la reprend si son fil n'a encore rien d'autre que l'accueil (`useAssistantWidgetFrame.postHostPersist`,
+  `hostState`, `useAssistantConversation.restoreFromHost`). Un fil vide n'est jamais sauvegardé, sinon il écraserait
+  la copie de l'hôte au montage. Vérifié avec la page hôte sur une autre origine que le demo-host et le stockage de
+  l'iframe vidé entre deux chargements : la conversation revient. Attention en test : `embed-test.html` est servie par
+  le demo-host lui-même, donc hôte et iframe partagent le même stockage et ce cas ne s'y voit pas.
+- **Filet sous le marqueur `§MANQUE:`.** Si le modèle l'oublie mais avoue ne pas savoir (« je ne sais pas », « je ne
+  dispose pas », « I don't know », « ik weet het niet », « ich weiß nicht »…), la question du visiteur est classée
+  telle quelle (`missing_info_marker.admits_ignorance`, `filed_question`, `chat_service._question_to_file`). Le flux
+  n'est plus retenu 120 caractères : il part dès que la première ligne ne peut plus être le marqueur. La question
+  classée est demandée au modèle sous la forme d'une question de client (« Faites-vous le nettoyage des gouttières ? »).
+- **Test en conditions réelles.** Le loader de prod injecté sur le vrai `dibodev.fr` (desktop et mobile) : le
+  lanceur s'affiche en bas à droite, rien ne le recouvre, aucune erreur de sécurité (le site n'a pas de CSP).
+  En local, un prospect « Dibodev » (site, téléphone et e-mail de test de Léo) a reçu sa réceptionniste (Léa) :
+  réponses ancrées sur le site, prix refusé, trois questions hors connaissance classées comme de vraies questions,
+  demande de rappel arrivée sur le téléphone de droite et dans les demandes. Mistral n'est pas configuré en local :
+  son obéissance au marqueur reste à observer en prod, le filet couvre le cas contraire.

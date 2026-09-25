@@ -431,3 +431,27 @@ def test_a_marker_prefix_is_held_until_its_line_ends() -> None:
     assert stream.feed("rappelons vite.") == "rappelons vite."
     assert stream.finish() == ""
     assert stream.question == "Faites-vous les gouttières ?"
+
+
+def test_a_reply_that_admits_not_knowing_files_the_visitor_question_without_a_marker() -> None:
+    """The net under a model that forgot the marker: an admission of ignorance files the visitor's own words."""
+    assert marker_module.admits_ignorance("Je ne dispose pas de cette information, mais je note votre demande.")
+    assert marker_module.admits_ignorance("I don't have that information, sorry.")
+    assert marker_module.admits_ignorance("Ik weet het niet, ik geef het door.")
+    assert not marker_module.admits_ignorance("Oui, nous livrons le samedi matin.")
+    assert marker_module.filed_question("  Livrez-vous   le samedi ?  ") == "Livrez-vous le samedi ?"
+    assert marker_module.filed_question("   ") is None
+
+
+def test_the_answer_files_the_visitor_question_when_the_reply_admits_ignorance(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def forgot_the_marker(*args: Any, **kwargs: Any) -> str:
+        return "Je ne sais pas si nous livrons, mais je peux noter votre demande."
+
+    monkeypatch.setattr(chat_module.assistant_llm_router, "chat", forgot_the_marker)
+    turns = [{"role": "user", "content": "Vous livrez le samedi ?"}]
+    answer = asyncio.run(
+        chat_module.ai_assistant_chat_service.answer(knowledge=_KB, assistant_name="Sofia", history=turns)
+    )
+
+    assert answer.unanswered_question == "Vous livrez le samedi ?"
+    assert answer.reply.startswith("Je ne sais pas")

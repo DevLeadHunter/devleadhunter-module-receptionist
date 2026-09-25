@@ -958,6 +958,12 @@ questions sans réponse (`§MANQUE:` dans le prompt) et FAQ éditable côté das
 dans le prompt ; guide d'installation par plateforme ; « Réceptionniste IA » partout dans le dashboard. Détail dans
 `docs/ASSISTANT_MODULE.md`, section « Septième passage ».
 
+**Huitième passage, même nuit (« teste le max, corrige, peaufine »)** : conversation gardée par le site hôte pour
+Safari (pont `dlh-assistant-state` / `dlh-assistant-persist`), filet d'aveu d'ignorance sous le marqueur, flux
+libéré dès le premier mot, lanceur de prod vérifié sur le vrai dibodev.fr, parcours client complet joué en local sur
+une réceptionniste « Dibodev ». Reste à observer en prod : Mistral suit-il le marqueur (poser cinq questions hors
+connaissance sur une démo, sans `internal=1`, et regarder « Questions sans réponse »).
+
 **À tester par Léo** (toujours avec `?internal=1` sur les pages du demo-host) : `/ia/{slug}` sur desktop et
 mobile (une demande envoyée depuis le téléphone de gauche doit mettre à jour la notification de droite), le widget
 embarqué (`/embed-test.html?slug=…&internal=1`), puis `/dashboard/ai-assistants`, la page de détail et
