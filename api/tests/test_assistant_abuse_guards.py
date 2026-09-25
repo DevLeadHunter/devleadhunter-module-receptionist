@@ -165,3 +165,14 @@ def test_served_mobiles_are_told_from_landlines_and_other_countries() -> None:
     assert to_served_mobile("+32 2 511 11 11") is None
     assert to_served_mobile("+41 22 123 45 67") is None
     assert to_served_mobile("+44 7700 900123") is None
+
+
+def test_the_alert_email_is_checked_and_kept_lower_case(db: Session) -> None:
+    assistant = _delivered_assistant(db)
+
+    with pytest.raises(ValueError, match="Adresse email"):
+        ai_assistant_service.update(db, assistant, {"email": "06 12 34 56 78"})
+    ai_assistant_service.update(db, assistant, {"email": " Patron@Toitures-Morel.fr "})
+    assert assistant.email == "patron@toitures-morel.fr"
+    ai_assistant_service.update(db, assistant, {"email": ""})
+    assert assistant.email is None

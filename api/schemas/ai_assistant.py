@@ -35,6 +35,8 @@ class AiAssistantUpdateRequest(BaseModel):
     tone: str | None = Field(default=None, max_length=255)
     use_brand_color: bool | None = None
     accent_color: str | None = Field(default=None, max_length=32)
+    # Where the business's alerts, reports and client-space links go (empty clears it).
+    email: str | None = Field(default=None, max_length=255)
     # The business owner's mobile for the alerts, as typed (empty clears it).
     alert_phone: str | None = Field(default=None, max_length=32)
     alert_sms_enabled: bool | None = None
@@ -67,6 +69,8 @@ class AiAssistantResponse(BaseModel):
     prospect_id: int | None = None
     business_name: str
     assistant_name: str
+    # Where the business's alerts, reports and client-space links go.
+    email: str | None = None
     languages: list[str] = Field(default_factory=list)
     tone: str | None = None
     accent_color: str | None = None

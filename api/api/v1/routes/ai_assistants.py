@@ -75,6 +75,7 @@ def _to_owner_response(
         prospect_id=assistant.prospect_id,
         business_name=assistant.business_name,
         assistant_name=assistant.assistant_name,
+        email=assistant.email,
         languages=assistant.languages or [],
         tone=assistant.tone,
         accent_color=ai_assistant_service.accent_color(assistant),

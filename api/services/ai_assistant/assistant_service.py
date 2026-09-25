@@ -28,6 +28,9 @@ from services.enrichment_service import enrichment_service
 from services.mistral_service import mistral_service
 from services.sms.phone_normalizer import to_served_mobile
 
+# The loose shape of an address, enough to refuse a phone number or a sentence typed by mistake.
+_EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
 logger = logging.getLogger(__name__)
 
 
@@ -145,6 +148,11 @@ class AiAssistantService:
                 setattr(assistant, hour, int(fields[hour]))
         if "eu_only" in fields and fields["eu_only"] is not None:
             assistant.eu_only = bool(fields["eu_only"])
+        if "email" in fields:
+            raw_email = " ".join((fields["email"] or "").split()).lower()
+            if raw_email and not _EMAIL_PATTERN.match(raw_email):
+                raise ValueError("Adresse email des alertes invalide")
+            assistant.email = raw_email[:255] or None
         if "assistant_name" in fields:
             assistant.assistant_name = (fields["assistant_name"] or "").strip() or assistant.assistant_name
         if "business_name" in fields:
