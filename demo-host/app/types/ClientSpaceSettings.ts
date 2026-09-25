@@ -18,6 +18,8 @@ export type ClientSpaceSettingsProps = {
   isSaving: boolean
   errorMessage: string | null
   hasSaved: boolean
+  /** In the example space: the settings are shown, none can be saved. */
+  readOnly: boolean
 }
 
 /** Events of the ClientSpaceSettings component. */

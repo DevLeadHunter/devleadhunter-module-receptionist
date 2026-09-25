@@ -17,7 +17,6 @@ from api.v1.routes.ai_assistant_common import (
     demo_url,
     owned_assistant_or_404,
 )
-from core.config import settings
 from core.database import get_db
 from enums.ai_assistant_request import AiAssistantRequestType
 from enums.ai_assistant_status import AiAssistantStatus
@@ -37,6 +36,7 @@ from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.client_space_service import ai_assistant_client_space_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ConversationCounts, ai_assistant_conversation_service
+from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.report_service import ai_assistant_report_service
 from services.ai_assistant.request_alerts import AlertSettings
 from services.ai_assistant.request_service import RequestCounts, ai_assistant_request_service
@@ -59,11 +59,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai-assistants", tags=["ai-assistants"])
 
 
-def _embed_snippet(slug: str) -> str:
-    base = settings.demo_host_base_url.rstrip("/")
-    return f'<script src="{base}/ai-assistant.js" data-slug="{slug}" defer></script>'
-
-
 def _to_owner_response(
     assistant: AiAssistant,
     subscription: object | None = None,
@@ -84,7 +79,7 @@ def _to_owner_response(
         use_brand_color=assistant.use_brand_color,
         status=assistant.status,
         demo_url=demo_url(assistant.slug),
-        embed_snippet=_embed_snippet(assistant.slug),
+        embed_snippet=AiAssistantEmbedSnippet.render(assistant.slug),
         demo_link_sent_at=assistant.demo_link_sent_at,
         expires_at=assistant.expires_at,
         video_status=assistant.video_status,

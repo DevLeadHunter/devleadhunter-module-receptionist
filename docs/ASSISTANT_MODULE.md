@@ -1024,6 +1024,15 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
   (pilule noire, halo + balayage), aussi utilisé par la page vidéo `/v`.
 - **Bulle fermée.** Loader : portrait 50 px (46 px sous 560 px), bulle jusqu'à 300 px ; même chose pour
   `AssistantChatLauncher`.
+- **E-mail de bienvenue à la vente.** `payments.py` (webhook `checkout.session.completed`) appelle
+  `client_space_service.send_welcome` après l'activation : la ligne à coller (`AiAssistantEmbedSnippet`, partagée
+  avec le dashboard), le lien de l'espace, ce qui arrive ensuite. Jamais bloquant pour le webhook.
+- **Espace vitrine.** `GET /ai-assistants/client/exemple` renvoie `client_space_example.py` (Toitures Morel, daté du
+  jour, `is_example=True`) ; la page `/client/exemple?demo=<slug>` l'affiche en lecture seule (props `readOnly` des
+  composants, bandeau, retour à la démo). La page /ia le montre en image (`/showroom/espace-client.webp`, capturée par
+  `api/scripts/capture_client_space_example.py` avec les serveurs locaux, à relancer quand l'espace change) sous le
+  titre « Vous gardez la main », avec l'événement PostHog `assistant_space_example_opened` sur le clic. Cure de texte
+  de la page /ia au passage (chapô, outcomes, estimation, note du CTA).
 - **Espace client.** Ses réglages gagnent les types de demandes envoyés par SMS et la plage « ne pas déranger »
   (`alert_sms_types`, `alert_quiet_start_hour`, `alert_quiet_end_hour` dans `AiAssistantClientSettings`, mêmes
   règles que le dashboard). Rappel du parcours : l'espace n'existe que pour un assistant vendu (`delivered`) ; son

@@ -31,6 +31,7 @@ from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
 from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
 from services.ai_assistant.client_space_email import AiAssistantClientSpaceEmail
+from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_email import RenderedEmail
 from services.ai_assistant.request_service import ai_assistant_request_service
@@ -299,6 +300,35 @@ class AiAssistantClientSpaceService:
             expires_on=OpeningHoursCalendar.to_business_time(expires_at).date(),
         )
         recipient, send_error = await self._email_business(db, assistant, rendered)
+        return ClientLinkDelivery(url=url, expires_at=expires_at, sent_to=recipient, send_error=send_error)
+
+    async def send_welcome(
+        self, db: Session, assistant: AiAssistant, *, now: datetime | None = None
+    ) -> ClientLinkDelivery:
+        """
+        Welcome a business that just subscribed: the line to paste on its site and its client-space link.
+
+        Args:
+            db: Active database session.
+            assistant: The assistant just sold.
+            now: Current time (tests); defaults to now.
+
+        Returns:
+            The link, its expiry and where the email went (never raises on a failed send).
+        """
+        current = (now or datetime.now(UTC)).replace(tzinfo=None)
+        url = AiAssistantClientLinks.url(assistant.id, now=current)
+        expires_at = current + timedelta(days=AiAssistantClientLinks.TTL_DAYS)
+        rendered = AiAssistantClientSpaceEmail.render_welcome(
+            business_name=assistant.business_name,
+            assistant_name=assistant.assistant_name,
+            url=url,
+            expires_on=OpeningHoursCalendar.to_business_time(expires_at).date(),
+            embed_snippet=AiAssistantEmbedSnippet.render(assistant.slug),
+        )
+        recipient, send_error = await self._email_business(db, assistant, rendered)
+        if send_error is not None:
+            logger.warning("Assistant %s: welcome email not sent (%s)", assistant.id, send_error)
         return ClientLinkDelivery(url=url, expires_at=expires_at, sent_to=recipient, send_error=send_error)
 
     @staticmethod

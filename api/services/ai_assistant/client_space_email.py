@@ -1,4 +1,7 @@
-"""The emails of the client space: its link (from the dashboard or an expired link), and the alert-mobile change notice."""
+"""
+The emails of the client space: the welcome at the sale, its link (from the dashboard or an expired link), and the
+notices of a changed alert mobile or a connected agenda.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +12,73 @@ from services.ai_assistant.request_email import AiAssistantRequestEmail, Rendere
 
 
 class AiAssistantClientSpaceEmail:
-    """Renders the client-space link email: what the space holds, the button, how long the link lasts."""
+    """Renders the client-space emails: the welcome, the link, the notices."""
+
+    @staticmethod
+    def render_welcome(
+        *, business_name: str, assistant_name: str, url: str, expires_on: date, embed_snippet: str
+    ) -> RenderedEmail:
+        """
+        Render the email a business receives right after subscribing: the line to paste, the space, what comes next.
+
+        Args:
+            business_name: The business.
+            assistant_name: Its assistant's first name.
+            url: The signed client-space link.
+            expires_on: The last day the link opens the space.
+            embed_snippet: The script tag to paste on the website.
+
+        Returns:
+            Subject and HTML body; every stored text is HTML-escaped.
+        """
+        name = html.escape(assistant_name)
+        steps_html = "".join(
+            f'<li style="margin:0 0 8px">{step}</li>'
+            for step in (
+                "<strong>Collez cette ligne</strong> sur votre site, juste avant la balise &lt;/body&gt; (ou "
+                "transmettez-la à la personne qui s'occupe de votre site, ou répondez à cet email : on l'installe "
+                "avec vous) :",
+            )
+        )
+        code_html = (
+            '<pre style="margin:0 0 16px;padding:12px 14px;border-radius:8px;background:#f4f0e8;font-size:13px;'
+            f'white-space:pre-wrap;word-break:break-all">{html.escape(embed_snippet)}</pre>'
+        )
+        after_html = "".join(
+            f'<li style="margin:0 0 6px">{item}</li>'
+            for item in (
+                "un SMS et un email à chaque demande, avec la conversation et la photo ;",
+                "les rendez-vous dans votre agenda Google, si vous le connectez depuis l'espace ;",
+                f"un rapport chaque début de mois : ce que {name} a traité pour vous.",
+            )
+        )
+        body = "".join(
+            [
+                AiAssistantRequestEmail.paragraph(
+                    f"Merci : <strong>{name}</strong> travaille désormais pour <strong>{html.escape(business_name)}</strong>. "
+                    "Deux choses pour démarrer."
+                ),
+                f'<ol style="margin:0 0 6px;padding-left:22px">{steps_html}</ol>',
+                code_html,
+                AiAssistantRequestEmail.paragraph(
+                    f"<strong>Ouvrez votre espace</strong> : les demandes que {name} reçoit, ses réponses à compléter, "
+                    "vos alertes, votre abonnement."
+                ),
+                AiAssistantRequestEmail.button("Ouvrir mon espace", url),
+                AiAssistantRequestEmail.paragraph("Ensuite, tout arrive chez vous :"),
+                f'<ul style="margin:0 0 12px;padding-left:22px">{after_html}</ul>',
+                AiAssistantRequestEmail.paragraph(
+                    f"Ce lien personnel est valable jusqu'au {expires_on:%d/%m/%Y} ; chaque alerte vous en apporte un "
+                    "nouveau. Ne le transférez pas : il donne accès à vos demandes. Une question ? Répondez à cet "
+                    "email.",
+                    muted=True,
+                ),
+            ]
+        )
+        return RenderedEmail(
+            subject=f"Bienvenue : {assistant_name} travaille pour vous",
+            html=AiAssistantRequestEmail.document(body),
+        )
 
     @staticmethod
     def render(*, business_name: str, assistant_name: str, url: str, expires_on: date) -> RenderedEmail:

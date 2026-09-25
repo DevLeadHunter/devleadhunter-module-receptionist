@@ -122,6 +122,8 @@ export type AiAssistantClientSpace = {
   pending_count: number
   requests: AiAssistantClientRequest[]
   report: AiAssistantClientReport | null
+  /** The example space a prospect opens from its demo page: fictional data, nothing to save. */
+  is_example: boolean
   settings: AiAssistantClientSettings
   language_options: AiAssistantClientLanguageOption[]
   subscription: AiAssistantClientSubscription | null

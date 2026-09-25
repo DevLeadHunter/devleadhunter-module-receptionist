@@ -41,6 +41,7 @@ from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
 from services.ai_assistant.calendar_service import ai_assistant_calendar_service
 from services.ai_assistant.calendar_settings import DURATION_CHOICES, MIN_NOTICE_CHOICES, CalendarSettings
 from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
+from services.ai_assistant.client_space_example import EXAMPLE_TOKEN, ai_assistant_client_space_example
 from services.ai_assistant.client_space_service import ClientSpaceAccessError, ai_assistant_client_space_service
 from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.google_calendar_client import GoogleCalendarError
@@ -180,7 +181,9 @@ def _to_settings(assistant: AiAssistant) -> AiAssistantClientSettings:
 async def get_client_space(
     token: str, request: Request, db: Session = Depends(get_db)
 ) -> AiAssistantClientSpaceResponse:
-    """Everything the client-space page shows, for a valid link."""
+    """Everything the client-space page shows, for a valid link; the example space under its reserved token."""
+    if token == EXAMPLE_TOKEN:
+        return ai_assistant_client_space_example.build()
     assistant, link = _open_client_space(db, token, request)
     report = ai_assistant_client_space_service.latest_report(db, assistant)
     subscription = ai_assistant_client_space_service.current_subscription(db, assistant)

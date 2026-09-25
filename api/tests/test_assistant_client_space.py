@@ -336,6 +336,37 @@ def test_the_billing_portal_returns_to_the_client_space(db: Session, monkeypatch
     ]
 
 
+def test_the_example_space_opens_without_a_link_and_its_actions_stay_closed(db: Session) -> None:
+    """A prospect reads a fictional, dated space under « exemple »; nothing can be saved under that token."""
+    space = asyncio.run(routes.get_client_space("exemple", VISITOR_REQUEST, db))
+
+    assert space.is_example is True
+    assert (space.business_name, space.assistant_name, space.pending_count) == ("Toitures Morel", "Sofia", 2)
+    assert [item.type.value for item in space.requests] == ["urgent", "appointment", "quote"]
+    assert space.report is not None and space.subscription is not None and space.calendar.status.value == "connected"
+    assert space.settings.alert_sms_types and space.faq and space.unanswered
+    # Dated from now: the example never looks stale.
+    assert space.requests[0].received_label.endswith("à 21:43")
+    assert (
+        _status_of(routes.update_client_settings("exemple", AiAssistantClientSettingsUpdate(), VISITOR_REQUEST, db))[0]
+        == 404
+    )
+
+
+def test_the_welcome_email_gives_the_install_line_and_the_space_link(db: Session, outbox: dict[str, Any]) -> None:
+    """Right after the sale, the business gets the tag to paste, its space and what comes next; a muted one nothing."""
+    assistant = _assistant(db)
+
+    delivery = asyncio.run(client_space_module.ai_assistant_client_space_service.send_welcome(db, assistant))
+
+    assert delivery.sent_to == "patron@toitures-morel.fr" and delivery.send_error is None
+    [sent] = outbox["email"].calls
+    assert sent["subject"] == f"Bienvenue : {assistant.assistant_name} travaille pour vous"
+    assert f"data-slug=&quot;{assistant.slug}&quot;" in sent["body_html"]
+    assert delivery.url in sent["body_html"] and "Ouvrir mon espace" in sent["body_html"]
+    assert "rapport chaque début de mois" in sent["body_html"]
+
+
 def test_a_recently_expired_link_emails_a_fresh_one_within_the_limits(db: Session, outbox: dict[str, Any]) -> None:
     assistant = _assistant(db)
     expired = _token(assistant, now=datetime.now(UTC) - timedelta(days=40))

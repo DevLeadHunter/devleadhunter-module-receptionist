@@ -118,6 +118,8 @@ class AiAssistantClientSpaceResponse(BaseModel):
     accent_color: str | None = None
     # « 24/10/2026 »: the last day this link opens the space.
     link_expires_label: str
+    # The example space a prospect opens from its demo page: fictional data, nothing to save.
+    is_example: bool = False
     pending_count: int
     requests: list[AiAssistantClientRequestItem] = Field(default_factory=list)
     report: AiAssistantClientReport | None = None

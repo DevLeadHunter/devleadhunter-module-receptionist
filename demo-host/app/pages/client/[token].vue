@@ -46,10 +46,16 @@
         </div>
       </section>
 
+      <p v-if="isExample" class="cs__example">
+        Exemple d’espace client, avec des données fictives : le vôtre arrive avec votre réceptionniste.
+        <NuxtLink v-if="demoSlug" :to="`/ia/${demoSlug}`" class="cs__example-link">Revenir à ma démo</NuxtLink>
+      </p>
+
       <ClientSpaceRequests
         :requests="space.requests"
         :pending-count="space.pending_count"
         :busy-request-id="busyRequestId"
+        :read-only="isExample"
         @handled="markHandled"
       />
       <p v-if="actionError" class="cs__notice cs__notice--error">{{ actionError }}</p>
@@ -64,6 +70,7 @@
         :faq="space.faq"
         :is-busy="isSavingFaq"
         :error-message="faqError"
+        :read-only="isExample"
         @answer="answerQuestion"
         @dismiss="dismissQuestion"
       />
@@ -74,6 +81,7 @@
         :is-saving="isSavingSettings"
         :error-message="settingsError"
         :has-saved="hasSavedSettings"
+        :read-only="isExample"
         @save="saveSettings"
       />
 
@@ -88,7 +96,7 @@
             <span v-if="periodLine"> · {{ periodLine }}</span>
           </p>
           <button
-            v-if="space.subscription.can_manage"
+            v-if="space.subscription.can_manage && !isExample"
             type="button"
             class="cs-button cs-button--outline"
             :disabled="isOpeningPortal"
@@ -106,12 +114,13 @@
         :is-busy="isCalendarBusy"
         :error-message="calendarError"
         :has-saved="hasSavedCalendar"
+        :read-only="isExample"
         @connect="connectCalendar"
         @save="saveCalendar"
         @disconnect="disconnectCalendar"
       />
 
-      <p class="cs__foot">
+      <p v-if="!isExample" class="cs__foot">
         Lien personnel, valable jusqu’au {{ space.link_expires_label }}. Ne le transférez pas : il donne accès à vos
         demandes.
       </p>
@@ -214,6 +223,15 @@ const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<str
 const shortBusinessName: ComputedRef<string> = computed((): string =>
   BusinessNameUtils.short(space.value?.business_name ?? ''),
 )
+
+/** The example space a prospect reads from its demo page: fictional data, nothing to save. */
+const isExample: ComputedRef<boolean> = computed((): boolean => space.value?.is_example === true)
+
+/** The demo the prospect came from (« ?demo=<slug> »), to offer the way back; empty when unknown or malformed. */
+const demoSlug: ComputedRef<string> = computed((): string => {
+  const raw: string = String(route.query.demo ?? '')
+  return /^[a-z0-9-]{1,80}$/.test(raw) ? raw : ''
+})
 
 const heroTitle: ComputedRef<string> = computed((): string => {
   const pendingCount: number = space.value?.pending_count ?? 0
@@ -696,6 +714,25 @@ useHead({
   margin: 0;
   font-size: 14px;
   color: var(--cs-ink);
+}
+
+.cs__example {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px dashed var(--a-accent);
+  background: var(--cs-accent-soft);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--cs-ink);
+}
+
+.cs__example-link {
+  margin-left: 6px;
+  color: var(--cs-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .cs__notice--error {

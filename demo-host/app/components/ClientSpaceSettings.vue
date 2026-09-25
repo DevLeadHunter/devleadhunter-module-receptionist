@@ -2,7 +2,7 @@
   <ClientSpaceSection title="Réglages">
     <form class="css__form" @submit.prevent="submit">
       <!-- Frozen while a save is in flight: a value typed meanwhile would be overwritten by the answer. -->
-      <fieldset class="css__fields" :disabled="props.isSaving">
+      <fieldset class="css__fields" :disabled="props.isSaving || props.readOnly">
         <label class="cs-field">
           <span class="cs-label">Prénom affiché aux visiteurs</span>
           <input v-model="assistantName" class="cs-input" type="text" maxlength="64" required autocomplete="off" />
@@ -92,6 +92,7 @@
       </fieldset>
 
       <ClientSpaceSaveBar
+        v-if="!props.readOnly"
         :is-busy="isSaving"
         :can-save="canSave"
         :error-message="errorMessage"
@@ -125,6 +126,7 @@ const HOURS: number[] = Array.from({ length: 24 }, (_: unknown, hour: number): n
  * @param isSaving A save is in flight.
  * @param errorMessage Why the last save was refused, if it was.
  * @param hasSaved The last save went through.
+ * @param readOnly The example space: shown, never saved.
  */
 const props: ClientSpaceSettingsProps = defineProps({
   settings: { type: Object as PropType<AiAssistantClientSettings>, required: true },
@@ -132,6 +134,7 @@ const props: ClientSpaceSettingsProps = defineProps({
   isSaving: { type: Boolean, default: false },
   errorMessage: { type: String as PropType<string | null>, default: null },
   hasSaved: { type: Boolean, default: false },
+  readOnly: { type: Boolean, default: false },
 })
 
 const emit: EmitFn<ClientSpaceSettingsEmits> = defineEmits<ClientSpaceSettingsEmits>()
