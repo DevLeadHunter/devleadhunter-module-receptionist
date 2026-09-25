@@ -61,73 +61,81 @@
         />
 
         <template v-else>
-          <ul class="app-card divide-y divide-[var(--app-line-soft)] overflow-hidden">
-            <li
-              v-for="request in visibleRequests"
-              :key="request.id"
-              class="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-[var(--app-surface-2)] @xl:flex-row @xl:items-center @xl:gap-4"
-            >
-              <button
-                type="button"
-                class="flex min-w-0 flex-1 cursor-pointer flex-col gap-2 text-left @xl:flex-row @xl:items-center @xl:gap-4"
-                :title="`Ouvrir la demande de ${request.name}`"
+          <div class="app-card overflow-hidden">
+            <BaseTable min-width="760px">
+              <template #head>
+                <BaseTableTh>Visiteur</BaseTableTh>
+                <BaseTableTh>Demande</BaseTableTh>
+                <BaseTableTh>Assistant</BaseTableTh>
+                <BaseTableTh align="right">Reçue</BaseTableTh>
+                <BaseTableTh align="center">Statut</BaseTableTh>
+              </template>
+
+              <BaseTableTr
+                v-for="request in visibleRequests"
+                :key="request.id"
+                class="cursor-pointer"
+                tabindex="0"
                 @click="openRequest(request)"
+                @keydown.enter="openRequest(request)"
               >
-                <span class="flex w-full min-w-0 items-start gap-3 @xl:w-64 @xl:shrink-0">
-                  <span
-                    class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--app-line)] bg-[var(--app-surface)]"
-                  >
-                    <UIcon :name="TYPE_ICONS[request.type]" class="h-4 w-4 text-[var(--app-ink-soft)]" />
+                <BaseTableTd>
+                  <span class="block text-sm font-semibold text-[var(--app-ink)]">{{ request.name }}</span>
+                  <span class="font-label text-xs whitespace-nowrap text-[var(--app-ink-soft)]">{{
+                    request.contact
+                  }}</span>
+                </BaseTableTd>
+
+                <BaseTableTd label="Demande">
+                  <span class="block min-w-0 text-left">
+                    <span class="flex items-start gap-2">
+                      <span
+                        class="app-badge mt-0.5 shrink-0"
+                        :class="request.type === 'urgent' ? 'app-badge--danger' : ''"
+                      >
+                        {{ REQUEST_TYPE_LABELS[request.type] }}
+                      </span>
+                      <span class="line-clamp-2 text-sm leading-relaxed text-[var(--app-ink)]">
+                        {{ requestSummary(request) }}
+                      </span>
+                    </span>
+                    <span
+                      v-if="requestFlags(request).length > 0"
+                      class="mt-1.5 flex items-center gap-2 text-[var(--app-faint)]"
+                    >
+                      <UIcon
+                        v-for="flag in requestFlags(request)"
+                        :key="flag.icon"
+                        :name="flag.icon"
+                        class="h-3.5 w-3.5"
+                        role="img"
+                        :aria-label="flag.label"
+                        :title="flag.label"
+                      />
+                    </span>
                   </span>
-                  <span class="block min-w-0">
-                    <span class="block truncate text-sm font-medium text-[var(--app-ink)]">{{ request.name }}</span>
-                    <span class="text-muted block truncate text-xs">{{ request.contact }}</span>
-                  </span>
-                </span>
-                <span class="block min-w-0 flex-1">
-                  <span class="line-clamp-2 text-xs leading-relaxed text-[var(--app-ink-soft)] @xl:text-sm">
-                    {{ request.need_summary || request.need || 'Demande de rappel, sans détail.' }}
-                  </span>
-                  <span class="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <span class="app-badge" :class="request.type === 'urgent' ? 'app-badge--danger' : ''">
-                      {{ REQUEST_TYPE_LABELS[request.type] }}
-                    </span>
-                    <span v-if="request.appointment_booked || request.appointment_slots.length" class="app-badge">
-                      <UIcon name="i-lucide-calendar-days" class="h-3 w-3" />
-                      {{ request.appointment_booked ? 'Réservé' : 'Créneaux souhaités' }}
-                    </span>
-                    <span v-if="request.photo_urls.length > 0" class="app-badge">
-                      <UIcon name="i-lucide-camera" class="h-3 w-3" />
-                      {{ request.photo_urls.length }}
-                    </span>
-                    <span v-if="request.received_outside_hours" class="app-badge">
-                      <UIcon name="i-lucide-moon" class="h-3 w-3" />
-                      Hors horaires
-                    </span>
-                    <span v-if="request.is_test" class="app-badge">Test</span>
-                    <span class="text-muted text-xs tabular-nums">
-                      {{ request.business_name }} · {{ formatShortMonthDayTime(request.created_at) }}
-                    </span>
-                  </span>
-                </span>
-              </button>
-              <div class="flex shrink-0 items-center gap-2 @xl:justify-end">
-                <span v-if="request.status === 'handled'" class="app-badge app-badge--success">Traitée</span>
-                <span v-else-if="request.status === 'dropped'" class="app-badge">Sans suite</span>
-                <button
-                  v-else
-                  type="button"
-                  class="btn-secondary h-8 text-xs disabled:cursor-not-allowed disabled:opacity-50"
-                  :disabled="busyRequestId === request.id"
-                  @click="markHandled(request)"
+                </BaseTableTd>
+
+                <BaseTableTd label="Assistant" class="text-sm text-[var(--app-ink-soft)]">
+                  {{ request.business_name }}
+                </BaseTableTd>
+
+                <BaseTableTd
+                  label="Reçue"
+                  align="right"
+                  class="font-label text-xs whitespace-nowrap text-[var(--app-ink-soft)]"
                 >
-                  <UIcon name="i-lucide-check" class="mr-1 h-3.5 w-3.5" />
-                  Marquer traitée
-                </button>
-                <UIcon name="i-lucide-chevron-right" class="hidden h-4 w-4 text-[var(--app-faint)] @xl:block" />
-              </div>
-            </li>
-          </ul>
+                  {{ formatShortMonthDayTime(request.created_at) }}
+                </BaseTableTd>
+
+                <BaseTableTd label="Statut" align="center">
+                  <span :class="['app-badge', REQUEST_STATUS_BADGE_CLASS[request.status]]">
+                    {{ REQUEST_STATUS_LABELS[request.status] }}
+                  </span>
+                </BaseTableTd>
+              </BaseTableTr>
+            </BaseTable>
+          </div>
           <p v-if="statusTab !== 'new' && allRequests.length >= REQUEST_LIST_LIMIT" class="text-muted text-xs">
             Les {{ REQUEST_LIST_LIMIT }} dernières demandes sont affichées ; l'onglet « À traiter » les montre toutes.
           </p>
@@ -144,17 +152,16 @@ import type {
   AiAssistantListResponse,
   AiAssistantRequestItem,
   AiAssistantRequestsResponse,
-  AiAssistantRequestType,
+  AiAssistantRequestStatus,
   AiAssistantSummary,
 } from '~/types/AiAssistant'
+import type { AiAssistantRequestFlag } from '~/types/AiAssistantRequestsPage'
 import type { AssistantRequestMutationNotice } from '~/types/DrawerStack'
 import type { SelectFieldOption } from '~/types/SelectField'
 import type { UiFilterTab } from '~/types/UiFilterTabs'
-import type { UseToastReturn } from '~/types/Composables'
 import { AiAssistantService } from '~/services/aiAssistantService'
-import { useToast } from '~/composables/useToast'
 import { useDrawerStackStore } from '~/stores/drawerStack'
-import { REQUEST_TYPE_LABELS } from '~/utils/aiAssistantLabels'
+import { REQUEST_STATUS_LABELS, REQUEST_TYPE_LABELS } from '~/utils/aiAssistantLabels'
 import { formatShortMonthDayTime, parseApiDate } from '~/utils/date'
 
 /** The inbox of the requests visitors left across the user's assistants; each row opens its drawer. */
@@ -163,19 +170,16 @@ definePageMeta({ layout: 'dashboard', middleware: 'auth' })
 useSeoMeta({ title: 'Demandes — DevLeadHunter' })
 
 const route: ReturnType<typeof useRoute> = useRoute()
-const toast: UseToastReturn = useToast()
 const drawerStack: ReturnType<typeof useDrawerStackStore> = useDrawerStackStore()
 
 /** How many requests the API lists at most per call; « À traiter » is fetched apart so it is never cut. */
 const REQUEST_LIST_LIMIT: number = 300
 
-/** Icon of each request type, in the rows. */
-const TYPE_ICONS: Record<AiAssistantRequestType, string> = {
-  question: 'i-lucide-message-circle-question',
-  quote: 'i-lucide-receipt-text',
-  appointment: 'i-lucide-calendar-days',
-  urgent: 'i-lucide-siren',
-  other: 'i-lucide-inbox',
+/** Badge tone of each request status: the ones still waiting stand out. */
+const REQUEST_STATUS_BADGE_CLASS: Record<AiAssistantRequestStatus, string> = {
+  new: 'app-badge--strong',
+  handled: 'app-badge--success',
+  dropped: '',
 }
 
 const assistants: Ref<AiAssistantSummary[]> = ref([])
@@ -187,7 +191,6 @@ const newRequests: Ref<AiAssistantRequestItem[]> = ref([])
 const pendingRequestCount: Ref<number> = ref(0)
 const isLoading: Ref<boolean> = ref(true)
 const hasLoadFailed: Ref<boolean> = ref(false)
-const busyRequestId: Ref<number | null> = ref(null)
 const statusTab: Ref<string> = ref('new')
 const searchQuery: Ref<string> = ref('')
 /** Assistant id as a string for the select, « all » for every assistant. */
@@ -272,21 +275,31 @@ function openRequest(request: AiAssistantRequestItem): void {
 }
 
 /**
- * Mark a request handled from its row, without opening it.
+ * One line for what the visitor needs: the analyser's summary, else their own words.
  * @param request - The request.
- * @returns A promise resolved once saved.
+ * @returns The summary, or a fallback for a plain call-back.
  */
-async function markHandled(request: AiAssistantRequestItem): Promise<void> {
-  busyRequestId.value = request.id
-  try {
-    const updated: AiAssistantRequestItem = await AiAssistantService.updateRequest(request.id, { status: 'handled' })
-    // Through the store: an open drawer of this request refreshes, and the watcher below applies it here.
-    drawerStack.notifyAssistantRequestUpdated(updated)
-  } catch {
-    toast.error('Mise à jour de la demande impossible.')
-  } finally {
-    busyRequestId.value = null
+function requestSummary(request: AiAssistantRequestItem): string {
+  return request.need_summary || request.need || 'Demande de rappel, sans détail.'
+}
+
+/**
+ * The marks worth a glance in the list: slot wished or booked, photos, outside hours, test.
+ * @param request - The request.
+ * @returns The icons to show, each with its label.
+ */
+function requestFlags(request: AiAssistantRequestItem): AiAssistantRequestFlag[] {
+  const flags: AiAssistantRequestFlag[] = []
+  if (request.appointment_booked) flags.push({ icon: 'i-lucide-calendar-check', label: 'Rendez-vous réservé' })
+  else if (request.appointment_slots.length > 0) {
+    flags.push({ icon: 'i-lucide-calendar-days', label: 'Créneaux souhaités' })
   }
+  if (request.photo_urls.length > 0) {
+    flags.push({ icon: 'i-lucide-camera', label: `${request.photo_urls.length} photo(s) jointe(s)` })
+  }
+  if (request.received_outside_hours) flags.push({ icon: 'i-lucide-moon', label: 'Reçue hors horaires' })
+  if (request.is_test) flags.push({ icon: 'i-lucide-flask-conical', label: 'Demande de test' })
+  return flags
 }
 
 /**

@@ -1,18 +1,13 @@
 /** A colour as red, green and blue components from 0 to 255. */
 type RgbColor = { r: number; g: number; b: number }
 
-/** The three colours the widget derives from a business's accent. */
+/** The three shades the widget derives from a business's accent. */
 export type AssistantAccentPalette = {
-  /** The accent itself, for backgrounds (header, visitor bubbles, buttons). */
+  /** The accent itself: presence dots, rings, hairlines and light tints, never a fill under text. */
   accent: string
-  /**
-   * The far end of the header's gradient: a deeper shade under a light ink, a lighter tint under a dark ink, so
-   * the ink reads at least as well there as on the accent itself.
-   */
-  edge: string
-  /** The ink written on the accent: light or dark, whichever contrasts more. */
-  ink: string
-  /** The accent darkened until it reads as text on the widget's light paper. */
+  /** The accent deepened until white reads on it: the one fill that carries text (visitor bubbles, buttons). */
+  strong: string
+  /** The accent deepened until it reads as text on the widget's paper: links, chip icons, selected pills. */
   text: string
 }
 
@@ -22,11 +17,11 @@ const MIN_TEXT_CONTRAST: number = 4.5
 /** The widget's light paper, on which the accent is also used as text. */
 const PAPER: RgbColor = { r: 251, g: 249, b: 243 }
 
-const LIGHT_INK: string = '#f4efe6'
-const DARK_INK: string = '#17130d'
+/** The white written on the strong shade. */
+const ON_STRONG: RgbColor = { r: 255, g: 255, b: 255 }
 
 /**
- * The accent colour of the assistant's widget and pages, and the inks that keep it readable whatever its shade.
+ * The accent colour of the assistant's widget and pages, and the shades that keep it readable whatever its hue.
  */
 export class AssistantAccentUtils {
   /** The editorial gold used when the business has no accent colour of its own. */
@@ -35,23 +30,15 @@ export class AssistantAccentUtils {
   /**
    * The palette the widget paints with, from a business's accent (a hex colour; anything else falls back).
    * @param accent - The accent as stored, or null.
-   * @returns The accent, the ink written on it, and the shade used for accent-coloured text.
+   * @returns The accent, its strong fill and its text shade.
    */
   static palette(accent: string | null | undefined): AssistantAccentPalette {
     const rgb: RgbColor | null = AssistantAccentUtils.parse(accent ?? '')
     if (!rgb) return AssistantAccentUtils.palette(AssistantAccentUtils.FALLBACK_ACCENT)
-    const onLight: number = AssistantAccentUtils.contrast(rgb, AssistantAccentUtils.parse(LIGHT_INK) as RgbColor)
-    const onDark: number = AssistantAccentUtils.contrast(rgb, AssistantAccentUtils.parse(DARK_INK) as RgbColor)
-    const isInkLight: boolean = onLight >= onDark
-    // The gradient moves away from the ink, so its far end never reads worse than the accent.
-    const edge: RgbColor = isInkLight
-      ? { r: rgb.r * 0.78, g: rgb.g * 0.78, b: rgb.b * 0.78 }
-      : { r: rgb.r + (255 - rgb.r) * 0.22, g: rgb.g + (255 - rgb.g) * 0.22, b: rgb.b + (255 - rgb.b) * 0.22 }
     return {
       accent: AssistantAccentUtils.format(rgb),
-      edge: AssistantAccentUtils.format(edge),
-      ink: isInkLight ? LIGHT_INK : DARK_INK,
-      text: AssistantAccentUtils.format(AssistantAccentUtils.darkenUntilReadable(rgb)),
+      strong: AssistantAccentUtils.format(AssistantAccentUtils.darkenUntilReadable(rgb, ON_STRONG)),
+      text: AssistantAccentUtils.format(AssistantAccentUtils.darkenUntilReadable(rgb, PAPER)),
     }
   }
 
@@ -108,13 +95,14 @@ export class AssistantAccentUtils {
   }
 
   /**
-   * Darken a colour, a step at a time, until it reads as text on the paper (a dark accent is kept as is).
+   * Darken a colour, a step at a time, until the given light colour reads on it (a dark accent is kept as is).
    * @param rgb - The accent.
+   * @param against - The light colour that must read on the result: the paper, or the white of a button.
    * @returns The readable shade.
    */
-  private static darkenUntilReadable(rgb: RgbColor): RgbColor {
+  private static darkenUntilReadable(rgb: RgbColor, against: RgbColor): RgbColor {
     let shade: RgbColor = rgb
-    for (let step: number = 0; step < 20 && AssistantAccentUtils.contrast(shade, PAPER) < MIN_TEXT_CONTRAST; step++) {
+    for (let step: number = 0; step < 24 && AssistantAccentUtils.contrast(shade, against) < MIN_TEXT_CONTRAST; step++) {
       shade = { r: shade.r * 0.88, g: shade.g * 0.88, b: shade.b * 0.88 }
     }
     return shade

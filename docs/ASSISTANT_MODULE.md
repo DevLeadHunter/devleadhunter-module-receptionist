@@ -183,14 +183,18 @@ Ce que voit le prospect : le widget, sa page de démo et le script qui l'install
 
 C'est le **produit** que le client colle sur son site. Il porte :
 
-- **Interface (refonte du 25/09)** : en-tête en dégradé de l'accent du commerce (avatar, prénom en Fraunces,
-  « Assistante Nom du commerce » sur deux lignes au plus, point « en ligne »), bulles arrondies, **puces d'action
-  dans le fil** avant le premier échange (photo pour un devis, prendre rendez-vous, suggestions, « Être rappelé »)
-  puis une barre « Être rappelé » discrète, panneaux photo / créneaux / coordonnées rendus **dans le fil** comme
-  des cartes (plus de formulaire plein panneau), boutons ronds dans la barre de saisie. Palette calculée par
-  `utils/AssistantAccentUtils.palette()` (accent, accent foncé, encre lisible dessus). Prop `inline` : le widget se
-  rend ouvert, sans bulle ni bouton de fermeture, pour remplir l'écran d'un téléphone sur la page de démo ; il émet
-  `lead-sent` (nom, contact, besoin, type, créneaux, photo jointe) après une demande envoyée.
+- **Interface (refonte des 25 et 26/09)** : sobre et claire, l'accent du commerce ne sert jamais de fond sous du
+  texte sombre. En-tête blanc à filet (monogramme de l'assistante = son initiale sur l'accent « fort », prénom en
+  Fraunces, « Assistante Nom du commerce » sur deux lignes au plus, point vert « en ligne »), bulles de l'assistante
+  blanches à filet, bulles du visiteur sur l'accent fort en texte blanc, **puces d'action dans le fil** avant le
+  premier échange (photo pour un devis, prendre rendez-vous, suggestions, « Être rappelé ») puis une barre « Être
+  rappelé » discrète, panneaux photo / créneaux / coordonnées rendus **dans le fil** comme des cartes, boutons ronds
+  dans la barre de saisie, bouton d'envoi sur l'accent fort. Palette calculée par `utils/AssistantAccentUtils.palette()`
+  : `accent` (points, filets, teintes), `strong` (l'accent assombri jusqu'à ce que le blanc y soit lisible : le seul
+  fond qui porte du texte) et `text` (l'accent assombri jusqu'à être lisible en texte sur le papier). Le lanceur est
+  le même monogramme, avec la bulle « Une question ? Sofia vous répond, 24h/24 ». Prop `inline` : le widget se rend
+  ouvert, sans bulle ni bouton de fermeture, pour remplir l'écran d'un téléphone sur la page de démo ; il émet
+  `lead-sent` (nom, contact, besoin, type, créneaux, réservé, photo jointe) après une demande envoyée.
 - **5 langues d'interface** (FR / NL / DE / EN / LU) : accueil, suggestions, placeholder, libellés du
   formulaire de rappel, réponse de secours — un jeu complet par langue.
 - **Ouverture dans la langue du visiteur** : au montage, la langue du navigateur est choisie si
@@ -784,9 +788,11 @@ pile Pinia `drawerStack`) :
   (régénérer depuis le prospect, vidéo, lien d'abonnement, envoyer l'espace client, supprimer) et les dernières
   demandes de cet assistant.
 - **Demandes** (`requests.vue`, entrée « Demandes » de la nav, `GET /ai-assistants/requests?status=&assistant_id=`) :
-  boîte de réception de toutes les demandes, onglets À traiter / Toutes, filtre par assistant ; chaque ligne montre
-  le type, le commerce, le visiteur, le résumé, les marques hors horaires / photo / test et le statut. Un clic
-  ouvre le **volet Demande** (`ui/AssistantRequestDrawer.vue`, kind `assistant-request`) : coordonnées cliquables,
+  boîte de réception de toutes les demandes, onglets À traiter / Toutes / Traitées / Sans suite, recherche et filtre
+  par assistant, en **table** (`BaseTable`, comme les abonnements et les ventes ; cartes empilées sous 768 px) :
+  visiteur (nom, contact), demande (badge de type, résumé sur deux lignes, icônes créneaux / réservé / photos / hors
+  horaires / test), assistant, date de réception, statut. Aucune action en ligne : un clic sur la ligne ouvre le
+  **volet Demande** (`ui/AssistantRequestDrawer.vue`, kind `assistant-request`) : coordonnées cliquables,
   besoin dans les mots du visiteur, créneaux souhaités ou rendez-vous réservé, photos (lightbox), **transcription
   de la conversation** (`GET /ai-assistants/requests/{id}` → `transcript`), note interne enregistrée, Marquer
   traitée / Sans suite / Rouvrir / ouvrir le prospect. Le volet prévient la pile (`notifyAssistantRequestUpdated`)

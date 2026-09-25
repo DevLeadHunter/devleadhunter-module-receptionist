@@ -878,6 +878,13 @@ widget et la page /ia « ne faisaient pas pro », loin du niveau du module Sites
   de la notification borné à 4 lignes, pastille « me contacter » masquée pendant la saisie sur mobile, zone
   `aria-live` limitée aux bulles.
 
+**Second passage le 26/09 au matin, sur les retours de Léo** (« texte noir sur marron, avatar nul, liste des
+demandes chargée et centrée ») : le widget ne pose plus jamais de texte sombre sur l'accent. En-tête blanc à filet,
+monogramme (initiale sur l'accent fort) à la place de l'illustration, bulles du visiteur et boutons sur l'accent
+assombri jusqu'à ce que le blanc y soit lisible (`palette.strong`), puces neutres, composer blanc. La boîte de
+réception des demandes est une `BaseTable` comme les abonnements (visiteur, demande, assistant, reçue, statut ;
+cartes empilées sur mobile), sans action en ligne : tout se fait dans le volet.
+
 **À tester par Léo** (toujours avec `?internal=1` sur les pages du demo-host) : `/ia/{slug}` sur desktop et
 mobile (une demande envoyée depuis le téléphone de gauche doit mettre à jour la notification de droite), le widget
 embarqué (`/embed-test.html?slug=…&internal=1`), puis `/dashboard/ai-assistants`, la page de détail et

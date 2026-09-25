@@ -13,7 +13,7 @@
         Une question&nbsp;? <strong>{{ config.assistant_name }}</strong> vous répond, 24h/24.
       </span>
       <span class="ai-launcher__orb" aria-hidden="true">
-        <AssistantAvatar />
+        <AssistantAvatar :name="config.assistant_name" />
         <i class="ai-launcher__dot" />
       </span>
     </button>
@@ -27,7 +27,7 @@
       @keydown.esc="close"
     >
       <header class="ai-head">
-        <span class="ai-head__av"><AssistantAvatar /></span>
+        <span class="ai-head__av"><AssistantAvatar :name="config.assistant_name" /></span>
         <span class="ai-head__who">
           <b class="ai-head__name">{{ config.assistant_name }}</b>
           <span class="ai-head__role">{{ roleLabel }} {{ config.business_name }}</span>
@@ -433,8 +433,7 @@ const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<str
   const palette: AssistantAccentPalette = AssistantAccentUtils.palette(props.config.accent_color)
   return {
     '--ai-accent': palette.accent,
-    '--ai-accent-edge': palette.edge,
-    '--ai-accent-ink': palette.ink,
+    '--ai-accent-strong': palette.strong,
     '--ai-accent-text': palette.text,
   }
 })
@@ -1109,13 +1108,15 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 
 <style scoped>
 .ai-widget {
-  --ai-paper: #f7f3ec;
-  --ai-paper-2: #fbf9f3;
+  --ai-paper: #f4f0e8;
+  --ai-paper-2: #faf8f3;
   --ai-card: #ffffff;
   --ai-ink: #17130d;
   --ai-ink-dim: #6d665b;
-  --ai-line: rgba(23, 19, 13, 0.14);
+  --ai-line: rgba(23, 19, 13, 0.12);
   --ai-line-soft: rgba(23, 19, 13, 0.07);
+  --ai-on-strong: #ffffff;
+  --ai-online: #2f9e5b;
   --ai-font-d: 'Fraunces', Georgia, serif;
   --ai-font-b: 'Inter', system-ui, sans-serif;
   font-family: var(--ai-font-b);
@@ -1143,13 +1144,13 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   background: var(--ai-card);
   color: var(--ai-ink);
   border: 1px solid var(--ai-line);
-  border-radius: 16px;
-  padding: 11px 15px;
+  border-radius: 14px;
+  padding: 10px 14px;
   font-size: 0.85rem;
   line-height: 1.4;
   max-width: 220px;
   text-align: left;
-  box-shadow: 0 24px 60px -28px rgba(23, 19, 13, 0.4);
+  box-shadow: 0 18px 44px -24px rgba(23, 19, 13, 0.45);
 }
 .ai-launcher__say strong {
   font-family: var(--ai-font-d);
@@ -1157,13 +1158,14 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 }
 .ai-launcher__orb {
   position: relative;
-  width: 62px;
-  height: 62px;
-  border-radius: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
   overflow: hidden;
+  font-size: 1.5rem;
   box-shadow:
     0 0 0 3px var(--ai-card),
-    0 14px 30px -12px rgba(23, 19, 13, 0.55);
+    0 12px 28px -12px rgba(23, 19, 13, 0.55);
   transition: transform 0.15s ease;
 }
 .ai-launcher:hover .ai-launcher__orb {
@@ -1171,12 +1173,12 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 }
 .ai-launcher__dot {
   position: absolute;
-  right: 6px;
-  bottom: 6px;
+  right: 4px;
+  bottom: 4px;
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: #3fb950;
+  background: var(--ai-online);
   box-shadow: 0 0 0 2px var(--ai-card);
 }
 
@@ -1189,10 +1191,10 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   width: 392px;
   max-width: calc(100vw - 28px);
   height: min(628px, calc(100vh - 44px));
-  background: var(--ai-paper-2);
+  background: var(--ai-card);
   border: 1px solid var(--ai-line);
-  border-radius: 26px;
-  box-shadow: 0 34px 80px -34px rgba(23, 19, 13, 0.55);
+  border-radius: 22px;
+  box-shadow: 0 30px 70px -30px rgba(23, 19, 13, 0.45);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1222,17 +1224,17 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 16px 14px;
-  background: linear-gradient(160deg, var(--ai-accent), var(--ai-accent-edge));
-  color: var(--ai-accent-ink);
+  padding: 14px 12px 12px 16px;
+  background: var(--ai-card);
+  border-bottom: 1px solid var(--ai-line-soft);
 }
 .ai-head__av {
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   overflow: hidden;
   flex: none;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+  font-size: 1.1rem;
 }
 .ai-head__who {
   display: grid;
@@ -1242,14 +1244,15 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 }
 .ai-head__name {
   font-family: var(--ai-font-d);
-  font-size: 1.15rem;
+  font-size: 1.08rem;
   font-weight: 600;
-  line-height: 1.05;
+  line-height: 1.1;
+  color: var(--ai-ink);
 }
 .ai-head__role {
   font-size: 0.74rem;
-  line-height: 1.25;
-  opacity: 0.85;
+  line-height: 1.3;
+  color: var(--ai-ink-dim);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -1261,15 +1264,16 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   align-items: center;
   gap: 6px;
   font-size: 0.72rem;
+  font-weight: 500;
   white-space: nowrap;
-  opacity: 0.92;
+  color: var(--ai-ink-dim);
 }
 .ai-head__online i {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #8fd39a;
-  box-shadow: 0 0 0 3px rgba(143, 211, 154, 0.25);
+  background: var(--ai-online);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ai-online) 22%, transparent);
 }
 .ai-head__x {
   flex: none;
@@ -1277,18 +1281,20 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   height: 32px;
   border: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.16);
-  color: var(--ai-accent-ink);
+  background: transparent;
+  color: var(--ai-ink-dim);
   display: grid;
   place-items: center;
   cursor: pointer;
+  transition: background 0.12s ease;
 }
 .ai-head__x svg {
   width: 15px;
   height: 15px;
 }
 .ai-head__x:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: var(--ai-paper);
+  color: var(--ai-ink);
 }
 
 /* ── Language pills ───────────────────────────────────────────────────── */
@@ -1296,7 +1302,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 10px 14px 2px;
+  padding: 10px 14px 0;
   background: var(--ai-paper-2);
 }
 .ai-langs__pill {
@@ -1311,9 +1317,8 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   cursor: pointer;
 }
 .ai-langs__pill[aria-pressed='true'] {
-  border-color: var(--ai-accent);
-  color: var(--ai-accent-text);
-  background: color-mix(in srgb, var(--ai-accent) 10%, var(--ai-card));
+  border-color: var(--ai-ink);
+  color: var(--ai-ink);
 }
 
 /* ── Messages ─────────────────────────────────────────────────────────── */
@@ -1335,26 +1340,25 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 }
 .ai-m {
   max-width: 84%;
-  padding: 10px 13px;
+  padding: 10px 14px;
   font-size: 0.9rem;
-  line-height: 1.45;
+  line-height: 1.5;
   white-space: pre-wrap;
   word-wrap: break-word;
-  border-radius: 18px;
+  border-radius: 16px;
 }
 .ai-m--assistant {
   align-self: flex-start;
   background: var(--ai-card);
   color: var(--ai-ink);
   border: 1px solid var(--ai-line-soft);
-  border-bottom-left-radius: 6px;
-  box-shadow: 0 6px 16px -12px rgba(23, 19, 13, 0.4);
+  border-bottom-left-radius: 5px;
 }
 .ai-m--user {
   align-self: flex-end;
-  background: var(--ai-accent);
-  color: var(--ai-accent-ink);
-  border-bottom-right-radius: 6px;
+  background: var(--ai-accent-strong);
+  color: var(--ai-on-strong);
+  border-bottom-right-radius: 5px;
 }
 .ai-m--photo {
   padding: 4px;
@@ -1363,7 +1367,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   display: block;
   max-width: 180px;
   max-height: 180px;
-  border-radius: 14px;
+  border-radius: 12px;
   object-fit: cover;
 }
 /* A page of the business's site given in a reply: a plain link that wraps anywhere. */
@@ -1380,8 +1384,8 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   padding: 13px 15px;
   background: var(--ai-card);
   border: 1px solid var(--ai-line-soft);
-  border-radius: 18px;
-  border-bottom-left-radius: 6px;
+  border-radius: 16px;
+  border-bottom-left-radius: 5px;
 }
 .ai-typing i {
   width: 6px;
@@ -1420,10 +1424,10 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 .ai-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  border: 1px solid color-mix(in srgb, var(--ai-accent) 45%, transparent);
+  gap: 7px;
+  border: 1px solid var(--ai-line);
   background: var(--ai-card);
-  color: var(--ai-accent-text);
+  color: var(--ai-ink);
   font: inherit;
   font-size: 0.8rem;
   font-weight: 500;
@@ -1437,15 +1441,15 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
     border-color 0.12s ease;
 }
 .ai-chip:hover {
-  border-color: var(--ai-accent);
-  background: color-mix(in srgb, var(--ai-accent) 8%, var(--ai-card));
+  border-color: var(--ai-ink);
+  background: var(--ai-paper);
 }
 .ai-chip__icon {
   flex: none;
   width: 14px;
   height: 14px;
   fill: none;
-  stroke: currentColor;
+  stroke: var(--ai-accent-text);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -1460,8 +1464,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   padding: 14px;
   background: var(--ai-card);
   border: 1px solid var(--ai-line);
-  border-radius: 18px;
-  box-shadow: 0 10px 24px -20px rgba(23, 19, 13, 0.5);
+  border-radius: 16px;
 }
 .ai-card__title {
   margin: 0;
@@ -1490,7 +1493,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   color: var(--ai-ink);
 }
 .ai-field:focus {
-  outline: 2px solid var(--ai-accent);
+  outline: 2px solid var(--ai-accent-strong);
   outline-offset: 1px;
 }
 .ai-actions {
@@ -1510,8 +1513,8 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   cursor: pointer;
 }
 .ai-actions__primary {
-  background: var(--ai-accent);
-  color: var(--ai-accent-ink);
+  background: var(--ai-accent-strong);
+  color: var(--ai-on-strong);
 }
 .ai-actions__primary:disabled {
   opacity: 0.45;
@@ -1559,9 +1562,9 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 }
 .ai-slots__slot[aria-pressed='true'],
 .ai-slots__chip[aria-pressed='true'] {
-  border-color: var(--ai-accent);
-  background: var(--ai-accent);
-  color: var(--ai-accent-ink);
+  border-color: var(--ai-accent-strong);
+  background: var(--ai-accent-strong);
+  color: var(--ai-on-strong);
 }
 .ai-slots__slot:disabled {
   opacity: 0.35;
@@ -1586,9 +1589,9 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   cursor: pointer;
 }
 .ai-slots__time[aria-pressed='true'] {
-  border-color: var(--ai-accent);
-  background: var(--ai-accent);
-  color: var(--ai-accent-ink);
+  border-color: var(--ai-accent-strong);
+  background: var(--ai-accent-strong);
+  color: var(--ai-on-strong);
 }
 .ai-slots__pages {
   display: flex;
@@ -1610,7 +1613,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 
 /* ── Call-back bar + composer ────────────────────────────────────────── */
 .ai-callback {
-  padding: 0 14px 6px;
+  padding: 0 14px 8px;
   background: var(--ai-paper-2);
 }
 .ai-callback__btn {
@@ -1628,8 +1631,8 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   cursor: pointer;
 }
 .ai-callback__btn:hover {
-  border-color: var(--ai-accent);
-  color: var(--ai-accent-text);
+  border-color: var(--ai-ink);
+  color: var(--ai-ink);
 }
 .ai-callback__btn svg {
   width: 13px;
@@ -1671,7 +1674,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   text-overflow: ellipsis;
 }
 .ai-compose textarea:focus {
-  outline: 2px solid var(--ai-accent);
+  outline: 2px solid var(--ai-accent-strong);
   outline-offset: 1px;
 }
 .ai-compose__tool,
@@ -1683,14 +1686,19 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   display: grid;
   place-items: center;
   cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
 }
 .ai-compose__tool {
   border: 1px solid var(--ai-line);
-  background: var(--ai-paper-2);
-  color: var(--ai-accent-text);
+  background: var(--ai-card);
+  color: var(--ai-ink-dim);
 }
 .ai-compose__tool:hover {
-  border-color: var(--ai-accent);
+  border-color: var(--ai-ink);
+  color: var(--ai-ink);
 }
 .ai-compose__tool:disabled {
   opacity: 0.4;
@@ -1698,11 +1706,11 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 }
 .ai-compose__send {
   border: 0;
-  background: var(--ai-accent);
-  color: var(--ai-accent-ink);
+  background: var(--ai-accent-strong);
+  color: var(--ai-on-strong);
 }
 .ai-compose__send:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: default;
 }
 .ai-compose__tool svg,
