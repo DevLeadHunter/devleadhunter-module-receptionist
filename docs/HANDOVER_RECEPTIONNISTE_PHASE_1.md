@@ -913,6 +913,13 @@ des demandes)** :
   générateur ouvert Pollinations (modèle Sana, sans compte), recadrés tête et épaules en 512 px WebP, fond beige.
   Pour les remplacer par des portraits Gemini comme Lola : mêmes noms de fichiers, même format. Un prénom personnalisé
   (« Léa ») prend son propre fichier `lea.webp` ajouté à `ASSISTANT_PORTRAIT_SLUGS`.
+- **DA de l'avatar (décision du 26/09, sur les références B2C de Léo : portraits photo sous lumière colorée)** : la
+  photo de base est neutre et le widget applique la couleur du commerce comme un gel de studio (`AssistantAvatar`,
+  calques `mix-blend-mode`). Les deux bases livrées viennent du générateur gratuit (qualité limitée, rendu un peu
+  lisse) ; **pour des bases vraiment photoréalistes, les générer avec Gemini** avec ce cahier des charges : portrait
+  carré 1024 px, tête et épaules centrées, fond gris clair uni de studio, haut uni noir ou blanc, grand sourire ou
+  rire franc, lumière douce neutre (pas de couleur : c'est le widget qui la met), peau naturelle. Fichiers :
+  `default-feminine.webp` (Sofia) et `default-masculine.webp`.
 - Le liseré à l'accent en haut du panneau est retiré.
 - **Mockup iPhone** : écran verrouillé refait comme iOS 17 (date et grande horloge en haut, notification Messages
   empilée en bas au-dessus de la barre d'accueil, lampe et appareil photo, animation d'arrivée).

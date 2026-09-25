@@ -188,8 +188,11 @@ C'est le **produit** que le client colle sur son site. Il porte :
   `demo-host/public/avatars/` quand le prénom y est (`{prenom-en-slug}.webp`, déclaré dans
   `constants/assistantPortraits.ts`), sinon le portrait par défaut du genre (`default-feminine.webp` /
   `default-masculine.webp`, déclarés au même endroit), sinon un buste dessiné à partir du prénom
-  (`@dicebear/notionists`, coiffures triées par genre, disque à la teinte de l'accent). Le même visage sur le
-  lanceur, l'en-tête et à côté de la dernière réponse d'une suite de réponses. Panneau blanc à filet, en-tête blanc
+  (`@dicebear/notionists`, coiffures triées par genre, disque à la teinte de l'accent). **DA de l'avatar** : la
+  photo de base est neutre (fond gris de studio, haut uni, expression joyeuse) et `AssistantAvatar` la baigne dans
+  la couleur du commerce comme un gel de studio (fond en dégradé de l'accent, calque `mix-blend-mode: color` à 50 %,
+  lumière `soft-light`) : chaque client voit « sa » réceptionniste dans sa couleur, sans photo par client. Le même
+  visage sur le lanceur, l'en-tête et à côté de la dernière réponse d'une suite de réponses. Panneau blanc à filet, en-tête blanc
   (portrait 44 px avec point vert, prénom en Fraunces, « Assistante Nom du commerce » sur deux lignes au plus, pilule
   « en ligne »), bulles de l'assistante blanches à filet, bulles du visiteur sur l'accent fort en texte blanc,
   **puces d'action dans le fil** avant le premier échange (photo pour un devis, prendre rendez-vous, deux suggestions,
