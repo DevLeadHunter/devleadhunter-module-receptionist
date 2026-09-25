@@ -11,6 +11,7 @@ import type {
 } from '~/types/AiAssistant'
 import type { AssistantLeadSummary } from '~/types/AssistantChat'
 import type { AssistantContactDetails } from '~/types/AssistantChatContactForm'
+import type { AssistantDemoScriptStep } from '~/types/AssistantDemoScript'
 
 export type UseAssistantConversationReturn = {
   messages: Ref<AssistantChatMessage[]>
@@ -42,8 +43,10 @@ export type UseAssistantConversationReturn = {
   showChips: ComputedRef<boolean>
   showCallbackBar: ComputedRef<boolean>
   lastLeadSummary: Ref<AssistantLeadSummary | null>
+  hasPlayedExample: Ref<boolean>
   restore: () => void
   greet: () => Promise<void>
+  playExample: (steps: AssistantDemoScriptStep[]) => Promise<void>
   setLang: (code: AssistantWidgetLang) => void
   sendText: (text: string) => Promise<void>
   sendDraft: () => Promise<void>

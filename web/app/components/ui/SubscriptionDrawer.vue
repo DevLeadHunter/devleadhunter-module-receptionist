@@ -26,7 +26,7 @@
               </span>
             </div>
             <h2 class="truncate text-base leading-tight font-semibold text-[var(--app-ink)]">
-              {{ subscription.business_name || 'Assistant IA' }}
+              {{ subscription.business_name || 'Réceptionniste IA' }}
             </h2>
             <p class="mt-0.5 text-sm font-semibold text-[var(--app-accent-ink)]">{{ planLabel }}</p>
           </div>

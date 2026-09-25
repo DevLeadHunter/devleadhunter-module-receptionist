@@ -37,8 +37,13 @@
 
     <main v-else class="cs__main">
       <section class="cs__hero">
-        <p class="cs__kicker">{{ space.assistant_name }} · votre réceptionniste</p>
-        <h1 class="cs__title">{{ heroTitle }}</h1>
+        <span class="cs__portrait">
+          <AssistantAvatar :url="portraitUrl" :fallback-url="portraitFallbackUrl" :alt="space.assistant_name" />
+        </span>
+        <div class="cs__hero-text">
+          <p class="cs__kicker">{{ space.assistant_name }} · votre réceptionniste</p>
+          <h1 class="cs__title">{{ heroTitle }}</h1>
+        </div>
       </section>
 
       <ClientSpaceRequests
@@ -125,6 +130,7 @@ import type {
 } from '~/types/AiAssistantClientSpace'
 import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
+import { AssistantAvatarUtils } from '~/utils/AssistantAvatarUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 
 const SUBSCRIPTION_LABELS: Record<AiAssistantClientSubscriptionStatus, string> = {
@@ -174,8 +180,22 @@ const hasSavedCalendar: Ref<boolean> = ref(false)
 // Google opened in another tab: the space reloads when the client comes back to this one.
 const isAwaitingCalendar: Ref<boolean> = ref(false)
 
+/** The receptionist's portrait, as the widget shows it (the gender is unknown here: a casting name has its own). */
+const portraitUrl: ComputedRef<string> = computed((): string =>
+  AssistantAvatarUtils.portraitUrl(space.value?.assistant_name ?? '', null),
+)
+
+const portraitFallbackUrl: ComputedRef<string> = computed((): string =>
+  AssistantAvatarUtils.dataUri(
+    space.value?.assistant_name ?? '',
+    null,
+    AssistantAccentUtils.palette(space.value?.accent_color).tint,
+  ),
+)
+
 const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<string, string> => ({
   '--a-accent': space.value?.accent_color || AssistantAccentUtils.FALLBACK_ACCENT,
+  '--ai-accent-tint': AssistantAccentUtils.palette(space.value?.accent_color).tint,
 }))
 
 const shortBusinessName: ComputedRef<string> = computed((): string =>
@@ -560,7 +580,21 @@ useHead({
 
 .cs__hero {
   display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 18px;
+}
+.cs__portrait {
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--a-accent);
+}
+.cs__hero-text {
+  display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .cs__kicker {

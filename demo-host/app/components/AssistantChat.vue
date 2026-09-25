@@ -3,6 +3,7 @@
     <AssistantChatLauncher
       v-if="!isOpen"
       ref="launcherComponent"
+      :lang="lang"
       :assistant-name="props.config.assistant_name"
       :avatar-url="avatarUrl"
       :avatar-fallback-url="avatarFallbackUrl"
@@ -27,14 +28,10 @@
         :avatar-url="avatarUrl"
         :avatar-fallback-url="avatarFallbackUrl"
         :can-close="!props.inline"
-        @close="close"
-      />
-
-      <AssistantChatLanguagePills
-        v-if="offeredLanguages.length > 1"
+        :lang="lang"
         :languages="offeredLanguages"
-        :model-value="lang"
-        @update:model-value="setLang"
+        @close="close"
+        @change-lang="setLang"
       />
 
       <div ref="threadElement" class="ai-thread">
@@ -48,7 +45,7 @@
             :avatar-fallback-url="avatarFallbackUrl"
             :assistant-name="props.config.assistant_name"
           />
-          <AssistantChatTypingIndicator v-if="isBusy" />
+          <AssistantChatTypingIndicator v-if="isBusy" :lang="lang" />
         </div>
 
         <AssistantChatQuickReplies
@@ -56,9 +53,11 @@
           :lang="lang"
           :suggestions="suggestions"
           :can-send-photo="photosRemaining > 0"
+          :can-play-example="props.inline && !hasPlayedExample"
           @photo="openPhotoPanel"
           @appointment="openSlotPanel"
           @suggest="sendText"
+          @example="playScriptedExample"
         />
 
         <AssistantChatPhotoCard
@@ -126,6 +125,7 @@ import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { AiAssistantConfig } from '~/types/AiAssistant'
 import type { AssistantChatEmits, AssistantChatProps, AssistantLeadSummary } from '~/types/AssistantChat'
+import type { AssistantDemoScriptStep, AssistantHostPage } from '~/types/AssistantDemoScript'
 import type { UseAssistantConversationReturn } from '~/types/UseAssistantConversation'
 import type { UseAssistantWidgetFrameReturn } from '~/types/UseAssistantWidgetFrame'
 import AssistantChatContactForm from '~/components/AssistantChatContactForm.vue'
@@ -139,6 +139,8 @@ import { ONLINE_LABELS, ROLE_LABELS } from '~/constants/AssistantWidgetLabels'
 import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { AssistantAvatarUtils } from '~/utils/AssistantAvatarUtils'
+import { AssistantDemoScenarioUtils } from '~/utils/AssistantDemoScenarioUtils'
+import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 
 const props: AssistantChatProps = defineProps({
   config: {
@@ -148,6 +150,10 @@ const props: AssistantChatProps = defineProps({
   inline: {
     type: Boolean,
     default: false,
+  },
+  hostPage: {
+    type: Object as PropType<AssistantHostPage | null>,
+    default: null,
   },
 })
 
@@ -183,8 +189,10 @@ const {
   showChips,
   showCallbackBar,
   lastLeadSummary,
+  hasPlayedExample,
   restore,
   greet,
+  playExample,
   setLang,
   sendText,
   sendDraft,
@@ -203,7 +211,7 @@ const {
   cancelLeadForm,
   submitLead,
   releasePhotoPreviews,
-}: UseAssistantConversationReturn = useAssistantConversation(props.config, props.inline)
+}: UseAssistantConversationReturn = useAssistantConversation(props.config, props.inline, props.hostPage)
 
 const isOpen: Ref<boolean> = ref(props.inline)
 const launcherComponent: Ref<InstanceType<typeof AssistantChatLauncher> | null> = ref(null)
@@ -220,6 +228,7 @@ const { isMobileLayout }: UseAssistantWidgetFrameReturn = useAssistantWidgetFram
   inline: props.inline,
   isOpen,
   launcherElement,
+  onOpenRequest: open,
 })
 
 const palette: ComputedRef<AssistantAccentPalette> = computed((): AssistantAccentPalette =>
@@ -262,6 +271,16 @@ function open(): void {
   if (!props.inline) nextTick((): void => headerComponent.value?.focusClose())
 }
 
+/** Play the demo page's scripted conversation for this trade, in the widget's language. */
+function playScriptedExample(): void {
+  const steps: AssistantDemoScriptStep[] = AssistantDemoScenarioUtils.script(
+    lang.value,
+    props.config.trade_label ?? null,
+    BusinessNameUtils.short(props.config.business_name),
+  )
+  playExample(steps)
+}
+
 /** Close the panel and give the keyboard focus back to the launcher. */
 function close(): void {
   if (props.inline) return
@@ -300,6 +319,10 @@ watch(showLeadForm, async (isShown: boolean): Promise<void> => {
 
 watch(lastLeadSummary, (summary: AssistantLeadSummary | null): void => {
   if (summary) emit('lead-sent', summary)
+})
+
+watch(hasPlayedExample, (hasPlayed: boolean): void => {
+  if (hasPlayed) emit('example-played')
 })
 
 onMounted((): void => {

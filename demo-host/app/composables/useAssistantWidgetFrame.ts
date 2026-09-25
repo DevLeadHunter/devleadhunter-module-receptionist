@@ -13,8 +13,9 @@ const LAUNCHER_EDGE_MARGIN: number = 22
 const LAUNCHER_SHADOW_ALLOWANCE: number = 12
 
 /**
- * The widget's dialogue with the loader framing it on a client's site: iframe size to give, host viewport to follow.
- * @param options - Whether the widget is laid out in a page, its open state and its launcher element.
+ * The widget's dialogue with the loader framing it on a client's site: iframe size to give, host viewport to follow,
+ * open requests from the loader's own launcher to honour.
+ * @param options - Whether the widget is laid out in a page, its open state, its launcher element, what to do on open.
  * @returns Whether it runs in the loader's iframe, and whether the host screen calls for the mobile layout.
  */
 export function useAssistantWidgetFrame(options: UseAssistantWidgetFrameOptions): UseAssistantWidgetFrameReturn {
@@ -56,7 +57,12 @@ export function useAssistantWidgetFrame(options: UseAssistantWidgetFrameOptions)
   function onHostMessage(event: MessageEvent): void {
     if (event.source !== window.parent) return
     const data: Record<string, unknown> | null = typeof event.data === 'object' ? event.data : null
-    if (!data || data.type !== 'dlh-assistant-host' || typeof data.width !== 'number' || data.width <= 0) return
+    if (!data) return
+    if (data.type === 'dlh-assistant-open') {
+      options.onOpenRequest()
+      return
+    }
+    if (data.type !== 'dlh-assistant-host' || typeof data.width !== 'number' || data.width <= 0) return
     viewportWidth.value = data.width
     viewportHeight.value = typeof data.height === 'number' && data.height > 0 ? data.height : null
   }

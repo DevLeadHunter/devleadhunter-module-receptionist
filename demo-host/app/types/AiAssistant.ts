@@ -175,3 +175,26 @@ export type AssistantAppointmentLabels = {
   unavailable: string
   sent: string
 }
+
+/** The widget's chrome wording in one language; `open` carries `{name}`. */
+export type AssistantUiLabels = {
+  close: string
+  open: string
+  launcherBefore: string
+  launcherAfter: string
+  typing: string
+  language: string
+  message: string
+  send: string
+}
+
+/**
+ * The conversation the demo page plays by itself in one language: the chip that starts it, the visitor's opening,
+ * the reply asking for a photo and the closing reply (`{business}` in both).
+ */
+export type AssistantExampleLabels = {
+  chip: string
+  visitor: string
+  askPhoto: string
+  thanks: string
+}

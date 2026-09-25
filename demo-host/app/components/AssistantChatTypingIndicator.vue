@@ -1,6 +1,20 @@
 <template>
-  <div class="ai-typing" aria-label="Rédaction en cours"><i /><i /><i /></div>
+  <div class="ai-typing" :aria-label="UI_LABELS[props.lang].typing"><i /><i /><i /></div>
 </template>
+
+<script lang="ts" setup>
+import type { PropType } from 'vue'
+import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantChatTypingIndicatorProps } from '~/types/AssistantChatTypingIndicator'
+import { UI_LABELS } from '~/constants/AssistantWidgetLabels'
+
+const props: AssistantChatTypingIndicatorProps = defineProps({
+  lang: {
+    type: String as PropType<AssistantWidgetLang>,
+    required: true,
+  },
+})
+</script>
 
 <style scoped>
 .ai-typing {

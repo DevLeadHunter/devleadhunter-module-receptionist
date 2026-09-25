@@ -25,14 +25,14 @@
       rows="1"
       maxlength="2000"
       :placeholder="UI_PLACEHOLDER[props.lang]"
-      aria-label="Votre message"
+      :aria-label="UI_LABELS[props.lang].message"
       @input="onInput"
       @keydown.enter.exact.prevent="emit('send')"
     />
     <button
       type="submit"
       class="ai-compose__send"
-      aria-label="Envoyer"
+      :aria-label="UI_LABELS[props.lang].send"
       :disabled="props.isBusy || !props.modelValue.trim()"
     >
       <AssistantIcon name="send" />
@@ -44,7 +44,7 @@
 import type { EmitFn, PropType } from 'vue'
 import type { AssistantWidgetLang } from '~/types/AiAssistant'
 import type { AssistantChatComposerEmits, AssistantChatComposerProps } from '~/types/AssistantChatComposer'
-import { APPOINTMENT_LABELS, PHOTO_LABELS, UI_PLACEHOLDER } from '~/constants/AssistantWidgetLabels'
+import { APPOINTMENT_LABELS, PHOTO_LABELS, UI_LABELS, UI_PLACEHOLDER } from '~/constants/AssistantWidgetLabels'
 
 const props: AssistantChatComposerProps = defineProps({
   lang: {

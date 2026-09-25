@@ -1,5 +1,8 @@
 <template>
   <div class="ai-chips">
+    <button v-if="props.canPlayExample" type="button" class="ai-chip ai-chip--example" @click="emit('example')">
+      {{ EXAMPLE_LABELS[props.lang].chip }}
+    </button>
     <button v-if="props.canSendPhoto" type="button" class="ai-chip" @click="emit('photo')">
       <AssistantIcon name="camera" class="ai-chip__icon" />
       {{ PHOTO_LABELS[props.lang].chip }}
@@ -24,7 +27,7 @@
 import type { EmitFn, PropType } from 'vue'
 import type { AssistantWidgetLang } from '~/types/AiAssistant'
 import type { AssistantChatQuickRepliesEmits, AssistantChatQuickRepliesProps } from '~/types/AssistantChatQuickReplies'
-import { APPOINTMENT_LABELS, PHOTO_LABELS } from '~/constants/AssistantWidgetLabels'
+import { APPOINTMENT_LABELS, EXAMPLE_LABELS, PHOTO_LABELS } from '~/constants/AssistantWidgetLabels'
 
 const props: AssistantChatQuickRepliesProps = defineProps({
   lang: {
@@ -38,6 +41,10 @@ const props: AssistantChatQuickRepliesProps = defineProps({
   canSendPhoto: {
     type: Boolean,
     default: true,
+  },
+  canPlayExample: {
+    type: Boolean,
+    default: false,
   },
 })
 
@@ -96,5 +103,15 @@ const emit: EmitFn<AssistantChatQuickRepliesEmits> = defineEmits<AssistantChatQu
 .ai-chip__icon {
   font-size: 14px;
   color: var(--ai-accent-text);
+}
+/* The one filled chip: on the demo page, the conversation plays itself before the visitor writes. */
+.ai-chip--example {
+  background: var(--ai-accent-strong);
+  border-color: var(--ai-accent-strong);
+  color: var(--ai-on-strong);
+}
+.ai-chip--example:hover {
+  background: var(--ai-ink);
+  border-color: var(--ai-ink);
 }
 </style>

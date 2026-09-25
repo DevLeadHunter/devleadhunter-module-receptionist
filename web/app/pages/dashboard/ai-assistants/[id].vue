@@ -3,7 +3,7 @@
     <div class="flex flex-col gap-4 @2xl:flex-row @2xl:items-center @2xl:justify-between">
       <NuxtLink to="/dashboard/ai-assistants" class="btn-secondary inline-flex w-fit items-center gap-2">
         <UIcon name="i-lucide-arrow-left" class="h-4 w-4" />
-        Retour aux assistants
+        Retour aux réceptionnistes
       </NuxtLink>
       <div v-if="assistant" class="flex flex-wrap items-center gap-2">
         <button type="button" class="btn-secondary inline-flex items-center gap-2" @click="openConversations">
@@ -43,7 +43,7 @@
           size-class="h-14 w-14 text-lg"
         />
         <div class="min-w-0 space-y-2">
-          <p class="text-xs font-semibold tracking-wider text-[var(--app-ink-soft)] uppercase">Assistant IA</p>
+          <p class="text-xs font-semibold tracking-wider text-[var(--app-ink-soft)] uppercase">Réceptionniste IA</p>
           <h1 class="app-page-title">{{ assistant.business_name }}</h1>
           <p class="flex flex-wrap items-center gap-2 text-sm text-[var(--app-ink-soft)]">
             <span>{{ assistant.assistant_name }} · {{ assistant.slug }}</span>
@@ -95,6 +95,8 @@
             @open="openRequest"
           />
 
+          <AssistantInstallGuideCard :embed-snippet="assistant.embed_snippet" />
+
           <AssistantDemoPreviewCard :demo-url="demoUrl" />
         </section>
       </div>
@@ -134,6 +136,7 @@ import type { AssistantMutationNotice, AssistantRequestMutationNotice } from '~/
 import type { AiAssistantDetailStat } from '~/types/AiAssistantDetailPage'
 import AssistantActionsCard from '~/components/ai-assistants/AssistantActionsCard.vue'
 import AssistantDemoPreviewCard from '~/components/ai-assistants/AssistantDemoPreviewCard.vue'
+import AssistantInstallGuideCard from '~/components/ai-assistants/AssistantInstallGuideCard.vue'
 import AssistantPortrait from '~/components/ai-assistants/AssistantPortrait.vue'
 import AssistantRecentRequests from '~/components/ai-assistants/AssistantRecentRequests.vue'
 import AssistantSubscriptionCard from '~/components/ai-assistants/AssistantSubscriptionCard.vue'
@@ -171,7 +174,9 @@ const videoPollTimer: Ref<ReturnType<typeof setInterval> | null> = ref(null)
 const deleteConfirmModal: Ref<{ open: () => void } | null> = ref(null)
 const clientSpaceConfirmModal: Ref<{ open: () => void } | null> = ref(null)
 
-useSeoMeta({ title: computed((): string => `${assistant.value?.business_name ?? 'Assistant IA'} — DevLeadHunter`) })
+useSeoMeta({
+  title: computed((): string => `${assistant.value?.business_name ?? 'Réceptionniste IA'} — DevLeadHunter`),
+})
 
 const portraitUrl: ComputedRef<string> = computed((): string =>
   assistant.value

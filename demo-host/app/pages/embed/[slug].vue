@@ -1,11 +1,12 @@
 <template>
-  <AssistantChat v-if="assistant" :config="assistant" />
+  <AssistantChat v-if="assistant" :config="assistant" :host-page="hostPage" />
 </template>
 
 <script lang="ts" setup>
 import type { ComputedRef } from 'vue'
 import { computed, onMounted } from 'vue'
 import type { AiAssistantConfig } from '~/types/AiAssistant'
+import type { AssistantHostPage } from '~/types/AssistantDemoScript'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 import { useDemoTracking } from '~/composables/useDemoTracking'
 
@@ -26,6 +27,13 @@ const { data: assistant }: Awaited<ReturnType<typeof useAsyncData<AiAssistantCon
       }
     },
   )
+
+/** The client's page the loader embedded the widget on (its path and title), for the greeting. */
+const hostPage: ComputedRef<AssistantHostPage | null> = computed((): AssistantHostPage | null => {
+  const path: string = String(route.query.page ?? '')
+  const title: string = String(route.query.title ?? '')
+  return path || title ? { path, title } : null
+})
 
 const { init: initTracking }: ReturnType<typeof useDemoTracking> = useDemoTracking()
 

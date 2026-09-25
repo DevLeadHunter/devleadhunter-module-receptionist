@@ -8,7 +8,7 @@
         </p>
         <h1 class="app-page-title mt-2">Abonnements</h1>
         <p class="mt-1.5 max-w-2xl text-sm text-[var(--app-ink-soft)]">
-          Vos abonnements Assistant IA : qui paie, combien, et depuis quand. Cliquez pour annuler ou rembourser.
+          Vos abonnements Réceptionniste IA : qui paie, combien, et depuis quand. Cliquez pour annuler ou rembourser.
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2 sm:gap-3 @2xl:justify-end">

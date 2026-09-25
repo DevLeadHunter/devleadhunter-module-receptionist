@@ -1,9 +1,14 @@
+import type { AssistantExampleLabels, AssistantWidgetLang } from '~/types/AiAssistant'
 import type { AssistantLeadSummary } from '~/types/AssistantChat'
+import type { AssistantDemoScriptStep } from '~/types/AssistantDemoScript'
+import { EXAMPLE_LABELS, PHOTO_LABELS } from '~/constants/AssistantWidgetLabels'
 
 type TradeExample = {
   /** Matched against the Google category once both are folded (lower case, no accents). */
   keywords: string[]
   need: string
+  /** What the customer writes first when the demo page plays the conversation by itself. */
+  opening: string
   kind: AssistantLeadSummary['kind']
   hasPhoto: boolean
   /** « samedi matin », empty when the example is not an appointment. */
@@ -14,6 +19,8 @@ const TRADE_EXAMPLES: TradeExample[] = [
   {
     keywords: ['couvreur', 'toiture', 'charpent', 'zingu'],
     need: 'fuite après la tempête, tuiles déplacées côté rue',
+    opening:
+      "Bonjour, j'ai une fuite depuis la tempête, des tuiles ont bougé côté rue. Vous pouvez passer cette semaine ?",
     kind: 'quote',
     hasPhoto: true,
     slots: '',
@@ -21,6 +28,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
   {
     keywords: ['plomb', 'chauffag', 'sanitaire'],
     need: "fuite sous l'évier de la cuisine, ça goutte",
+    opening: "Bonjour, ça goutte sous l'évier de la cuisine depuis ce matin. Vous pouvez passer cette semaine ?",
     kind: 'quote',
     hasPhoto: true,
     slots: '',
@@ -28,6 +36,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
   {
     keywords: ['electric', 'électric'],
     need: 'plus de courant dans la cuisine, le tableau saute',
+    opening: 'Bonjour, plus de courant dans la cuisine, le tableau saute dès que je le remonte. Vous pouvez venir ?',
     kind: 'question',
     hasPhoto: false,
     slots: '',
@@ -35,6 +44,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
   {
     keywords: ['carross', 'garage', 'mecani', 'mécani', 'automobile'],
     need: 'rayure sur la portière avant droite, devis carrosserie',
+    opening: "Bonjour, j'ai une rayure sur la portière avant droite. Vous faites un devis carrosserie ?",
     kind: 'quote',
     hasPhoto: true,
     slots: '',
@@ -42,6 +52,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
   {
     keywords: ['paysag', 'jardin', 'espaces verts'],
     need: 'taille de haie sur 30 m et tonte, devis annuel',
+    opening: "Bonjour, j'ai 30 m de haie à tailler et la pelouse à tondre. Vous faites un devis à l'année ?",
     kind: 'quote',
     hasPhoto: false,
     slots: '',
@@ -49,6 +60,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
   {
     keywords: ['macon', 'maçon', 'batiment', 'bâtiment', 'renov', 'rénov'],
     need: 'fissure sur le mur du garage, devis reprise',
+    opening: 'Bonjour, une fissure est apparue sur le mur du garage. Vous pouvez passer voir pour un devis ?',
     kind: 'quote',
     hasPhoto: true,
     slots: '',
@@ -56,15 +68,31 @@ const TRADE_EXAMPLES: TradeExample[] = [
   {
     keywords: ['menuis', 'fenetr', 'fenêtr'],
     need: 'fenêtre qui ferme mal, devis remplacement',
+    opening: 'Bonjour, une fenêtre ferme mal, je voudrais un devis pour la remplacer.',
     kind: 'quote',
     hasPhoto: true,
     slots: '',
   },
-  { keywords: ['peintre', 'peinture'], need: 'salon de 25 m² à repeindre', kind: 'quote', hasPhoto: false, slots: '' },
-  { keywords: ['serrur'], need: "porte claquée, clés à l'intérieur", kind: 'question', hasPhoto: false, slots: '' },
+  {
+    keywords: ['peintre', 'peinture'],
+    need: 'salon de 25 m² à repeindre',
+    opening: "Bonjour, j'ai un salon de 25 m² à repeindre. Vous pouvez me faire un devis ?",
+    kind: 'quote',
+    hasPhoto: false,
+    slots: '',
+  },
+  {
+    keywords: ['serrur'],
+    need: "porte claquée, clés à l'intérieur",
+    opening: "Bonjour, ma porte a claqué, les clés sont à l'intérieur. Vous pouvez venir vite ?",
+    kind: 'question',
+    hasPhoto: false,
+    slots: '',
+  },
   {
     keywords: ['coiff', 'barbier'],
     need: 'coupe et barbe',
+    opening: "Bonjour, je voudrais une coupe et la barbe samedi matin, c'est possible ?",
     kind: 'appointment',
     hasPhoto: false,
     slots: 'samedi matin',
@@ -72,6 +100,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
   {
     keywords: ['restaurant', 'traiteur', 'pizz', 'brasserie'],
     need: 'table pour 6, un menu sans gluten',
+    opening: "Bonsoir, une table pour 6 samedi soir, avec un menu sans gluten, c'est possible ?",
     kind: 'appointment',
     hasPhoto: false,
     slots: 'samedi soir',
@@ -79,6 +108,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
   {
     keywords: ['dentist', 'ostéo', 'osteo', 'kiné', 'kine'],
     need: 'douleur depuis hier, premier rendez-vous possible',
+    opening: "Bonjour, j'ai une douleur depuis hier, vous auriez un premier rendez-vous rapidement ?",
     kind: 'appointment',
     hasPhoto: false,
     slots: '',
@@ -86,6 +116,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
   {
     keywords: ['immobil'],
     need: 'estimation de la maison avant mise en vente',
+    opening: 'Bonjour, je voudrais une estimation de ma maison avant de la mettre en vente.',
     kind: 'question',
     hasPhoto: false,
     slots: '',
@@ -95,6 +126,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
 const DEFAULT_EXAMPLE: TradeExample = {
   keywords: [],
   need: 'rappel souhaité en journée',
+  opening: "Bonjour, j'aurais besoin d'un devis. Vous pouvez me rappeler dans la journée ?",
   kind: 'quote',
   hasPhoto: false,
   slots: '',
@@ -124,11 +156,7 @@ export class AssistantDemoScenarioUtils {
    * @returns The example, as the alert would summarise it.
    */
   static example(tradeLabel: string | null): AssistantLeadSummary {
-    const folded: string = AssistantDemoScenarioUtils.fold(tradeLabel ?? '')
-    const match: TradeExample =
-      TRADE_EXAMPLES.find((example: TradeExample): boolean =>
-        example.keywords.some((keyword: string): boolean => folded.includes(AssistantDemoScenarioUtils.fold(keyword))),
-      ) ?? DEFAULT_EXAMPLE
+    const match: TradeExample = AssistantDemoScenarioUtils.match(tradeLabel)
     return {
       name: EXAMPLE_NAME,
       contact: EXAMPLE_CONTACT,
@@ -168,6 +196,70 @@ export class AssistantDemoScenarioUtils {
    */
   static exampleAlertText(tradeLabel: string | null): string {
     return AssistantDemoScenarioUtils.alertText(AssistantDemoScenarioUtils.example(tradeLabel))
+  }
+
+  /**
+   * The conversation the demo page plays by itself: the customer's opening, a reply, the customer again, a closing
+   * reply that hands over. In French the opening and the replies follow the trade; the other languages share one
+   * quote scenario. Nothing in it states a fact about the business.
+   * @param lang - The widget's language.
+   * @param tradeLabel - The Google Maps category, or null.
+   * @param businessName - The business as the assistant names it.
+   * @returns The turns, in order.
+   */
+  static script(lang: AssistantWidgetLang, tradeLabel: string | null, businessName: string): AssistantDemoScriptStep[] {
+    const labels: AssistantExampleLabels = EXAMPLE_LABELS[lang]
+    const match: TradeExample = AssistantDemoScenarioUtils.match(tradeLabel)
+    const opening: string = lang === 'fr' ? match.opening : labels.visitor
+    if (lang === 'fr' && match.kind === 'appointment') {
+      const when: string = match.slots
+        ? `${match.slots.charAt(0).toUpperCase()}${match.slots.slice(1)} si possible`
+        : 'Le plus tôt possible'
+      return [
+        { role: 'user', content: opening },
+        { role: 'assistant', content: 'Avec plaisir. Quel jour vous arrangerait ?' },
+        { role: 'user', content: when },
+        {
+          role: 'assistant',
+          content: `C'est noté. Je transmets à ${businessName}, qui vous confirme l'heure. Vous pouvez aussi réserver directement ci-dessous.`,
+        },
+      ]
+    }
+    if (lang === 'fr' && match.kind === 'question') {
+      const firstName: string = EXAMPLE_NAME.split(' ')[0] ?? EXAMPLE_NAME
+      return [
+        { role: 'user', content: opening },
+        {
+          role: 'assistant',
+          content: `Je comprends, je préviens ${businessName} tout de suite. À quel numéro peut-on vous rappeler ?`,
+        },
+        { role: 'user', content: `${EXAMPLE_CONTACT}, ${EXAMPLE_NAME}` },
+        {
+          role: 'assistant',
+          content: `Merci ${firstName}, c'est transmis à ${businessName}. On vous rappelle au plus vite.`,
+        },
+      ]
+    }
+    return [
+      { role: 'user', content: opening },
+      { role: 'assistant', content: labels.askPhoto.replace('{business}', businessName) },
+      { role: 'user', content: PHOTO_LABELS[lang].sent },
+      { role: 'assistant', content: labels.thanks.replace('{business}', businessName) },
+    ]
+  }
+
+  /**
+   * The example of a trade, from its Google category.
+   * @param tradeLabel - The Google Maps category, or null.
+   * @returns The matching example, or the default one.
+   */
+  private static match(tradeLabel: string | null): TradeExample {
+    const folded: string = AssistantDemoScenarioUtils.fold(tradeLabel ?? '')
+    return (
+      TRADE_EXAMPLES.find((example: TradeExample): boolean =>
+        example.keywords.some((keyword: string): boolean => folded.includes(AssistantDemoScenarioUtils.fold(keyword))),
+      ) ?? DEFAULT_EXAMPLE
+    )
   }
 
   /**

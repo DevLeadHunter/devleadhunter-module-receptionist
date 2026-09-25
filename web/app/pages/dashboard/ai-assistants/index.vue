@@ -3,7 +3,7 @@
     <div class="mb-8 flex flex-col gap-4 @2xl:flex-row @2xl:items-end @2xl:justify-between">
       <div>
         <p class="text-xs font-semibold tracking-wider text-[var(--app-ink-soft)] uppercase">Module IA</p>
-        <h1 class="app-page-title mt-1">Assistants IA</h1>
+        <h1 class="app-page-title mt-1">Réceptionnistes IA</h1>
         <p class="mt-2 max-w-xl text-sm text-[var(--app-ink-soft)]">
           Les réceptionnistes générées pour vos prospects : la démo à envoyer, le script à coller sur leur site, et ce
           qu'elles captent pour vous.
@@ -71,7 +71,7 @@
           <input
             v-model="searchQuery"
             type="search"
-            placeholder="Entreprise, prénom de l'assistant…"
+            placeholder="Entreprise, prénom de la réceptionniste…"
             aria-label="Rechercher un assistant"
             class="app-input pl-9"
           />
@@ -133,7 +133,7 @@ import { useDrawerStackStore } from '~/stores/drawerStack'
 /** The assistants generated for the user's prospects, as cards previewing their demo page; each opens its detail page. */
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'ai-assistant-module'] })
 
-useSeoMeta({ title: 'Assistants IA — DevLeadHunter' })
+useSeoMeta({ title: 'Réceptionnistes IA — DevLeadHunter' })
 
 const drawerStack: ReturnType<typeof useDrawerStackStore> = useDrawerStackStore()
 const { copy }: UseCopyToClipboardReturn = useCopyToClipboard()

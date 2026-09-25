@@ -4,11 +4,12 @@
     type="button"
     class="ai-launcher"
     :class="{ 'ai-launcher--mobile': props.isMobileLayout }"
-    :aria-label="`Ouvrir ${props.assistantName}`"
+    :aria-label="UI_LABELS[props.lang].open.replace('{name}', props.assistantName)"
     @click="emit('open')"
   >
     <span class="ai-launcher__say">
-      Une question&nbsp;? <strong>{{ props.assistantName }}</strong> vous répond, 24h/24.
+      {{ UI_LABELS[props.lang].launcherBefore }}<strong>{{ props.assistantName }}</strong
+      >{{ UI_LABELS[props.lang].launcherAfter }}
     </span>
     <span class="ai-launcher__portrait" aria-hidden="true">
       <AssistantAvatar :url="props.avatarUrl" :fallback-url="props.avatarFallbackUrl" :alt="props.assistantName" />
@@ -18,11 +19,17 @@
 </template>
 
 <script lang="ts" setup>
-import type { EmitFn, Ref } from 'vue'
+import type { EmitFn, PropType, Ref } from 'vue'
 import { ref } from 'vue'
+import type { AssistantWidgetLang } from '~/types/AiAssistant'
 import type { AssistantChatLauncherEmits, AssistantChatLauncherProps } from '~/types/AssistantChatLauncher'
+import { UI_LABELS } from '~/constants/AssistantWidgetLabels'
 
 const props: AssistantChatLauncherProps = defineProps({
+  lang: {
+    type: String as PropType<AssistantWidgetLang>,
+    required: true,
+  },
   assistantName: {
     type: String,
     required: true,

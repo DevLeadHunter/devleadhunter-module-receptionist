@@ -8,13 +8,22 @@
       <b class="ai-head__name">{{ props.assistantName }}</b>
       <span class="ai-head__role">{{ props.roleLabel }} · {{ props.businessName }}</span>
     </span>
-    <span class="ai-head__online">{{ props.onlineLabel }}</span>
+    <select
+      v-if="props.languages.length > 1"
+      class="ai-head__lang"
+      :aria-label="UI_LABELS[props.lang].language"
+      :value="props.lang"
+      @change="onLangChange"
+    >
+      <option v-for="code in props.languages" :key="code" :value="code">{{ LANGUAGE_LABELS[code] }}</option>
+    </select>
+    <span v-else class="ai-head__online">{{ props.onlineLabel }}</span>
     <button
       v-if="props.canClose"
       ref="closeButton"
       type="button"
       class="ai-head__close"
-      aria-label="Fermer"
+      :aria-label="UI_LABELS[props.lang].close"
       @click="emit('close')"
     >
       <AssistantIcon name="close" />
@@ -23,9 +32,11 @@
 </template>
 
 <script lang="ts" setup>
-import type { EmitFn, Ref } from 'vue'
+import type { EmitFn, PropType, Ref } from 'vue'
 import { ref } from 'vue'
+import type { AssistantWidgetLang } from '~/types/AiAssistant'
 import type { AssistantChatHeaderEmits, AssistantChatHeaderProps } from '~/types/AssistantChatHeader'
+import { LANGUAGE_LABELS, UI_LABELS } from '~/constants/AssistantWidgetLabels'
 
 const props: AssistantChatHeaderProps = defineProps({
   assistantName: {
@@ -56,11 +67,31 @@ const props: AssistantChatHeaderProps = defineProps({
     type: Boolean,
     default: true,
   },
+  lang: {
+    type: String as PropType<AssistantWidgetLang>,
+    required: true,
+  },
+  languages: {
+    type: Array as PropType<AssistantWidgetLang[]>,
+    required: true,
+  },
 })
 
 const emit: EmitFn<AssistantChatHeaderEmits> = defineEmits<AssistantChatHeaderEmits>()
 
 const closeButton: Ref<HTMLButtonElement | null> = ref(null)
+
+/**
+ * Switch the widget's language to the one picked in the selector.
+ * @param event - The change event of the selector.
+ */
+function onLangChange(event: Event): void {
+  const select: HTMLSelectElement | null = event.target instanceof HTMLSelectElement ? event.target : null
+  const code: AssistantWidgetLang | undefined = props.languages.find(
+    (offered: AssistantWidgetLang): boolean => offered === select?.value,
+  )
+  if (code) emit('change-lang', code)
+}
 
 /** Give the keyboard focus to the close button, the first control of an opened panel. */
 function focusClose(): void {
@@ -129,6 +160,26 @@ defineExpose({ focusClose })
   background: color-mix(in srgb, var(--ai-online) 12%, var(--ai-card));
   border-radius: 999px;
   padding: 4px 9px;
+}
+.ai-head__lang {
+  flex: none;
+  max-width: 120px;
+  appearance: none;
+  border: 1px solid var(--ai-line);
+  border-radius: 999px;
+  background: var(--ai-card)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' fill='none' stroke='%236d665b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat right 8px center / 12px;
+  color: var(--ai-ink-dim);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 4px 24px 4px 10px;
+  cursor: pointer;
+}
+.ai-head__lang:hover {
+  border-color: var(--ai-ink);
+  color: var(--ai-ink);
 }
 .ai-head__close {
   flex: none;

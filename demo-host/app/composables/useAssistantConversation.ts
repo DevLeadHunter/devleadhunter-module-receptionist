@@ -18,18 +18,21 @@ import type {
 } from '~/types/AiAssistant'
 import type { AssistantLeadSummary } from '~/types/AssistantChat'
 import type { AssistantContactDetails } from '~/types/AssistantChatContactForm'
+import type { AssistantDemoScriptStep, AssistantHostPage } from '~/types/AssistantDemoScript'
 import type { UseAssistantConversationReturn } from '~/types/UseAssistantConversation'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
 import {
   APPOINTMENT_LABELS,
   FALLBACK_REPLY,
-  GREETING_TEMPLATES,
+  GREETING_FOLLOW_UPS,
+  GREETING_INTROS,
   LANGUAGE_LABELS,
   LEAD_LABELS,
   PHOTO_LABELS,
   SUGGESTIONS,
 } from '~/constants/AssistantWidgetLabels'
 import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
+import { AssistantHostPageUtils } from '~/utils/AssistantHostPageUtils'
 import { AssistantScheduleUtils } from '~/utils/AssistantScheduleUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
@@ -39,6 +42,10 @@ const DEFAULT_LANG: AssistantWidgetLang = 'fr'
 
 /** Laid out in a page, the greeting is typed before it appears, like a first reply; the panel is on screen already. */
 const INLINE_GREETING_DELAY_MS: number = 900
+
+/** In the played example, a visitor line lands after this pause and a reply is typed for that long. */
+const EXAMPLE_VISITOR_DELAY_MS: number = 900
+const EXAMPLE_REPLY_DELAY_MS: number = 1500
 
 /** A French word starting with a vowel or a mute h takes « d' » (« d'Atelier ») rather than « de ». */
 const FRENCH_ELISION_START: RegExp = /^[aeiouyàâäéèêëîïôöùûüh]/i
@@ -55,7 +62,29 @@ const MAX_PHOTOS: number = 3
  * @param inline - True when the widget is laid out in a page: its opening then counts at the first interaction.
  * @returns The conversation's state and the actions the widget offers.
  */
-export function useAssistantConversation(config: AiAssistantConfig, inline: boolean): UseAssistantConversationReturn {
+/**
+ * A pause, for the typed greeting and the played example.
+ * @param milliseconds - How long.
+ * @returns A promise resolved after the pause.
+ */
+function wait(milliseconds: number): Promise<void> {
+  return new Promise<void>((resolve: () => void): void => {
+    setTimeout(resolve, milliseconds)
+  })
+}
+
+/**
+ * The visitor's conversation with an assistant: the thread, its language, the photo, the slots and the contact form.
+ * @param config - The assistant's public configuration.
+ * @param inline - Whether the panel is laid out in a page (the demo phone) rather than floating.
+ * @param hostPage - The client's page the loader embedded the widget on, or null.
+ * @returns The state and the actions the widget binds.
+ */
+export function useAssistantConversation(
+  config: AiAssistantConfig,
+  inline: boolean,
+  hostPage: AssistantHostPage | null,
+): UseAssistantConversationReturn {
   const runtimeConfig: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
   const publicEndpoint: string = `${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${config.slug}`
   const storageKey: string = `dlh-assistant-${config.slug}`
@@ -64,6 +93,8 @@ export function useAssistantConversation(config: AiAssistantConfig, inline: bool
   const lang: Ref<AssistantWidgetLang> = ref(DEFAULT_LANG)
   const draft: Ref<string> = ref('')
   const isBusy: Ref<boolean> = ref(false)
+  const hasPlayedExample: Ref<boolean> = ref(false)
+  let isPlayingExample: boolean = false
   /** Random id sent with every turn so the server journal groups this visitor's conversation. */
   const sessionId: Ref<string> = ref('')
   const photoPreviews: Ref<Record<number, string>> = ref({})
@@ -227,10 +258,11 @@ export function useAssistantConversation(config: AiAssistantConfig, inline: bool
   function greetingText(code: AssistantWidgetLang): string {
     const business: string = BusinessNameUtils.short(config.business_name)
     const ofBusiness: string = FRENCH_ELISION_START.test(business) ? `d'${business}` : `de ${business}`
-    return GREETING_TEMPLATES[code][config.assistant_gender ?? 'feminine']
+    const intro: string = GREETING_INTROS[code][config.assistant_gender ?? 'feminine']
       .replace('{name}', config.assistant_name)
       .replace('{business}', business)
       .replace('{of_business}', ofBusiness)
+    return `${intro} ${GREETING_FOLLOW_UPS[code][AssistantHostPageUtils.context(hostPage)]}`
   }
 
   /**
@@ -241,13 +273,36 @@ export function useAssistantConversation(config: AiAssistantConfig, inline: bool
     if (messages.value.length !== 0) return
     if (inline) {
       isBusy.value = true
-      await new Promise<void>((resolve: () => void): void => {
-        setTimeout(resolve, INLINE_GREETING_DELAY_MS)
-      })
+      await wait(INLINE_GREETING_DELAY_MS)
       isBusy.value = false
       if (messages.value.length !== 0) return
     }
     messages.value.push({ role: 'assistant', content: greetingText(lang.value) })
+  }
+
+  /**
+   * Play a scripted conversation in the thread, turn by turn, as if a customer were writing and the assistant
+   * typing; the demo page then hands over to the visitor. Only laid out in a page, once.
+   * @param steps - The turns to play.
+   * @returns A promise resolved once the last turn is in the thread.
+   */
+  async function playExample(steps: AssistantDemoScriptStep[]): Promise<void> {
+    if (!inline || isBusy.value || isPlayingExample || hasPlayedExample.value) return
+    isPlayingExample = true
+    noteInlineOpening()
+    captureDemoEvent('assistant_example_played')
+    for (const step of steps) {
+      if (step.role === 'assistant') {
+        isBusy.value = true
+        await wait(EXAMPLE_REPLY_DELAY_MS)
+        isBusy.value = false
+      } else {
+        await wait(EXAMPLE_VISITOR_DELAY_MS)
+      }
+      messages.value.push({ role: step.role, content: step.content })
+    }
+    isPlayingExample = false
+    hasPlayedExample.value = true
   }
 
   /** Laid out in a page, the panel is open on arrival: the opening counts at the visitor's first interaction. */
@@ -665,8 +720,10 @@ export function useAssistantConversation(config: AiAssistantConfig, inline: bool
     showChips,
     showCallbackBar,
     lastLeadSummary,
+    hasPlayedExample,
     restore,
     greet,
+    playExample,
     setLang,
     sendText,
     sendDraft,

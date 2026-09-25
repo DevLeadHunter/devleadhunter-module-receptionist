@@ -1,10 +1,13 @@
 import type {
   AiAssistantPersonaGender,
   AssistantAppointmentLabels,
+  AssistantExampleLabels,
   AssistantLeadLabels,
   AssistantPhotoLabels,
+  AssistantUiLabels,
   AssistantWidgetLang,
 } from '~/types/AiAssistant'
+import type { AssistantGreetingContext } from '~/types/AssistantDemoScript'
 
 /** Each language's own name, on the widget's language buttons. */
 export const LANGUAGE_LABELS: Record<AssistantWidgetLang, string> = {
@@ -43,29 +46,159 @@ export const ONLINE_LABELS: Record<AssistantWidgetLang, string> = {
 }
 
 /**
- * The assistant's first message: it introduces itself as the business's AI receptionist, then asks. `{name}` is
- * its first name, `{business}` the business, `{of_business}` the French « de X » / « d'X ».
+ * The first sentence of the assistant's first message: it introduces itself as the business's AI receptionist.
+ * `{name}` is its first name, `{business}` the business, `{of_business}` the French « de X » / « d'X ».
  */
-export const GREETING_TEMPLATES: Record<AssistantWidgetLang, Record<AiAssistantPersonaGender, string>> = {
+export const GREETING_INTROS: Record<AssistantWidgetLang, Record<AiAssistantPersonaGender, string>> = {
   fr: {
-    feminine: 'Bonjour, je suis {name}, la réceptionniste IA {of_business}. Comment puis-je vous aider ?',
-    masculine: 'Bonjour, je suis {name}, le réceptionniste IA {of_business}. Comment puis-je vous aider ?',
+    feminine: 'Bonjour, je suis {name}, la réceptionniste IA {of_business}.',
+    masculine: 'Bonjour, je suis {name}, le réceptionniste IA {of_business}.',
   },
   nl: {
-    feminine: 'Hallo, ik ben {name}, de AI-receptioniste van {business}. Hoe kan ik u helpen?',
-    masculine: 'Hallo, ik ben {name}, de AI-receptionist van {business}. Hoe kan ik u helpen?',
+    feminine: 'Hallo, ik ben {name}, de AI-receptioniste van {business}.',
+    masculine: 'Hallo, ik ben {name}, de AI-receptionist van {business}.',
   },
   en: {
-    feminine: "Hello, I'm {name}, the AI receptionist at {business}. How can I help you?",
-    masculine: "Hello, I'm {name}, the AI receptionist at {business}. How can I help you?",
+    feminine: "Hello, I'm {name}, the AI receptionist at {business}.",
+    masculine: "Hello, I'm {name}, the AI receptionist at {business}.",
   },
   de: {
-    feminine: 'Guten Tag, ich bin {name}, die KI-Rezeptionistin von {business}. Wie kann ich Ihnen helfen?',
-    masculine: 'Guten Tag, ich bin {name}, der KI-Rezeptionist von {business}. Wie kann ich Ihnen helfen?',
+    feminine: 'Guten Tag, ich bin {name}, die KI-Rezeptionistin von {business}.',
+    masculine: 'Guten Tag, ich bin {name}, der KI-Rezeptionist von {business}.',
   },
   lu: {
-    feminine: "Moien, ech sinn d'{name}, d'KI-Receptionistin bei {business}. Wéi kann ech Iech hëllefen?",
-    masculine: 'Moien, ech sinn de {name}, de KI-Receptionist bei {business}. Wéi kann ech Iech hëllefen?',
+    feminine: "Moien, ech sinn d'{name}, d'KI-Receptionistin bei {business}.",
+    masculine: 'Moien, ech sinn de {name}, de KI-Receptionist bei {business}.',
+  },
+}
+
+/**
+ * The second sentence of the first message, by what the page the widget sits on is about: the plain question, or
+ * an opening suited to a contact, quote or appointment page.
+ */
+export const GREETING_FOLLOW_UPS: Record<AssistantWidgetLang, Record<AssistantGreetingContext, string>> = {
+  fr: {
+    default: 'Comment puis-je vous aider ?',
+    contact: 'Vous cherchez à nous joindre ? Dites-moi ce dont vous avez besoin, je transmets.',
+    quote: 'Pour un devis, décrivez-moi votre projet ou envoyez une photo.',
+    appointment: "Pour un rendez-vous, dites-moi ce qu'il vous faut, je vous propose un créneau.",
+  },
+  nl: {
+    default: 'Hoe kan ik u helpen?',
+    contact: 'Wilt u ons bereiken? Zeg me wat u nodig heeft, ik geef het door.',
+    quote: 'Voor een offerte: beschrijf uw project of stuur een foto.',
+    appointment: 'Voor een afspraak: zeg me wat u nodig heeft, ik stel een moment voor.',
+  },
+  en: {
+    default: 'How can I help you?',
+    contact: 'Trying to reach us? Tell me what you need and I will pass it on.',
+    quote: 'For a quote, describe your project or send a photo.',
+    appointment: 'For an appointment, tell me what you need and I will suggest a time.',
+  },
+  de: {
+    default: 'Wie kann ich Ihnen helfen?',
+    contact: 'Möchten Sie uns erreichen? Sagen Sie mir, was Sie brauchen, ich leite es weiter.',
+    quote: 'Für ein Angebot beschreiben Sie Ihr Vorhaben oder senden Sie ein Foto.',
+    appointment: 'Für einen Termin sagen Sie mir, was Sie brauchen, ich schlage eine Zeit vor.',
+  },
+  lu: {
+    default: 'Wéi kann ech Iech hëllefen?',
+    contact: 'Wëllt Dir eis erreechen? Sot mir, wat Dir braucht, ech ginn et weider.',
+    quote: 'Fir en Devis: beschreift Äre Projet oder schéckt eng Foto.',
+    appointment: 'Fir e Rendez-vous: sot mir, wat Dir braucht, ech proposéieren eng Zäit.',
+  },
+}
+
+/** The widget's chrome: close button, launcher, typing indicator, language selector, composer. */
+export const UI_LABELS: Record<AssistantWidgetLang, AssistantUiLabels> = {
+  fr: {
+    close: 'Fermer',
+    open: 'Ouvrir la conversation avec {name}',
+    launcherBefore: 'Une question\u00a0? ',
+    launcherAfter: ' vous répond, 24h/24.',
+    typing: 'Rédaction en cours',
+    language: 'Langue',
+    message: 'Votre message',
+    send: 'Envoyer',
+  },
+  nl: {
+    close: 'Sluiten',
+    open: 'Gesprek met {name} openen',
+    launcherBefore: 'Een vraag? ',
+    launcherAfter: ' antwoordt u, dag en nacht.',
+    typing: 'Aan het typen',
+    language: 'Taal',
+    message: 'Uw bericht',
+    send: 'Versturen',
+  },
+  en: {
+    close: 'Close',
+    open: 'Open the conversation with {name}',
+    launcherBefore: 'A question? ',
+    launcherAfter: ' answers you, 24/7.',
+    typing: 'Typing',
+    language: 'Language',
+    message: 'Your message',
+    send: 'Send',
+  },
+  de: {
+    close: 'Schließen',
+    open: 'Gespräch mit {name} öffnen',
+    launcherBefore: 'Eine Frage? ',
+    launcherAfter: ' antwortet Ihnen, rund um die Uhr.',
+    typing: 'Schreibt gerade',
+    language: 'Sprache',
+    message: 'Ihre Nachricht',
+    send: 'Senden',
+  },
+  lu: {
+    close: 'Zoumaachen',
+    open: 'Gespréich mat {name} opmaachen',
+    launcherBefore: 'Eng Fro? ',
+    launcherAfter: " äntwert Iech, ronderëm d'Auer.",
+    typing: 'Schreift grad',
+    language: 'Sprooch',
+    message: 'Är Noriicht',
+    send: 'Schécken',
+  },
+}
+
+/** The conversation the demo page plays by itself; in French the visitor's opening follows the trade instead. */
+export const EXAMPLE_LABELS: Record<AssistantWidgetLang, AssistantExampleLabels> = {
+  fr: {
+    chip: 'Voir un exemple',
+    visitor: "Bonjour, j'aurais besoin d'un devis. Vous pouvez me rappeler dans la journée ?",
+    askPhoto: "Bien noté. Pouvez-vous m'envoyer une photo ? {business} pourra ainsi préparer son passage.",
+    thanks:
+      "Merci, c'est bien reçu. Je transmets tout de suite à {business} avec vos coordonnées : on vous rappelle dès l'ouverture. Si vous préférez un créneau, choisissez-le ci-dessous.",
+  },
+  nl: {
+    chip: 'Bekijk een voorbeeld',
+    visitor: 'Hallo, ik heb een lek onder de gootsteen. Kunt u deze week langskomen?',
+    askPhoto: 'Genoteerd. Kunt u een foto sturen, zodat {business} het bezoek kan voorbereiden?',
+    thanks:
+      'Bedankt, goed ontvangen. Ik geef het meteen door aan {business} met uw gegevens: u wordt bij opening teruggebeld. Liever een afspraak? Kies hieronder een moment.',
+  },
+  en: {
+    chip: 'See an example',
+    visitor: 'Hello, I have a leak under the kitchen sink. Could you come this week?',
+    askPhoto: 'Noted. Could you send me a photo, so {business} can prepare the visit?',
+    thanks:
+      'Thank you, received. I am passing it on to {business} right away with your details: they will call you back at opening time. Prefer an appointment? Pick a time below.',
+  },
+  de: {
+    chip: 'Beispiel ansehen',
+    visitor: 'Guten Tag, unter der Küchenspüle tropft es. Könnten Sie diese Woche vorbeikommen?',
+    askPhoto: 'Notiert. Könnten Sie mir ein Foto schicken, damit {business} den Besuch vorbereiten kann?',
+    thanks:
+      'Danke, gut angekommen. Ich leite es sofort an {business} weiter, mit Ihren Kontaktdaten: Sie werden bei Öffnung zurückgerufen. Lieber ein Termin? Wählen Sie unten eine Zeit.',
+  },
+  lu: {
+    chip: 'E Beispill kucken',
+    visitor: 'Moien, ënner der Kichespull tröpfelt et. Kënnt Dir dës Woch laanschtkommen?',
+    askPhoto: 'Notéiert. Kënnt Dir mir eng Foto schécken, fir datt {business} de Besuch virbereede kann?',
+    thanks:
+      'Merci, gutt ukomm. Ech ginn et direkt un {business} weider, mat Äre Kontaktdaten: Dir gitt bei der Ouverture zréckgeruff. Léiwer e Rendez-vous? Wielt ënnen eng Zäit.',
   },
 }
 
