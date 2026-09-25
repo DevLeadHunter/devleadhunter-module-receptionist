@@ -230,7 +230,13 @@ def test_the_client_changes_only_its_own_settings_and_keeps_the_operator_languag
         routes.update_client_settings(
             token,
             AiAssistantClientSettingsUpdate(
-                assistant_name="Léa", languages=["fr", "lu"], alert_phone="06 12 34 56 78", alert_sms_enabled=False
+                assistant_name="Léa",
+                languages=["fr", "lu"],
+                alert_phone="06 12 34 56 78",
+                alert_sms_enabled=False,
+                alert_sms_types=["urgent", "quote"],
+                alert_quiet_start_hour=21,
+                alert_quiet_end_hour=7,
             ),
             VISITOR_REQUEST,
             db,
@@ -242,6 +248,9 @@ def test_the_client_changes_only_its_own_settings_and_keeps_the_operator_languag
 
     assert (saved.assistant_name, saved.alert_phone, saved.alert_sms_enabled) == ("Léa", "+33612345678", False)
     assert saved.languages == [AssistantWidgetLanguage.FR, AssistantWidgetLanguage.LU]
+    # The texted types come back in the module's order; the quiet window as chosen.
+    assert saved.alert_sms_types == [AiAssistantRequestType.QUOTE, AiAssistantRequestType.URGENT]
+    assert (saved.alert_quiet_start_hour, saved.alert_quiet_end_hour) == (21, 7)
     assert untouched.languages == saved.languages
     db.refresh(assistant)
     # « it » was set by the operator and is not offered in the space: it stays.
@@ -250,6 +259,8 @@ def test_the_client_changes_only_its_own_settings_and_keeps_the_operator_languag
         AiAssistantClientSettingsUpdate(languages=["xx"])
     with pytest.raises(ValueError):
         AiAssistantClientSettingsUpdate(languages=["fr"] * 6)
+    with pytest.raises(ValueError):
+        AiAssistantClientSettingsUpdate(alert_quiet_start_hour=24)
     assert "eu_only" not in AiAssistantClientSettingsUpdate.model_fields
 
 

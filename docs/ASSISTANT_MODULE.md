@@ -1024,6 +1024,12 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
   (pilule noire, halo + balayage), aussi utilisé par la page vidéo `/v`.
 - **Bulle fermée.** Loader : portrait 50 px (46 px sous 560 px), bulle jusqu'à 300 px ; même chose pour
   `AssistantChatLauncher`.
+- **Espace client.** Ses réglages gagnent les types de demandes envoyés par SMS et la plage « ne pas déranger »
+  (`alert_sms_types`, `alert_quiet_start_hour`, `alert_quiet_end_hour` dans `AiAssistantClientSettings`, mêmes
+  règles que le dashboard). Rappel du parcours : l'espace n'existe que pour un assistant vendu (`delivered`) ; son
+  lien part dans chaque e-mail de demande, dans le rapport mensuel, depuis le bouton du dashboard et depuis la page
+  quand il a expiré. Rien ne part au moment du paiement Stripe (`activate_from_session` passe l'assistant en
+  `delivered` sans e-mail).
 - **Workflow prod.** Option `report` (lecture seule) de `prod-receptionist-for-business.yml` : compteurs, conversations
   avec leurs messages, demandes et FAQ d'une entreprise, pour diagnostiquer sans jeton de prod. Dibodev le 25/09 :
   2 conversations (3 photos hors sujet, 1 question répondue), 0 demande car aucune coordonnée laissée, 0 question sans

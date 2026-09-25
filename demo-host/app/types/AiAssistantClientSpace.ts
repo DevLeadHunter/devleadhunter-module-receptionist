@@ -62,6 +62,11 @@ export type AiAssistantClientSettings = {
   alert_phone: string | null
   alert_sms_enabled: boolean
   alert_email_enabled: boolean
+  /** The request types texted at once; the others go by email only. */
+  alert_sms_types: AiAssistantClientRequestType[]
+  /** The window during which the SMS are held (Paris hours; equal hours = never held). */
+  alert_quiet_start_hour: number
+  alert_quiet_end_hour: number
 }
 
 /** A language the widget can speak, with its French name. */

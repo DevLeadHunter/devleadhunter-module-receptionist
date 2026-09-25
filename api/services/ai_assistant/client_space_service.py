@@ -67,7 +67,16 @@ class AiAssistantClientSpaceService:
     RECENT_REQUESTS: ClassVar[int] = 30
     MAX_PENDING_LISTED: ClassVar[int] = 100
     SETTINGS_FIELDS: ClassVar[frozenset[str]] = frozenset(
-        {"assistant_name", "languages", "alert_phone", "alert_sms_enabled", "alert_email_enabled"}
+        {
+            "assistant_name",
+            "languages",
+            "alert_phone",
+            "alert_sms_enabled",
+            "alert_email_enabled",
+            "alert_sms_types",
+            "alert_quiet_start_hour",
+            "alert_quiet_end_hour",
+        }
     )
 
     @staticmethod

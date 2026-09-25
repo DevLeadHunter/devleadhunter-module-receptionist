@@ -170,6 +170,9 @@ def _to_settings(assistant: AiAssistant) -> AiAssistantClientSettings:
         alert_phone=alerts.phone_e164,
         alert_sms_enabled=alerts.sms_enabled,
         alert_email_enabled=alerts.email_enabled,
+        alert_sms_types=[item for item in AiAssistantRequestType if item in alerts.sms_types],
+        alert_quiet_start_hour=alerts.quiet_start_hour,
+        alert_quiet_end_hour=alerts.quiet_end_hour,
     )
 
 

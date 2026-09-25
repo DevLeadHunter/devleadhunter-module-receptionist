@@ -70,6 +70,11 @@ class AiAssistantClientSettings(BaseModel):
     alert_phone: str | None = None
     alert_sms_enabled: bool
     alert_email_enabled: bool
+    # The request types texted at once (the others go by email only), and the window during which the SMS are
+    # held (Paris hours; equal hours = never held).
+    alert_sms_types: list[AiAssistantRequestType]
+    alert_quiet_start_hour: int
+    alert_quiet_end_hour: int
 
 
 class AiAssistantClientLanguageOption(BaseModel):
@@ -137,6 +142,9 @@ class AiAssistantClientSettingsUpdate(BaseModel):
     alert_phone: str | None = Field(default=None, max_length=32)
     alert_sms_enabled: bool | None = None
     alert_email_enabled: bool | None = None
+    alert_sms_types: list[AiAssistantRequestType] | None = None
+    alert_quiet_start_hour: int | None = Field(default=None, ge=0, le=23)
+    alert_quiet_end_hour: int | None = Field(default=None, ge=0, le=23)
 
 
 class AiAssistantClientCalendarUpdate(BaseModel):

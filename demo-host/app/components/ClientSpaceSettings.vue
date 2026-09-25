@@ -51,6 +51,44 @@
             Chaque demande par email
           </label>
         </div>
+
+        <template v-if="smsEnabled">
+          <fieldset class="cs-field">
+            <legend class="cs-label">SMS immédiat pour</legend>
+            <div class="css__chips">
+              <label
+                v-for="option in CLIENT_SPACE_REQUEST_TYPE_OPTIONS"
+                :key="option.value"
+                class="css__chip"
+                :class="{ 'css__chip--on': smsTypes.includes(option.value) }"
+              >
+                <input
+                  type="checkbox"
+                  class="css__check"
+                  :checked="smsTypes.includes(option.value)"
+                  @change="toggleSmsType(option.value)"
+                />
+                {{ option.label }}
+              </label>
+            </div>
+            <span class="css__hint">Les autres demandes arrivent par email seulement.</span>
+          </fieldset>
+
+          <fieldset class="cs-field">
+            <legend class="cs-label">Ne pas déranger</legend>
+            <div class="css__hours">
+              <span>de</span>
+              <select v-model.number="quietStartHour" class="cs-input css__hour" aria-label="Début de la plage">
+                <option v-for="hour in HOURS" :key="hour" :value="hour">{{ hour }} h</option>
+              </select>
+              <span>à</span>
+              <select v-model.number="quietEndHour" class="cs-input css__hour" aria-label="Fin de la plage">
+                <option v-for="hour in HOURS" :key="hour" :value="hour">{{ hour }} h</option>
+              </select>
+            </div>
+            <span class="css__hint">Les SMS reçus dans la plage partent à sa fin.</span>
+          </fieldset>
+        </template>
       </fieldset>
 
       <ClientSpaceSaveBar
@@ -69,13 +107,19 @@ import { computed, ref, watch } from 'vue'
 import type { AssistantWidgetLang } from '~/types/AiAssistant'
 import type {
   AiAssistantClientLanguageOption,
+  AiAssistantClientRequestType,
   AiAssistantClientSettings,
   AiAssistantClientSettingsUpdate,
 } from '~/types/AiAssistantClientSpace'
 import type { ClientSpaceSettingsEmits, ClientSpaceSettingsProps } from '~/types/ClientSpaceSettings'
+import { CLIENT_SPACE_REQUEST_TYPE_OPTIONS } from '~/constants/ClientSpaceRequestTypes'
+
+/** Whole hours of the day, for the quiet window. */
+const HOURS: number[] = Array.from({ length: 24 }, (_: unknown, hour: number): number => hour)
 
 /**
- * The few settings a client changes alone: the assistant's first name, its languages and the alerts.
+ * The few settings a client changes alone: the assistant's first name, its languages and the alerts (mobile,
+ * SMS and email switches, the request types texted at once, the quiet window).
  * @param settings The current settings, defaults applied.
  * @param languageOptions The languages the widget can speak.
  * @param isSaving A save is in flight.
@@ -97,6 +141,9 @@ const languages: Ref<AssistantWidgetLang[]> = ref([...props.settings.languages])
 const alertPhone: Ref<string> = ref(props.settings.alert_phone ?? '')
 const smsEnabled: Ref<boolean> = ref(props.settings.alert_sms_enabled)
 const emailEnabled: Ref<boolean> = ref(props.settings.alert_email_enabled)
+const smsTypes: Ref<AiAssistantClientRequestType[]> = ref([...props.settings.alert_sms_types])
+const quietStartHour: Ref<number> = ref(props.settings.alert_quiet_start_hour)
+const quietEndHour: Ref<number> = ref(props.settings.alert_quiet_end_hour)
 
 const changes: ComputedRef<AiAssistantClientSettingsUpdate> = computed((): AiAssistantClientSettingsUpdate => {
   const update: AiAssistantClientSettingsUpdate = {}
@@ -108,6 +155,13 @@ const changes: ComputedRef<AiAssistantClientSettingsUpdate> = computed((): AiAss
   if (alertPhone.value.trim() !== (props.settings.alert_phone ?? '')) update.alert_phone = alertPhone.value.trim()
   if (smsEnabled.value !== props.settings.alert_sms_enabled) update.alert_sms_enabled = smsEnabled.value
   if (emailEnabled.value !== props.settings.alert_email_enabled) update.alert_email_enabled = emailEnabled.value
+  if ([...smsTypes.value].sort().join() !== [...props.settings.alert_sms_types].sort().join()) {
+    update.alert_sms_types = [...smsTypes.value]
+  }
+  if (quietStartHour.value !== props.settings.alert_quiet_start_hour) {
+    update.alert_quiet_start_hour = quietStartHour.value
+  }
+  if (quietEndHour.value !== props.settings.alert_quiet_end_hour) update.alert_quiet_end_hour = quietEndHour.value
   return update
 })
 
@@ -129,6 +183,16 @@ function toggleLanguage(code: AssistantWidgetLang): void {
     : [...languages.value, code]
 }
 
+/**
+ * Add or remove a request type from the ones texted at once.
+ * @param type The request type toggled.
+ */
+function toggleSmsType(type: AiAssistantClientRequestType): void {
+  smsTypes.value = smsTypes.value.includes(type)
+    ? smsTypes.value.filter((item: AiAssistantClientRequestType): boolean => item !== type)
+    : [...smsTypes.value, type]
+}
+
 /** Send only the fields that changed. */
 function submit(): void {
   if (!canSave.value) return
@@ -143,6 +207,9 @@ watch(
     alertPhone.value = saved.alert_phone ?? ''
     smsEnabled.value = saved.alert_sms_enabled
     emailEnabled.value = saved.alert_email_enabled
+    smsTypes.value = [...saved.alert_sms_types]
+    quietStartHour.value = saved.alert_quiet_start_hour
+    quietEndHour.value = saved.alert_quiet_end_hour
   },
 )
 </script>
@@ -203,5 +270,21 @@ watch(
 .css__toggle input {
   margin-top: 3px;
   accent-color: var(--a-accent);
+}
+
+.css__hint {
+  font-size: 12.5px;
+  color: var(--cs-ink-dim);
+}
+
+.css__hours {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.css__hour {
+  width: auto;
 }
 </style>
