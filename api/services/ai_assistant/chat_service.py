@@ -2,16 +2,21 @@
 
 The reply is grounded strictly on the assistant's knowledge base (built in ``knowledge_builder``):
 the system prompt forbids inventing anything, and the model answers in the visitor's language. When
-the model is unavailable, a safe fallback keeps the conversation alive instead of failing.
+the model is unavailable, a safe fallback keeps the conversation alive instead of failing. A reply
+that starts with the « §MANQUE: » line (the visitor asked for something the knowledge lacks) is
+cleaned of it, and the question it carried travels with the answer for the business to see.
 """
 
 import logging
 import re
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from typing import Any
 
 from enums.assistant_llm import AssistantLlmUsage
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.llm_router import assistant_llm_router
+from services.ai_assistant.missing_info_marker import MissingInfoMarker, MissingInfoMarkerStream
 from services.text_normalizer import TextNormalizer
 
 logger = logging.getLogger(__name__)
@@ -35,6 +40,22 @@ _APPOINTMENT_INTENT = re.compile(
     r"\b(rendez[- ]?vous|rdv|creneaux?|reserver|reservation|afspraak|afspraken|reserveren|reservatie|"
     r"termin|terminvereinbarung|reservieren|appointment|appointments|booking|book)\b"
 )
+
+
+@dataclass(frozen=True)
+class ChatAnswer:
+    """The assistant's reply as the visitor reads it, and the question it flagged as unanswerable, if any."""
+
+    reply: str
+    unanswered_question: str | None = None
+
+
+@dataclass(frozen=True)
+class ChatDelta:
+    """One piece of a streamed answer: a text delta of the cleaned reply, or, last, the whole answer."""
+
+    text: str = ""
+    final: ChatAnswer | None = None
 
 
 class AiAssistantChatService:
@@ -62,7 +83,7 @@ class AiAssistantChatService:
         languages: list[str] | None = None,
         tone: str | None = None,
         eu_only: bool = False,
-    ) -> str:
+    ) -> ChatAnswer:
         """Answer the latest visitor message, grounded strictly on ``knowledge``.
 
         Args:
@@ -74,12 +95,70 @@ class AiAssistantChatService:
             eu_only: The assistant only allows Mistral (no Groq fallback).
 
         Returns:
-            The assistant's reply, or a safe fallback when the model is unavailable.
+            The cleaned reply (a safe fallback when the model is unavailable) and the unanswered question.
         """
         turns = self._bounded_history(history)
         # Only a conversation ending on the visitor's message is a question to answer (the models refuse others).
         if not turns or turns[-1]["role"] != "user":
-            return _FALLBACK_REPLY
+            return ChatAnswer(reply=_FALLBACK_REPLY)
+        messages = self._messages(knowledge, assistant_name=assistant_name, languages=languages, tone=tone, turns=turns)
+        raw = await assistant_llm_router.chat(AssistantLlmUsage.CHAT, messages, eu_only=eu_only)
+        reply, question = MissingInfoMarker.split(raw or "")
+        return ChatAnswer(reply=reply or _FALLBACK_REPLY, unanswered_question=question)
+
+    async def answer_stream(
+        self,
+        *,
+        knowledge: dict[str, Any],
+        assistant_name: str,
+        history: list[dict[str, Any]],
+        languages: list[str] | None = None,
+        tone: str | None = None,
+        eu_only: bool = False,
+    ) -> AsyncIterator[ChatDelta]:
+        """Answer the latest visitor message as it is written, grounded strictly on ``knowledge``.
+
+        Args:
+            knowledge: The assistant's knowledge base (``AiAssistant.knowledge_json``).
+            assistant_name: The persona name shown to the visitor.
+            history: The conversation so far as ``{"role", "content"}`` turns, ending on the visitor.
+            languages: Active language ISO codes; the assistant still replies in the visitor's language.
+            tone: Optional persona tone.
+            eu_only: The assistant only allows Mistral (no Groq fallback).
+
+        Yields:
+            The text deltas of the cleaned reply (the marker line never among them), then the whole answer as
+            the last item; the safe fallback as one delta when the model is unavailable.
+        """
+        turns = self._bounded_history(history)
+        if not turns or turns[-1]["role"] != "user":
+            yield ChatDelta(text=_FALLBACK_REPLY)
+            yield ChatDelta(final=ChatAnswer(reply=_FALLBACK_REPLY))
+            return
+        messages = self._messages(knowledge, assistant_name=assistant_name, languages=languages, tone=tone, turns=turns)
+        marker = MissingInfoMarkerStream()
+        async for chunk in assistant_llm_router.chat_stream(AssistantLlmUsage.CHAT, messages, eu_only=eu_only):
+            text = marker.feed(chunk)
+            if text:
+                yield ChatDelta(text=text)
+        text = marker.finish()
+        if text:
+            yield ChatDelta(text=text)
+        reply = marker.reply
+        if not reply:
+            yield ChatDelta(text=_FALLBACK_REPLY)
+        yield ChatDelta(final=ChatAnswer(reply=reply or _FALLBACK_REPLY, unanswered_question=marker.question))
+
+    def _messages(
+        self,
+        knowledge: dict[str, Any],
+        *,
+        assistant_name: str,
+        languages: list[str] | None,
+        tone: str | None,
+        turns: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """The grounded system prompt followed by the conversation, its size logged."""
         visitor_messages = [turn["content"] for turn in turns if turn["role"] == "user"]
         question = "\n".join(visitor_messages[-QUESTION_MESSAGES:])
         system_prompt = ai_assistant_knowledge_builder.render_system_prompt(
@@ -94,9 +173,7 @@ class AiAssistantChatService:
             len(system_prompt),
             len(system_prompt) // 4,
         )
-        messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}, *turns]
-        reply = await assistant_llm_router.chat(AssistantLlmUsage.CHAT, messages, eu_only=eu_only)
-        return (reply or "").strip() or _FALLBACK_REPLY
+        return [{"role": "system", "content": system_prompt}, *turns]
 
     @staticmethod
     def _bounded_history(history: list[dict[str, Any]]) -> list[dict[str, Any]]:

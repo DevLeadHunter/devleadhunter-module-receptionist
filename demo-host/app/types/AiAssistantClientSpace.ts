@@ -122,6 +122,29 @@ export type AiAssistantClientSpace = {
   subscription: AiAssistantClientSubscription | null
   calendar: AiAssistantClientCalendar
   appointments: AiAssistantClientAppointment[]
+  faq: AiAssistantClientFaqEntry[]
+  unanswered: AiAssistantClientUnansweredEntry[]
+}
+
+/** A question the receptionist could not answer, with how often visitors asked it (dates in naive UTC). */
+export type AiAssistantClientUnansweredEntry = {
+  question: string
+  count: number
+  first_seen: string | null
+  last_seen: string | null
+}
+
+/** An answer the business gave, which the receptionist now uses as is. */
+export type AiAssistantClientFaqEntry = {
+  question: string
+  answer: string
+  created_at: string | null
+}
+
+/** The two lists, as the API returns them after a change. */
+export type AiAssistantClientFaqResponse = {
+  faq: AiAssistantClientFaqEntry[]
+  unanswered: AiAssistantClientUnansweredEntry[]
 }
 
 /** A client's settings edit; every field is optional. */

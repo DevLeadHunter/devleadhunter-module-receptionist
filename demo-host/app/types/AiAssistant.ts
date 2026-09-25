@@ -198,3 +198,19 @@ export type AssistantExampleLabels = {
   askPhoto: string
   thanks: string
 }
+
+/** What the widget sends to be answered: the recent thread, the visitor's session and language. */
+export type AssistantChatRequestBody = {
+  messages: AssistantChatMessage[]
+  session_id: string
+  language: AssistantWidgetLang
+  internal: boolean
+}
+
+/** One frame of the streamed reply: a piece of text, then the closing frame with the whole reply. */
+export type AssistantChatStreamFrame = {
+  delta?: string
+  done?: boolean
+  reply?: string
+  offer_booking?: boolean
+}

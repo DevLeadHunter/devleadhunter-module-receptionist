@@ -14,11 +14,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
 from typing import Any
 
 from core.config import settings
 from enums.assistant_llm import AssistantLlmOutage, AssistantLlmUsage, LlmProvider
-from services.llm_service import LlmCompletion, llm_service
+from services.llm_service import LlmCompletion, LlmStreamUsage, llm_service
 from services.mistral_service import MistralRequestRejectedError, mistral_service
 from services.notification_service import notification_service
 
@@ -205,6 +206,115 @@ class AssistantLlmRouter:
         if not rejected:
             self._alert(usage, AssistantLlmOutage.FALLBACK if completion else AssistantLlmOutage.NO_ANSWER)
         return completion
+
+    async def chat_stream(
+        self,
+        usage: AssistantLlmUsage,
+        messages: list[dict[str, Any]],
+        *,
+        eu_only: bool,
+        max_tokens: int = 500,
+        temperature: float = 0.5,
+        timeout: float = 40.0,
+    ) -> AsyncIterator[str]:
+        """
+        A plain completion streamed as text deltas, routed like :meth:`complete`.
+
+        A provider that fails before its first delta counts as down (the fallback is tried, the admins alerted);
+        one that fails after it ends the stream on what came through, since the visitor already reads it.
+
+        Args:
+            usage: What the call is for.
+            messages: OpenAI-style messages.
+            eu_only: The assistant forbids any provider outside Mistral.
+            max_tokens: Answer budget.
+            temperature: Sampling temperature.
+            timeout: Time budget in seconds, shared by Mistral and the fallback.
+
+        Yields:
+            The text deltas of the provider that answered; nothing when no allowed provider did.
+        """
+        started = time.monotonic()
+        options: dict[str, Any] = {"max_tokens": max_tokens, "temperature": temperature}
+        if not mistral_service.is_configured:
+            if eu_only:
+                self._alert(usage, AssistantLlmOutage.EU_ONLY_NO_KEY)
+                return
+            async for delta in self._groq_stream(
+                usage, messages, started=started, fallback=False, timeout=timeout, **options
+            ):
+                yield delta
+            return
+        rejected = False
+        served = False
+        reported = LlmStreamUsage()
+        model = self._mistral_model(usage)
+        try:
+            async for delta in mistral_service.complete_stream(
+                messages,
+                model=model,
+                timeout=timeout if eu_only else max(timeout / 2, MIN_PROVIDER_TIMEOUT_SECONDS),
+                retries=1 if eu_only else 0,
+                usage=reported,
+                **options,
+            ):
+                served = True
+                yield delta
+        except MistralRequestRejectedError:
+            # Our request is at fault, not Mistral: the visitor still gets an answer, the admins no alert.
+            rejected = True
+        if served:
+            completion = self._streamed(reported, model=model, started=started)
+            self._log(usage, LlmProvider.MISTRAL, completion, started=started, eu_only=eu_only, fallback=False)
+            return
+        if rejected:
+            self._alert(usage, AssistantLlmOutage.REJECTED)
+        if eu_only:
+            if not rejected:
+                self._alert(usage, AssistantLlmOutage.EU_ONLY_NO_ANSWER)
+            return
+        remaining = max(timeout - (time.monotonic() - started), MIN_PROVIDER_TIMEOUT_SECONDS)
+        async for delta in self._groq_stream(
+            usage, messages, started=started, fallback=True, timeout=remaining, **options
+        ):
+            served = True
+            yield delta
+        if not rejected:
+            self._alert(usage, AssistantLlmOutage.FALLBACK if served else AssistantLlmOutage.NO_ANSWER)
+
+    async def _groq_stream(
+        self,
+        usage: AssistantLlmUsage,
+        messages: list[dict[str, Any]],
+        *,
+        started: float,
+        fallback: bool,
+        timeout: float,
+        max_tokens: int,
+        temperature: float,
+    ) -> AsyncIterator[str]:
+        """Ask Groq as a stream (its chat model: the photos are never streamed); logs the call once served."""
+        reported = LlmStreamUsage()
+        served = False
+        async for delta in llm_service.complete_stream(
+            messages, max_tokens=max_tokens, temperature=temperature, timeout=timeout, usage=reported
+        ):
+            served = True
+            yield delta
+        if served:
+            completion = self._streamed(reported, model=settings.groq_model, started=started)
+            self._log(usage, LlmProvider.GROQ, completion, started=started, eu_only=False, fallback=fallback)
+
+    @staticmethod
+    def _streamed(reported: LlmStreamUsage, *, model: str, started: float) -> LlmCompletion:
+        """A streamed call as a completion for the log: no text, the tokens the provider reported (else 0)."""
+        return LlmCompletion(
+            text="",
+            model=reported.model or model,
+            prompt_tokens=reported.prompt_tokens,
+            completion_tokens=reported.completion_tokens,
+            latency_ms=int((time.monotonic() - started) * 1000),
+        )
 
     async def _groq(
         self,

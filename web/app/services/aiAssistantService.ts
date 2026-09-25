@@ -2,6 +2,8 @@ import { ApiClient } from '~/services/api'
 import type {
   AiAssistantClientLink,
   AiAssistantConversationsResponse,
+  AiAssistantFaqPayload,
+  AiAssistantFaqResponse,
   AiAssistantListResponse,
   AiAssistantRequestDetail,
   AiAssistantRequestItem,
@@ -137,6 +139,65 @@ export class AiAssistantService {
    */
   static async deleteDocument(assistantId: number, documentId: number): Promise<void> {
     await ApiClient.delete(`${BASE_URL}/${assistantId}/documents/${documentId}`)
+  }
+
+  /**
+   * The questions visitors asked an assistant without an answer, and the answers in place.
+   *
+   * @param assistantId - The assistant.
+   * @returns The two lists.
+   */
+  static getFaq(assistantId: number): Promise<AiAssistantFaqResponse> {
+    return ApiClient.get<AiAssistantFaqResponse>(`${BASE_URL}/${assistantId}/faq`)
+  }
+
+  /**
+   * Answer a question: it joins the answers in place and leaves the unanswered list.
+   *
+   * @param assistantId - The assistant.
+   * @param payload - The question and its answer.
+   * @returns The two lists, updated.
+   */
+  static addFaq(assistantId: number, payload: AiAssistantFaqPayload): Promise<AiAssistantFaqResponse> {
+    return ApiClient.post<AiAssistantFaqResponse>(`${BASE_URL}/${assistantId}/faq`, payload)
+  }
+
+  /**
+   * Rewrite an answer in place.
+   *
+   * @param assistantId - The assistant.
+   * @param index - The answer's position in the list.
+   * @param payload - The question and its answer.
+   * @returns The two lists, updated.
+   */
+  static updateFaq(
+    assistantId: number,
+    index: number,
+    payload: AiAssistantFaqPayload,
+  ): Promise<AiAssistantFaqResponse> {
+    return ApiClient.put<AiAssistantFaqResponse>(`${BASE_URL}/${assistantId}/faq/${index}`, payload)
+  }
+
+  /**
+   * Delete an answer in place.
+   *
+   * @param assistantId - The assistant.
+   * @param index - The answer's position in the list.
+   * @returns A promise resolved once deleted.
+   */
+  static async deleteFaq(assistantId: number, index: number): Promise<void> {
+    await ApiClient.delete(`${BASE_URL}/${assistantId}/faq/${index}`)
+  }
+
+  /**
+   * Drop a question without answering it.
+   *
+   * @param assistantId - The assistant.
+   * @param index - The question's position in the list.
+   * @returns A promise resolved once dropped.
+   */
+  static async dismissUnanswered(assistantId: number, index: number): Promise<void> {
+    await ApiClient.delete(`${BASE_URL}/${assistantId}/unanswered/${index}`)
   }
 
   /**

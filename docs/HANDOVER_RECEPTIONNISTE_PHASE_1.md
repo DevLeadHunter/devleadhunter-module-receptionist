@@ -950,12 +950,23 @@ visage plus petit dans le cercle), détourés sur fond transparent, déposés da
 ré-encodés en 512 px WebP avec transparence. Le disque à la teinte de l'accent sert de fond ; le détourage est propre
 jusque dans les cheveux d'Inès et de Sofia. Rien à déclarer dans le code.
 
+**Sixième et septième passages, même soirée (« fais tout d'un coup »)** : portrait dans le dashboard et l'espace
+client ; lanceur natif dessiné par le loader et iframe créée après l'inactivité ou au clic (le site client ne charge
+plus le widget d'office) ; démo guidée « Voir un exemple » sur /ia ; accueil qui s'adapte à la page hôte ; chrome du
+widget dans les cinq langues avec un sélecteur de langue dans l'en-tête ; réponses en flux (`/chat/stream`) ;
+questions sans réponse (`§MANQUE:` dans le prompt) et FAQ éditable côté dashboard et côté espace client, reprise
+dans le prompt ; guide d'installation par plateforme ; « Réceptionniste IA » partout dans le dashboard. Détail dans
+`docs/ASSISTANT_MODULE.md`, section « Septième passage ».
+
 **À tester par Léo** (toujours avec `?internal=1` sur les pages du demo-host) : `/ia/{slug}` sur desktop et
 mobile (une demande envoyée depuis le téléphone de gauche doit mettre à jour la notification de droite), le widget
 embarqué (`/embed-test.html?slug=…&internal=1`), puis `/dashboard/ai-assistants`, la page de détail et
 `/dashboard/ai-assistants/requests` (ouvrir une demande, lire la transcription, noter, marquer traitée). Cinquième
 passage : dans Personnaliser, cliquer un visage doit remplir « Prénom affiché » et, après Enregistrer, changer le
-prénom et le portrait sur `/ia/{slug}`.
+prénom et le portrait sur `/ia/{slug}`. Septième passage : sur `/embed-test.html`, aucune iframe avant 3 s après le
+chargement, la bulle s'ouvre au clic ; sur `/ia`, la puce « Voir un exemple » joue la conversation puis le SMS
+retombe à droite ; poser une question hors connaissance (sans `internal=1`) la fait apparaître dans « Questions sans
+réponse » sur la page de détail, y répondre l'envoie dans les réponses en place et le prompt.
 
 **Restes** : `AssistantChat.vue` fait encore ~1 300 lignes (à découper en composants), l'aperçu de carte charge la
 page /ia entière (léger avec quelques assistants, à remplacer par une capture si la liste grandit), avatar de Léa,

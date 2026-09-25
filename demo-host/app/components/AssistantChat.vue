@@ -109,7 +109,7 @@
       <AssistantChatComposer
         v-model="draft"
         :lang="lang"
-        :is-busy="isBusy"
+        :is-busy="isBusy || isStreaming"
         :can-send-photo="photosRemaining > 0"
         :can-book="!leadSent"
         @send="sendDraft"
@@ -166,6 +166,7 @@ const {
   suggestions,
   draft,
   isBusy,
+  isStreaming,
   photoPreviews,
   photosRemaining,
   isPhotoPanelOpen,
@@ -298,7 +299,15 @@ async function scrollToLatest(): Promise<void> {
 }
 
 watch(
-  [(): number => messages.value.length, isBusy, isPhotoPanelOpen, isSlotPanelOpen, showLeadForm, slotsState],
+  [
+    (): number => messages.value.length,
+    (): string => messages.value[messages.value.length - 1]?.content ?? '',
+    isBusy,
+    isPhotoPanelOpen,
+    isSlotPanelOpen,
+    showLeadForm,
+    slotsState,
+  ],
   (): void => {
     scrollToLatest()
   },

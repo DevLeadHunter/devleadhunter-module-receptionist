@@ -38,6 +38,7 @@ from models.user import User
 from schemas.ai_assistant import AiAssistantChatMessage, AiAssistantChatRequest
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
+from services.ai_assistant.chat_service import ChatAnswer
 from services.ai_assistant.report_email import AiAssistantReportEmail, LanguageShare, MonthlyStats, ReportEmailContent
 from services.ai_assistant.report_service import AiAssistantReportService, ReportPeriod
 from services.assistant_subscription_service import AssistantSubscriptionService
@@ -613,7 +614,9 @@ def test_an_internal_chat_is_journaled_as_a_test(db: Session, monkeypatch: pytes
 
     assistant = _assistant(db, status="active", paid_at=None)
     monkeypatch.setattr(
-        routes.ai_assistant_chat_service, "answer", AsyncCallRecorder(record_args=True, result="Oui, le samedi matin.")
+        routes.ai_assistant_chat_service,
+        "answer",
+        AsyncCallRecorder(record_args=True, result=ChatAnswer(reply="Oui, le samedi matin.")),
     )
     request = Request({"type": "http", "headers": [], "client": ("203.0.113.7", 0)})
 
@@ -636,7 +639,9 @@ def test_a_chat_not_ending_on_the_visitor_is_refused_and_never_journaled(
 
     assistant = _assistant(db, status="active", paid_at=None)
     monkeypatch.setattr(
-        routes.ai_assistant_chat_service, "answer", AsyncCallRecorder(record_args=True, result="Oui, le samedi matin.")
+        routes.ai_assistant_chat_service,
+        "answer",
+        AsyncCallRecorder(record_args=True, result=ChatAnswer(reply="Oui, le samedi matin.")),
     )
     request = Request({"type": "http", "headers": [], "client": ("203.0.113.8", 0)})
     payload = AiAssistantChatRequest(

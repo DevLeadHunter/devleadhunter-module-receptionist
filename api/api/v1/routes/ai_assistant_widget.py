@@ -1,11 +1,15 @@
-"""Public routes of an assistant's widget, by slug: its config, the chat, the appointment offer, the visitor's request,
-the photo for a quote, and the owner's « me contacter » on the demo page.
+"""Public routes of an assistant's widget, by slug: its config, the chat (whole or streamed), the appointment offer,
+the visitor's request, the photo for a quote, and the owner's « me contacter » on the demo page.
 """
 
+import json
 import logging
+from collections.abc import AsyncIterator
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
@@ -15,7 +19,7 @@ from api.v1.routes.ai_assistant_common import (
     require_declared_length,
 )
 from core.config import settings
-from core.database import get_db
+from core.database import SessionLocal, get_db
 from enums.ai_assistant_photo import AiAssistantPhotoRejection
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.assistant_visitor_channel import AssistantVisitorChannel
@@ -46,9 +50,10 @@ from services.ai_assistant.appointment_slots import (
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.calendar_booking import SlotTakenError, ai_assistant_calendar_booking
 from services.ai_assistant.calendar_service import ai_assistant_calendar_service
-from services.ai_assistant.chat_service import ai_assistant_chat_service
+from services.ai_assistant.chat_service import ChatAnswer, ai_assistant_chat_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
+from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.photo_service import (
     MAX_PHOTO_BYTES,
@@ -175,14 +180,10 @@ def _closed_hours(db: Session, assistant: AiAssistant) -> AiAssistantClosedHours
     )
 
 
-@router.post("/public/{slug}/chat", response_model=AiAssistantChatResponse)
-async def chat_with_assistant(
-    slug: str,
-    payload: AiAssistantChatRequest,
-    request: Request,
-    db: Session = Depends(get_db),
-) -> AiAssistantChatResponse:
-    """Answer a visitor's message as the prospect's grounded assistant."""
+def _open_chat(
+    slug: str, payload: AiAssistantChatRequest, request: Request, db: Session
+) -> tuple[AiAssistant, list[dict[str, str]]]:
+    """The assistant a chat request reaches and the conversation to answer, once the request is admissible."""
     if not assistant_chat_limiter.allow(f"{slug}:{client_ip(request)}"):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de messages, réessayez plus tard"
@@ -191,10 +192,66 @@ async def chat_with_assistant(
     # Only a visitor's message is a question: the journal must never file an assistant turn as theirs.
     if not payload.messages or payload.messages[-1].role != "user":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No message to answer")
-
     history = [
         {"role": message.role, "content": message.content} for message in payload.messages[-_MAX_INCOMING_MESSAGES:]
     ]
+    return assistant, history
+
+
+def _journal_turn(
+    db: Session, assistant: AiAssistant, *, slug: str, payload: AiAssistantChatRequest, answer: ChatAnswer
+) -> None:
+    """Journal the turn and file the question it could not answer; neither may cost the visitor their answer."""
+    try:
+        ai_assistant_conversation_service.record_turn(
+            db,
+            assistant=assistant,
+            session_id=payload.session_id,
+            language=payload.language,
+            visitor_message=payload.messages[-1].content,
+            reply=answer.reply,
+            is_test=payload.internal,
+        )
+    except Exception as exc:
+        # No traceback: a database error would quote the visitor's message in the log.
+        logger.warning("Assistant conversation journal failed for slug %s (%s)", slug, type(exc).__name__)
+        db.rollback()
+    # The operator's own tests never fill the business's list of unanswered questions.
+    if answer.unanswered_question and not payload.internal:
+        try:
+            ai_assistant_faq_service.record_unanswered(db, assistant, answer.unanswered_question)
+        except Exception as exc:
+            logger.warning("Assistant unanswered question not filed for slug %s (%s)", slug, type(exc).__name__)
+            db.rollback()
+
+
+def _journal_streamed_turn(
+    assistant_id: int, *, slug: str, payload: AiAssistantChatRequest, answer: ChatAnswer
+) -> None:
+    """Journal a streamed turn on a session of its own: the request's one is closed once the body streams."""
+    try:
+        with SessionLocal() as journal_db:
+            assistant = journal_db.get(AiAssistant, assistant_id)
+            if assistant is not None:
+                _journal_turn(journal_db, assistant, slug=slug, payload=payload, answer=answer)
+    except Exception as exc:
+        logger.warning("Assistant conversation journal failed for slug %s (%s)", slug, type(exc).__name__)
+
+
+def _sse_event(payload: dict[str, Any]) -> str:
+    """One server-sent event of the chat stream: a JSON object on its ``data:`` line."""
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+@router.post("/public/{slug}/chat", response_model=AiAssistantChatResponse)
+async def chat_with_assistant(
+    slug: str,
+    payload: AiAssistantChatRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> AiAssistantChatResponse:
+    """Answer a visitor's message as the prospect's grounded assistant."""
+    assistant, history = _open_chat(slug, payload, request, db)
     knowledge = assistant.knowledge_json or {}
     assistant_name = assistant.assistant_name
     languages = assistant.languages
@@ -202,7 +259,7 @@ async def chat_with_assistant(
     eu_only = bool(assistant.eu_only)
     # The model may take tens of seconds: the pool connection goes back meanwhile (the journal opens its own).
     db.commit()
-    reply = await ai_assistant_chat_service.answer(
+    answer = await ai_assistant_chat_service.answer(
         knowledge=knowledge,
         assistant_name=assistant_name,
         languages=languages,
@@ -210,23 +267,54 @@ async def chat_with_assistant(
         history=history,
         eu_only=eu_only,
     )
-    # The journal must never cost the visitor their answer.
-    try:
-        ai_assistant_conversation_service.record_turn(
-            db,
-            assistant=assistant,
-            session_id=payload.session_id,
-            language=payload.language,
-            visitor_message=history[-1]["content"],
-            reply=reply,
-            is_test=payload.internal,
-        )
-    except Exception as exc:
-        # No traceback: a database error would quote the visitor's message in the log.
-        logger.warning("Assistant conversation journal failed for slug %s (%s)", slug, type(exc).__name__)
-        db.rollback()
+    _journal_turn(db, assistant, slug=slug, payload=payload, answer=answer)
     return AiAssistantChatResponse(
-        reply=reply, offer_booking=ai_assistant_chat_service.asks_for_appointment(history[-1]["content"])
+        reply=answer.reply, offer_booking=ai_assistant_chat_service.asks_for_appointment(history[-1]["content"])
+    )
+
+
+@router.post("/public/{slug}/chat/stream")
+async def stream_chat_with_assistant(
+    slug: str,
+    payload: AiAssistantChatRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    """Answer a visitor's message as it is written: ``data: {"delta"}`` events, then ``data: {"done", "reply",
+    "offer_booking"}`` with the whole reply. The turn is journaled once the reply is complete.
+    """
+    assistant, history = _open_chat(slug, payload, request, db)
+    assistant_id = assistant.id
+    knowledge = assistant.knowledge_json or {}
+    assistant_name = assistant.assistant_name
+    languages = assistant.languages
+    tone = assistant.tone
+    eu_only = bool(assistant.eu_only)
+    offer_booking = ai_assistant_chat_service.asks_for_appointment(history[-1]["content"])
+    # The model may take tens of seconds: the pool connection goes back meanwhile (the journal opens its own).
+    db.commit()
+
+    async def events() -> AsyncIterator[str]:
+        answer = ChatAnswer(reply="")
+        async for delta in ai_assistant_chat_service.answer_stream(
+            knowledge=knowledge,
+            assistant_name=assistant_name,
+            languages=languages,
+            tone=tone,
+            history=history,
+            eu_only=eu_only,
+        ):
+            if delta.final is not None:
+                answer = delta.final
+            elif delta.text:
+                yield _sse_event({"delta": delta.text})
+        _journal_streamed_turn(assistant_id, slug=slug, payload=payload, answer=answer)
+        yield _sse_event({"done": True, "reply": answer.reply, "offer_booking": offer_booking})
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 

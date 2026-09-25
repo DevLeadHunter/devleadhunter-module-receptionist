@@ -9,6 +9,7 @@ from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequ
 from enums.assistant_calendar_status import AssistantCalendarConnection
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
 from enums.assistant_widget_language import AssistantWidgetLanguage
+from schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantUnansweredEntry
 
 
 class AiAssistantClientRequestItem(BaseModel):
@@ -120,6 +121,9 @@ class AiAssistantClientSpaceResponse(BaseModel):
     subscription: AiAssistantClientSubscription | None = None
     calendar: AiAssistantClientCalendar
     appointments: list[AiAssistantClientAppointmentItem] = Field(default_factory=list)
+    # The answers the business wrote, and the questions its assistant could not answer.
+    faq: list[AiAssistantFaqEntry] = Field(default_factory=list)
+    unanswered: list[AiAssistantUnansweredEntry] = Field(default_factory=list)
 
 
 class AiAssistantClientSettingsUpdate(BaseModel):

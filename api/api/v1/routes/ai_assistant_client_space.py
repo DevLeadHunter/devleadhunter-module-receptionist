@@ -4,11 +4,11 @@ import logging
 from datetime import UTC, datetime
 
 import stripe
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from api.v1.routes.ai_assistant_common import client_ip, confirmation_response
+from api.v1.routes.ai_assistant_common import client_ip, confirmation_response, faq_response
 from core.database import get_db
 from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
@@ -33,6 +33,7 @@ from schemas.ai_assistant_client_space import (
     AiAssistantClientSpaceResponse,
     AiAssistantClientSubscription,
 )
+from schemas.ai_assistant_faq import AiAssistantFaqEntryRequest, AiAssistantFaqResponse
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.calendar_access import ai_assistant_calendar_access
@@ -41,6 +42,7 @@ from services.ai_assistant.calendar_service import ai_assistant_calendar_service
 from services.ai_assistant.calendar_settings import DURATION_CHOICES, MIN_NOTICE_CHOICES, CalendarSettings
 from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
 from services.ai_assistant.client_space_service import ClientSpaceAccessError, ai_assistant_client_space_service
+from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.google_calendar_client import GoogleCalendarError
 from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
@@ -181,6 +183,7 @@ async def get_client_space(
     subscription = ai_assistant_client_space_service.current_subscription(db, assistant)
     records = ai_assistant_client_space_service.recent_requests(db, assistant)
     booked = ai_assistant_calendar_booking.booked_labels(db, [record.id for record in records])
+    faq = faq_response(assistant)
     return AiAssistantClientSpaceResponse(
         business_name=assistant.business_name,
         assistant_name=assistant.assistant_name,
@@ -200,7 +203,35 @@ async def get_client_space(
             _to_appointment(appointment, record)
             for appointment, record in ai_assistant_calendar_booking.upcoming(db, assistant)
         ],
+        faq=faq.faq,
+        unanswered=faq.unanswered,
     )
+
+
+@router.post("/client/{token}/faq", response_model=AiAssistantFaqResponse, status_code=status.HTTP_201_CREATED)
+async def add_client_faq_entry(
+    token: str, payload: AiAssistantFaqEntryRequest, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantFaqResponse:
+    """The business answers a question itself: it joins the FAQ and leaves the unanswered list."""
+    assistant, _link = _open_client_space(db, token, request)
+    try:
+        ai_assistant_faq_service.add_faq(db, assistant, payload.question, payload.answer)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return faq_response(assistant)
+
+
+@router.delete("/client/{token}/unanswered/{index}", status_code=status.HTTP_204_NO_CONTENT)
+async def dismiss_client_unanswered_question(
+    token: str, index: int, request: Request, db: Session = Depends(get_db)
+) -> Response:
+    """Drop an unanswered question without answering it."""
+    assistant, _link = _open_client_space(db, token, request)
+    try:
+        ai_assistant_faq_service.dismiss_unanswered(db, assistant, index)
+    except IndexError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question introuvable") from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/client/{token}/requests/{request_id}/handled", response_model=AiAssistantClientRequestItem)

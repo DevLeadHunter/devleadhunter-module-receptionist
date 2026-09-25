@@ -20,6 +20,7 @@ export type UseAssistantConversationReturn = {
   suggestions: ComputedRef<string[]>
   draft: Ref<string>
   isBusy: Ref<boolean>
+  isStreaming: Ref<boolean>
   photoPreviews: Ref<Record<number, string>>
   photosRemaining: Ref<number>
   isPhotoPanelOpen: Ref<boolean>

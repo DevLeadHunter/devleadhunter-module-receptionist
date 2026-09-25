@@ -34,7 +34,8 @@ async def test_answer_grounds_on_knowledge_and_forwards_history(monkeypatch) -> 
         history=[{"role": "user", "content": "Bonjour"}],
     )
 
-    assert reply == "Bonjour, je peux vous aider."
+    assert reply.reply == "Bonjour, je peux vous aider."
+    assert reply.unanswered_question is None
     messages = captured["messages"]
     assert messages[0]["role"] == "system"
     assert "LUMA Immobilier" in messages[0]["content"]
@@ -96,7 +97,7 @@ async def test_fallback_reply_when_model_unavailable(monkeypatch) -> None:
         knowledge=_KB, assistant_name="Sofia", history=[{"role": "user", "content": "Bonjour"}]
     )
 
-    assert "conseiller" in reply
+    assert "conseiller" in reply.reply
 
 
 @pytest.mark.asyncio
@@ -133,7 +134,7 @@ async def test_a_conversation_not_ending_on_the_visitor_never_reaches_a_model(mo
         knowledge=_KB, assistant_name="Sofia", history=[{"role": "assistant", "content": "Bonjour"}]
     )
 
-    assert "conseiller" in reply
+    assert "conseiller" in reply.reply
     assert calls == []
 
 

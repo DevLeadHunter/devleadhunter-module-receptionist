@@ -255,6 +255,7 @@ def test_the_client_changes_only_its_own_settings_and_keeps_the_operator_languag
 
 def test_a_bad_or_foreign_alert_mobile_saves_nothing(db: Session, outbox: dict[str, Any]) -> None:
     assistant = _assistant(db, alert_phone_e164="+33612345678")
+    original_name = assistant.assistant_name
     token = _token(assistant)
 
     for phone in ("01 23 45 67 89", "+44 7700 900123"):
@@ -265,7 +266,7 @@ def test_a_bad_or_foreign_alert_mobile_saves_nothing(db: Session, outbox: dict[s
         )
         assert status_code == 422
     db.refresh(assistant)
-    assert (assistant.assistant_name, assistant.alert_phone_e164) == ("Sofia", "+33612345678")
+    assert (assistant.assistant_name, assistant.alert_phone_e164) == (original_name, "+33612345678")
     assert outbox["email"].calls == [] and outbox["logged"] == []
 
 

@@ -566,7 +566,7 @@ def test_the_chat_keeps_the_passages_closest_to_the_question_and_logs_the_prompt
         )
 
     system = sent[0][0]["content"]
-    assert reply == "Voir nos tarifs : https://garage-morel.fr/tarifs"
+    assert reply.reply == "Voir nos tarifs : https://garage-morel.fr/tarifs"
     assert "<<< PAGE « Accueil » — https://garage-morel.fr/\nGarage de quartier.\n>>>" in system
     assert (
         f"<<< DOCUMENT « Tarifs atelier.pdf » (extraits)\n{tyres_winter.strip()}\n[…]\n{tyres_summer.strip()}\n>>>"

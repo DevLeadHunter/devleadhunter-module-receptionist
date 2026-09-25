@@ -58,6 +58,16 @@
 
       <ClientSpaceReport :report="space.report" :assistant-name="space.assistant_name" />
 
+      <ClientSpaceFaq
+        :assistant-name="space.assistant_name"
+        :unanswered="space.unanswered"
+        :faq="space.faq"
+        :is-busy="isSavingFaq"
+        :error-message="faqError"
+        @answer="answerQuestion"
+        @dismiss="dismissQuestion"
+      />
+
       <ClientSpaceSettings
         :settings="space.settings"
         :language-options="space.language_options"
@@ -116,6 +126,7 @@ import type {
   AiAssistantClientCalendar,
   AiAssistantClientCalendarConnect,
   AiAssistantClientCalendarUpdate,
+  AiAssistantClientFaqResponse,
   AiAssistantClientPortal,
   AiAssistantClientRenew,
   AiAssistantClientRenewState,
@@ -170,6 +181,8 @@ const busyRequestId: Ref<number | null> = ref(null)
 const actionError: Ref<string | null> = ref(null)
 const isSavingSettings: Ref<boolean> = ref(false)
 const settingsError: Ref<string | null> = ref(null)
+const isSavingFaq: Ref<boolean> = ref(false)
+const faqError: Ref<string | null> = ref(null)
 const hasSavedSettings: Ref<boolean> = ref(false)
 const isOpeningPortal: Ref<boolean> = ref(false)
 const portalError: Ref<string | null> = ref(null)
@@ -239,6 +252,55 @@ function showExpiredOnUnauthorized(error: unknown): boolean {
 function failureMessage(error: unknown, fallback: string): string | null {
   if (showExpiredOnUnauthorized(error)) return null
   return ApiRefusalUtils.detail(error) ?? fallback
+}
+
+/**
+ * Record the business's answer to a question the receptionist could not answer; both lists come back updated.
+ * @param question The question as it was asked.
+ * @param answer The answer to give from now on.
+ * @returns A promise resolved once the API answered.
+ */
+async function answerQuestion(question: string, answer: string): Promise<void> {
+  const current: AiAssistantClientSpace | null = space.value
+  if (!current || isSavingFaq.value) return
+  isSavingFaq.value = true
+  faqError.value = null
+  try {
+    const lists: AiAssistantClientFaqResponse = await $fetch<AiAssistantClientFaqResponse>(`${endpoint.value}/faq`, {
+      method: 'POST',
+      body: { question, answer },
+    })
+    current.faq = lists.faq
+    current.unanswered = lists.unanswered
+  } catch (error: unknown) {
+    if (!showExpiredOnUnauthorized(error)) {
+      faqError.value = 'La réponse n’a pas pu être enregistrée, réessayez dans un instant.'
+    }
+  } finally {
+    isSavingFaq.value = false
+  }
+}
+
+/**
+ * Drop a question without answering it.
+ * @param index The question's position in the list.
+ * @returns A promise resolved once the API answered.
+ */
+async function dismissQuestion(index: number): Promise<void> {
+  const current: AiAssistantClientSpace | null = space.value
+  if (!current || isSavingFaq.value) return
+  isSavingFaq.value = true
+  faqError.value = null
+  try {
+    await $fetch(`${endpoint.value}/unanswered/${index}`, { method: 'DELETE' })
+    current.unanswered = current.unanswered.filter((_: unknown, position: number): boolean => position !== index)
+  } catch (error: unknown) {
+    if (!showExpiredOnUnauthorized(error)) {
+      faqError.value = 'La question n’a pas pu être retirée, réessayez dans un instant.'
+    }
+  } finally {
+    isSavingFaq.value = false
+  }
 }
 
 /**

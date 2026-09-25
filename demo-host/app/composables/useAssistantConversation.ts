@@ -9,6 +9,7 @@ import type {
   AssistantBookingMode,
   AssistantChatMessage,
   AssistantChatReply,
+  AssistantChatRequestBody,
   AssistantDayPeriod,
   AssistantLeadReply,
   AssistantPhotoReply,
@@ -34,6 +35,7 @@ import {
 import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
 import { AssistantHostPageUtils } from '~/utils/AssistantHostPageUtils'
 import { AssistantScheduleUtils } from '~/utils/AssistantScheduleUtils'
+import { AssistantStreamUtils } from '~/utils/AssistantStreamUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 import { PhotoCompressionUtils } from '~/utils/PhotoCompressionUtils'
@@ -93,6 +95,8 @@ export function useAssistantConversation(
   const lang: Ref<AssistantWidgetLang> = ref(DEFAULT_LANG)
   const draft: Ref<string> = ref('')
   const isBusy: Ref<boolean> = ref(false)
+  /** True while a reply is still arriving piece by piece in its bubble. */
+  const isStreaming: Ref<boolean> = ref(false)
   const hasPlayedExample: Ref<boolean> = ref(false)
   let isPlayingExample: boolean = false
   /** Random id sent with every turn so the server journal groups this visitor's conversation. */
@@ -473,31 +477,73 @@ export function useAssistantConversation(
    */
   async function sendText(text: string): Promise<void> {
     const trimmed: string = text.trim()
-    if (!trimmed || isBusy.value) return
+    if (!trimmed || isBusy.value || isStreaming.value) return
     noteInlineOpening()
     messages.value.push({ role: 'user', content: trimmed })
     captureDemoEvent('assistant_message_sent')
     draft.value = ''
     isBusy.value = true
     let offerBooking: boolean = false
+    const body: AssistantChatRequestBody = {
+      messages: messages.value.slice(-MAX_STORED_MESSAGES),
+      session_id: sessionId.value,
+      language: lang.value,
+      internal: DemoBeaconUtils.isInternalVisit(),
+    }
     try {
-      const answer: AssistantChatReply = await $fetch<AssistantChatReply>(`${publicEndpoint}/chat`, {
-        method: 'POST',
-        body: {
-          messages: messages.value.slice(-MAX_STORED_MESSAGES),
-          session_id: sessionId.value,
-          language: lang.value,
-          internal: DemoBeaconUtils.isInternalVisit(),
-        },
-      })
-      messages.value.push({ role: 'assistant', content: answer.reply })
+      let answer: AssistantChatReply | null = await streamReply(body)
+      if (!answer) {
+        answer = await $fetch<AssistantChatReply>(`${publicEndpoint}/chat`, { method: 'POST', body })
+        messages.value.push({ role: 'assistant', content: answer.reply })
+      }
       offerBooking = answer.offer_booking
     } catch {
       messages.value.push({ role: 'assistant', content: FALLBACK_REPLY[lang.value] })
     } finally {
       isBusy.value = false
+      isStreaming.value = false
     }
     if (offerBooking && !hasOfferedBooking.value && !showLeadForm.value) await openSlotPanel()
+  }
+
+  /**
+   * Ask for the reply as a stream, growing the assistant's bubble as the text lands.
+   * @param body - The chat request.
+   * @returns The whole reply, or null when the stream is unavailable or broke (the plain request takes over).
+   */
+  async function streamReply(body: AssistantChatRequestBody): Promise<AssistantChatReply | null> {
+    let response: Response
+    try {
+      response = await fetch(`${publicEndpoint}/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    } catch {
+      return null
+    }
+    if (!response.ok) return null
+    let bubbleIndex: number = -1
+    const closing: AssistantChatReply | null = await AssistantStreamUtils.read(response, (delta: string): void => {
+      if (bubbleIndex === -1) {
+        isBusy.value = false
+        isStreaming.value = true
+        bubbleIndex = messages.value.push({ role: 'assistant', content: '' }) - 1
+      }
+      const bubble: AssistantChatMessage | undefined = messages.value[bubbleIndex]
+      if (bubble) bubble.content += delta
+    })
+    if (!closing) {
+      // A stream cut mid-way would leave a truncated reply: the plain request answers instead.
+      if (bubbleIndex !== -1) messages.value.splice(bubbleIndex, 1)
+      isStreaming.value = false
+      isBusy.value = true
+      return null
+    }
+    const bubble: AssistantChatMessage | undefined = messages.value[bubbleIndex]
+    if (bubble && closing.reply) bubble.content = closing.reply
+    else if (!bubble && closing.reply) messages.value.push({ role: 'assistant', content: closing.reply })
+    return closing
   }
 
   /**
@@ -697,6 +743,7 @@ export function useAssistantConversation(
     suggestions,
     draft,
     isBusy,
+    isStreaming,
     photoPreviews,
     photosRemaining,
     isPhotoPanelOpen,

@@ -95,6 +95,8 @@
             @open="openRequest"
           />
 
+          <AssistantFaqCard :assistant-id="assistant.id" :assistant-name="assistant.assistant_name" />
+
           <AssistantInstallGuideCard :embed-snippet="assistant.embed_snippet" />
 
           <AssistantDemoPreviewCard :demo-url="demoUrl" />
@@ -136,6 +138,7 @@ import type { AssistantMutationNotice, AssistantRequestMutationNotice } from '~/
 import type { AiAssistantDetailStat } from '~/types/AiAssistantDetailPage'
 import AssistantActionsCard from '~/components/ai-assistants/AssistantActionsCard.vue'
 import AssistantDemoPreviewCard from '~/components/ai-assistants/AssistantDemoPreviewCard.vue'
+import AssistantFaqCard from '~/components/ai-assistants/AssistantFaqCard.vue'
 import AssistantInstallGuideCard from '~/components/ai-assistants/AssistantInstallGuideCard.vue'
 import AssistantPortrait from '~/components/ai-assistants/AssistantPortrait.vue'
 import AssistantRecentRequests from '~/components/ai-assistants/AssistantRecentRequests.vue'

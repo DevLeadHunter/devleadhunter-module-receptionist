@@ -904,4 +904,56 @@ dashboard (non instrumenté).
 | Page de démo : scénario des deux téléphones, composants | `demo-host/app/utils/AssistantDemoScenarioUtils.ts`, `demo-host/app/components/AssistantDemo*.vue` |
 | Casting (six prénoms, portraits `{slug}.webp`), sélecteur de visage | `demo-host/app/constants/AssistantCasting.ts`, `demo-host/public/avatars/`, `web/app/constants/assistantCasting.ts`, `web/app/components/ai-assistants/AssistantPersonaPicker.vue` |
 | Polices auto-hébergées (Fraunces, Inter) | `demo-host/app/assets/css/fonts.css`, `demo-host/public/fonts/` |
+| Loader natif du widget, configuration du lanceur | `demo-host/public/ai-assistant.js`, `demo-host/server/routes/embed-launcher/[slug].get.ts`, `demo-host/app/types/AssistantLauncher.ts` |
+| Démo guidée, accueil contextuel, chrome multilingue | `demo-host/app/utils/AssistantDemoScenarioUtils.ts` (`script`), `AssistantHostPageUtils.ts`, `demo-host/app/constants/AssistantWidgetLabels.ts` (`UI_LABELS`, `GREETING_*`, `EXAMPLE_LABELS`) |
+| Réponses en flux | `api/services/ai_assistant/llm_router.py` (`chat_stream`), `chat_service.py` (`answer_stream`), `api/api/v1/routes/ai_assistant_widget.py` (`/chat/stream`), `demo-host/app/utils/AssistantStreamUtils.ts` |
+| Questions sans réponse, FAQ | `api/services/ai_assistant/faq_service.py`, `missing_info_marker.py`, `api/api/v1/routes/ai_assistant_faq.py`, `web/app/components/ai-assistants/AssistantFaqCard.vue`, `demo-host/app/components/ClientSpaceFaq.vue` |
+| Guide d'installation | `web/app/components/ai-assistants/AssistantInstallGuideCard.vue`, `web/app/constants/assistantInstallGuides.ts` |
 | Clip présentateur (réglages) | `web/app/components/settings/AssistantPresenterClipCard.vue` |
+
+## Septième passage (25/09, soir) : les axes d'amélioration livrés d'un coup
+
+Léo a demandé de livrer tous les axes proposés après le cinquième passage, sans ordre. Ce qui a changé :
+
+- **Lanceur natif et iframe à la demande** (`demo-host/public/ai-assistant.js`, `server/routes/embed-launcher/[slug].get.ts`).
+  Le loader ne monte plus l'iframe Nuxt au chargement du site client : il appelle `/embed-launcher/{slug}` (quelques
+  centaines d'octets, en cache 5 min, CORS ouvert : prénom, chemin du portrait, deux teintes de l'accent, texte de la
+  bulle dans la langue du navigateur via `Accept-Language`) et dessine lui-même le lanceur (bulle + portrait sur le
+  disque teinté, cercle à l'accent, point vert, initiale si la photo manque). L'iframe est créée cachée 3 s après
+  `load` (`requestIdleCallback`) ou au premier clic, puis affichée à l'ouverture ; le widget reçoit
+  `dlh-assistant-open` (`useAssistantWidgetFrame`, option `onOpenRequest`) et se ferme comme avant
+  (`dlh-assistant-resize open:false` → l'iframe est masquée, le lanceur revient et reprend le focus). Les Core Web
+  Vitals du site client ne dépendent plus du widget. Le loader passe aussi `page` (chemin) et `title` de la page hôte.
+- **Accueil contextuel** (`AssistantHostPageUtils`, `GREETING_INTROS` + `GREETING_FOLLOW_UPS`) : la seconde phrase du
+  premier message s'adapte à la page (contact, devis/tarifs, rendez-vous) dans les cinq langues.
+- **Démo guidée sur /ia** : puce pleine « Voir un exemple » (inline seulement, une fois) qui joue une conversation
+  de quatre tours (`AssistantDemoScenarioUtils.script`, ouverture et réponses par métier en français via le champ
+  `opening` des exemples, scénario générique dans les autres langues ; rien n'affirme un fait sur l'entreprise),
+  frappe simulée (`useAssistantConversation.playExample`), puis le SMS d'exemple « atterrit » à nouveau sur le
+  téléphone de droite (`AssistantDemoLockScreen` prop `arrivalKey`) et l'indication invite à écrire. Événement PostHog
+  `assistant_example_played`.
+- **Chrome du widget dans les cinq langues** (`UI_LABELS`) : fermer, ouvrir, bulle du lanceur, indicateur de frappe,
+  sélecteur de langue, champ et bouton d'envoi. Le sélecteur de langue est un `<select>` dans l'en-tête
+  (`AssistantChatHeader`, à la place de la pilule « en ligne » quand il y a plusieurs langues) ; la rangée de pilules
+  `AssistantChatLanguagePills` est supprimée.
+- **Réponses en flux** : `POST /public/{slug}/chat/stream` (`text/event-stream`, trames `{"delta"}` puis
+  `{"done", "reply", "offer_booking"}`), `assistant_llm_router.chat_stream` (Mistral puis Groq, mêmes délais et
+  alertes), `chat_service.answer_stream`. Le widget (`AssistantStreamUtils`, `useAssistantConversation.streamReply`)
+  fait grandir la bulle au fil des morceaux et retombe sur `/chat` si le flux est indisponible ou coupé ;
+  `isStreaming` bloque la saisie jusqu'à la fin.
+- **Questions sans réponse et FAQ** : le prompt demande de commencer la réponse par la ligne `§MANQUE: <question>`
+  quand l'information manque (`missing_info_marker.py` la retire avant le visiteur, en flux comme en bloc) ;
+  `faq_service` range la question dans `knowledge_json.unanswered` (dédoublonnée, comptée, 30 au plus, jamais sur une
+  visite `internal`) et les réponses dans `knowledge_json.faq` (50 au plus), que le prompt reprend dans une section
+  « QUESTIONS FRÉQUENTES ». Routes propriétaire `GET/POST /ai-assistants/{id}/faq`, `PUT/DELETE …/faq/{index}`,
+  `DELETE …/unanswered/{index}` ; espace client `POST /client/{token}/faq`, `DELETE /client/{token}/unanswered/{index}`
+  et les deux listes dans la réponse de l'espace. Dashboard : carte « Questions sans réponse » sur la page de détail
+  (`AssistantFaqCard` : répondre, ignorer, modifier, supprimer). Espace client : section « Ce que vos clients
+  demandent » (`ClientSpaceFaq` : répondre, ignorer).
+- **Guide d'installation** (`AssistantInstallGuideCard`, `constants/assistantInstallGuides.ts`) : carte repliable sur
+  la page de détail, un onglet par plateforme (WordPress via WPCode, Wix, Shopify, Squarespace, sur mesure), les
+  étapes, la réserve de forfait quand il y en a une, le script et son bouton copier.
+- **Portrait dans l'espace client** (`client/[token].vue`, `AssistantAvatar`) et **nom du module** : « Réceptionniste
+  IA » / « Réceptionnistes IA » partout dans le dashboard (sélecteur de module, barre latérale, titres, volet prospect,
+  facturation, abonnements, monitoring, clip webcam).
+- Page /ia : « Cette démo n'est plus disponible » sur un slug inconnu.

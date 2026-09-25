@@ -18,6 +18,7 @@ from typing import Any
 from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from enums.assistant_knowledge_source import AssistantKnowledgeSource
 from services.ai_assistant.config_builder import ai_assistant_config_builder
+from services.ai_assistant.faq_service import FaqEntry, ai_assistant_faq_service
 from services.ai_assistant.knowledge_budget import AiAssistantKnowledgeBudget, KnowledgePassage, KnowledgeSourceText
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.french_date_formatter import FrenchDateFormatter
@@ -193,6 +194,12 @@ class AiAssistantKnowledgeBuilder:
             "et enchaîne tout de suite sur ce que tu peux faire : noter la demande pour que l'entreprise rappelle. "
             "Jamais de formule de robot (« je ne dispose pas d'informations », « je n'ai pas accès à… »), et "
             "jamais deux fois la même phrase toute faite.",
+            "- Quand l'information que demande le visiteur manque dans les informations ci-dessous, ta réponse "
+            "COMMENCE OBLIGATOIREMENT par la ligne exacte « §MANQUE: <sa question, reformulée en une question "
+            "courte, telle qu'un client la poserait, par exemple « Faites-vous le nettoyage des gouttières ? »> », "
+            "puis une ligne vide, puis ta réponse normale. Cette ligne est retirée avant l'affichage "
+            "(elle signale la question à l'entreprise) : ta réponse ne la mentionne jamais et ne dit jamais "
+            "« je ne dispose pas d'informations ». Quand tu as l'information, pas de ligne §MANQUE.",
             "- Fais avancer la conversation : UNE seule question à la fois pour cerner le besoin, puis "
             "propose UNE action concrète parmi ce que l'entreprise propose réellement ci-dessous, ou à défaut "
             "d'être rappelé. Pour recontacter quelqu'un, demande son prénom et un téléphone ou un e-mail.",
@@ -214,6 +221,7 @@ class AiAssistantKnowledgeBuilder:
 
         lines.append("")
         lines.extend(self._identity_lines(identity, with_listing=listing_on))
+        lines.extend(self._faq_lines(ai_assistant_faq_service.faq_of(knowledge)))
         rating_line = self._rating_line(knowledge.get("rating")) if listing_on else None
         if rating_line:
             lines.append(rating_line)
@@ -330,6 +338,17 @@ class AiAssistantKnowledgeBuilder:
         description = identity.get("description")
         if description:
             lines.append(f"À PROPOS : {description}")
+        return lines
+
+    def _faq_lines(self, faq: list[FaqEntry]) -> list[str]:
+        """The answers the business wrote itself, one line per question: the model repeats them as they are."""
+        if not faq:
+            return []
+        lines = ["QUESTIONS FRÉQUENTES (réponses données par l'entreprise, à reprendre telles quelles) :"]
+        for entry in faq:
+            question = self._data(self._clean_text(entry.question) or "")
+            answer = self._data(self._clean_text(entry.answer) or "")
+            lines.append(f"- Q : {question} / R : {answer}")
         return lines
 
     def _rating_line(self, rating: dict[str, Any] | None) -> str | None:

@@ -239,3 +239,30 @@ export type AiAssistantPersona = {
   slug: string
   gender: AiAssistantPersonaGender
 }
+
+/** A question the receptionist could not answer, with how often visitors asked it (dates in naive UTC). */
+export type AiAssistantUnansweredEntry = {
+  question: string
+  count: number
+  first_seen: string | null
+  last_seen: string | null
+}
+
+/** An answer the business or its seller gave, which the receptionist now uses as is. */
+export type AiAssistantFaqEntry = {
+  question: string
+  answer: string
+  created_at: string | null
+}
+
+/** The two lists of an assistant, as the API returns them after a change. */
+export type AiAssistantFaqResponse = {
+  faq: AiAssistantFaqEntry[]
+  unanswered: AiAssistantUnansweredEntry[]
+}
+
+/** A question and its answer, to add or to rewrite. */
+export type AiAssistantFaqPayload = {
+  question: string
+  answer: string
+}
