@@ -1233,9 +1233,11 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   font-size: 0.74rem;
   line-height: 1.25;
   opacity: 0.85;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .ai-head__online {
   display: inline-flex;

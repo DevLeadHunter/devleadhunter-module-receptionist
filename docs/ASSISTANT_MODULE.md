@@ -73,7 +73,7 @@ Ce que l'assistant lit, comment il s'en sert pour répondre, et quel modèle ré
 
 ### Sources de connaissance (`services/ai_assistant/source_service.py`)
 
-Trois sources, chacune coupable depuis le volet « Sources » de la carte assistant (dashboard) :
+Trois sources, chacune coupable depuis le volet « Sources » de la page de détail de l'assistant (dashboard) :
 
 - **Site web** : les pages lues (titre, taille). Relu **chaque semaine** (boucle horaire de `main.py`,
   10 assistants au plus par passage, les assistants vendus dont la dernière lecture a 7 jours ou plus) et
@@ -183,6 +183,14 @@ Ce que voit le prospect : le widget, sa page de démo et le script qui l'install
 
 C'est le **produit** que le client colle sur son site. Il porte :
 
+- **Interface (refonte du 25/09)** : en-tête en dégradé de l'accent du commerce (avatar, prénom en Fraunces,
+  « Assistante Nom du commerce » sur deux lignes au plus, point « en ligne »), bulles arrondies, **puces d'action
+  dans le fil** avant le premier échange (photo pour un devis, prendre rendez-vous, suggestions, « Être rappelé »)
+  puis une barre « Être rappelé » discrète, panneaux photo / créneaux / coordonnées rendus **dans le fil** comme
+  des cartes (plus de formulaire plein panneau), boutons ronds dans la barre de saisie. Palette calculée par
+  `utils/AssistantAccentUtils.palette()` (accent, accent foncé, encre lisible dessus). Prop `inline` : le widget se
+  rend ouvert, sans bulle ni bouton de fermeture, pour remplir l'écran d'un téléphone sur la page de démo ; il émet
+  `lead-sent` (nom, contact, besoin, type, créneaux, photo jointe) après une demande envoyée.
 - **5 langues d'interface** (FR / NL / DE / EN / LU) : accueil, suggestions, placeholder, libellés du
   formulaire de rappel, réponse de secours — un jeu complet par langue.
 - **Ouverture dans la langue du visiteur** : au montage, la langue du navigateur est choisie si
@@ -223,13 +231,25 @@ C'est le **produit** que le client colle sur son site. Il porte :
 
 ### Page de démo `/ia/{slug}` (`demo-host/app/pages/ia/[slug].vue`)
 
-Surface de **vente**, à l'**accent du prospect** (typographie Fraunces et Inter, indicateur « En ligne »), avec le
-widget en bas à droite : titre = la promesse (« Plus aucune demande sans réponse »), trois preuves (répond 24 h/24
-dans les langues de l'assistant, devis sur photo, demandes de rendez-vous), le prix de la démo
-(`monthly_price_label` de la config publique, mis en forme comme dans les emails ; masqué une fois vendu et au
-retour du paiement `?subscribed=1`) et l'invitation à essayer : poser une question, envoyer une photo, demander un
-rendez-vous. Le bandeau de contact de l'owner (« me contacter », `POST /public/{slug}/interest`) ne s'affiche que
-sur la démo (`active`).
+Surface de **vente**, à l'**accent du prospect** (typographie Fraunces et Inter), refaite le 25/09 sur la maquette
+« deux téléphones » validée par Léo : le prospect voit **le vrai produit des deux côtés**, pas une brochure.
+
+- **En-tête** : « Votre réceptionniste répond *déjà* à vos clients », puis la scène racontée en une phrase avec ses
+  propres mots (« Ce soir, 21h40. Un client cherche *couvreur Rennes*, tombe sur votre fiche Google… » ; métier et
+  ville viennent des champs publics `trade_label` / `city`, note et avis Google de `google_rating` /
+  `google_reviews_count`).
+- **D'abord, où elle vous trouve** : une fiche Google Maps stylisée (nom, note, métier, ville, boutons Itinéraire /
+  Appeler / Site web / Prendre rendez-vous en ligne) qui explique où se pose le lien.
+- **Téléphone du client** (gauche) : le **widget réel** en mode `inline`, plein écran, avec lequel le prospect
+  peut discuter, envoyer une photo, choisir des créneaux et laisser ses coordonnées.
+- **Téléphone du patron** (droite) : un écran verrouillé (heure, date en français) avec une notification Messages
+  construite par `utils/AssistantDemoScenario.ts` : exemple par métier tant que rien n'est envoyé (« Nouvelle
+  demande de devis de … pour … : … »), puis **la vraie demande** dès que le widget émet `lead-sent` (sur mobile, la
+  page défile jusqu'au second téléphone).
+- **Trois résultats** en une ligne (répond 24 h/24 dans les langues de l'assistant, devis sur photo, rendez-vous),
+  l'encart d'estimation (ci-dessous), la **pilule de prix** (`monthly_price_label`, masquée une fois vendu et au
+  retour du paiement `?subscribed=1`) avec le lien d'abonnement, et la signature de l'owner. Le bandeau « me
+  contacter » (`POST /public/{slug}/interest`) ne s'affiche que sur la démo (`active`).
 
 L'encart « Estimation · chez vous, chaque mois » chiffre les demandes qui arrivent quand c'est fermé, calcul
 affiché : un volume mensuel présenté comme « notre hypothèse » pour le métier, trouvé depuis la catégorie Google
@@ -748,14 +768,31 @@ Le **sélecteur de module** (en haut à gauche : Sites web / Assistant IA / Cart
 verrouillé) échange **toute** la navigation. La nav Assistant IA : Tableau de bord, Mes prospects,
 Carte, **Assistants IA**, Campagnes, emails, sms, Ventes (pas de Sites démo ni Automatisations).
 
-La page **Assistants IA** (`web/app/pages/dashboard/ai-assistants.vue`) : KPIs (assistants actifs,
-demandes à traiter, dernière demande), cartes par assistant (langues, demandes 7 j / 30 j, % hors
-horaires, conversations 7 j, Voir la démo, Copier le script, Personnaliser, Régénérer, Supprimer,
-**Générer / Voir la vidéo**) et la section **Demandes** (onglets « À traiter » / « Toutes » ; type,
-hors horaires, photos, test, statut ; résumé ; « Marquer traitée », « Sans suite », « Rouvrir »).
-Une carte d'abonné silencieux depuis 30 jours porte le badge « Risque de désabonnement ». Une carte vendue a le
-bouton « Envoyer l'espace client ». Le bouton « Sources » ouvre le volet de ce que l'assistant lit (voir
-« Sources de connaissance »).
+Trois écrans, refaits le 25/09 sur le modèle du module Sites web (liste de cartes, page de détail, volets de la
+pile Pinia `drawerStack`) :
+
+- **Liste** (`web/app/pages/dashboard/ai-assistants/index.vue`) : trois compteurs (démos en ligne, vendus,
+  demandes à traiter), recherche + filtre de statut, et une **carte par assistant**
+  (`components/ai-assistants/AssistantCard.vue`, miroir de `DemoSiteCard`) : aperçu réduit de la page de démo en
+  iframe (monté à l'entrée dans l'écran, toujours avec `?internal=1`), pastille de statut, drapeau « Risque »
+  (abonné silencieux depuis 30 jours), prénom et langues, « En service chez le client / En attente d'envoi / Expire
+  dans N j », demandes et conversations sur 30 jours, boutons Ouvrir la démo / Détails / Copier le lien. Toute la
+  carte mène au détail.
+- **Détail** (`[id].vue`, `GET /ai-assistants/{id}`) : en-tête (commerce, prénom, slug, statut), actions
+  Conversations / Sources / Personnaliser / Ouvrir la démo, résumé (statut, prénom, langues, ton, couleur, email du
+  commerçant, mobile d'alerte, modèle, création), lien de la démo et **script à coller** (copie en un clic), actions
+  (régénérer depuis le prospect, vidéo, lien d'abonnement, envoyer l'espace client, supprimer) et les dernières
+  demandes de cet assistant.
+- **Demandes** (`requests.vue`, entrée « Demandes » de la nav, `GET /ai-assistants/requests?status=&assistant_id=`) :
+  boîte de réception de toutes les demandes, onglets À traiter / Toutes, filtre par assistant ; chaque ligne montre
+  le type, le commerce, le visiteur, le résumé, les marques hors horaires / photo / test et le statut. Un clic
+  ouvre le **volet Demande** (`ui/AssistantRequestDrawer.vue`, kind `assistant-request`) : coordonnées cliquables,
+  besoin dans les mots du visiteur, créneaux souhaités ou rendez-vous réservé, photos (lightbox), **transcription
+  de la conversation** (`GET /ai-assistants/requests/{id}` → `transcript`), note interne enregistrée, Marquer
+  traitée / Sans suite / Rouvrir / ouvrir le prospect. Le volet prévient la pile (`notifyAssistantRequestUpdated`)
+  et les pages se rafraîchissent.
+
+Le volet « Sources » (voir « Sources de connaissance ») et « Personnaliser » s'ouvrent depuis la page de détail.
 « Personnaliser » porte aussi les alertes au commerçant (mobile, SMS / email, types à SMS, plage de
 nuit). Le clip présentateur « assistant » s'enregistre dans **Paramètres → Vidéo**
 (`web/app/components/settings/AssistantPresenterClipCard.vue`). Le `ProspectDrawer` génère / ouvre
@@ -814,5 +851,6 @@ dashboard (non instrumenté).
 | Page vidéo | `demo-host/app/pages/va/[slug].vue` |
 | Page embed | `demo-host/app/pages/embed/[slug].vue` |
 | Loader embed | `demo-host/public/ai-assistant.js` |
-| Dashboard | `web/app/pages/dashboard/ai-assistants.vue`, `web/app/utils/dashboardModules.ts` |
+| Dashboard (liste, détail, demandes) | `web/app/pages/dashboard/ai-assistants/index.vue`, `[id].vue`, `requests.vue`, `web/app/components/ai-assistants/AssistantCard.vue`, `web/app/components/ui/AssistantRequestDrawer.vue`, `web/app/utils/aiAssistantLabels.ts`, `web/app/utils/dashboardModules.ts` |
+| Page de démo : scénario des deux téléphones, palette | `demo-host/app/utils/AssistantDemoScenario.ts`, `demo-host/app/utils/AssistantAccentUtils.ts` |
 | Clip présentateur (réglages) | `web/app/components/settings/AssistantPresenterClipCard.vue` |

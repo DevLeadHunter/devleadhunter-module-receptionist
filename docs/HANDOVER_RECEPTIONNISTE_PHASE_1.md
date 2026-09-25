@@ -842,6 +842,42 @@ fois sur deux) ; ruff, prettier, eslint et typecheck propres sur les trois proje
 - Bench (`scripts/bench_assistant_llm.py`) qui ignore `eu_only` ; polices Google chargées sur l'espace client.
 - `AssistantChat.vue` (~1 500 lignes) et `ai-assistants.vue` (~1 000 lignes) restent à découper.
 
+## Refonte des écrans et déploiement (nuit du 25 au 26/09)
+
+Mandat de Léo le 25/09 au soir : « finis le module à 100 %, demain je n'ai plus qu'à tester et peaufiner » ; le
+widget et la page /ia « ne faisaient pas pro », loin du niveau du module Sites web, qui devait servir de modèle.
+
+**Déployé sur `main`** (API, web, demo-host, desktop verts) :
+
+- `a3fa59a` : fusion de `release/receptionist-phase-1`. Les migrations de la phase 1 ont tourné en prod : prix
+  29 → 79 € sur les comptes au défaut, les 5 emails « Assistant IA » réécrits, tables `ai_assistant*` déjà en
+  utf8mb4. La question 9 est donc tranchée par le déploiement.
+- `16973e1` : refonte du widget, de la page /ia et des trois écrans du dashboard (détail dans
+  `docs/ASSISTANT_MODULE.md`, sections « Le widget », « Page de démo » et « Dashboard »).
+  - **Widget** : en-tête en dégradé de l'accent (avatar, prénom en Fraunces, « en ligne »), puces d'action dans le
+    fil avant le premier échange, cartes photo / créneaux / coordonnées dans le fil, boutons ronds ; palette
+    `AssistantAccentUtils.palette()` ; mode `inline` et émission `lead-sent` pour la page de démo.
+  - **Page /ia** : la maquette « deux téléphones » validée le 24/09 : fiche Google stylisée, téléphone du client
+    avec le vrai widget, téléphone du patron avec la notification qui reprend la vraie demande envoyée
+    (`AssistantDemoScenario.ts`), trois résultats, estimation, pilule de prix, signature.
+  - **Dashboard** : page liste (cartes avec aperçu iframe, compteurs, recherche, filtre), page de détail
+    (`/dashboard/ai-assistants/{id}` : résumé, script à coller, actions, dernières demandes), boîte de réception
+    `/dashboard/ai-assistants/requests` (entrée « Demandes » de la nav) et volet Demande avec transcription et note.
+  - **API** : `GET /ai-assistants/{id}`, `GET /ai-assistants/requests/{id}` (demande + transcription), champs
+    publics `city`, `trade_label`, `google_rating`, `google_reviews_count`.
+- Petits points : la ligne de rôle de l'en-tête du widget tient sur deux lignes au lieu d'être tronquée ; la CSP
+  du demo-host autorise `http://localhost:5173` (aperçus des cartes en local).
+
+**À tester par Léo** (toujours avec `?internal=1` sur les pages du demo-host) : `/ia/{slug}` sur desktop et
+mobile (une demande envoyée depuis le téléphone de gauche doit mettre à jour la notification de droite), le widget
+embarqué (`/embed-test.html?slug=…&internal=1`), puis `/dashboard/ai-assistants`, la page de détail et
+`/dashboard/ai-assistants/requests` (ouvrir une demande, lire la transcription, noter, marquer traitée).
+
+**Restes** : `AssistantChat.vue` fait encore ~1 300 lignes (à découper en composants), l'aperçu de carte charge la
+page /ia entière (léger avec quelques assistants, à remplacer par une capture si la liste grandit), avatar de Léa,
+photos d'exemple par métier, cartes Asana à passer en Terminé à la main, prérequis hors dépôt inchangés (secret
+`MISTRAL_API_KEY`, scopes et redirect URI Google, `client_max_body_size` nginx, portail Stripe).
+
 ## Questions pour Léo
 
 1. **Mistral** :
@@ -854,7 +890,7 @@ fois sur deux) ; ruff, prettier, eslint et typecheck propres sur les trois proje
 6. **Renommer** le module « Réceptionniste IA » dans le sélecteur ?
 7. **Extras R11** : l'encart d'estimation est fait (valider les volumes par métier, voir « R11 (suite) ») ; le scénario de la vidéo de prospection reste à faire.
 8. **Remboursement** « premier mois satisfait ou remboursé » : manuel, ça convient ?
-9. **Relances à 79 €** : un prospect qui a reçu un email à 29 € voit 79 € dans les relances, sur la démo et au paiement. Ça convient ? **À trancher avant le déploiement** : la migration de prix part avec lui (voir « Relecture finale »).
+9. **Relances à 79 €** : un prospect qui a reçu un email à 29 € voit 79 € dans les relances, sur la démo et au paiement. **Tranché par le déploiement du 25/09 au soir** : `main` poussé, la migration de prix a tourné (voir « Refonte des écrans et déploiement »). Si le prix doit revenir à 29 € pour les relances en cours : Paramètres → Facturation.
 10. **Scoring prospect** : brancher les événements de /ia et les demandes de l'assistant dans `behavior_service` ?
 11. **Résiliation** : tranché à la relecture. Sur `customer.subscription.deleted`, l'assistant passe `expired` : widget muet, plus d'alerte, de rapport ni de lien d'espace ; un nouveau paiement le remet `delivered`. À revoir si tu préfères une période de grâce.
 12. **Page publique pour les clients** : faut-il une page publique de l'assistant vendu, sans texte de vente, à mettre sur la fiche Google ? Aujourd'hui, /ia est la page de vente.
