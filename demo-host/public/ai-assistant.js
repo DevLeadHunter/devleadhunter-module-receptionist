@@ -18,6 +18,8 @@
   if (document.getElementById('dlh-assistant-frame')) return
 
   var MOBILE_MAX_WIDTH = 560
+  // A viewport shorter than this (a phone held sideways, a small laptop window) also gets the full screen.
+  var MOBILE_MAX_HEIGHT = 640
   var OPEN_WIDTH = '440px'
   var OPEN_HEIGHT = '680px'
   var CLOSED_FALLBACK_SIZE = { width: 300, height: 112 }
@@ -43,13 +45,14 @@
   style.background = 'transparent'
   style.colorScheme = 'light'
   style.maxWidth = '100%'
+  style.maxHeight = '100%'
   style.transition = 'width 0.18s ease, height 0.18s ease'
 
   var isOpen = false
   var closedSize = CLOSED_FALLBACK_SIZE
 
   function isMobile() {
-    return window.innerWidth < MOBILE_MAX_WIDTH
+    return window.innerWidth < MOBILE_MAX_WIDTH || window.innerHeight < MOBILE_MAX_HEIGHT
   }
 
   function applySize() {
@@ -67,7 +70,10 @@
 
   function postHostViewport() {
     if (!iframe.contentWindow || !(window.innerWidth > 0)) return
-    iframe.contentWindow.postMessage({ type: 'dlh-assistant-host', width: window.innerWidth }, origin)
+    iframe.contentWindow.postMessage(
+      { type: 'dlh-assistant-host', width: window.innerWidth, height: window.innerHeight },
+      origin,
+    )
   }
 
   function remove() {

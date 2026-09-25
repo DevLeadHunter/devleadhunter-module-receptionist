@@ -40,6 +40,9 @@ export class PhotoCompressionUtils {
       canvas.height = Math.round(image.naturalHeight * scale)
       const context: CanvasRenderingContext2D | null = canvas.getContext('2d')
       if (!context) return file
+      // JPEG has no transparency: a transparent PNG would turn black without a white sheet underneath.
+      context.fillStyle = '#ffffff'
+      context.fillRect(0, 0, canvas.width, canvas.height)
       context.drawImage(image, 0, 0, canvas.width, canvas.height)
       const blob: Blob | null = await new Promise<Blob | null>((resolve: (value: Blob | null) => void): void => {
         canvas.toBlob(resolve, 'image/jpeg', PhotoCompressionUtils.JPEG_QUALITY)

@@ -1,16 +1,17 @@
 <template>
   <div class="cs-savebar">
-    <button type="submit" class="cs-button" :disabled="isBusy || !canSave">
-      {{ isBusy ? 'Enregistrement…' : 'Enregistrer' }}
+    <button type="submit" class="cs-button" :disabled="props.isBusy || !props.canSave">
+      {{ props.isBusy ? 'Enregistrement…' : 'Enregistrer' }}
     </button>
     <slot />
-    <span v-if="errorMessage" class="cs-savebar__error">{{ errorMessage }}</span>
-    <span v-else-if="showSaved" class="cs-savebar__saved">Enregistré.</span>
+    <span v-if="props.errorMessage" class="cs-savebar__error">{{ props.errorMessage }}</span>
+    <span v-else-if="props.showSaved" class="cs-savebar__saved">Enregistré.</span>
   </div>
 </template>
 
 <script lang="ts" setup>
 import type { PropType } from 'vue'
+import type { ClientSpaceSaveBarProps } from '~/types/ClientSpaceSaveBar'
 
 /**
  * The foot of a client-space form: its submit button, extra buttons (default slot), then the last save's outcome.
@@ -20,7 +21,7 @@ import type { PropType } from 'vue'
  * @param errorMessage Why the last call was refused, if it was.
  * @param showSaved The last save went through and nothing changed since.
  */
-defineProps({
+const props: ClientSpaceSaveBarProps = defineProps({
   isBusy: { type: Boolean, default: false },
   canSave: { type: Boolean, default: false },
   errorMessage: { type: String as PropType<string | null>, default: null },

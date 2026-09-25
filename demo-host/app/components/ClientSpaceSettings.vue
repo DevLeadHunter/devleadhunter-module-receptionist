@@ -1,54 +1,57 @@
 <template>
   <ClientSpaceSection title="Réglages">
     <form class="css__form" @submit.prevent="submit">
-      <label class="cs-field">
-        <span class="cs-label">Prénom affiché aux visiteurs</span>
-        <input v-model="assistantName" class="cs-input" type="text" maxlength="64" required autocomplete="off" />
-      </label>
+      <!-- Frozen while a save is in flight: a value typed meanwhile would be overwritten by the answer. -->
+      <fieldset class="css__fields" :disabled="props.isSaving">
+        <label class="cs-field">
+          <span class="cs-label">Prénom affiché aux visiteurs</span>
+          <input v-model="assistantName" class="cs-input" type="text" maxlength="64" required autocomplete="off" />
+        </label>
 
-      <fieldset class="cs-field">
-        <legend class="cs-label">Langues proposées aux visiteurs</legend>
-        <div class="css__chips">
-          <label
-            v-for="option in languageOptions"
-            :key="option.code"
-            class="css__chip"
-            :class="{ 'css__chip--on': languages.includes(option.code) }"
-          >
-            <input
-              type="checkbox"
-              class="css__check"
-              :checked="languages.includes(option.code)"
-              @change="toggleLanguage(option.code)"
-            />
-            {{ option.label }}
+        <fieldset class="cs-field">
+          <legend class="cs-label">Langues proposées aux visiteurs</legend>
+          <div class="css__chips">
+            <label
+              v-for="option in languageOptions"
+              :key="option.code"
+              class="css__chip"
+              :class="{ 'css__chip--on': languages.includes(option.code) }"
+            >
+              <input
+                type="checkbox"
+                class="css__check"
+                :checked="languages.includes(option.code)"
+                @change="toggleLanguage(option.code)"
+              />
+              {{ option.label }}
+            </label>
+          </div>
+        </fieldset>
+
+        <label class="cs-field">
+          <span class="cs-label">Mobile qui reçoit les alertes SMS</span>
+          <input
+            v-model="alertPhone"
+            class="cs-input"
+            type="tel"
+            inputmode="tel"
+            maxlength="32"
+            placeholder="06 12 34 56 78 ou +352 621 123 456"
+            autocomplete="tel"
+          />
+        </label>
+
+        <div class="css__toggles">
+          <label class="css__toggle">
+            <input v-model="smsEnabled" type="checkbox" />
+            Alertes par SMS, au mobile ci-dessus
+          </label>
+          <label class="css__toggle">
+            <input v-model="emailEnabled" type="checkbox" />
+            Chaque demande par email
           </label>
         </div>
       </fieldset>
-
-      <label class="cs-field">
-        <span class="cs-label">Mobile qui reçoit les alertes SMS</span>
-        <input
-          v-model="alertPhone"
-          class="cs-input"
-          type="tel"
-          inputmode="tel"
-          maxlength="32"
-          placeholder="06 12 34 56 78 ou +352 621 123 456"
-          autocomplete="tel"
-        />
-      </label>
-
-      <div class="css__toggles">
-        <label class="css__toggle">
-          <input v-model="smsEnabled" type="checkbox" />
-          Alertes par SMS, au mobile ci-dessus
-        </label>
-        <label class="css__toggle">
-          <input v-model="emailEnabled" type="checkbox" />
-          Chaque demande par email
-        </label>
-      </div>
 
       <ClientSpaceSaveBar
         :is-busy="isSaving"
@@ -148,6 +151,15 @@ watch(
 .css__form {
   display: grid;
   gap: 18px;
+}
+
+.css__fields {
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
 }
 
 .css__chips {

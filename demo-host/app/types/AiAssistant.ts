@@ -17,7 +17,7 @@ export type AiAssistantClosedHours = {
 }
 
 /** Public configuration of a prospect's AI assistant, served by the API and consumed as-is. */
-export interface AiAssistantConfig {
+export type AiAssistantConfig = {
   slug: string
   business_name: string
   assistant_name: string
@@ -37,19 +37,19 @@ export interface AiAssistantConfig {
 }
 
 /** A single conversation turn exchanged with the assistant. */
-export interface AssistantChatMessage {
+export type AssistantChatMessage = {
   role: 'user' | 'assistant'
   content: string
 }
 
 /** The assistant's reply to a chat request; `offer_booking` when the visitor asks for an appointment. */
-export interface AssistantChatReply {
+export type AssistantChatReply = {
   reply: string
   offer_booking: boolean
 }
 
 /** Localized labels for the lead-capture form. */
-export interface AssistantLeadLabels {
+export type AssistantLeadLabels = {
   open: string
   title: string
   name: string
@@ -78,6 +78,8 @@ export type AssistantPhotoLabels = {
   note: string
   pick: string
   sent: string
+  /** Replaces « photo sent » in the thread when the API refused the photo. */
+  refused: string
   invalid: string
   tooLarge: string
   quota: string

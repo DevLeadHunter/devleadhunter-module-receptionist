@@ -376,6 +376,8 @@ async function disconnectCalendar(): Promise<void> {
   if (!confirmed) return
   isCalendarBusy.value = true
   calendarError.value = null
+  // « Enregistré. » belonged to the agenda that goes away.
+  hasSavedCalendar.value = false
   try {
     current.calendar = await $fetch<AiAssistantClientCalendar>(`${endpoint.value}/calendar`, { method: 'DELETE' })
   } catch (error: unknown) {

@@ -19,7 +19,9 @@
       v-else
       class="ai-panel"
       :class="{ 'ai-panel--mobile': isMobileLayout }"
+      role="dialog"
       :aria-label="config.assistant_name"
+      @keydown.esc="close"
     >
       <header class="ai-head">
         <span class="ai-head__av"><AssistantAvatar /></span>
@@ -27,7 +29,7 @@
           <b>{{ config.assistant_name }}</b>
           <span>{{ roleLabel }} {{ config.business_name }} · en ligne</span>
         </span>
-        <button type="button" class="ai-head__x" aria-label="Fermer" @click="isOpen = false">✕</button>
+        <button ref="closeEl" type="button" class="ai-head__x" aria-label="Fermer" @click="close">✕</button>
       </header>
       <p class="ai-sub">{{ languagesLine }}</p>
 
@@ -43,7 +45,7 @@
         </button>
       </div>
 
-      <div ref="messagesEl" class="ai-msgs">
+      <div ref="messagesEl" class="ai-msgs" role="log" aria-live="polite" aria-relevant="additions">
         <div
           v-for="(message, index) in messages"
           :key="index"
@@ -200,7 +202,7 @@
       </div>
 
       <div v-if="!leadSent && !isSlotPanelOpen && !isPhotoPanelOpen" class="ai-book">
-        <button v-if="!showLeadForm" type="button" class="ai-book__open" @click="showLeadForm = true">
+        <button v-if="!showLeadForm" type="button" class="ai-book__open" @click="openLeadForm">
           {{ LEAD_LABELS[lang].open }}
         </button>
         <form v-else class="ai-leadform" @submit.prevent="submitLead">
@@ -216,15 +218,26 @@
             v-model="leadName"
             class="ai-leadform__field"
             maxlength="255"
+            autocomplete="name"
             :placeholder="LEAD_LABELS[lang].name"
+            :aria-label="LEAD_LABELS[lang].name"
           />
           <input
             v-model="leadContact"
             class="ai-leadform__field"
             maxlength="255"
+            autocomplete="tel"
             :placeholder="LEAD_LABELS[lang].contact"
+            :aria-label="LEAD_LABELS[lang].contact"
           />
-          <input v-model="leadNeed" class="ai-leadform__field" maxlength="2000" :placeholder="LEAD_LABELS[lang].need" />
+          <input
+            v-model="leadNeed"
+            class="ai-leadform__field"
+            maxlength="2000"
+            autocomplete="off"
+            :placeholder="LEAD_LABELS[lang].need"
+            :aria-label="LEAD_LABELS[lang].need"
+          />
           <div class="ai-leadform__row">
             <button
               type="submit"
@@ -347,6 +360,7 @@ import {
   UI_PLACEHOLDER,
 } from '~/constants/AssistantWidgetLabels'
 import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
+import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { AssistantPersonaUtils } from '~/utils/AssistantPersonaUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
@@ -356,6 +370,8 @@ import { PhotoCompressionUtils } from '~/utils/PhotoCompressionUtils'
 const DEFAULT_LANG: AssistantWidgetLang = 'fr'
 // Below this viewport width the panel goes full screen and the launcher drops its bubble.
 const MOBILE_MAX_WIDTH: number = 560
+// Below this viewport height too (a phone held sideways): the panel would not fit beside the page.
+const MOBILE_MAX_HEIGHT: number = 640
 // Distance from the launcher to the viewport edge (mirrors the CSS) and room for its shadow.
 const LAUNCHER_EDGE_MARGIN: number = 22
 const LAUNCHER_SHADOW_ALLOWANCE: number = 12
@@ -423,23 +439,28 @@ const photosRemaining: Ref<number> = ref(MAX_PHOTOS)
 const photoPreviews: Ref<Record<number, string>> = ref({})
 const isEmbedded: Ref<boolean> = ref(false)
 const viewportWidth: Ref<number | null> = ref(null)
+const viewportHeight: Ref<number | null> = ref(null)
+const closeEl: Ref<HTMLButtonElement | null> = ref(null)
 let launcherObserver: ResizeObserver | null = null
 
-const accentStyle: ComputedRef<Record<string, string>> = computed(() => ({
-  '--ai-accent': props.config.accent_color || AssistantAccentUtils.FALLBACK_ACCENT,
-}))
-const offeredLanguages: ComputedRef<AssistantWidgetLang[]> = computed(() => {
+const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<string, string> => {
+  const palette: AssistantAccentPalette = AssistantAccentUtils.palette(props.config.accent_color)
+  return { '--ai-accent': palette.accent, '--ai-accent-ink': palette.ink, '--ai-accent-text': palette.text }
+})
+const offeredLanguages: ComputedRef<AssistantWidgetLang[]> = computed((): AssistantWidgetLang[] => {
   const codes: AssistantWidgetLang[] = props.config.languages.filter(
     (code: string): code is AssistantWidgetLang => code in LANGUAGE_LABELS,
   )
   return codes.length ? codes : [DEFAULT_LANG]
 })
 const languagesLine: ComputedRef<string> = computed(
-  () =>
+  (): string =>
     `Répond en ${offeredLanguages.value.map((code: AssistantWidgetLang): string => LANGUAGE_NAMES[code]).join(' · ')}`,
 )
-const roleLabel: ComputedRef<string> = computed(() => AssistantPersonaUtils.roleLabel(props.config.assistant_gender))
-const suggestions: ComputedRef<string[]> = computed(() => SUGGESTIONS[lang.value])
+const roleLabel: ComputedRef<string> = computed((): string =>
+  AssistantPersonaUtils.roleLabel(props.config.assistant_gender),
+)
+const suggestions: ComputedRef<string[]> = computed((): string[] => SUGGESTIONS[lang.value])
 const chosenSlotsLine: ComputedRef<string> = computed((): string =>
   chosenSlots.value.map((slot: AssistantSlotChoice): string => slotLabel(slot)).join(' · '),
 )
@@ -453,17 +474,34 @@ const canContinue: ComputedRef<boolean> = computed((): boolean =>
     ? chosenTime.value !== null && (appointmentKinds.value.length === 0 || chosenKind.value !== null)
     : chosenSlots.value.length > 0,
 )
+// The same rule as the loader: a narrow or a short viewport gets the full screen.
 const isMobileLayout: ComputedRef<boolean> = computed(
-  (): boolean => viewportWidth.value !== null && viewportWidth.value < MOBILE_MAX_WIDTH,
+  (): boolean =>
+    (viewportWidth.value !== null && viewportWidth.value < MOBILE_MAX_WIDTH) ||
+    (viewportHeight.value !== null && viewportHeight.value < MOBILE_MAX_HEIGHT),
 )
 
-/** Open the panel and greet the visitor once. */
+/** Open the panel, greet the visitor once, and move the keyboard focus inside. */
 function open(): void {
   isOpen.value = true
   if (!messages.value.length) {
     captureDemoEvent('assistant_opened')
     messages.value.push({ role: 'assistant', content: GREETINGS[lang.value] })
   }
+  void nextTick((): void => closeEl.value?.focus())
+}
+
+/** Close the panel and give the keyboard focus back to the launcher. */
+function close(): void {
+  isOpen.value = false
+  void nextTick((): void => launcherEl.value?.focus())
+}
+
+/** Show the contact form for a call back: an appointment picked before is not part of it. */
+function openLeadForm(): void {
+  forgetPicks()
+  showLeadForm.value = true
+  void nextTick((): void => leadNameEl.value?.focus())
 }
 
 /**
@@ -504,7 +542,7 @@ function isChatMessage(value: unknown): value is AssistantChatMessage {
  * @returns True when a previous conversation was restored (so the widget skips the fresh greeting).
  */
 function restoreConversation(): boolean {
-  if (typeof localStorage === 'undefined') return false
+  // Inside the try: a browser that refuses storage to a third-party iframe throws on the mere access.
   try {
     const raw: string | null = localStorage.getItem(storageKey())
     if (!raw) return false
@@ -527,7 +565,6 @@ function restoreConversation(): boolean {
 
 /** Persist this visitor's conversation and language, bounded to the most recent messages. */
 function persistConversation(): void {
-  if (typeof localStorage === 'undefined') return
   try {
     localStorage.setItem(
       storageKey(),
@@ -642,6 +679,8 @@ async function openSlotPanel(): Promise<void> {
  */
 async function loadSlots(after: string | null = null): Promise<void> {
   slotsState.value = 'loading'
+  // A new page of slots: a time picked on the page before would stay chosen while out of sight.
+  chosenTime.value = null
   try {
     const offer: AssistantAppointmentSlots = await $fetch<AssistantAppointmentSlots>(
       `${publicEndpoint.value}/appointment-slots`,
@@ -668,7 +707,6 @@ async function loadSlots(after: string | null = null): Promise<void> {
 async function showMoreTimes(): Promise<void> {
   const last: AssistantAppointmentTime | undefined = slotTimes.value[slotTimes.value.length - 1]
   if (!last) return
-  chosenTime.value = null
   await loadSlots(last.start)
 }
 
@@ -813,7 +851,9 @@ async function onPhotoPicked(event: Event): Promise<void> {
     return
   }
   messages.value.push({ role: 'user', content: PHOTO_LABELS[lang.value].sent })
-  photoPreviews.value = { ...photoPreviews.value, [messages.value.length - 1]: URL.createObjectURL(upload) }
+  const previewIndex: number = messages.value.length - 1
+  const previewUrl: string = URL.createObjectURL(upload)
+  photoPreviews.value = { ...photoPreviews.value, [previewIndex]: previewUrl }
   captureDemoEvent('assistant_photo_sent')
   await scrollToLatest()
   try {
@@ -833,6 +873,14 @@ async function onPhotoPicked(event: Event): Promise<void> {
       showLeadForm.value = true
     }
   } catch (error: unknown) {
+    // A refused photo is not shown as sent: its thumbnail goes, the refusal explains why.
+    URL.revokeObjectURL(previewUrl)
+    photoPreviews.value = Object.fromEntries(
+      Object.entries(photoPreviews.value).filter(
+        ([index]: [string, string]): boolean => Number(index) !== previewIndex,
+      ),
+    )
+    messages.value[previewIndex] = { role: 'user', content: PHOTO_LABELS[lang.value].refused }
     messages.value.push({ role: 'assistant', content: photoErrorMessage(error) })
   } finally {
     isBusy.value = false
@@ -870,21 +918,27 @@ async function submitLead(): Promise<void> {
     messages.value.push({ role: 'assistant', content: leadConfirmation(reply, booking) })
     await scrollToLatest()
   } catch (error: unknown) {
-    // A slot taken meanwhile answers 409; a withdrawn one 422 with a sentence (a refused field: a list).
+    // A slot taken or withdrawn meanwhile answers 409: the offer is read again. A 422 carries a sentence
+    // written for the visitor (a kind to choose, a test visit); anything else is a technical failure.
     const status: number | undefined = ApiRefusalUtils.status(error)
+    const detail: string | null = ApiRefusalUtils.detail(error)
     const hasPick: boolean = booking !== null || chosenSlots.value.length > 0
-    const isTaken: boolean = status === 409
-    const isWithdrawn: boolean = status === 422 && ApiRefusalUtils.detail(error) !== null
-    if (hasPick && (isTaken || isWithdrawn)) {
-      const notice: string = isTaken ? APPOINTMENT_LABELS[lang.value].taken : APPOINTMENT_LABELS[lang.value].unavailable
+    if (hasPick && status === 409) {
+      const isWithdrawn: boolean = detail !== null && detail.includes('proposé')
+      const notice: string = isWithdrawn
+        ? APPOINTMENT_LABELS[lang.value].unavailable
+        : APPOINTMENT_LABELS[lang.value].taken
       messages.value.push({ role: 'assistant', content: notice })
       forgetPicks()
       showLeadForm.value = false
       isSlotPanelOpen.value = true
       await loadSlots()
+    } else if (status === 422 && detail !== null) {
+      messages.value.push({ role: 'assistant', content: detail })
     } else {
       messages.value.push({ role: 'assistant', content: FALLBACK_REPLY[lang.value] })
     }
+    await scrollToLatest()
   } finally {
     isSubmittingLead.value = false
   }
@@ -937,14 +991,18 @@ function postFrameSize(): void {
  * @param event - A message received from the parent window.
  */
 function onHostMessage(event: MessageEvent): void {
+  // Only the page that frames the widget may size it: another frame of the host page may not.
+  if (event.source !== window.parent) return
   const data: Record<string, unknown> | null = typeof event.data === 'object' ? event.data : null
   if (!data || data.type !== 'dlh-assistant-host' || typeof data.width !== 'number' || data.width <= 0) return
   viewportWidth.value = data.width
+  viewportHeight.value = typeof data.height === 'number' && data.height > 0 ? data.height : null
 }
 
 /** Follow the page's own viewport when the widget runs on the demo page rather than in an iframe. */
 function readOwnViewport(): void {
   viewportWidth.value = window.innerWidth
+  viewportHeight.value = window.innerHeight
 }
 
 // Opening/closing and the mobile switch (bubble shown or hidden) both change the footprint to report.
@@ -1010,7 +1068,6 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   --ai-ink-dim: #6d665b;
   --ai-line: rgba(23, 19, 13, 0.14);
   --ai-line-soft: rgba(23, 19, 13, 0.07);
-  --ai-accent-ink: #f4efe6;
   --ai-font-d: 'Fraunces', Georgia, serif;
   --ai-font-b: 'Inter', system-ui, sans-serif;
   font-family: var(--ai-font-b);
@@ -1140,13 +1197,13 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   color: var(--ai-ink-dim);
   font: inherit;
   font-size: 0.74rem;
-  padding: 5px 11px;
+  padding: 7px 12px;
   border-radius: 999px;
   cursor: pointer;
 }
 .ai-langs button[aria-pressed='true'] {
   border-color: var(--ai-accent);
-  color: var(--ai-accent);
+  color: var(--ai-accent-text);
 }
 .ai-msgs {
   flex: 1;
@@ -1241,7 +1298,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 }
 .ai-chips button:hover {
   border-color: var(--ai-accent);
-  color: var(--ai-accent);
+  color: var(--ai-accent-text);
 }
 .ai-chips__action {
   display: inline-flex;
@@ -1251,7 +1308,12 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 .ai-chips__icon {
   flex: none;
 }
+/* Bounded in the panel: on a short screen the form scrolls, the conversation keeps its room. */
 .ai-book {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 68%;
+  overflow-y: auto;
   padding: 4px 15px 10px;
   background: var(--ai-paper-2);
 }
@@ -1269,7 +1331,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 }
 .ai-book__open:hover {
   border-color: var(--ai-accent);
-  color: var(--ai-accent);
+  color: var(--ai-accent-text);
 }
 .ai-leadform {
   display: flex;
@@ -1380,7 +1442,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
 }
 .ai-compose__tool:hover {
   border-color: var(--ai-accent);
-  color: var(--ai-accent);
+  color: var(--ai-accent-text);
 }
 .ai-compose__tool:disabled {
   opacity: 0.45;
@@ -1435,6 +1497,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   font-weight: 600;
   color: var(--ai-ink);
 }
+/* Tall enough to tap: at least 36 px on a phone. */
 .ai-slots__slot,
 .ai-slots__chip {
   border: 1px solid var(--ai-line);
@@ -1442,7 +1505,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   color: var(--ai-ink);
   font: inherit;
   font-size: 0.78rem;
-  padding: 5px 10px;
+  padding: 8px 12px;
   border-radius: 999px;
   cursor: pointer;
 }
@@ -1493,7 +1556,7 @@ watch([messages, lang], (): void => persistConversation(), { deep: true })
   font-size: 0.8rem;
   text-decoration: underline;
   text-underline-offset: 3px;
-  padding: 2px 0;
+  padding: 9px 0;
   cursor: pointer;
 }
 .ai-m--photo {
