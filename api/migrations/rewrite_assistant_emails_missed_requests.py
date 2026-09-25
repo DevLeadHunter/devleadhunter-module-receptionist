@@ -9,6 +9,7 @@ category and sort order; no other template is touched. Idempotent.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -24,6 +25,34 @@ from core.database import engine
 from seeders.email_template_seeder import EMAIL_TEMPLATE_LIBRARY, _extract_variables
 
 _RENAMED: dict[str, str] = {"Assistant IA - demandes captées": "Assistant IA - devis par photo"}
+
+
+def _digest(subject: str, body_html: str) -> str:
+    """SHA-256 of a template's subject and body, to tell a seeded text from a hand-edited one."""
+    return hashlib.sha256(f"{subject}\n{body_html}".encode()).hexdigest()
+
+
+# The texts as the seeder wrote them before this rewrite: only rows still carrying one of them are rewritten.
+_PREVIOUSLY_SEEDED: dict[str, str] = {
+    "Assistant IA - réponses 24/7": "41e0811d9562a98315b2db190249bb41cfe77d16e6fd6c3818d150cbafdd48a1",
+    "Assistant IA - devis par photo": "2a8c681aeeb7896d28f6959587b90ee5c414a47f3e42d483b459d6a87583c199",
+    "Assistant IA - multilingue": "d5d463ade7c99e17a5d981fcbef8ff925da3d1ed2c1e5509758d4232fcc1f9f4",
+    "Assistant IA - relance": "6928416192885f6c67d876b1047a2b44a17a59e12c51ff7e98d68872475e4070",
+    "Assistant IA - le prix cash": "18e739a88e9256de7ccab1653e1e973b0799234df1506af8b7ca66f5b1856350",
+}
+# Per template: the previous seeded text and the new one (a rerun finds the new text and rewrites it harmlessly).
+_KNOWN_DIGESTS: dict[str, frozenset[str]] = {
+    str(template["name"]): frozenset(
+        digest
+        for digest in (
+            _PREVIOUSLY_SEEDED.get(str(template["name"])),
+            _digest(str(template["subject"]), str(template["body_html"])),
+        )
+        if digest
+    )
+    for template in EMAIL_TEMPLATE_LIBRARY
+    if str(template["name"]).startswith("Assistant IA")
+}
 _ASSISTANT_NAMES: frozenset[str] = frozenset(
     {
         "Assistant IA - réponses 24/7",
@@ -69,6 +98,14 @@ def run_migration() -> None:
                 continue
             subject = str(template["subject"])
             body_html = str(template["body_html"])
+            current = conn.execute(
+                text("SELECT subject, body_html FROM email_templates WHERE user_id = :user_id AND name = :name"),
+                {"user_id": admin_id, "name": name},
+            ).first()
+            if current is not None and _digest(str(current[0]), str(current[1])) not in _KNOWN_DIGESTS[name]:
+                # Edited by hand since it was seeded: the owner's wording wins over the library's.
+                print(f"[SKIP] {name!r} was edited by hand, left as is")
+                continue
             result = conn.execute(
                 text(
                     """

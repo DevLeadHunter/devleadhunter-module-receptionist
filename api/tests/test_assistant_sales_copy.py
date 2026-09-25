@@ -69,16 +69,25 @@ def test_the_seeded_assistant_emails_are_rewritten_in_place(monkeypatch: pytest.
         "CREATE TABLE email_templates (id INTEGER PRIMARY KEY, user_id INT, name TEXT, subject TEXT, "
         "body_html TEXT, variables TEXT, is_active INT, category TEXT, sort_order INT)",
     )
+    # Row 10 still carries a seeded text (here the library's own): rewritten. Row 11 was edited by hand: kept.
+    photo = next(item for item in EMAIL_TEMPLATE_LIBRARY if item["name"] == "Assistant IA - devis par photo")
     with engine.connect() as conn:
         conn.execute(text("INSERT INTO users (id, email) VALUES (1, :email)"), {"email": settings.admin_email})
-        for template_id, name in ((10, "Assistant IA - demandes captées"), (11, "Assistant IA - réponses 24/7")):
-            conn.execute(
-                text(
-                    "INSERT INTO email_templates (id, user_id, name, subject, body_html, variables, is_active, "
-                    "category, sort_order) VALUES (:id, 1, :name, 'Ancien', '<p>Ancien</p>', '[]', 1, 'first_email', 0)"
-                ),
-                {"id": template_id, "name": name},
+        conn.execute(
+            text(
+                "INSERT INTO email_templates (id, user_id, name, subject, body_html, variables, is_active, "
+                "category, sort_order) VALUES (10, 1, 'Assistant IA - demandes captées', :subject, :body, '[]', 1, "
+                "'first_email', 0)"
+            ),
+            {"subject": photo["subject"], "body": photo["body_html"]},
+        )
+        conn.execute(
+            text(
+                "INSERT INTO email_templates (id, user_id, name, subject, body_html, variables, is_active, "
+                "category, sort_order) VALUES (11, 1, 'Assistant IA - réponses 24/7', 'Ma version', '<p>Ma version</p>', "
+                "'[]', 1, 'first_email', 0)"
             )
+        )
         conn.commit()
     monkeypatch.setattr(emails_migration, "engine", engine)
 
@@ -91,7 +100,7 @@ def test_the_seeded_assistant_emails_are_rewritten_in_place(monkeypatch: pytest.
             for row in conn.execute(text("SELECT id, name, subject, sort_order FROM email_templates"))
         }
     assert rows[10] == ("Assistant IA - devis par photo", "Une photo, un devis demandé", 11)
-    assert rows[11] == ("Assistant IA - réponses 24/7", "Vos clients écrivent le soir, personne ne répond", 10)
+    assert rows[11] == ("Assistant IA - réponses 24/7", "Ma version", 0)
 
 
 def test_an_old_photo_template_is_archived_when_the_new_one_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:

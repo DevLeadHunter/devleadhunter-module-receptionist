@@ -26,15 +26,16 @@ def run_migration() -> None:
     """Raise the accounts still on the old default, then the column default (MySQL / MariaDB)."""
     with engine.connect() as conn:
         moved = conn.execute(
-            text("SELECT id, email FROM users WHERE assistant_monthly_price_cents = :old"), {"old": _OLD_DEFAULT_CENTS}
+            text("SELECT id FROM users WHERE assistant_monthly_price_cents = :old"), {"old": _OLD_DEFAULT_CENTS}
         ).all()
         conn.execute(
             text("UPDATE users SET assistant_monthly_price_cents = :new WHERE assistant_monthly_price_cents = :old"),
             {"new": _NEW_DEFAULT_CENTS, "old": _OLD_DEFAULT_CENTS},
         )
-        # Traceability: an owner who had chosen 29 € on purpose can be told (and set back) by hand.
-        for user_id, email in moved:
-            print(f"[OK] Assistant price 29 € → 79 € for user {user_id} ({email})")
+        # Traceability (ids only: the deploy log is not the place for addresses): an owner who had chosen 29 €
+        # on purpose can be set back by hand.
+        for (user_id,) in moved:
+            print(f"[OK] Assistant price 29 € → 79 € for user {user_id}")
         if engine.dialect.name in {"mysql", "mariadb"}:
             conn.execute(
                 text(f"ALTER TABLE users ALTER assistant_monthly_price_cents SET DEFAULT {_NEW_DEFAULT_CENTS}")
