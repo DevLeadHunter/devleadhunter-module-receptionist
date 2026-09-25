@@ -49,9 +49,16 @@
     </div>
 
     <div class="space-y-4 p-5">
-      <div class="min-w-0">
-        <h2 class="truncate text-lg font-semibold text-[var(--app-ink)]">{{ props.assistant.business_name }}</h2>
-        <p class="text-xs text-[var(--app-ink-soft)]">{{ props.assistant.assistant_name }} · {{ languagesLabel }}</p>
+      <div class="flex items-center gap-3">
+        <AssistantPortrait
+          :url="portraitUrl"
+          :name="props.assistant.assistant_name"
+          :accent-color="props.assistant.accent_color"
+        />
+        <div class="min-w-0">
+          <h2 class="truncate text-lg font-semibold text-[var(--app-ink)]">{{ props.assistant.business_name }}</h2>
+          <p class="text-xs text-[var(--app-ink-soft)]">{{ props.assistant.assistant_name }} · {{ languagesLabel }}</p>
+        </div>
       </div>
 
       <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-[var(--app-ink-soft)]">
@@ -90,8 +97,10 @@ import { computed, ref } from 'vue'
 import type { AiAssistantSummary } from '~/types/AiAssistant'
 import type { AiAssistantCardEmits, AiAssistantCardProps } from '~/types/AiAssistantCard'
 import type { UseLazyPreviewReturn } from '~/types/Composables'
+import AssistantPortrait from '~/components/ai-assistants/AssistantPortrait.vue'
 import { useLazyPreview } from '~/composables/useLazyPreview'
 import { assistantLifetimeLabel, assistantStatusLabel, demoUrlWithInternal } from '~/utils/aiAssistantLabels'
+import { assistantPortraitUrl } from '~/utils/assistantPortrait'
 
 const props: AiAssistantCardProps = defineProps({
   assistant: {
@@ -112,6 +121,10 @@ const demoUrl: ComputedRef<string> = computed((): string => demoUrlWithInternal(
 
 /** The preview shows the demo page itself, scaled down. */
 const previewUrl: ComputedRef<string> = computed((): string => demoUrl.value)
+
+const portraitUrl: ComputedRef<string> = computed((): string =>
+  assistantPortraitUrl(props.assistant.demo_url, props.assistant.assistant_name, props.assistant.assistant_gender),
+)
 
 const { shouldRenderPreview, markPreviewLoaded }: UseLazyPreviewReturn = useLazyPreview(
   previewContainer,

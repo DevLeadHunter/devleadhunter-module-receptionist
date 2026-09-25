@@ -932,8 +932,12 @@ jusqu'à ce que ça te plaise à toi »)** :
   Sofia, la réceptionniste IA d'Atelier X. Comment puis-je vous aider ? », prompt « Tu es Sofia, la réceptionniste IA
   de X » + règle « si on te demande si tu es humaine, dis que tu es l'IA de l'entreprise ». La note de prix de /ia
   dit « se présente toujours comme réceptionniste IA ».
-- **Puces** : trois (photo, rendez-vous, « Quels services proposez-vous ? ») ; la barre « Être rappelé » est visible
-  dès l'accueil, la puce du même nom disparaît.
+- **Puces** : trois (photo, rendez-vous, « Quels services proposez-vous ? ») ; « Être rappelé » est un lien texte
+  centré au-dessus de la saisie, visible dès l'accueil, la puce du même nom disparaît.
+- **Portrait partout** : le disque derrière la photo détourée est un dégradé de la teinte de l'accent ; le dashboard
+  montre le même portrait sur la carte de la liste, en tête de la page de détail et dans le volet Personnaliser
+  (`AssistantPortrait`, `utils/assistantPortrait.ts`), grâce à `assistant_gender` ajouté à la réponse propriétaire de
+  l'API. La page /ia dit « Cette démo n'est plus disponible » quand le slug est inconnu.
 - **Mouvement** : entrée du panneau flottant (220 ms), des bulles, de l'indicateur de frappe et des puces (180 ms,
   décalage 120 ms), `prefers-reduced-motion` respecté ; sur /ia le premier message est tapé 900 ms avant d'apparaître.
 - **Polices** : Fraunces et Inter servies par le demo-host (`public/fonts/`, `assets/css/fonts.css`), liens Google

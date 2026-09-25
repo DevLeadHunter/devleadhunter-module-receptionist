@@ -35,21 +35,29 @@
     </div>
 
     <template v-else-if="assistant">
-      <header class="space-y-2">
-        <p class="text-xs font-semibold tracking-wider text-[var(--app-ink-soft)] uppercase">Assistant IA</p>
-        <h1 class="app-page-title">{{ assistant.business_name }}</h1>
-        <p class="flex flex-wrap items-center gap-2 text-sm text-[var(--app-ink-soft)]">
-          <span>{{ assistant.assistant_name }} · {{ assistant.slug }}</span>
-          <span class="app-badge" :class="statusBadgeClass">{{ statusLabel }}</span>
-          <span
-            v-if="assistant.churn_risk"
-            class="app-badge app-badge--strong"
-            title="Abonné depuis plus de 30 jours, aucune conversation ni demande sur les 30 derniers jours : vérifiez que la bulle apparaît sur son site"
-          >
-            <UIcon name="i-lucide-triangle-alert" class="h-3 w-3" />
-            Risque de désabonnement
-          </span>
-        </p>
+      <header class="flex items-start gap-4">
+        <AssistantPortrait
+          :url="portraitUrl"
+          :name="assistant.assistant_name"
+          :accent-color="assistant.accent_color"
+          size-class="h-14 w-14 text-lg"
+        />
+        <div class="min-w-0 space-y-2">
+          <p class="text-xs font-semibold tracking-wider text-[var(--app-ink-soft)] uppercase">Assistant IA</p>
+          <h1 class="app-page-title">{{ assistant.business_name }}</h1>
+          <p class="flex flex-wrap items-center gap-2 text-sm text-[var(--app-ink-soft)]">
+            <span>{{ assistant.assistant_name }} · {{ assistant.slug }}</span>
+            <span class="app-badge" :class="statusBadgeClass">{{ statusLabel }}</span>
+            <span
+              v-if="assistant.churn_risk"
+              class="app-badge app-badge--strong"
+              title="Abonné depuis plus de 30 jours, aucune conversation ni demande sur les 30 derniers jours : vérifiez que la bulle apparaît sur son site"
+            >
+              <UIcon name="i-lucide-triangle-alert" class="h-3 w-3" />
+              Risque de désabonnement
+            </span>
+          </p>
+        </div>
       </header>
 
       <div class="grid items-start gap-6 @4xl:grid-cols-[360px_1fr]">
@@ -126,6 +134,7 @@ import type { AssistantMutationNotice, AssistantRequestMutationNotice } from '~/
 import type { AiAssistantDetailStat } from '~/types/AiAssistantDetailPage'
 import AssistantActionsCard from '~/components/ai-assistants/AssistantActionsCard.vue'
 import AssistantDemoPreviewCard from '~/components/ai-assistants/AssistantDemoPreviewCard.vue'
+import AssistantPortrait from '~/components/ai-assistants/AssistantPortrait.vue'
 import AssistantRecentRequests from '~/components/ai-assistants/AssistantRecentRequests.vue'
 import AssistantSubscriptionCard from '~/components/ai-assistants/AssistantSubscriptionCard.vue'
 import AssistantSummaryCard from '~/components/ai-assistants/AssistantSummaryCard.vue'
@@ -135,6 +144,7 @@ import { AssistantSidecarService } from '~/services/assistantSidecarService'
 import { useToast } from '~/composables/useToast'
 import { useDrawerStackStore } from '~/stores/drawerStack'
 import { assistantStatusLabel, demoUrlWithInternal } from '~/utils/aiAssistantLabels'
+import { assistantPortraitUrl } from '~/utils/assistantPortrait'
 
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'ai-assistant-module'] })
 
@@ -162,6 +172,12 @@ const deleteConfirmModal: Ref<{ open: () => void } | null> = ref(null)
 const clientSpaceConfirmModal: Ref<{ open: () => void } | null> = ref(null)
 
 useSeoMeta({ title: computed((): string => `${assistant.value?.business_name ?? 'Assistant IA'} — DevLeadHunter`) })
+
+const portraitUrl: ComputedRef<string> = computed((): string =>
+  assistant.value
+    ? assistantPortraitUrl(assistant.value.demo_url, assistant.value.assistant_name, assistant.value.assistant_gender)
+    : '',
+)
 
 const demoUrl: ComputedRef<string> = computed((): string =>
   assistant.value ? demoUrlWithInternal(assistant.value.demo_url) : '',

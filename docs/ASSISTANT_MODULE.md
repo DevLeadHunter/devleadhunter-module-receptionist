@@ -200,7 +200,11 @@ C'est le **produit** que le client colle sur son site. Il porte :
   sourire ; générés par Léo avec ChatGPT le 25/09) : le disque derrière la photo prend la teinte de l'accent et le
   cercle l'accent lui-même, la photo elle-même n'est jamais teintée ; si un fichier venait à manquer,
   `AssistantAvatar` retombe sur le buste dessiné (`@dicebear/notionists`, sur `@error` et à l'hydratation quand
-  l'image a déjà échoué côté serveur).
+  l'image a déjà échoué côté serveur). Le disque derrière la photo est un dégradé de la teinte de l'accent, éclairé
+  en haut à gauche. Le dashboard montre le même portrait (carte de la liste, en-tête de la page de détail, volet
+  Personnaliser) avec `components/ai-assistants/AssistantPortrait.vue` et `utils/assistantPortrait.ts`, à partir
+  de `assistant_gender` que l'API renvoie désormais au propriétaire ; le disque y prend la couleur d'accent de
+  l'assistant (celle du formulaire, en direct, dans le volet).
 - **Polices servies par le demo-host (25/09)** : Fraunces et Inter (licence OFL) en woff2 dans `public/fonts/`,
   déclarées dans `assets/css/fonts.css` chargé globalement ; plus aucun appel à Google Fonts depuis nos pages ni
   depuis le widget sur le site d'un client.
@@ -209,8 +213,8 @@ C'est le **produit** que le client colle sur son site. Il porte :
   Panneau blanc à filet, en-tête blanc (portrait 44 px cerclé de l'accent avec point vert, prénom en Fraunces,
   « Réceptionniste IA · Nom du commerce » sur deux lignes au plus, pilule « en ligne »), bulles de l'assistante
   blanches à filet, bulles du visiteur sur l'accent fort en texte blanc, **trois puces d'action dans le fil** avant
-  le premier échange (photo pour un devis, prendre rendez-vous, « Quels services proposez-vous ? ») et une barre
-  « Être rappelé » discrète au-dessus de la saisie dès l'accueil, panneaux photo / créneaux / coordonnées rendus
+  le premier échange (photo pour un devis, prendre rendez-vous, « Quels services proposez-vous ? ») et un lien
+  texte « Être rappelé » centré au-dessus de la saisie dès l'accueil, panneaux photo / créneaux / coordonnées rendus
   **dans le fil** comme des cartes, boutons ronds dans la barre de saisie, bouton d'envoi sur l'accent fort. Palette calculée
   par `utils/AssistantAccentUtils.palette()` : `accent` (points, filets), `strong` (l'accent assombri jusqu'à ce que
   le blanc y soit lisible : le seul fond qui porte du texte), `text` (l'accent assombri jusqu'à être lisible en texte

@@ -1,4 +1,8 @@
-/** Props of the casting grid; `portraitBaseUrl` is the origin of the demo host serving `/avatars/{slug}.webp`. */
+/**
+ * Props of the casting grid: `demoUrl` names the demo host serving the portraits, `accentColor` tints the discs as the
+ * widget will (the form's live value, so a new colour previews at once).
+ */
 export type AssistantPersonaPickerProps = {
-  portraitBaseUrl: string
+  demoUrl: string
+  accentColor: string | null
 }

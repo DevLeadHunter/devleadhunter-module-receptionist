@@ -69,6 +69,8 @@ class AiAssistantResponse(BaseModel):
     prospect_id: int | None = None
     business_name: str
     assistant_name: str
+    # Resolved from the first name; the dashboard picks the casting portrait from it.
+    assistant_gender: str = AiAssistantPersonaGender.FEMININE.value
     # Where the business's alerts, reports and client-space links go.
     email: str | None = None
     languages: list[str] = Field(default_factory=list)

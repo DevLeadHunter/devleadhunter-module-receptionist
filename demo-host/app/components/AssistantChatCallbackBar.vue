@@ -24,27 +24,35 @@ const emit: EmitFn<AssistantChatCallbackBarEmits> = defineEmits<AssistantChatCal
 </script>
 
 <style scoped>
+/* A quiet text link above the composer: the way out for whoever would rather be called back. */
 .ai-callback {
-  padding: 0 14px 8px;
+  padding: 0 14px 6px;
   background: var(--ai-paper-2);
+  text-align: center;
 }
 .ai-callback__btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px dashed var(--ai-line);
+  border: 0;
   background: transparent;
   color: var(--ai-ink-dim);
   font: inherit;
   font-size: 0.78rem;
   font-weight: 500;
-  padding: 7px 12px;
-  border-radius: 999px;
+  padding: 6px 8px;
+  border-radius: 8px;
   cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--ai-line);
+  text-underline-offset: 3px;
+  transition:
+    color 0.12s ease,
+    text-decoration-color 0.12s ease;
 }
 .ai-callback__btn:hover {
-  border-color: var(--ai-ink);
   color: var(--ai-ink);
+  text-decoration-color: var(--ai-ink);
 }
 .ai-callback__icon {
   font-size: 13px;

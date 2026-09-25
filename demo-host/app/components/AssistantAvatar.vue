@@ -56,13 +56,18 @@ onMounted((): void => {
 </script>
 
 <style scoped>
+/* The photo is a cut-out: the disc behind it is the business's colour, lit from the top left. */
 .assistant-avatar {
   display: block;
   width: 100%;
   height: 100%;
   border-radius: 50%;
   overflow: hidden;
-  background: var(--ai-accent-tint);
+  background: radial-gradient(
+    circle at 32% 22%,
+    color-mix(in srgb, var(--ai-accent-tint) 55%, white),
+    var(--ai-accent-tint) 72%
+  );
   user-select: none;
 }
 .assistant-avatar__photo {

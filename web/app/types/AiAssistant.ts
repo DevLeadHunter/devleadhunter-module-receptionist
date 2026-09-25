@@ -10,6 +10,7 @@ export type AiAssistantSummary = {
   prospect_id: number | null
   business_name: string
   assistant_name: string
+  assistant_gender: AiAssistantPersonaGender
   email: string | null
   languages: string[]
   tone: string | null

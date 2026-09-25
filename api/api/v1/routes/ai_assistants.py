@@ -35,6 +35,7 @@ from schemas.ai_assistant import (
 from schemas.ai_assistant_client_space import AiAssistantClientLinkRequest, AiAssistantClientLinkResponse
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.client_space_service import ai_assistant_client_space_service
+from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ConversationCounts, ai_assistant_conversation_service
 from services.ai_assistant.report_service import ai_assistant_report_service
 from services.ai_assistant.request_alerts import AlertSettings
@@ -75,6 +76,7 @@ def _to_owner_response(
         prospect_id=assistant.prospect_id,
         business_name=assistant.business_name,
         assistant_name=assistant.assistant_name,
+        assistant_gender=ai_assistant_config_builder.resolve_persona_gender(assistant.assistant_name).value,
         email=assistant.email,
         languages=assistant.languages or [],
         tone=assistant.tone,
