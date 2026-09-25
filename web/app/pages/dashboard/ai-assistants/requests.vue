@@ -62,31 +62,33 @@
 
         <template v-else>
           <ul class="app-card divide-y divide-[var(--app-line-soft)] overflow-hidden">
-            <li v-for="request in visibleRequests" :key="request.id">
-              <div
-                class="flex cursor-pointer flex-col gap-2 px-4 py-3 transition-colors hover:bg-[var(--app-surface-2)] @xl:flex-row @xl:items-center @xl:gap-4"
-                role="button"
-                tabindex="0"
-                :aria-label="`Ouvrir la demande de ${request.name}`"
+            <li
+              v-for="request in visibleRequests"
+              :key="request.id"
+              class="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-[var(--app-surface-2)] @xl:flex-row @xl:items-center @xl:gap-4"
+            >
+              <button
+                type="button"
+                class="flex min-w-0 flex-1 cursor-pointer flex-col gap-2 text-left @xl:flex-row @xl:items-center @xl:gap-4"
+                :title="`Ouvrir la demande de ${request.name}`"
                 @click="openRequest(request)"
-                @keydown.enter="openRequest(request)"
               >
-                <div class="flex w-full min-w-0 items-start gap-3 @xl:w-64 @xl:shrink-0">
+                <span class="flex w-full min-w-0 items-start gap-3 @xl:w-64 @xl:shrink-0">
                   <span
                     class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--app-line)] bg-[var(--app-surface)]"
                   >
                     <UIcon :name="TYPE_ICONS[request.type]" class="h-4 w-4 text-[var(--app-ink-soft)]" />
                   </span>
-                  <div class="min-w-0">
-                    <p class="truncate text-sm font-medium text-[var(--app-ink)]">{{ request.name }}</p>
-                    <p class="text-muted truncate text-xs">{{ request.contact }}</p>
-                  </div>
-                </div>
-                <div class="min-w-0 flex-1">
-                  <p class="line-clamp-2 text-xs leading-relaxed text-[var(--app-ink-soft)] @xl:text-sm">
+                  <span class="block min-w-0">
+                    <span class="block truncate text-sm font-medium text-[var(--app-ink)]">{{ request.name }}</span>
+                    <span class="text-muted block truncate text-xs">{{ request.contact }}</span>
+                  </span>
+                </span>
+                <span class="block min-w-0 flex-1">
+                  <span class="line-clamp-2 text-xs leading-relaxed text-[var(--app-ink-soft)] @xl:text-sm">
                     {{ request.need_summary || request.need || 'Demande de rappel, sans détail.' }}
-                  </p>
-                  <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  </span>
+                  <span class="mt-1.5 flex flex-wrap items-center gap-1.5">
                     <span class="app-badge" :class="request.type === 'urgent' ? 'app-badge--danger' : ''">
                       {{ REQUEST_TYPE_LABELS[request.type] }}
                     </span>
@@ -106,23 +108,23 @@
                     <span class="text-muted text-xs tabular-nums">
                       {{ request.business_name }} · {{ formatShortMonthDayTime(request.created_at) }}
                     </span>
-                  </div>
-                </div>
-                <div class="flex shrink-0 items-center gap-2 @xl:justify-end">
-                  <span v-if="request.status === 'handled'" class="app-badge app-badge--success">Traitée</span>
-                  <span v-else-if="request.status === 'dropped'" class="app-badge">Sans suite</span>
-                  <button
-                    v-else
-                    type="button"
-                    class="btn-secondary h-8 text-xs disabled:cursor-not-allowed disabled:opacity-50"
-                    :disabled="busyRequestId === request.id"
-                    @click.stop="markHandled(request)"
-                  >
-                    <UIcon name="i-lucide-check" class="mr-1 h-3.5 w-3.5" />
-                    Marquer traitée
-                  </button>
-                  <UIcon name="i-lucide-chevron-right" class="hidden h-4 w-4 text-[var(--app-faint)] @xl:block" />
-                </div>
+                  </span>
+                </span>
+              </button>
+              <div class="flex shrink-0 items-center gap-2 @xl:justify-end">
+                <span v-if="request.status === 'handled'" class="app-badge app-badge--success">Traitée</span>
+                <span v-else-if="request.status === 'dropped'" class="app-badge">Sans suite</span>
+                <button
+                  v-else
+                  type="button"
+                  class="btn-secondary h-8 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                  :disabled="busyRequestId === request.id"
+                  @click="markHandled(request)"
+                >
+                  <UIcon name="i-lucide-check" class="mr-1 h-3.5 w-3.5" />
+                  Marquer traitée
+                </button>
+                <UIcon name="i-lucide-chevron-right" class="hidden h-4 w-4 text-[var(--app-faint)] @xl:block" />
               </div>
             </li>
           </ul>
@@ -278,7 +280,8 @@ async function markHandled(request: AiAssistantRequestItem): Promise<void> {
   busyRequestId.value = request.id
   try {
     const updated: AiAssistantRequestItem = await AiAssistantService.updateRequest(request.id, { status: 'handled' })
-    applyUpdate(updated)
+    // Through the store: an open drawer of this request refreshes, and the watcher below applies it here.
+    drawerStack.notifyAssistantRequestUpdated(updated)
   } catch {
     toast.error('Mise à jour de la demande impossible.')
   } finally {
@@ -291,9 +294,9 @@ async function markHandled(request: AiAssistantRequestItem): Promise<void> {
  * @param updated - The request as the API returned it.
  */
 function applyUpdate(updated: AiAssistantRequestItem): void {
-  const previous: AiAssistantRequestItem | undefined = allRequests.value.find(
-    (item: AiAssistantRequestItem): boolean => item.id === updated.id,
-  )
+  const previous: AiAssistantRequestItem | undefined =
+    allRequests.value.find((item: AiAssistantRequestItem): boolean => item.id === updated.id) ??
+    newRequests.value.find((item: AiAssistantRequestItem): boolean => item.id === updated.id)
   allRequests.value = allRequests.value.map(
     (item: AiAssistantRequestItem): AiAssistantRequestItem => (item.id === updated.id ? updated : item),
   )
@@ -339,6 +342,13 @@ watch(
   (): void => {
     const notice: AssistantRequestMutationNotice | null = drawerStack.lastRequestMutation
     if (notice?.type === 'updated') applyUpdate(notice.request)
+  },
+)
+
+watch(
+  (): string => String(route.query.assistant ?? 'all'),
+  (assistantId: string): void => {
+    assistantFilter.value = assistantId
   },
 )
 

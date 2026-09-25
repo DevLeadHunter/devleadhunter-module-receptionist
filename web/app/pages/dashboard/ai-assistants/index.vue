@@ -204,6 +204,19 @@ async function copyDemoUrl(url: string): Promise<void> {
   await copy(url)
 }
 
+/**
+ * Refresh the count of requests waiting for handling, after one changed status from a drawer.
+ * @returns A promise resolved once refreshed.
+ */
+async function refreshPendingRequestCount(): Promise<void> {
+  try {
+    const requests: AiAssistantRequestsResponse = await AiAssistantService.listRequests('new')
+    pendingRequestCount.value = requests.pending_count
+  } catch {
+    // The badge keeps its last value; the next load fixes it.
+  }
+}
+
 /** Reset the search field and the status filter so every assistant shows again. */
 function clearFilters(): void {
   searchQuery.value = ''
@@ -242,6 +255,13 @@ watch(
     } else if (notice?.type === 'deleted') {
       assistants.value = assistants.value.filter((item: AiAssistantSummary): boolean => item.id !== notice.assistantId)
     }
+  },
+)
+
+watch(
+  (): number => drawerStack.requestMutationCounter,
+  (): void => {
+    void refreshPendingRequestCount()
   },
 )
 

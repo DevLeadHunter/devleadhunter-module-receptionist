@@ -328,7 +328,8 @@ async function setStatus(status: AiAssistantRequestStatus): Promise<void> {
   isSaving.value = true
   try {
     const updated: AiAssistantRequestItem = await AiAssistantService.updateRequest(requestId, { status })
-    if (isShowing(requestId)) emit('updated', updated)
+    // Broadcast even if the drawer moved on: the pages match the request by id.
+    emit('updated', updated)
   } catch {
     toast.error('Mise à jour de la demande impossible.')
   } finally {
@@ -348,10 +349,8 @@ async function saveNote(): Promise<void> {
     const updated: AiAssistantRequestItem = await AiAssistantService.updateRequest(requestId, {
       owner_note: note.value.trim(),
     })
-    if (isShowing(requestId)) {
-      emit('updated', updated)
-      toast.success('Note enregistrée.')
-    }
+    emit('updated', updated)
+    if (isShowing(requestId)) toast.success('Note enregistrée.')
   } catch {
     toast.error('Enregistrement de la note impossible.')
   } finally {
