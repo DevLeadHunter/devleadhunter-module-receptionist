@@ -3,7 +3,9 @@
 Branche **`feat/receptionist-phase-1`** : un commit par ticket (R2 en deux, R11 en deux) et ceux de ce
 document (14 commits), puis la consolidation avant relecture (38 commits, sans fonctionnalité nouvelle), soit 52
 commits posés sur `main` à `a0e6205`. `origin/main` n'a pas bougé depuis (revérifié au 24/09 au soir) : la
-branche passe en avance rapide, sans conflit. Rien n'est mergé, `main` n'a pas été poussé.
+branche passe en avance rapide, sans conflit. Rien n'est mergé, `main` n'a pas été poussé. La relecture du
+25/09 a ajouté neuf commits de correction (voir « Relecture finale ») et préparé la fusion avec R12 sur
+`release/receptionist-phase-1`.
 
 | Ticket | Asana | Commit | État |
 |---|---|---|---|
@@ -716,6 +718,130 @@ Aucune fonctionnalité nouvelle : une passe par commit (ou par écran pour l'int
 - la carte des clés R2 (`r2_storage_service`) n'a pas la ligne des documents ;
 - côté `main`, hors branche : le lecteur de site ne filtre pas les adresses internes (une tâche est proposée).
 
+## Relecture finale (25/09) — corrections avant fusion
+
+Sept relectures parallèles (surface publique, demandes et alertes, agenda, connaissance et abonnements,
+migrations et fichiers partagés, dashboard, demo-host) ont relu tout le diff `main...feat/receptionist-phase-1`,
+puis chaque écran a été cliqué en local (API sur SQLite, dashboard, page `/ia`, widget embarqué, espace
+client, à 1280 et 375 px). Neuf commits de correction sont posés sur la branche ; la fusion avec la branche
+R12 (`claude/epic-bohr-lgv8d8`) est préparée sur `release/receptionist-phase-1` (un seul conflit, le registre
+des migrations). Tests sur la branche de release, R12 comprise : 1 230 verts, 4 écartés (les 3 échecs
+préexistants) et `test_window_expiry_frees_budget`, sensible au temps sous Windows (il passe sur `main` une
+fois sur deux) ; ruff, prettier, eslint et typecheck propres sur les trois projets.
+
+**Surface publique** (`15e620d`)
+- L'adresse d'un visiteur est la dernière de `X-Forwarded-For` (celle que nginx ajoute), plus la première :
+  un en-tête forgé ne contourne plus les limites par IP (chat, photos, demandes, abonnement, liens signés).
+- Le limiteur en mémoire oublie la moitié la plus ancienne de ses clés au lieu de tout effacer.
+- Une visite `?internal=1` ne réserve jamais dans l'agenda d'un client (422 avec la phrase pour l'opérateur) :
+  c'était le moyen de créer des événements et d'envoyer des SMS en silence.
+- Les dates d'un `booking` et le paramètre `after` sont bornés (2020-2100 : un `9999-12-31` faisait une 500) ;
+  un jeton « marquer traitée » non ASCII ne fait plus de 500 ; les champs de `PATCH /{id}` sont bornés.
+- La configuration publique d'un assistant vendu ne porte plus le téléphone ni l'email de l'opérateur.
+- Le chat rend sa connexion au pool pendant l'appel au modèle ; le quota photo est revérifié après le décodage.
+- Les journaux des échecs d'écriture (demande, conversation) ne portent plus de traceback : une erreur SQL y
+  recopiait le message ou les coordonnées du visiteur.
+
+**Agenda** (`84cb59e`)
+- Le rappel J-1 relit l'événement dans Google avant de partir : annulé ou supprimé → rien ; déplacé → la
+  ligne suit, rappel seulement si c'est encore demain.
+- Un 401 isolé est rejoué une fois après rafraîchissement du jeton ; l'agenda ne passe « à reconnecter » que
+  sur un second refus ou un `invalid_grant`.
+- La création de l'événement est retentée sur 5xx / 429 ; un événement déjà créé (réponse perdue, ligne non
+  écrite) est repris, jamais recréé, au lieu d'un faux « créneau pris ».
+- Un contact (mobile ou adresse) n'a qu'un rendez-vous à venir par assistant ; le plafond de 20 par jour est
+  compté sous le verrou ; `request_id` est unique en base.
+- Un créneau réservé sans agenda passe par la vérification des demi-journées (jour ouvert, à partir de
+  demain) ; « ce créneau n'est plus proposé » répond 409 comme un créneau pris, et le widget ne lit plus
+  n'importe quel 422 comme un créneau retiré.
+- Les lignes « jour férié » des horaires ne servent plus d'horaires hebdomadaires ; un agenda introuvable est
+  dit tel quel (plus « Google n'a pas répondu »).
+
+**Demandes, alertes, SMS** (`0b31db6`)
+- « Ne plus contacter » coupe tout envoi au commerce (email, SMS, rappels, rapport, lien d'espace).
+- Une photo qui rend urgente une demande déjà annoncée déclenche le SMS.
+- Un email de demande sans adresse, ou refusé par l'envoi, est inscrit au journal d'activité.
+- Les mobiles d'alerte (dashboard et espace client) et les SMS aux visiteurs n'acceptent que des mobiles de
+  France, Belgique, Luxembourg, Suisse ou Allemagne (`to_served_mobile`) : un fixe belge ou un mobile
+  britannique ne passent plus.
+- La liste STOP de prospection ne bloque plus les SMS de service (alertes payées, confirmation demandée).
+- Le suivi d'une demande ne rétrograde plus une urgence lue entre-temps ; le résumé renvoyé en liste est joint ;
+  « panne » ne classe plus « panneaux » en urgence ; le journal d'activité masque les mobiles (2 derniers
+  chiffres) ; PNG et WEBP sont bornés à 30 Mpx ; le portail Stripe est appelé hors de la boucle d'événements.
+
+**Abonnements, connaissance, modèles** (`2ce3adc`, `d179721`)
+- Fin de période lue sur `items.data[].current_period_end` (API Basil) : la colonne restait vide.
+- `customer.subscription.deleted` passe l'assistant `expired` (widget muet, plus d'alerte ni de lien).
+- Un assistant sans adresse prend celle du paiement Stripe à la vente ; l'opérateur règle l'adresse des alertes
+  dans « Personnaliser » (`PATCH /{id}` accepte `email`).
+- Une requête que Mistral refuse (modèle mal nommé…) alerte les admins ; le lecteur de site borne chaque page
+  à 2 Mo et parse hors de la boucle ; le lecteur de PDF ne reçoit plus les secrets de l'API ; les avis Google
+  sont encadrés comme données ; un site d'une page est protégé contre une relecture vide.
+
+**Migrations et déploiement** (`3ec42ce`)
+- `convert_ai_assistant_tables_to_utf8mb4` convertit au déploiement les tables `ai_assistant*` encore en
+  latin1 (conversations et messages de la phase 0 : un emoji y faisait perdre la conversation).
+- `raise_assistant_default_price` n'imprime plus les adresses ; `rewrite_assistant_emails_missed_requests` ne
+  réécrit que les modèles encore au texte semé (un modèle retouché à la main est gardé).
+- `deploy-api.yml` écrit `GOOGLE_CALENDAR_REDIRECT_URI` et `MISTRAL_API_KEY` dans le `.env` de prod (le secret
+  GitHub `MISTRAL_API_KEY` reste à créer ; sans lui, tout reste sur Groq).
+
+**Dashboard** (`4c77798`)
+- « Personnaliser » est un volet de la pile (`UiAssistantSettingsDrawer`), avec l'email du commerçant, une
+  langue au moins, le mobile borné, l'état SMS sans mobile expliqué ; la page a perdu sa modale.
+- L'onglet « À traiter » lit `?status=new` : il montre toutes les demandes nouvelles, le KPI et l'onglet disent
+  le même chiffre ; « Toutes » indique quand seules les 300 dernières sont affichées.
+- Supprimer un assistant retire ses demandes et ferme ses volets ; le sondage vidéo ne masque plus la page ;
+  « Envoyer l'espace client » demande confirmation ; le contact d'une demande est entier et cliquable
+  (`tel:` / `mailto:`) ; statuts tous libellés ; couleur réservée aux statuts ; état d'erreur avec
+  « Réessayer » ; le volet Sources repart propre d'un assistant à l'autre, vérifie type et taille du PDF avant
+  l'envoi, et sa confirmation de suppression ne survit plus à sa fermeture ; `UiChipToggleGroup` porte
+  `aria-pressed` ; filtre « Documents assistants » sur la page Stockage.
+
+**Demo-host** (`bc8cf5d`)
+- `/embed/**` répond `frame-ancestors *` : l'iframe du widget était refusée sur tout site client (la CSP du
+  demo-host ne laissait que le dashboard et Storyblok).
+- L'accès à `localStorage` est dans le `try` : un navigateur qui refuse le stockage à l'iframe tierce cassait
+  tout le montage du widget.
+- L'accent du client donne trois couleurs calculées (fond, encre dessus, texte sur papier clair) : un accent
+  clair reste lisible.
+- « Être rappelé » oublie un créneau choisi avant ; changer de page de créneaux oublie l'heure choisie ; une
+  photo refusée perd sa vignette ; PNG transparent sur fond blanc ; seuls les messages du parent sont écoutés.
+- Accessibilité : `role="dialog"`, Échap ferme, focus dans le panneau à l'ouverture et sur la bulle à la
+  fermeture, `aria-live` sur les messages, libellés et `autocomplete` sur le formulaire.
+- Le loader borne la hauteur de l'iframe et passe en plein écran sous 640 px de haut (téléphone en paysage) ;
+  le widget suit la même règle ; formulaire et créneaux défilent dans le panneau ; zones tactiles ≥ 36 px.
+- Espace client : champs figés pendant l'enregistrement ; « Enregistré. » disparaît à la déconnexion de
+  l'agenda ; `mailto:` refuse `?` et `&` ; le replay PostHog masque les bulles du chat ; l'import PostHog n'a
+  plus de chemin Windows absolu (le typecheck cassait sur une autre machine).
+
+**Décisions prises à la relecture** (à contester si besoin)
+- Résiliation = fin de service immédiate (question 11).
+- Une visite de test ne réserve jamais dans un agenda ; le test d'acceptation Google se joue sans `internal`.
+- Les SMS de service ignorent la liste STOP de prospection.
+- Un prospect « ne plus contacter » garde son assistant servi, mais n'est plus écrit.
+
+**Ce qui attend Léo avant de pousser `main`**
+- La question 9 (prix) : le déploiement lance `raise_assistant_default_price` (29 → 79 € sur les comptes
+  restés au défaut) et la réécriture des cinq emails « Assistant IA » ; les relances J+3 de la vague du 22/09
+  diraient 79 € après un premier email à 29 €.
+- `deploy-api.yml` se déclenche aussi sur `pull_request` vers `main` (sans garde) : **ne pas ouvrir de PR**
+  pour cette branche, elle déploierait la prod avant relecture ; fusionner et pousser `main` directement.
+- Le dépôt GitHub a déménagé (`DevLeadHunter/devleadhunter`) : le remote local répond encore par redirection,
+  à mettre à jour (`git remote set-url`).
+- Secrets et réglages hors dépôt : `MISTRAL_API_KEY` (secret GitHub), accès `calendar.events` +
+  `calendar.freebusy` et redirect URI dans la console Google, `client_max_body_size` ≥ 9 Mo dans nginx,
+  portail Stripe configuré.
+
+**Laissé pour plus tard** (en plus de « Relecture : points laissés pour plus tard »)
+- Ordre des webhooks Stripe (un `incomplete` livré en retard peut rétrograder une ligne payée) ; prix
+  « verrouillé » qui peut différer du prix payé si deux Checkout se chevauchent.
+- Page SMS : les SMS de service se mêlent aux SMS de prospection dans la liste et les compteurs.
+- Retour Google quand le nouvel onglet est bloqué : la page de l'API n'a pas de lien retour.
+- `createImageBitmap` avec redimensionnement pour décoder les très grandes photos côté navigateur.
+- Bench (`scripts/bench_assistant_llm.py`) qui ignore `eu_only` ; polices Google chargées sur l'espace client.
+- `AssistantChat.vue` (~1 500 lignes) et `ai-assistants.vue` (~1 000 lignes) restent à découper.
+
 ## Questions pour Léo
 
 1. **Mistral** :
@@ -728,9 +854,9 @@ Aucune fonctionnalité nouvelle : une passe par commit (ou par écran pour l'int
 6. **Renommer** le module « Réceptionniste IA » dans le sélecteur ?
 7. **Extras R11** : l'encart d'estimation est fait (valider les volumes par métier, voir « R11 (suite) ») ; le scénario de la vidéo de prospection reste à faire.
 8. **Remboursement** « premier mois satisfait ou remboursé » : manuel, ça convient ?
-9. **Relances à 79 €** : un prospect qui a reçu un email à 29 € voit 79 € dans les relances, sur la démo et au paiement. Ça convient ?
+9. **Relances à 79 €** : un prospect qui a reçu un email à 29 € voit 79 € dans les relances, sur la démo et au paiement. Ça convient ? **À trancher avant le déploiement** : la migration de prix part avec lui (voir « Relecture finale »).
 10. **Scoring prospect** : brancher les événements de /ia et les demandes de l'assistant dans `behavior_service` ?
-11. **Résiliation** : à l'annulation d'un abonnement, l'assistant reste `delivered`. Le widget répond toujours et les alertes R10 partent encore ; le rapport, lui, s'arrête. Que doit-il se passer à la résiliation ?
+11. **Résiliation** : tranché à la relecture. Sur `customer.subscription.deleted`, l'assistant passe `expired` : widget muet, plus d'alerte, de rapport ni de lien d'espace ; un nouveau paiement le remet `delivered`. À revoir si tu préfères une période de grâce.
 12. **Page publique pour les clients** : faut-il une page publique de l'assistant vendu, sans texte de vente, à mettre sur la fiche Google ? Aujourd'hui, /ia est la page de vente.
 13. **Adresse d'embed** : `custom_domain` n'est modifiable nulle part. Le rapport se rabat sur le site du prospect. Faut-il un champ dans Personnaliser ?
 14. **Portail Stripe** : l'enregistrer une fois dans Stripe (Settings → Billing → Customer portal : factures, carte, résiliation immédiate ou en fin de période). Sans cette configuration, le bouton de l'espace client affiche « indisponible ».
@@ -746,7 +872,7 @@ Aucune fonctionnalité nouvelle : une passe par commit (ou par écran pour l'int
 21. **Documents dans l'espace client** : faut-il laisser le commerçant déposer lui-même ses PDF (et couper ses sources) depuis son espace ? Aujourd'hui, seul l'opérateur le fait, depuis le dashboard.
 22. **Documents d'un assistant supprimé** : le texte et le fichier R2 restent (comme ses demandes et ses rapports). Faut-il les purger ?
 23. **Relecture des démos** : seules les démos régénérées relisent le site. Faut-il aussi relire chaque semaine les démos en cours ?
-24. **Jeu de caractères des tables de la phase 1** : `ai_assistant_requests`, `_photos`, `_reports`, `_calendars`, `_appointments` sont créées par `create_all` avec le jeu de caractères par défaut de la base. `fix_utf8mb4_collation` l'a passé en utf8mb4 si l'accès `ALTER DATABASE` était permis (sinon il l'a écrit en avertissement). À vérifier en prod : `SELECT TABLE_NAME, TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_COLLATION NOT LIKE 'utf8mb4%';`. Si des tables sortent, `python migrations/fix_utf8mb4_collation.py` (idempotent) les convertit. La table des documents est déjà déclarée en utf8mb4.
+24. **Jeu de caractères des tables de la phase 1** : réglé à la relecture par la migration `convert_ai_assistant_tables_to_utf8mb4` (idempotente, MySQL seulement), qui convertit au déploiement toute table `ai_assistant*` encore en latin1 (les conversations et messages créés le 24/09 en font partie). Après le déploiement, vérifier : `SELECT TABLE_NAME, TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'ai_assistant%' AND TABLE_COLLATION NOT LIKE 'utf8mb4%';` doit ne rien renvoyer.
 
 ## Petits points laissés en l'état
 

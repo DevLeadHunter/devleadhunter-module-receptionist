@@ -150,7 +150,8 @@ Le reste du produit (génération de la fiche, emails, relances…) reste sur Gr
   `MISTRAL_CHAT_MODEL` et `MISTRAL_VISION_MODEL` (défaut `mistral-small-latest`, qui lit aussi les images).
   Avec un secours possible, Mistral a la moitié du temps de l'appelant et un seul essai ; un appel « IA
   hébergée en Europe » a tout le temps et une relance rapide (429 / 5xx, `retry-after` plafonné à 3 s). Une requête que
-  Mistral refuse comme mal formée (400 / 422) n'est pas une panne : pas d'alerte, le secours répond.
+  Mistral refuse comme mal formée (400 / 422) n'est pas une panne : le secours répond, et les admins reçoivent
+  « Mistral refuse nos requêtes : modèle ou paramètres à vérifier » (une fois par 30 min au plus).
 - **Secours Groq** : Mistral en panne → l'appel part chez Groq (modèle par défaut, ou le modèle vision
   vérifié pour les photos ; aucun modèle vision → pas de réponse), avec un avertissement dans le log et une
   notification aux admins envoyée en tâche de fond (une au plus par usage et par type de panne toutes les
@@ -251,7 +252,8 @@ Une seule ligne chez le client :
 <script src="https://demo.dibodev.fr/ai-assistant.js" data-slug="son-slug" defer></script>
 ```
 
-Le script monte un iframe transparent (bas-droite) vers `/embed/{slug}?embed=1` (+ `internal=1`
+La route `/embed/**` du demo-host répond `frame-ancestors *` : n'importe quel site client peut encadrer le
+widget (les autres pages restent réservées au dashboard et à Storyblok). Le script monte un iframe transparent (bas-droite) vers `/embed/{slug}?embed=1` (+ `internal=1`
 repris de la page hôte), ne touche à aucun style de la page hôte, sans dépendance. Dialogue par
 `postMessage` : le widget annonce `dlh-assistant-ready`, le loader répond `dlh-assistant-host`
 (largeur du viewport hôte, rejouée au resize) qui pilote le rendu mobile (`.ai-panel--mobile`,
@@ -323,7 +325,9 @@ fois (`docs/STRIPE_SETUP.md`).
 - **Prix configurable** par utilisateur : mensuel (`users.assistant_monthly_price_cents`, défaut 79 €,
   conseillé 79 à 99 €) + mois offerts sur l'annuel (`assistant_annual_free_months`, défaut 2 → 790 €/an).
   Les comptes restés sur l'ancien défaut (29 €) passent à 79 € (`raise_assistant_default_price`) ; les
-  abonnements en cours gardent leur prix ; la migration affiche les comptes déplacés. `AssistantPricingService`,
+  abonnements en cours gardent leur prix ; la migration affiche les identifiants des comptes déplacés (jamais
+  les adresses). Les cinq emails « Assistant IA » réécrits par `rewrite_assistant_emails_missed_requests` ne le
+  sont que s'ils portent encore un texte semé : un modèle retouché à la main est laissé tel quel. `AssistantPricingService`,
   éditable dans **Paramètres → Facturation**, affiché via `{prix_assistant}` dans les modèles et sur la page
   de démo (voir « Page de démo »).
 - **Grandfathering** : le prix est **verrouillé** sur la ligne `ai_assistant_subscriptions.amount_cents`
@@ -410,8 +414,8 @@ leads y ont été recopiés une fois (`legacy_lead_id`, statut `handled`) et leu
   chacun avec ses demi-journées ouvertes d'après `knowledge_json['opening_hours']` : le matin est ouvert si
   le commerce l'est à 8 h 30, 9 h 30, 10 h 30 ou 11 h 30, l'après-midi à 13 h 30, 14 h 30, 15 h 30, 16 h 30 ou
   17 h 30 (heure de Paris). Jour sans horaire lisible : du lundi au vendredi. À la capture, les demi-journées
-  choisies (2 au plus, dédoublonnées, triées) doivent être encore proposées, sinon 422 et rien n'est
-  enregistré. Une demande avec créneaux est typée `appointment` dès la capture, sauf urgence (lue par
+  choisies (2 au plus, dédoublonnées, triées) doivent être encore proposées, sinon 409 (le widget recharge
+  l'offre) et rien n'est enregistré. Une demande avec créneaux est typée `appointment` dès la capture, sauf urgence (lue par
   l'analyse, ou sur une photo). L'email de résumé ajoute un bloc « Créneaux souhaités (à confirmer) »
   (« mar. 22/09, après-midi ») ; le SMS les porte juste après le contact, jamais coupés (« …, 06 11 22 33 44,
   pour mar. 22/09 après-midi ou ven. 25/09 matin : Fuite… ») : si la place manque, le nom est raccourci, puis
@@ -497,13 +501,20 @@ widget y réserve les rendez-vous. Sans agenda utilisable, tout retombe sur les 
   verrou ni écriture de base n'est tenu pendant que Google répond : l'événement est créé d'abord, avec un
   identifiant tiré de la demande et du créneau (une seconde tentative après une réponse perdue retrouve le
   même), puis le rendez-vous est enregistré. Titre « Révision — Julie Roux », le contact et le besoin en notes ;
-  une visite `?internal=1` crée un événement « [Test] … ». Une demande n'a qu'un rendez-vous : une nouvelle
-  réservation de la même visite renvoie le premier. La demande devient `appointment` (sauf urgence). Au-delà de
-  20 réservations en 24 h pour un assistant, les choix deviennent des demi-journées souhaitées et aucun message
-  ne part vers un visiteur (garde-fou contre un script qui réserverait tout et ferait partir des SMS).
+  une visite `?internal=1` ne réserve jamais (422 avec une phrase pour l'opérateur) : une réservation de test se
+  joue sans `internal`, sur son propre assistant de test, avec un vrai événement, un vrai SMS et l'alerte au
+  commerçant (soi-même). Une demande n'a qu'un rendez-vous (contrainte d'unicité en base) : une nouvelle
+  réservation de la même visite renvoie le premier ; un contact (mobile ou adresse) n'a qu'un rendez-vous à
+  venir par assistant. La demande devient `appointment` (sauf urgence). Au-delà de 20 réservations en 24 h pour
+  un assistant (compté sous le verrou), les choix deviennent des demi-journées souhaitées et aucun message ne
+  part vers un visiteur (garde-fou contre un script qui réserverait tout et ferait partir des SMS). Un 5xx ou
+  un 429 à la création de l'événement est retenté (1 s, puis 3 s) ; un événement créé par une tentative dont
+  la réponse s'est perdue est repris, jamais recréé.
 - **Repli** : Google injoignable ou accès perdu au moment de réserver, la demande garde la demi-journée du
-  créneau choisi et le commerce confirme ; un accès perdu (401, `invalid_grant`, permissions manquantes) passe
-  l'agenda en « à reconnecter » (journal d'activité de l'owner) et le widget propose les demi-journées.
+  créneau choisi (qui doit être une demi-journée proposée, comme dans le panneau sans agenda) et le commerce
+  confirme. Un 401 isolé est rejoué une fois avec un jeton rafraîchi ; seul un second refus, un `invalid_grant`
+  ou des permissions manquantes passent l'agenda en « à reconnecter » (journal d'activité de l'owner) et le
+  widget propose les demi-journées.
 - **Le visiteur** (`appointment_notices.py`) : confirmation par SMS s'il a laissé un mobile de France,
   Belgique, Luxembourg, Suisse ou Allemagne (lu comme un numéro du pays du commerce), sinon par email avec le
   fichier `rendez-vous.ics` ; ni l'un ni l'autre : rien ne part et le widget ne promet pas de confirmation (le
@@ -513,7 +524,9 @@ widget y réserve les rendez-vous. Sans agenda utilisable, tout retombe sur les 
   **rappel J-1** : 24 h avant, ramené entre 9 h et 19 h, par SMS (email « Rappel : … c'est demain » sans
   mobile) ; pas de rappel pour un rendez-vous réservé moins de 2 h avant l'heure du rappel. Le rappel ne part
   que la veille, entre 9 h et 20 h : une boucle arrêtée qui repart la nuit attend le matin, et le lendemain le
-  rappel est abandonné (il dirait « demain » le jour même). SMS d'un segment, en message de service par
+  rappel est abandonné (il dirait « demain » le jour même). Avant de partir, le rappel relit l'événement dans
+  Google : annulé ou supprimé, rien ne part (journal d'activité) ; déplacé, la ligne prend la nouvelle heure et
+  le rappel ne part que si c'est encore demain ; Google illisible, le rappel part tel qu'enregistré. SMS d'un segment, en message de service par
   l'expéditeur de l'owner ; l'email part de l'identité d'envoi de l'owner et dit de ne pas y répondre (la
   réponse irait à l'opérateur) mais d'appeler le commerce. Chaque message est réservé sur sa ligne avant
   l'envoi (jamais deux fois) ; la boucle de 5 min renvoie une confirmation perdue (réservation de plus de
@@ -535,21 +548,29 @@ Ce que reçoivent le commerçant d'un assistant vendu et l'owner.
 Seulement pour un assistant **vendu** (`delivered`) ; une démo n'alerte que l'owner (push).
 
 - **Réglages par assistant** (colonnes `alert_*` de `ai_assistants`, `NULL` = valeur par défaut ; le
-  dashboard n'envoie que les réglages modifiés), dans « Personnaliser » : mobile du commerçant
-  (`alert_phone_e164`, `to_e164_mobile`), SMS oui / non, email oui / non, types qui déclenchent un SMS
+  dashboard n'envoie que les réglages modifiés), dans « Personnaliser » (un volet de la pile) : email du
+  commerçant (`ai_assistants.email`, où partent demandes, rapport et lien de l'espace ; remplie à la vente par
+  l'adresse du paiement Stripe si elle est vide), mobile du commerçant
+  (`alert_phone_e164`, `to_served_mobile`), SMS oui / non, email oui / non, types qui déclenchent un SMS
   (`alert_sms_types`, défaut : devis, rendez-vous, urgence ; question et autre = email seulement) et plage
   « ne pas déranger » (`alert_quiet_start_hour` → `alert_quiet_end_hour`, défaut 22 h → 8 h, heure de
   Paris ; heures égales = jamais de pause).
 - **Numéro d'alerte** : un mobile français (06 / 07) se saisit en national seulement si le prospect est en
   France ; tout autre pays exige le format international (`+352…`, `0032…`), sinon un `621 123 456`
-  luxembourgeois ou un `079…` suisse deviendrait le mobile français d'un inconnu. Fixe, format inconnu :
-  refusé (422, rien n'est enregistré).
+  luxembourgeois ou un `079…` suisse deviendrait le mobile français d'un inconnu. Fixe (même belge ou
+  suisse), mobile d'un pays non servi, format inconnu : refusé (422, rien n'est enregistré). Les pays servis
+  sont la France, la Belgique, le Luxembourg, la Suisse et l'Allemagne, mobiles seulement.
 - **Alertée** (`owner_alerted_at`) : posé quand les alertes du commerçant partent, donc seulement pour un
   assistant vendu. Rappel et signal 48 h ne regardent que ces demandes : une demande laissée sur la démo
   avant la vente n'est jamais rappelée au nouveau client.
+- **« Ne plus contacter »** : un prospect marqué ainsi ne reçoit ni email, ni SMS, ni rapport, ni lien
+  d'espace (`AiAssistantBusinessMailer.is_muted`, vérifié à chaque envoi) ; l'assistant, lui, reste servi.
+- **Urgence tardive** : une photo qui rend urgente une demande déjà annoncée déclenche le SMS (tout de suite,
+  ou à la fin de la plage de nuit) si le type urgent en mérite un et qu'aucun SMS n'est parti.
 - **Email** : toutes les demandes (l'email de résumé, voir « Demandes »), à toute heure.
-- **SMS** : 1 segment GSM-7, sans mention STOP (message de service, pas de prospection) mais la liste
-  STOP de l'owner est respectée. Texte : « Nouvelle demande de devis (photo) de Marc, 06… : résumé.
+- **SMS** : 1 segment GSM-7, sans mention STOP et sans la liste STOP de prospection (un STOP répondu à un SMS
+  froid ne coupe pas les alertes qu'un client paie, ni la confirmation qu'un visiteur vient de demander).
+  Texte : « Nouvelle demande de devis (photo) de Marc, 06… : résumé.
   Suivi : demo.dibodev.fr/client/… » (les créneaux souhaités d'un rendez-vous suivent le contact : « 06…, pour
   mar. 22/09 après-midi » ; un rendez-vous réservé dans l'agenda ouvre le SMS : « RDV réservé le jeu. 24/09 à
   14:00 (Révision) par Julie, 06… ») ; le contact reste entier, le résumé est coupé au mot, et le lien
@@ -557,8 +578,8 @@ Seulement pour un assistant **vendu** (`delivered`) ; une démo n'alerte que l'o
   l'owner (Paramètres → Relance SMS) et enregistré dans `sms_messages` sans prospect, avec
   `kind = service` (`SmsService.send_service_message`) : coût suivi sur la page SMS, prospect jamais marqué
   contacté, **hors** plafond journalier de l'automatisation et hors récap quotidien, notification (envoi ou
-  accusé de réception) seulement en cas d'échec. Un refus avant l'envoi (pas d'expéditeur, numéro en
-  liste STOP…) est inscrit au journal d'activité. Reçue pendant la plage de nuit, la demande garde son
+  accusé de réception) seulement en cas d'échec. Un refus avant l'envoi (pas d'expéditeur, message trop
+  long…) est inscrit au journal d'activité, comme un email de demande sans adresse ou refusé par l'envoi. Reçue pendant la plage de nuit, la demande garde son
   SMS (`sms_due_at` = fin de la plage) ; la boucle de 5 min l'envoie à l'heure, sauf si la demande a été
   traitée entre-temps. Un SMS en retard de plus de 12 h n'est plus envoyé. `sms_sent_at` est réservé avant
   l'envoi, dans le même `UPDATE` qui vérifie que la demande est encore `new` : jamais deux SMS pour une
@@ -638,7 +659,11 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
   pas, seuls les 2 derniers chiffres y figurent) et inscrit au journal d'activité de l'owner.
 - **Résiliation programmée** : `ai_assistant_subscriptions.cancel_at_period_end`, lu sur
   `customer.subscription.updated` (`cancel_at_period_end` ou `cancel_at`) : l'abonnement reste `active`
-  jusqu'à la fin de la période payée.
+  jusqu'à la fin de la période payée (`current_period_end` lu sur `items.data[].current_period_end`, où
+  l'API Basil de Stripe le porte).
+- **Résiliation effective** (`customer.subscription.deleted`) : l'abonnement passe `canceled` et l'assistant
+  `expired` : le widget ne répond plus, aucune alerte, aucun rapport, aucun lien d'espace ne part. Un nouveau
+  paiement le remet `delivered`.
 - **Page** : couleur d'accent du client, typographie de `/ia`, `noindex` et `referrer: no-referrer` (le
   jeton ne fuit pas vers les photos ouvertes), pas de suivi PostHog.
 
@@ -668,7 +693,7 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
 | `GET` | `/ai-assistants/public/{slug}` | Config publique du widget (+ vidéo si prête) |
 | `POST` | `/ai-assistants/public/{slug}/chat` | Réponse groundée à un message (+ `offer_booking` quand le visiteur demande un rendez-vous) |
 | `GET` | `/ai-assistants/public/{slug}/appointment-slots` | Offre de rendez-vous : créneaux libres de l'agenda (`mode: calendar`, `times` 3 par page, `after` pour la suite, `types`) ou demi-journées ouvertes (`mode: request`, `days`, `max_chosen`) |
-| `POST` | `/ai-assistants/public/{slug}/lead` | Capturer une demande (coordonnées + `session_id` + `internal` + `slots` : 2 demi-journées au plus, ou `booking` : un créneau de l'agenda ; 422 si le créneau n'est plus proposé, 409 s'il vient d'être pris ; `booked_start` quand c'est réservé) |
+| `POST` | `/ai-assistants/public/{slug}/lead` | Capturer une demande (coordonnées + `session_id` + `internal` + `slots` : 2 demi-journées au plus, ou `booking` : un créneau de l'agenda ; 409 si le créneau n'est plus proposé ou vient d'être pris (le widget recharge l'offre), 422 avec une phrase pour le visiteur (type à choisir, visite de test, contact qui a déjà un rendez-vous) ; `booked_start` quand c'est réservé) |
 | `POST` | `/ai-assistants/public/{slug}/photo` | Photo pour un devis (multipart : `file`, `session_id`, `language`, `internal`) |
 | `GET` | `/ai-assistants/public/requests/{id}/handled` | Lien signé de l'email de résumé : page de confirmation (ne change rien) |
 | `POST` | `/ai-assistants/public/requests/{id}/handled` | Même lien signé : marque la demande traitée (bouton de la page) |
