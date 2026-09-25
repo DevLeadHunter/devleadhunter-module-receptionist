@@ -289,7 +289,8 @@ def test_a_new_alert_mobile_is_announced_to_the_business_and_the_operator(db: Se
     )
     assert "se terminant par <strong>56</strong>" in notice["body_html"] and "621" not in notice["body_html"]
     [entry] = outbox["logged"]
-    assert entry["detail"] == "+33612345678 → +352621123456"
+    # The activity log keeps the last two digits only, like the email to the business.
+    assert entry["detail"] == "…78 → …56"
 
 
 def test_the_billing_portal_returns_to_the_client_space(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:

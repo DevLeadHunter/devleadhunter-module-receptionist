@@ -335,7 +335,7 @@ def test_a_request_handled_after_a_pass_loaded_it_is_left_alone(db: Session) -> 
     assert request.reminder_sent_at is None
 
 
-def test_the_service_sms_is_one_segment_without_stop_and_honours_the_stop_list(
+def test_the_service_sms_is_one_segment_without_stop_and_ignores_the_prospecting_stop_list(
     db: Session, outbox: dict[str, Any]
 ) -> None:
     config = SmsConfig(user_id=7, sender="Dibodev")
@@ -355,17 +355,18 @@ def test_the_service_sms_is_one_segment_without_stop_and_honours_the_stop_list(
     )
     db.add(SmsSuppression(user_id=7, phone_e164="+33612345678", reason="stop"))
     db.commit()
-    stopped = asyncio.run(
+    # A STOP answered to a cold SMS silences prospecting, not the alerts a client pays for.
+    after_stop = asyncio.run(
         service.send_service_message(
-            db, user_id=7, config=config, to_e164="+33612345678", text="Nouvelle demande.", recipient_name="X"
+            db, user_id=7, config=config, to_e164="+33612345678", text="Rappel.", recipient_name="X"
         )
     )
 
-    assert sent.sent and outbox["sms"].texts == ["Nouvelle demande."]
+    assert sent.sent and outbox["sms"].texts == ["Nouvelle demande.", "Rappel."]
     assert sent.message is not None and sent.message.prospect_id is None
     assert sent.message.kind == "service"
     assert SmsAutomationService()._sent_today(db, 7) == 0
-    assert not too_long.sent and not stopped.sent
+    assert not too_long.sent and after_stop.sent
     assert outbox["sms_event"].calls == []
 
 

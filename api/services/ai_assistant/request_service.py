@@ -33,8 +33,8 @@ from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots,
 from services.ai_assistant.conversation_service import SESSION_ID_MAX_CHARS
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.photo_service import ai_assistant_photo_service
-from services.ai_assistant.request_alerts import ai_assistant_request_alerts
-from services.ai_assistant.request_analyzer import TranscriptLine, ai_assistant_request_analyzer
+from services.ai_assistant.request_alerts import AlertSettings, QuietHours, ai_assistant_request_alerts
+from services.ai_assistant.request_analyzer import RequestAnalysis, TranscriptLine, ai_assistant_request_analyzer
 from services.ai_assistant.request_email import AiAssistantRequestEmail
 from services.notification_service import notification_service
 
@@ -180,10 +180,30 @@ class AiAssistantRequestService:
         if request is None:
             return None
         ai_assistant_photo_service.attach_to_request(db, request)
-        request.type = self._type_with_photos(AiAssistantRequestType(request.type), request).value
+        previous_type = AiAssistantRequestType(request.type)
+        request.type = self._type_with_photos(previous_type, request).value
+        if request.type == AiAssistantRequestType.URGENT.value and previous_type is not AiAssistantRequestType.URGENT:
+            self._plan_sms_for_late_urgency(db, request)
         db.commit()
         db.refresh(request)
         return request
+
+    @staticmethod
+    def _plan_sms_for_late_urgency(db: Session, request: AiAssistantRequest) -> None:
+        """A request already announced that a photo just made urgent gets the owner's SMS now, or after the quiet
+        window; nothing changes when it was not announced yet (the follow-up will text it) or was texted already."""
+        if request.owner_alerted_at is None or request.sms_sent_at is not None or request.sms_due_at is not None:
+            return
+        assistant = db.get(AiAssistant, request.assistant_id)
+        if assistant is None:
+            return
+        settings = AlertSettings.of(assistant)
+        if not settings.wants_sms(AiAssistantRequestType.URGENT):
+            return
+        now_utc = datetime.now(UTC).replace(tzinfo=None)
+        local = OpeningHoursCalendar.to_business_time(now_utc)
+        release = QuietHours.release_at(local, settings.quiet_start_hour, settings.quiet_end_hour)
+        request.sms_due_at = now_utc if release == local else OpeningHoursCalendar.to_utc(release)
 
     def schedule_follow_up(self, request_id: int) -> None:
         """
@@ -206,12 +226,21 @@ class AiAssistantRequestService:
             assistant: Its assistant.
         """
         transcript = self.transcript(db, request)
+        business_name = assistant.business_name
+        need = request.need
+        eu_only = bool(assistant.eu_only)
+        # The model may take 20 s: the pool connection goes back meanwhile.
+        db.commit()
         analysis = await ai_assistant_request_analyzer.analyze(
-            business_name=assistant.business_name,
-            need=request.need,
+            business_name=business_name,
+            need=need,
             transcript=transcript,
-            eu_only=bool(assistant.eu_only),
+            eu_only=eu_only,
         )
+        # A photo attached meanwhile may have made the request urgent: that reading wins over the words.
+        db.refresh(request)
+        if request.type == AiAssistantRequestType.URGENT.value:
+            analysis = RequestAnalysis(type=AiAssistantRequestType.URGENT, summary=analysis.summary)
         # Half-days or a slot picked in the widget make it an appointment request, unless the words say it is urgent.
         booked = (
             db.query(AiAssistantAppointment.id)

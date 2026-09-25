@@ -10,6 +10,7 @@ assistant. A new alert mobile is announced to the business address, which the sp
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -34,7 +35,7 @@ from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_email import RenderedEmail
 from services.ai_assistant.request_service import ai_assistant_request_service
 from services.assistant_subscription_service import assistant_subscription_service
-from services.sms.phone_normalizer import SERVED_MOBILE_PREFIXES, to_e164_mobile
+from services.sms.phone_normalizer import to_served_mobile
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +239,7 @@ class AiAssistantClientSpaceService:
             await self._announce_alert_phone(db, updated, previous_phone)
         return updated
 
-    def billing_portal_url(self, db: Session, assistant: AiAssistant, *, return_url: str) -> str | None:
+    async def billing_portal_url(self, db: Session, assistant: AiAssistant, *, return_url: str) -> str | None:
         """
         A Stripe billing portal session for the assistant's subscription (invoices, card, cancellation).
 
@@ -256,7 +257,11 @@ class AiAssistantClientSpaceService:
         subscription = self.current_subscription(db, assistant)
         if subscription is None or not subscription.stripe_customer_id:
             return None
-        return assistant_subscription_service.billing_portal_url(subscription.stripe_customer_id, return_url=return_url)
+        customer_id = subscription.stripe_customer_id
+        # The Stripe client is synchronous: off the event loop, so the API keeps answering meanwhile.
+        return await asyncio.to_thread(
+            assistant_subscription_service.billing_portal_url, customer_id, return_url=return_url
+        )
 
     async def issue_link(
         self, db: Session, assistant: AiAssistant, *, send: bool, now: datetime | None = None
@@ -292,11 +297,15 @@ class AiAssistantClientSpaceService:
         """Refuse an alert mobile outside the module's countries (an empty one clears the SMS alerts)."""
         if not raw_phone.strip():
             return
-        phone = to_e164_mobile(raw_phone, country=ai_assistant_service.business_country(db, assistant))
-        if phone is not None and not phone.startswith(SERVED_MOBILE_PREFIXES):
+        if to_served_mobile(raw_phone, country=ai_assistant_service.business_country(db, assistant)) is None:
             raise ValueError(
                 "Numéro d'alerte refusé : un mobile français, belge, luxembourgeois, suisse ou allemand est requis"
             )
+
+    @staticmethod
+    def _masked_phone(phone: str | None) -> str:
+        """A mobile as the activity log keeps it: its last two digits only."""
+        return f"…{phone[-2:]}" if phone else "aucun"
 
     async def _announce_alert_phone(self, db: Session, assistant: AiAssistant, previous_phone: str | None) -> None:
         """Tell the business (by email) and the operator (activity log) that the alert mobile changed."""
@@ -306,7 +315,7 @@ class AiAssistantClientSpaceService:
             action="assistant_client_alert_phone_changed",
             status=STATUS_WARNING,
             title=f"{assistant.business_name} · mobile d'alerte changé depuis l'espace client",
-            detail=f"{previous_phone or 'aucun'} → {new_phone or 'aucun'}",
+            detail=f"{self._masked_phone(previous_phone)} → {self._masked_phone(new_phone)}",
             user_id=assistant.user_id,
             entity_type="prospect",
             entity_id=assistant.prospect_id,

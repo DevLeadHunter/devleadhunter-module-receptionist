@@ -237,7 +237,7 @@ async def open_client_billing_portal(
     """A Stripe billing portal session for the client's subscription, returning to the client space."""
     assistant, _link = _open_client_space(db, token, request)
     try:
-        url = ai_assistant_client_space_service.billing_portal_url(
+        url = await ai_assistant_client_space_service.billing_portal_url(
             db, assistant, return_url=AiAssistantClientLinks.page_url(token)
         )
     except (ValueError, stripe.error.StripeError) as exc:

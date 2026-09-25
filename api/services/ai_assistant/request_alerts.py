@@ -348,7 +348,7 @@ class AiAssistantRequestAlerts:
             transcript: The conversation, for the email.
             now: Current naive UTC time (tests); defaults to now.
         """
-        if assistant.status != AiAssistantStatus.DELIVERED.value:
+        if assistant.status != AiAssistantStatus.DELIVERED.value or AiAssistantBusinessMailer.is_muted(db, assistant):
             return
         settings = AlertSettings.of(assistant)
         current = now or _utc_now()
@@ -395,7 +395,9 @@ class AiAssistantRequestAlerts:
         sent = 0
         for request, assistant in rows:
             settings = AlertSettings.of(assistant)
-            if settings.wants_sms(AiAssistantRequestType(request.type)):
+            if settings.wants_sms(AiAssistantRequestType(request.type)) and not AiAssistantBusinessMailer.is_muted(
+                db, assistant
+            ):
                 sent += int(await self._text_request(db, request, assistant, settings))
             else:
                 # The owner turned this SMS off since it was held: drop it.
@@ -441,6 +443,8 @@ class AiAssistantRequestAlerts:
         for request, assistant in rows:
             settings = AlertSettings.of(assistant)
             if QuietHours.contains(local, settings.quiet_start_hour, settings.quiet_end_hour):
+                continue
+            if AiAssistantBusinessMailer.is_muted(db, assistant):
                 continue
             if not self.claim(db, request, AiAssistantRequest.reminder_sent_at):
                 continue
@@ -591,6 +595,7 @@ class AiAssistantRequestAlerts:
             )
         except Exception:
             logger.warning("Alert SMS to assistant %s owner failed", assistant.id, exc_info=True)
+            db.rollback()
             return False
         # A provider failure is already notified by the SMS service; a refusal before it is not.
         if not outcome.sent and outcome.message is None:
@@ -628,6 +633,8 @@ class AiAssistantRequestAlerts:
             recipient = AiAssistantBusinessMailer.business_email(db, assistant)
             if not recipient:
                 logger.info("Assistant %s: no business email for request %s", assistant.id, request.id)
+                if not AiAssistantBusinessMailer.is_muted(db, assistant):
+                    self._log_email_failure(assistant, request, "aucune adresse email pour ce commerce")
                 return
             rendered = AiAssistantRequestEmail.render(
                 RequestEmailContent(
@@ -658,6 +665,21 @@ class AiAssistantRequestAlerts:
         )
         if failure is not None:
             logger.warning("Request %s email failed: %s", request.id, failure)
+            self._log_email_failure(assistant, request, failure)
+
+    @staticmethod
+    def _log_email_failure(assistant: AiAssistant, request: AiAssistantRequest, reason: str) -> None:
+        """Record in the activity log that a request's email did not reach the business (the reminder retries)."""
+        activity_log_service.record(
+            category=CATEGORY_ASSISTANT,
+            action="assistant_alert_email_failed",
+            status=STATUS_WARNING,
+            title=f"{assistant.business_name} · email de demande non envoyé",
+            detail=f"Demande {request.id} : {reason}",
+            user_id=assistant.user_id,
+            entity_type="prospect",
+            entity_id=assistant.prospect_id,
+        )
 
     @staticmethod
     def claim(db: Session, request: AiAssistantRequest, column: InstrumentedAttribute[datetime | None]) -> bool:

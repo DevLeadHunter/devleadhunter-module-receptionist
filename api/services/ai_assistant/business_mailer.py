@@ -25,7 +25,24 @@ class AiAssistantBusinessMailer:
     """Finds the business's address and emails it from the operator's identity."""
 
     @staticmethod
-    def business_email(db: Session, assistant: AiAssistant) -> str | None:
+    def is_muted(db: Session, assistant: AiAssistant) -> bool:
+        """
+        Whether the business asked never to be contacted: no email, SMS or report may reach it.
+
+        Args:
+            db: Active database session.
+            assistant: The assistant.
+
+        Returns:
+            True when its prospect carries the « ne plus contacter » flag.
+        """
+        if assistant.prospect_id is None:
+            return False
+        flagged = db.query(ProspectDB.do_not_contact).filter(ProspectDB.id == assistant.prospect_id).scalar()
+        return bool(flagged)
+
+    @classmethod
+    def business_email(cls, db: Session, assistant: AiAssistant) -> str | None:
         """
         The business's contact address.
 
@@ -34,8 +51,12 @@ class AiAssistantBusinessMailer:
             assistant: The assistant.
 
         Returns:
-            The assistant's address, else its prospect's, else the paying client's; None when there is none.
+            The assistant's address, else its prospect's, else the paying client's; None when there is none or
+            when the business asked never to be contacted.
         """
+        if cls.is_muted(db, assistant):
+            logger.info("Assistant %s: its business is flagged « ne plus contacter », no email leaves", assistant.id)
+            return None
         if assistant.email and assistant.email.strip():
             return assistant.email.strip()
         if assistant.prospect_id is not None:

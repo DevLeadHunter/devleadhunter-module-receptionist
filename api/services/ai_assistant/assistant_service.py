@@ -26,7 +26,7 @@ from services.ai_assistant.website_crawler import ai_assistant_website_crawler
 from services.ai_assistant.website_sync import AiAssistantWebsiteSync
 from services.enrichment_service import enrichment_service
 from services.mistral_service import mistral_service
-from services.sms.phone_normalizer import to_e164_mobile
+from services.sms.phone_normalizer import to_served_mobile
 
 logger = logging.getLogger(__name__)
 
@@ -127,11 +127,11 @@ class AiAssistantService:
             )
         if "alert_phone" in fields:
             raw_phone = (fields["alert_phone"] or "").strip()
-            phone = to_e164_mobile(raw_phone, country=self.business_country(db, assistant)) if raw_phone else None
+            phone = to_served_mobile(raw_phone, country=self.business_country(db, assistant)) if raw_phone else None
             if raw_phone and phone is None:
                 raise ValueError(
-                    "Numéro d'alerte invalide : un mobile est requis, 06 / 07 en France, "
-                    "au format international ailleurs (+352…, +32…)"
+                    "Numéro d'alerte invalide : un mobile de France (06 / 07), Belgique, Luxembourg, Suisse ou "
+                    "Allemagne est requis, au format international hors de France (+352…, +32…)"
                 )
             assistant.alert_phone_e164 = phone
         for flag in ("alert_sms_enabled", "alert_email_enabled"):

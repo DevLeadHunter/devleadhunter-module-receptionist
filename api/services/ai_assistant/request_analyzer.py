@@ -10,6 +10,7 @@ type the request and the visitor's own words stand in for the summary.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -19,6 +20,9 @@ from services.ai_assistant.llm_router import assistant_llm_router
 from services.text_normalizer import TextNormalizer
 
 logger = logging.getLogger(__name__)
+
+# Keywords that are also the start of unrelated words (« panneaux ») are matched as whole words only.
+WHOLE_WORD_KEYWORDS: frozenset[str] = frozenset({"panne"})
 
 
 @dataclass(frozen=True)
@@ -111,8 +115,15 @@ class AiAssistantRequestAnalyzer:
             request_type = AiAssistantRequestType(str(answer.get("type", "")).strip().lower())
         except ValueError:
             request_type = fallback.type
-        summary = " ".join(str(answer.get("summary") or "").split())[: self.SUMMARY_MAX_CHARS]
+        summary = " ".join(self._text_of(answer.get("summary")).split())[: self.SUMMARY_MAX_CHARS]
         return RequestAnalysis(type=request_type, summary=summary or fallback.summary)
+
+    @staticmethod
+    def _text_of(value: object) -> str:
+        """A model field as text: a list of fragments is joined, anything else is stringified."""
+        if isinstance(value, list):
+            return " ".join(str(item) for item in value if item)
+        return str(value or "")
 
     def fallback(self, *, need: str | None, transcript: list[TranscriptLine]) -> RequestAnalysis:
         """
@@ -129,12 +140,19 @@ class AiAssistantRequestAnalyzer:
         normalized = TextNormalizer.fold(visitor_text)
         request_type = AiAssistantRequestType.QUESTION if "?" in visitor_text else AiAssistantRequestType.OTHER
         for candidate, keywords in self.KEYWORDS:
-            if any(keyword in normalized for keyword in keywords):
+            if any(self._mentions(normalized, keyword) for keyword in keywords):
                 request_type = candidate
                 break
         last_visitor_message = next((line.content for line in reversed(transcript) if line.role == "user"), "")
         summary_source = (need or "").strip() or last_visitor_message
         return RequestAnalysis(type=request_type, summary=" ".join(summary_source.split())[: self.SUMMARY_MAX_CHARS])
+
+    @staticmethod
+    def _mentions(normalized: str, keyword: str) -> bool:
+        """Whether the folded text holds the keyword at the start of a word (« panneaux » is not « panne »)."""
+        if keyword in WHOLE_WORD_KEYWORDS:
+            return re.search(rf"\b{re.escape(keyword)}s?\b", normalized) is not None
+        return re.search(rf"\b{re.escape(keyword)}", normalized) is not None
 
     @classmethod
     def bound_transcript(cls, transcript: list[TranscriptLine]) -> list[TranscriptLine]:
