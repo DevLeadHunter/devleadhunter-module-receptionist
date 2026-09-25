@@ -182,7 +182,7 @@ class AssistantSubscriptionService:
         if record.activated_at is None:
             record.activated_at = datetime.now(UTC).replace(tzinfo=None)
         # The client is now paying: mark the assistant SOLD so the demo TTL never takes it down.
-        self._mark_assistant_sold(db, record.ai_assistant_id)
+        self._mark_assistant_sold(db, record.ai_assistant_id, client_email=record.client_email)
         db.commit()
         logger.info("[AssistantSub] Activated subscription record %s (assistant %s)", record.id, record.ai_assistant_id)
         return None if was_already_active else record
@@ -225,10 +225,11 @@ class AssistantSubscriptionService:
         return len(stale)
 
     @staticmethod
-    def _mark_assistant_sold(db: Session, assistant_id: int | None) -> None:
+    def _mark_assistant_sold(db: Session, assistant_id: int | None, *, client_email: str | None = None) -> None:
         """Promote a subscribed assistant to DELIVERED: sold, so never expired by the demo cleanup.
 
-        An expired demo is revived by the payment — a client who pays always gets their assistant.
+        An expired demo is revived by the payment — a client who pays always gets their assistant. An assistant
+        without an address takes the one the client gave at the checkout, so its alerts have somewhere to go.
         """
         if not assistant_id:
             return
@@ -237,6 +238,8 @@ class AssistantSubscriptionService:
             return
         if assistant.status in (AiAssistantStatus.ACTIVE.value, AiAssistantStatus.EXPIRED.value):
             assistant.status = AiAssistantStatus.DELIVERED.value
+        if not (assistant.email or "").strip() and client_email and client_email.strip():
+            assistant.email = client_email.strip()[:255]
 
     def update_from_stripe_subscription(self, db: Session, sub_obj: dict) -> None:
         """
@@ -252,12 +255,36 @@ class AssistantSubscriptionService:
         record.status = _STRIPE_STATUS_MAP.get(str(sub_obj.get("status")), record.status)
         # A cancellation scheduled from the portal keeps the subscription active until the period ends.
         record.cancel_at_period_end = bool(sub_obj.get("cancel_at_period_end") or sub_obj.get("cancel_at"))
-        period_end = sub_obj.get("current_period_end")
+        period_end = self._current_period_end(sub_obj)
         if period_end:
             record.current_period_end = datetime.fromtimestamp(int(period_end), UTC).replace(tzinfo=None)
-        if record.status == AssistantSubscriptionStatus.CANCELED.value and record.canceled_at is None:
-            record.canceled_at = datetime.now(UTC).replace(tzinfo=None)
+        if record.status == AssistantSubscriptionStatus.CANCELED.value:
+            if record.canceled_at is None:
+                record.canceled_at = datetime.now(UTC).replace(tzinfo=None)
+            # The service ends with the subscription: the widget stops answering, no alert, report or
+            # client-space link is issued any more.
+            self._retire_assistant(db, record.ai_assistant_id)
         db.commit()
+
+    @staticmethod
+    def _current_period_end(sub_obj: dict) -> int | None:
+        """The period end as Stripe sends it: on each item since the Basil API, on the subscription before."""
+        items = sub_obj.get("items") or {}
+        for item in items.get("data") or []:
+            if isinstance(item, dict) and item.get("current_period_end"):
+                return int(item["current_period_end"])
+        period_end = sub_obj.get("current_period_end")
+        return int(period_end) if period_end else None
+
+    @staticmethod
+    def _retire_assistant(db: Session, assistant_id: int | None) -> None:
+        """A sold assistant whose subscription ended goes EXPIRED: served no more, alerted no more."""
+        if not assistant_id:
+            return
+        assistant = db.get(AiAssistant, assistant_id)
+        if assistant is not None and assistant.status == AiAssistantStatus.DELIVERED.value:
+            assistant.status = AiAssistantStatus.EXPIRED.value
+            logger.info("[AssistantSub] Assistant %s retired: its subscription ended", assistant_id)
 
     def is_active_for_assistant(self, db: Session, assistant_id: int) -> bool:
         """Whether the assistant has a paid, running subscription."""

@@ -14,6 +14,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, ClassVar
 
+# Below this much text, a site is too small for a halved read to mean anything.
+MIN_CHARS_WORTH_KEEPING = 300
+
 
 @dataclass(frozen=True)
 class WebsiteDiff:
@@ -107,7 +110,8 @@ class AiAssistantWebsiteSync:
             return True
         before_chars = sum(len(text) for text in before.values())
         after_chars = sum(len(text) for text in after.values())
-        return before_chars >= 1000 and after_chars * 2 < before_chars
+        # A one-page site is small: even a few hundred characters that halve look like a lost read.
+        return before_chars >= MIN_CHARS_WORTH_KEEPING and after_chars * 2 < before_chars
 
     @classmethod
     def incomplete(cls, previous: dict[str, Any] | None, *, at: datetime) -> dict[str, Any]:

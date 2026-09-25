@@ -159,12 +159,16 @@ def test_eu_only_and_fallback_outages_are_both_reported(providers: dict[str, Any
     assert "basculé sur Groq" in providers["alerts"].messages[1]
 
 
-def test_a_request_mistral_rejects_is_not_an_outage(providers: dict[str, Any]) -> None:
+def test_a_request_mistral_rejects_is_not_an_outage_but_a_configuration_alert(providers: dict[str, Any]) -> None:
     providers["mistral"].rejects = True
+    router = AssistantLlmRouter()
 
-    assert _chat(AssistantLlmRouter()) == "Du lundi au vendredi."
-    assert _chat(AssistantLlmRouter(), eu_only=True) is None
-    assert providers["alerts"].messages == []
+    assert _chat(router) == "Du lundi au vendredi."
+    assert _chat(router, eu_only=True) is None
+    # No « Mistral indisponible » outage; one alert, on the request Mistral refuses, however many calls fail.
+    assert providers["alerts"].messages == [
+        "Mistral refuse nos requêtes (chat de l'assistant) : modèle ou paramètres à vérifier (MISTRAL_CHAT_MODEL…)"
+    ]
 
 
 def test_without_a_mistral_key_the_calls_stay_on_groq_except_for_eu_only(

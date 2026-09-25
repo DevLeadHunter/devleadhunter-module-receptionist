@@ -5,6 +5,7 @@ prospect's own site says what they sell, at what price, where and to whom. A han
 only, bounded so the whole site fits in the prompt — no retrieval layer until a catalogue needs one.
 """
 
+import asyncio
 import logging
 import re
 import unicodedata
@@ -20,6 +21,8 @@ logger = logging.getLogger(__name__)
 MAX_PAGES = 8
 MAX_PAGE_CHARS = 4000
 MAX_TOTAL_CHARS = 24000
+# Bytes read of one page at most: past this, a page is inline images, not text worth knowing.
+MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 FETCH_TIMEOUT_SECONDS = 8.0
 _USER_AGENT = "DevLeadHunterBot/1.0 (+https://devleadhunter.fr)"
 # Path or link-label words that usually mark what the assistant must know (offer, prices, hours, FAQ…).
@@ -133,13 +136,29 @@ class AiAssistantWebsiteCrawler:
     async def _fetch(self, client: httpx.AsyncClient, url: str) -> dict[str, Any] | None:
         """One page as ``{"page": {url, title, text}, "links": [internal urls]}``, or None when unreadable."""
         try:
-            response = await client.get(url)
+            async with client.stream("GET", url) as response:
+                if response.status_code != 200 or "html" not in response.headers.get("content-type", "").lower():
+                    return None
+                # Read at most MAX_RESPONSE_BYTES: a page stuffed with inline images must not fill the memory.
+                chunks: list[bytes] = []
+                received = 0
+                async for chunk in response.aiter_bytes():
+                    chunks.append(chunk)
+                    received += len(chunk)
+                    if received >= MAX_RESPONSE_BYTES:
+                        break
+                final_url = str(response.url)
+                encoding = response.encoding or "utf-8"
         except httpx.HTTPError:
             return None
-        if response.status_code != 200 or "html" not in response.headers.get("content-type", "").lower():
-            return None
-        soup = BeautifulSoup(response.text, "html.parser")
-        links: list[str] = self._internal_links(soup, str(response.url))
+        html = b"".join(chunks)[:MAX_RESPONSE_BYTES].decode(encoding, errors="replace")
+        # Parsing is CPU work: off the event loop, so the API keeps serving meanwhile.
+        return await asyncio.to_thread(self._parse_page, url, final_url, html)
+
+    def _parse_page(self, url: str, final_url: str, html: str) -> dict[str, Any] | None:
+        """The page's title, text and internal links, or None when it holds no text."""
+        soup = BeautifulSoup(html, "html.parser")
+        links: list[str] = self._internal_links(soup, final_url)
         for tag in soup(_DROPPED_TAGS):
             tag.decompose()
         title: str = self._collapse(soup.title.get_text(" ", strip=True) if soup.title else "")

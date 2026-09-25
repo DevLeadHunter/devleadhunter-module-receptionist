@@ -38,6 +38,7 @@ _OUTAGE_MESSAGES: dict[AssistantLlmOutage, str] = {
     AssistantLlmOutage.NO_ANSWER: "Mistral et Groq indisponibles : {usage} sans réponse",
     AssistantLlmOutage.EU_ONLY_NO_ANSWER: "Mistral indisponible : {usage} sans réponse pour les assistants « IA hébergée en Europe »",
     AssistantLlmOutage.EU_ONLY_NO_KEY: "Assistant « IA hébergée en Europe » sans clé Mistral (MISTRAL_API_KEY) : {usage} sans réponse",
+    AssistantLlmOutage.REJECTED: "Mistral refuse nos requêtes ({usage}) : modèle ou paramètres à vérifier (MISTRAL_CHAT_MODEL…)",
 }
 
 
@@ -192,6 +193,9 @@ class AssistantLlmRouter:
         if completion is not None:
             self._log(usage, LlmProvider.MISTRAL, completion, started=started, eu_only=eu_only, fallback=False)
             return completion
+        if rejected:
+            # A refused request is ours to fix (a wrong model name, a bad parameter): the admins hear it once.
+            self._alert(usage, AssistantLlmOutage.REJECTED)
         if eu_only:
             if not rejected:
                 self._alert(usage, AssistantLlmOutage.EU_ONLY_NO_ANSWER)

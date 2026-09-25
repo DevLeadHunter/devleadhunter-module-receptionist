@@ -17,6 +17,7 @@ import asyncio
 import io
 import json
 import logging
+import os
 import re
 import subprocess
 import sys
@@ -92,6 +93,12 @@ class AiAssistantDocumentText:
         """
         return await asyncio.to_thread(cls._read_in_process, data)
 
+    @staticmethod
+    def _reader_environment() -> dict[str, str]:
+        """The reader's environment: what the interpreter needs to start, none of the API's secrets."""
+        kept = ("PATH", "SYSTEMROOT", "TEMP", "TMP", "LANG", "LC_ALL", "PYTHONIOENCODING")
+        return {name: os.environ[name] for name in kept if name in os.environ}
+
     @classmethod
     def _read_in_process(cls, data: bytes) -> ExtractedDocument:
         """Run the reading process on the file, kill it when it runs out of time, and read its answer."""
@@ -104,6 +111,7 @@ class AiAssistantDocumentText:
                 capture_output=True,
                 timeout=cls.TIMEOUT_SECONDS,
                 cwd=_API_ROOT,
+                env=cls._reader_environment(),
                 check=False,
             )
         except subprocess.TimeoutExpired as exc:  # subprocess.run has killed the process.

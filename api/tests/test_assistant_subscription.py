@@ -126,6 +126,10 @@ def test_activate_from_session_marks_active_and_stores_ids(db: Session) -> None:
 
 def test_update_from_stripe_subscription_syncs_status_and_cancel(db: Session) -> None:
     service = AssistantSubscriptionService()
+    assistant = AiAssistant(
+        id=7, user_id=1, slug="barbershop-63", business_name="Barbershop 63", status=AiAssistantStatus.DELIVERED.value
+    )
+    db.add(assistant)
     row = AiAssistantSubscription(
         user_id=1,
         ai_assistant_id=7,
@@ -137,13 +141,17 @@ def test_update_from_stripe_subscription_syncs_status_and_cancel(db: Session) ->
     db.add(row)
     db.commit()
 
+    # Since the Basil API the period end sits on each subscription item, not on the subscription.
     service.update_from_stripe_subscription(
-        db, {"id": "sub_9", "status": "canceled", "current_period_end": 1_800_000_000}
+        db, {"id": "sub_9", "status": "canceled", "items": {"data": [{"current_period_end": 1_800_000_000}]}}
     )
     db.refresh(row)
+    db.refresh(assistant)
     assert row.status == AssistantSubscriptionStatus.CANCELED.value
     assert row.canceled_at is not None
-    assert row.current_period_end is not None
+    assert row.current_period_end == datetime(2027, 1, 15, 8, 0)
+    # The service ends with the subscription: the assistant is retired.
+    assert assistant.status == AiAssistantStatus.EXPIRED.value
 
 
 def test_activation_marks_the_sold_assistant_delivered(db: Session) -> None:

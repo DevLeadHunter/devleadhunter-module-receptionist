@@ -464,8 +464,8 @@ class AiAssistantKnowledgeBuilder:
             return []
         lines = ["AVIS CLIENTS (pour le ton, ne pas les citer mot à mot) :"]
         for review in reviews:
-            author = f" — {review['author']}" if review.get("author") else ""
-            lines.append(f'- "{review["text"]}"{author}')
+            author = f" — {self._data(str(review['author']))}" if review.get("author") else ""
+            lines.append(f'- "{self._data(str(review["text"]))}"{author}')
         return lines
 
     @staticmethod
