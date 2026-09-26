@@ -11,6 +11,7 @@ text is held until it is told from a marker.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 
 MAX_FOLLOW_UPS = 3
 MAX_FOLLOW_UP_CHARS = 80
@@ -149,7 +150,7 @@ class FollowUpMarkerStream:
 
 
 class FollowUpMarker:
-    """Splits a whole reply into what the visitor reads and the questions its marker carried."""
+    """Splits a whole reply into what the visitor reads and the questions its marker carried, and writes it back."""
 
     @staticmethod
     def split(reply: str) -> tuple[str, tuple[str, ...]]:
@@ -166,3 +167,32 @@ class FollowUpMarker:
         stream.feed(reply)
         stream.finish()
         return stream.reply, stream.follow_ups
+
+    @staticmethod
+    def line(follow_ups: Sequence[str]) -> str:
+        """
+        The marker line as the prompt asks for it (« §SUITE: a | b »).
+
+        Args:
+            follow_ups: The suggestions; at most three distinct ones are kept.
+
+        Returns:
+            The line, empty without suggestions.
+        """
+        kept = parse_follow_ups(" | ".join(follow_ups))
+        return f"§SUITE: {' | '.join(kept)}" if kept else ""
+
+    @classmethod
+    def with_marker(cls, reply: str, follow_ups: Sequence[str]) -> str:
+        """
+        A past reply as the model wrote it, so it sees in the conversation what it already suggested.
+
+        Args:
+            reply: The reply the visitor read.
+            follow_ups: The suggestions offered under it.
+
+        Returns:
+            The reply, a blank line and the marker line; the reply alone without suggestions.
+        """
+        line = cls.line(follow_ups)
+        return f"{reply}\n\n{line}" if line else reply

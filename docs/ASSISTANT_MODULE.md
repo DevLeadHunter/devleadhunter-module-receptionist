@@ -1004,7 +1004,9 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
   `missing_info_marker.py` retire « §MANQUE: » (ligne tenue tant qu'elle peut être le marqueur, y compris collée à la
   fin d'une phrase à partir du « § »). `ChatAnswer.follow_ups`, `follow_ups` dans la réponse de `/chat` et dans la
   trame `done` du stream. Le widget les garde sur le message (`AssistantChatMessage.follow_ups`) et les propose en
-  puces sous la dernière réponse (`followUps` du composable), jamais renvoyées à l'API.
+  puces sous la dernière réponse (`followUps` du composable) et les renvoie avec chaque tour (`follow_ups` sur les
+  tours de l'assistant) : le serveur les remet sous forme de ligne « §SUITE: » dans l'historique du modèle, qui voit
+  ainsi ce qu'il a déjà proposé (dixième passage).
 - **Mise en forme des réponses.** Le prompt autorise les listes « - » (une ligne par élément) quand on énumère ;
   `MessageFormatUtils` (remplace `MessageLinkUtils`) découpe la réponse en paragraphes, listes, gras et liens, rendus
   par `AssistantChatMessageInline` dans la bulle.
@@ -1052,3 +1054,40 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
   avec leurs messages, demandes et FAQ d'une entreprise, pour diagnostiquer sans jeton de prod. Dibodev le 25/09 :
   2 conversations (3 photos hors sujet, 1 question répondue), 0 demande car aucune coordonnée laissée, 0 question sans
   réponse car rien de manquant : le tableau de bord était cohérent.
+
+## Dixième passage — retours iPhone de Léo (26/09, nuit)
+
+- **« Je suis à la place du client : pas de SMS ni d'e-mail ? »** Non, et c'est voulu : la réceptionniste de Dibodev
+  était encore une **démo** (`active`), et une démo n'alerte que l'opérateur (push du dashboard). Seul un assistant
+  **vendu** (`delivered`) alerte le commerçant (e-mail à chaque demande ; SMS pour devis/RDV/urgence, tenu jusqu'à 8 h
+  pendant la plage 22 h → 8 h). Une démo `active` dont le lien a été envoyé **expire** au bout du compte à rebours :
+  la réceptionniste installée sur dibodev.fr aurait donc fini par mourir. D'où la **vente hors Stripe** :
+  `POST /ai-assistants/{id}/deliver` (route propriétaire : `active`/`expired` → `delivered`, journal d'activité
+  `assistant_marked_sold`, e-mail de bienvenue par `try_send_welcome`, qui ne fait jamais échouer la vente et sert
+  aussi au webhook Stripe), bouton « Marquer comme vendu (hors Stripe) » dans `AssistantActionsCard` (avec
+  confirmation), option `deliver` du workflow `prod-receptionist-for-business.yml`. Le `report` du workflow imprime
+  maintenant `STATE status=… email=… expires_at=… alerts=…`.
+- **Formulaire de coordonnées pré-rempli.** `VisitorContactUtils.extract(messages)` (demo-host) lit dans les
+  messages du visiteur le dernier téléphone ou e-mail, et le prénom : après « je m'appelle / my name is / ik ben /
+  ich heiße / ech sinn / Prénom : … » n'importe où dans le message, ou une réponse courte (≤ 3 mots, sans chiffre ni
+  mot-outil) au message de l'assistant qui demandait le prénom. `leadPrefill` (composable) → `initialName` /
+  `initialContact` du formulaire, qui met le focus sur le **premier champ vide** (`focusFirstEmptyField`).
+- **Contact vérifié des deux côtés.** Même règle dans `VisitorContactUtils` et `services/ai_assistant/visitor_contact.py`
+  (`VisitorContact`) : numéro national de 9 à 11 chiffres, international (« + » ou « 00 ») de 10 à 15, e-mail
+  `x@y.tld` ; « 064219381200 » ou « Jeue » sont refusés. Widget : bouton « Envoyer » désactivé tant que le contact
+  n'est pas joignable, indication sous le champ une fois qu'on l'a quitté (`contactHint`, 5 langues). API :
+  `/lead` répond 422 avec une phrase dans la langue du visiteur (`_UNREACHABLE_CONTACT`). `AiAssistantRequestEmail`
+  lit désormais téléphones et e-mails par `VisitorContact`.
+- **Suggestions qui suivent la conversation.** La règle `§SUITE` demande 2 ou 3 suggestions de ce que CE visiteur
+  enverrait ensuite : si la réponse pose une question, ses réponses probables (« Un site vitrine », « Je vous envoie
+  une photo ») ; sinon la question ou l'action qui suit ; jamais générique, jamais déjà proposée, jamais ce qu'il
+  vient de demander. Rappel final du prompt (« … et elle se termine par la ligne §SUITE »). Le widget renvoie les
+  `follow_ups` de chaque tour de l'assistant ; `_bounded_history` les remet en ligne « §SUITE: » dans l'historique
+  (`FollowUpMarker.with_marker`) pour que le modèle voie ce qu'il a déjà proposé. Les puces d'action (photo, RDV)
+  restent le repli quand le modèle n'a rien proposé.
+- **Clavier iPhone : le site ne doit plus apparaître entre la feuille et les touches.** Sur téléphone, l'iframe
+  plein écran suivait le viewport de mise en page ; iOS fait défiler la page sous un élément fixe pour garder le
+  champ visible, et le site du client apparaissait sous la feuille. Le loader suit maintenant le **visual
+  viewport** (`window.visualViewport` : `top = offsetTop`, `height = height`, `bottom: auto`, écouteurs `resize` +
+  `scroll`) tant que le widget est ouvert sur mobile ; sur desktop, `bottom: 0`. À vérifier sur un vrai iPhone
+  (Chromium n'émule pas le clavier).

@@ -157,5 +157,29 @@ def test_the_system_prompt_asks_for_the_trailing_line_and_for_lists_when_enumera
     assert "Termine TOUJOURS ta réponse par une dernière ligne exacte « §SUITE: " in prompt
     # The chips are the visitor's next questions to the business, never the business's questions to the visitor.
     assert "Jamais une question que l'entreprise poserait au client" in prompt
+    # They follow the reply: probable answers to its question, else what comes next; never generic, never repeated.
+    assert "les réponses les plus probables à cette question" in prompt
+    assert "Jamais une suggestion générique sans lien avec l'échange, jamais une déjà proposée plus tôt" in prompt
+    assert prompt.rstrip().endswith("2 ou 3 suggestions qui suivent exactement ce que tu viens de dire.")
     assert "UNE ligne par élément commençant par « - »" in prompt
     assert "liste à puces" not in prompt
+
+
+def test_past_suggestions_go_back_to_the_model_as_the_marker_it_wrote() -> None:
+    """The widget sends the chips it showed under each reply; the model sees them in its own turns."""
+    history = [
+        {"role": "user", "content": "Vous faites des sites ?"},
+        {"role": "assistant", "content": "Oui, des sites vitrines.", "follow_ups": ["Un devis ?", "Vos délais ?", ""]},
+        {"role": "assistant", "content": "Une bulle sans puces."},
+        {"role": "user", "content": "Un devis ?", "follow_ups": ["ignoré sur un tour du visiteur"]},
+    ]
+
+    turns = ai_assistant_chat_service._bounded_history(history)
+
+    assert turns[1]["content"] == "Oui, des sites vitrines." + chr(10) * 2 + "§SUITE: Un devis ? | Vos délais ?"
+    assert turns[2]["content"] == "Une bulle sans puces."
+    assert turns[3] == {"role": "user", "content": "Un devis ?"}
+    assert FollowUpMarker.line(["A ?", "a ?", "B ?", "C ?", "D ?"]) == "§SUITE: A ? | B ? | C ?"
+    assert FollowUpMarker.with_marker("Texte.", []) == "Texte."
+    # The line the model wrote back is read again as the marker: what goes out comes back in one piece.
+    assert FollowUpMarker.split(turns[1]["content"]) == ("Oui, des sites vitrines.", ("Un devis ?", "Vos délais ?"))

@@ -10,6 +10,8 @@ export type AssistantContactDetails = {
 export type AssistantChatContactFormProps = {
   lang: AssistantWidgetLang
   pickedSummary: string
+  initialName: string
+  initialContact: string
   initialNeed: string
   isSubmitting: boolean
 }

@@ -217,7 +217,13 @@ class AiAssistantChatService:
             content = turn.get("content")
             if role not in ("user", "assistant") or not isinstance(content, str) or not content.strip():
                 continue
-            bounded.append({"role": role, "content": content.strip()[:MAX_MESSAGE_CHARS]})
+            text = content.strip()[:MAX_MESSAGE_CHARS]
+            follow_ups = turn.get("follow_ups")
+            if role == "assistant" and isinstance(follow_ups, list):
+                # The suggestions offered under that reply, back in the form the model wrote them: it sees what
+                # it already proposed and offers something else.
+                text = FollowUpMarker.with_marker(text, [item for item in follow_ups if isinstance(item, str)])
+            bounded.append({"role": role, "content": text})
         return bounded
 
 

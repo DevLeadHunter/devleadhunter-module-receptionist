@@ -112,6 +112,8 @@
             ref="contactForm"
             :lang="lang"
             :picked-summary="pickedSummary"
+            :initial-name="leadPrefill.name"
+            :initial-contact="leadPrefill.contact"
             :initial-need="leadNeedPrefill"
             :is-submitting="isSubmittingLead"
             @submit="submitLead"
@@ -203,6 +205,7 @@ const {
   chosenKind,
   canContinueBooking,
   pickedSummary,
+  leadPrefill,
   showChips,
   followUps,
   showActionChips,
@@ -368,7 +371,7 @@ watch(isSlotPanelOpen, async (isShown: boolean): Promise<void> => {
 watch(showLeadForm, async (isShown: boolean): Promise<void> => {
   if (!isShown) return
   await nextTick()
-  contactForm.value?.focusName()
+  contactForm.value?.focusFirstEmptyField()
 })
 
 watch(lastLeadSummary, (summary: AssistantLeadSummary | null): void => {

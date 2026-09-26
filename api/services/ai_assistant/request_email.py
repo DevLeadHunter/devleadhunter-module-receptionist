@@ -16,6 +16,7 @@ from typing import ClassVar
 
 from enums.ai_assistant_request import AiAssistantRequestType
 from services.ai_assistant.request_analyzer import TranscriptLine
+from services.ai_assistant.visitor_contact import VisitorContact
 
 
 @dataclass(frozen=True)
@@ -62,8 +63,6 @@ class AiAssistantRequestEmail:
         AiAssistantRequestType.URGENT: "Urgence",
         AiAssistantRequestType.OTHER: "Nouvelle demande",
     }
-    _EMAIL_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
-    _PHONE_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r"^\+?[\d\s.()-]{6,}$")
 
     @classmethod
     def type_label(cls, request_type: AiAssistantRequestType) -> str:
@@ -213,10 +212,10 @@ class AiAssistantRequestEmail:
             f"{action}</main></body></html>"
         )
 
-    @classmethod
-    def is_email(cls, contact: str) -> bool:
+    @staticmethod
+    def is_email(contact: str) -> bool:
         """Whether a visitor's contact reads as an email address (else a phone number or free text)."""
-        return cls._EMAIL_PATTERN.fullmatch(contact.strip()) is not None
+        return VisitorContact.is_email(contact)
 
     @classmethod
     def _contact_html(cls, visitor_name: str, contact: str) -> str:
@@ -226,7 +225,7 @@ class AiAssistantRequestEmail:
         escaped = html.escape(cleaned)
         if cls.is_email(cleaned):
             return f'{name}<br/><a href="mailto:{html.escape(cleaned, quote=True)}" style="color:#111">{escaped}</a>'
-        if cls._PHONE_PATTERN.match(cleaned):
+        if VisitorContact.is_phone(cleaned):
             dial = re.sub(r"[^\d+]", "", cleaned)
             return f'{name}<br/><a href="tel:{dial}" style="color:#111">{escaped}</a>'
         return f"{name}<br/>{escaped}"

@@ -10,6 +10,7 @@ import type {
   AssistantWidgetLang,
 } from '~/types/AiAssistant'
 import type { AssistantLeadSummary } from '~/types/AssistantChat'
+import type { AssistantContactPrefill } from '~/types/AssistantContactPrefill'
 import type { AssistantContactDetails } from '~/types/AssistantChatContactForm'
 import type { AssistantDemoScriptStep } from '~/types/AssistantDemoScript'
 
@@ -41,6 +42,8 @@ export type UseAssistantConversationReturn = {
   chosenKind: Ref<string | null>
   canContinueBooking: ComputedRef<boolean>
   pickedSummary: ComputedRef<string>
+  /** The name and contact the visitor already gave in the chat, so the form opens filled. */
+  leadPrefill: ComputedRef<AssistantContactPrefill>
   showChips: ComputedRef<boolean>
   followUps: ComputedRef<string[]>
   showActionChips: ComputedRef<boolean>

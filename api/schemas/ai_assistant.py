@@ -200,6 +200,8 @@ class AiAssistantChatMessage(BaseModel):
 
     role: Literal["user", "assistant"]
     content: str = Field(..., max_length=4000)
+    # The suggestions the widget showed under an assistant turn: sent back so the model does not repeat them.
+    follow_ups: list[str] = Field(default_factory=list, max_length=3)
 
 
 class AiAssistantChatRequest(BaseModel):

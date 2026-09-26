@@ -182,7 +182,7 @@ class AssistantSubscriptionService:
         if record.activated_at is None:
             record.activated_at = datetime.now(UTC).replace(tzinfo=None)
         # The client is now paying: mark the assistant SOLD so the demo TTL never takes it down.
-        self._mark_assistant_sold(db, record.ai_assistant_id, client_email=record.client_email)
+        self.mark_assistant_sold(db, record.ai_assistant_id, client_email=record.client_email)
         db.commit()
         logger.info("[AssistantSub] Activated subscription record %s (assistant %s)", record.id, record.ai_assistant_id)
         return None if was_already_active else record
@@ -225,11 +225,17 @@ class AssistantSubscriptionService:
         return len(stale)
 
     @staticmethod
-    def _mark_assistant_sold(db: Session, assistant_id: int | None, *, client_email: str | None = None) -> None:
-        """Promote a subscribed assistant to DELIVERED: sold, so never expired by the demo cleanup.
+    def mark_assistant_sold(db: Session, assistant_id: int | None, *, client_email: str | None = None) -> None:
+        """Promote a sold assistant to DELIVERED: served for good, never expired by the demo cleanup.
 
-        An expired demo is revived by the payment — a client who pays always gets their assistant. An assistant
-        without an address takes the one the client gave at the checkout, so its alerts have somewhere to go.
+        A Stripe payment or a sale outside it (a transfer, the operator's own business) both end here; an expired
+        demo is revived — a client who pays always gets their assistant. An assistant without an address takes the
+        one the client gave at the checkout, so its alerts have somewhere to go. Not committed.
+
+        Args:
+            db: Active database session.
+            assistant_id: The assistant sold.
+            client_email: The address given at the checkout, when there was one.
         """
         if not assistant_id:
             return

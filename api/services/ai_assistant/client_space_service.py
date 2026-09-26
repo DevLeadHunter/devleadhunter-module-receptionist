@@ -302,6 +302,19 @@ class AiAssistantClientSpaceService:
         recipient, send_error = await self._email_business(db, assistant, rendered)
         return ClientLinkDelivery(url=url, expires_at=expires_at, sent_to=recipient, send_error=send_error)
 
+    async def try_send_welcome(self, db: Session, assistant: AiAssistant) -> None:
+        """
+        Email the business its welcome without ever failing the sale that triggers it (logged instead).
+
+        Args:
+            db: Active database session.
+            assistant: The assistant just sold.
+        """
+        try:
+            await self.send_welcome(db, assistant)
+        except Exception:
+            logger.warning("Assistant %s: the welcome email failed", assistant.id, exc_info=True)
+
     async def send_welcome(
         self, db: Session, assistant: AiAssistant, *, now: datetime | None = None
     ) -> ClientLinkDelivery:

@@ -211,14 +211,17 @@ class AiAssistantKnowledgeBuilder:
             "énumères (prestations, étapes, horaires, pièces à prévoir) : une courte phrase d'introduction, puis "
             "UNE ligne par élément commençant par « - » ; sinon, pas de liste. Jamais de titre, de tableau ni de "
             "gras. Mets en valeur ce qui distingue la maison quand c'est utile.",
-            "- Termine TOUJOURS ta réponse par une dernière ligne exacte « §SUITE: <question 1> | <question 2> | "
-            "<question 3> », seule sur sa ligne après une ligne vide : 2 ou 3 questions très courtes (6 mots maximum) "
-            "que ce client pourrait vouloir poser ensuite À L'ENTREPRISE, écrites à sa place et dans sa langue "
-            "(« Vos horaires ? », « Vous vous déplacez ? », « Prendre rendez-vous »), auxquelles tu peux répondre avec "
-            "les informations ci-dessous ou qui mènent à une action (devis, rendez-vous, rappel). Jamais une question "
-            "que l'entreprise poserait au client (son budget, ses disponibilités, son adresse) : c'est lui qui clique. "
-            "Cette ligne est retirée avant l'affichage et devient des boutons sous ta réponse : ne la mentionne "
-            "jamais, et n'y répète pas ce qu'il vient de demander.",
+            "- Termine TOUJOURS ta réponse par une dernière ligne exacte « §SUITE: <suggestion 1> | <suggestion 2> | "
+            "<suggestion 3> », seule sur sa ligne après une ligne vide : 2 ou 3 suggestions très courtes (6 mots "
+            "maximum) de ce que CE visiteur enverrait ensuite, écrites à sa place, dans sa langue, et qui suivent "
+            "EXACTEMENT ta réponse. Si tu viens de lui poser une question, ce sont les réponses les plus probables à "
+            "cette question (« Un site vitrine », « Plutôt une application », « Je vous envoie une photo ») ; sinon, "
+            "ce qu'il demanderait ensuite à l'entreprise sur ce sujet précis, ou l'action qui suit (devis, "
+            "rendez-vous, rappel). Jamais une question que l'entreprise poserait au client (son budget, ses "
+            "disponibilités, son adresse) : c'est lui qui clique. Jamais une suggestion générique sans lien avec "
+            "l'échange, jamais une déjà proposée plus tôt dans la conversation (tu les y vois), jamais ce qu'il "
+            "vient de demander. Cette ligne est retirée avant l'affichage et devient des boutons sous ta réponse : "
+            "ne la mentionne jamais.",
         ]
         if tone:
             lines.append(f"- Ton : {tone}.")
@@ -250,7 +253,8 @@ class AiAssistantKnowledgeBuilder:
         lines.append("")
         lines.append(
             "Tu accueilles maintenant un visiteur du site. Rappel : toute ta réponse, y compris la "
-            "dernière phrase, est écrite dans la langue de son message."
+            "dernière phrase, est écrite dans la langue de son message, et elle se termine par la ligne "
+            "« §SUITE: » avec 2 ou 3 suggestions qui suivent exactement ce que tu viens de dire."
         )
         return "\n".join(lines)
 

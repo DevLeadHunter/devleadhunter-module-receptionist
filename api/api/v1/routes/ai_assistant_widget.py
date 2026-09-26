@@ -54,6 +54,7 @@ from services.ai_assistant.chat_service import ChatAnswer, ai_assistant_chat_ser
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
 from services.ai_assistant.faq_service import ai_assistant_faq_service
+from services.ai_assistant.follow_up_marker import MAX_FOLLOW_UP_CHARS
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.photo_service import (
     MAX_PHOTO_BYTES,
@@ -63,6 +64,7 @@ from services.ai_assistant.photo_service import (
 )
 from services.ai_assistant.request_service import ai_assistant_request_service
 from services.ai_assistant.request_volume import AiAssistantRequestVolume
+from services.ai_assistant.visitor_contact import VisitorContact
 from services.assistant_pricing_service import AssistantPricingService
 from services.assistant_video_service import (
     has_ready_video,
@@ -88,6 +90,14 @@ _MAX_INCOMING_MESSAGES = 40
 
 # Shown to a visitor for a refusal whose reason is not written for them.
 _INVALID_REQUEST = "Demande invalide : vérifiez vos informations et réessayez."
+# A contact the business cannot dial nor write to (a made-up number, a word): refused in the visitor's language.
+_UNREACHABLE_CONTACT: dict[str, str] = {
+    "fr": "Indiquez un numéro de téléphone ou une adresse e-mail où l'on peut vous joindre.",
+    "nl": "Geef een telefoonnummer of e-mailadres op waarop we u kunnen bereiken.",
+    "en": "Please give a phone number or an email address where you can be reached.",
+    "de": "Bitte geben Sie eine Telefonnummer oder E-Mail-Adresse an, unter der wir Sie erreichen.",
+    "lu": "Gitt w.e.g. eng Telefonsnummer oder E-Mail-Adress un, wou mir Iech erreechen.",
+}
 # Shown to the operator when a « ?internal=1 » visit tries to book in a client's agenda.
 _TEST_BOOKING_REFUSED = (
     "Visite de test : aucun rendez-vous n'est réservé dans l'agenda. "
@@ -182,7 +192,7 @@ def _closed_hours(db: Session, assistant: AiAssistant) -> AiAssistantClosedHours
 
 def _open_chat(
     slug: str, payload: AiAssistantChatRequest, request: Request, db: Session
-) -> tuple[AiAssistant, list[dict[str, str]]]:
+) -> tuple[AiAssistant, list[dict[str, Any]]]:
     """The assistant a chat request reaches and the conversation to answer, once the request is admissible."""
     if not assistant_chat_limiter.allow(f"{slug}:{client_ip(request)}"):
         raise HTTPException(
@@ -192,9 +202,12 @@ def _open_chat(
     # Only a visitor's message is a question: the journal must never file an assistant turn as theirs.
     if not payload.messages or payload.messages[-1].role != "user":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No message to answer")
-    history = [
-        {"role": message.role, "content": message.content} for message in payload.messages[-_MAX_INCOMING_MESSAGES:]
-    ]
+    history: list[dict[str, Any]] = []
+    for message in payload.messages[-_MAX_INCOMING_MESSAGES:]:
+        turn: dict[str, Any] = {"role": message.role, "content": message.content}
+        if message.role == "assistant" and message.follow_ups:
+            turn["follow_ups"] = [item[:MAX_FOLLOW_UP_CHARS] for item in message.follow_ups]
+        history.append(turn)
     return assistant, history
 
 
@@ -369,6 +382,12 @@ async def submit_assistant_lead(
     assistant = public_assistant_or_404(db, slug)
     if not payload.name.strip() or not payload.contact.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name and contact are required")
+    if not VisitorContact.is_reachable(payload.contact):
+        language = (payload.language or "fr")[:2].lower()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=_UNREACHABLE_CONTACT.get(language, _UNREACHABLE_CONTACT["fr"]),
+        )
     if payload.booking is not None and payload.internal:
         # A test visit is never announced: booking silently in a client's agenda (and texting the visitor) would be
         # an abuse path. The operator tests a real booking on their own test assistant, without « ?internal=1 ».

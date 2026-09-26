@@ -258,6 +258,16 @@ export class AiAssistantService {
   }
 
   /**
+   * Mark a demo assistant sold outside Stripe: served for good, its owner alerted, the business welcomed.
+   *
+   * @param assistantId - The active or expired demo assistant.
+   * @returns The assistant, now delivered.
+   */
+  static markSold(assistantId: number): Promise<AiAssistantSummary> {
+    return ApiClient.post<AiAssistantSummary>(`${BASE_URL}/${assistantId}/deliver`, {})
+  }
+
+  /**
    * Sign a fresh client-space link for a sold assistant, and email it to the business when asked.
    *
    * @param assistantId - The sold assistant.

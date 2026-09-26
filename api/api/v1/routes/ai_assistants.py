@@ -32,6 +32,7 @@ from schemas.ai_assistant import (
     AiAssistantUpdateRequest,
 )
 from schemas.ai_assistant_client_space import AiAssistantClientLinkRequest, AiAssistantClientLinkResponse
+from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_SUCCESS, activity_log_service
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.client_space_service import ai_assistant_client_space_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
@@ -245,6 +246,40 @@ async def issue_assistant_client_link(
     return AiAssistantClientLinkResponse(
         url=delivery.url, expires_at=delivery.expires_at, sent_to=delivery.sent_to, send_error=delivery.send_error
     )
+
+
+@router.post("/{assistant_id}/deliver", response_model=AiAssistantResponse)
+async def deliver_assistant(
+    assistant_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """
+    Mark one of the caller's demo assistants sold outside Stripe (paid by transfer, or the operator's own business):
+    served for good, its owner alerted of each request, and the business welcomed like after a checkout.
+    """
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
+    if assistant.status == AiAssistantStatus.DELIVERED.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cet assistant est déjà vendu.")
+    if assistant.status not in (AiAssistantStatus.ACTIVE.value, AiAssistantStatus.EXPIRED.value):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Seule une démo active ou expirée peut être marquée vendue."
+        )
+    assistant_subscription_service.mark_assistant_sold(db, assistant.id)
+    db.commit()
+    db.refresh(assistant)
+    activity_log_service.record(
+        category=CATEGORY_ASSISTANT,
+        action="assistant_marked_sold",
+        status=STATUS_SUCCESS,
+        title=f"{assistant.business_name} · assistant marqué vendu hors Stripe",
+        detail=f"Par {user.email}",
+        user_id=user.id,
+        entity_type="prospect",
+        entity_id=assistant.prospect_id,
+    )
+    await ai_assistant_client_space_service.try_send_welcome(db, assistant)
+    return _to_full_owner_response(db, assistant)
 
 
 @router.post("/{assistant_id}/video", response_model=AiAssistantResponse)

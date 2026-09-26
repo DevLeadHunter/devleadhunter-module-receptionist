@@ -73,6 +73,8 @@ export type AssistantLeadLabels = {
   title: string
   name: string
   contact: string
+  /** Under the contact field when what was typed is neither a phone number nor an email address. */
+  contactHint: string
   need: string
   send: string
   cancel: string

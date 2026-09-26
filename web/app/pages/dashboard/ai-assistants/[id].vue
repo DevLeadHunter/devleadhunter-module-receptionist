@@ -66,9 +66,11 @@
               :status="assistant.status"
               :is-regenerating="isRegenerating"
               :is-sending-client-link="isSendingClientLink"
+              :is-marking-sold="isMarkingSold"
               :is-deleting="isDeleting"
               @regenerate="regenerateAssistant"
               @send-client-space="clientSpaceConfirmModal?.open()"
+              @mark-sold="soldConfirmModal?.open()"
               @remove="deleteConfirmModal?.open()"
             />
             <AssistantVideoCard :assistant="assistant" :is-busy="isVideoBusy" @generate="generateVideo" />
@@ -130,6 +132,15 @@
       cancel-text="Annuler"
       confirm-button-variant="primary"
       @confirm="sendClientSpace"
+    />
+    <UiConfirmModal
+      ref="soldConfirmModal"
+      title="Marquer comme vendu"
+      :message="soldConfirmMessage"
+      confirm-text="Marquer vendu"
+      cancel-text="Annuler"
+      confirm-button-variant="primary"
+      @confirm="markSold"
     />
   </div>
 </template>
@@ -193,10 +204,12 @@ const loadError: Ref<string | null> = ref(null)
 const isRegenerating: Ref<boolean> = ref(false)
 const isDeleting: Ref<boolean> = ref(false)
 const isSendingClientLink: Ref<boolean> = ref(false)
+const isMarkingSold: Ref<boolean> = ref(false)
 const isVideoBusy: Ref<boolean> = ref(false)
 const videoPollTimer: Ref<ReturnType<typeof setInterval> | null> = ref(null)
 const deleteConfirmModal: Ref<{ open: () => void } | null> = ref(null)
 const clientSpaceConfirmModal: Ref<{ open: () => void } | null> = ref(null)
+const soldConfirmModal: Ref<{ open: () => void } | null> = ref(null)
 
 useSeoMeta({
   title: computed((): string => `${assistant.value?.business_name ?? 'Réceptionniste IA'} — DevLeadHunter`),
@@ -245,6 +258,11 @@ const clientSpaceConfirmMessage: ComputedRef<string> = computed((): string => {
   return `Envoyer au commerçant${recipient} le lien de son espace (demandes, rapport, réglages, abonnement) ? Le lien est aussi copié.`
 })
 
+const soldConfirmMessage: ComputedRef<string> = computed(
+  (): string =>
+    `Marquer l'assistant de « ${assistant.value?.business_name ?? ''} » comme vendu hors Stripe (virement, votre propre entreprise) ? Il n'expire plus, chaque demande alerte le commerçant par e-mail et SMS, et l'entreprise reçoit son e-mail de bienvenue avec l'espace client.`,
+)
+
 /** Open the journal of what the visitors asked. */
 function openConversations(): void {
   if (assistant.value) drawerStack.push({ kind: 'assistant-conversations', assistant: assistant.value })
@@ -289,6 +307,25 @@ async function regenerateAssistant(): Promise<void> {
     toast.error('Régénération impossible pour le moment.')
   } finally {
     isRegenerating.value = false
+  }
+}
+
+/**
+ * Mark the assistant sold outside Stripe: served for good, its owner alerted, the business welcomed.
+ * @returns A promise resolved once marked (or refused).
+ */
+async function markSold(): Promise<void> {
+  if (!assistant.value || isMarkingSold.value) return
+  isMarkingSold.value = true
+  try {
+    const updated: AiAssistantSummary = await AiAssistantService.markSold(assistant.value.id)
+    assistant.value = updated
+    drawerStack.notifyAssistantUpdated(updated)
+    toast.success("Assistant marqué vendu : il alerte le commerçant et l'e-mail de bienvenue est parti.")
+  } catch {
+    toast.error('Impossible de marquer cet assistant vendu pour le moment.')
+  } finally {
+    isMarkingSold.value = false
   }
 }
 

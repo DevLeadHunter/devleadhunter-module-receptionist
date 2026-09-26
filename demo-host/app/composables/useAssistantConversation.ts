@@ -19,6 +19,7 @@ import type {
 } from '~/types/AiAssistant'
 import type { AssistantLeadSummary } from '~/types/AssistantChat'
 import type { AssistantContactDetails } from '~/types/AssistantChatContactForm'
+import type { AssistantContactPrefill } from '~/types/AssistantContactPrefill'
 import type { AssistantDemoScriptStep, AssistantHostPage } from '~/types/AssistantDemoScript'
 import type { UseAssistantConversationReturn } from '~/types/UseAssistantConversation'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
@@ -41,6 +42,7 @@ import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 import { LanguageDetectUtils } from '~/utils/LanguageDetectUtils'
 import { PhotoCompressionUtils } from '~/utils/PhotoCompressionUtils'
+import { VisitorContactUtils } from '~/utils/VisitorContactUtils'
 
 const DEFAULT_LANG: AssistantWidgetLang = 'fr'
 
@@ -156,6 +158,10 @@ export function useAssistantConversation(
     if (chosenTime.value) return `${labels.appointment} : ${chosenTimeLine.value}`
     return ''
   })
+  /** What the visitor already gave in the chat (« Léo », « 06 42 19 38 12 »): the form opens filled with it. */
+  const leadPrefill: ComputedRef<AssistantContactPrefill> = computed((): AssistantContactPrefill =>
+    VisitorContactUtils.extract(messages.value),
+  )
   /** No panel or form in the thread: the chips may sit under the last message. */
   const isThreadClear: ComputedRef<boolean> = computed(
     (): boolean => !isSlotPanelOpen.value && !isPhotoPanelOpen.value && !showLeadForm.value,
@@ -551,10 +557,12 @@ export function useAssistantConversation(
     isBusy.value = true
     let offerBooking: boolean = false
     const body: AssistantChatRequestBody = {
-      // The turns alone: the questions offered under a reply are the widget's, not part of the conversation.
+      // The turns, with the suggestions shown under each reply: the model sees what it already proposed.
       messages: messages.value
         .slice(-MAX_STORED_MESSAGES)
-        .map(({ role, content }: AssistantChatMessage): AssistantChatMessage => ({ role, content })),
+        .map(({ role, content, follow_ups }: AssistantChatMessage): AssistantChatMessage =>
+          follow_ups?.length ? { role, content, follow_ups } : { role, content },
+        ),
       session_id: sessionId.value,
       language: lang.value,
       internal: DemoBeaconUtils.isInternalVisit(),
@@ -765,7 +773,7 @@ export function useAssistantConversation(
    * @returns A promise resolved once the request is sent.
    */
   async function submitLead(details: AssistantContactDetails): Promise<void> {
-    if (isSubmittingLead.value || !details.name.trim() || !details.contact.trim()) return
+    if (isSubmittingLead.value || !details.name.trim() || !VisitorContactUtils.isReachable(details.contact)) return
     isSubmittingLead.value = true
     const booking: AssistantAppointmentTime | null = bookingMode.value === 'calendar' ? chosenTime.value : null
     try {
@@ -848,6 +856,7 @@ export function useAssistantConversation(
     chosenKind,
     canContinueBooking,
     pickedSummary,
+    leadPrefill,
     showChips,
     followUps,
     showActionChips,

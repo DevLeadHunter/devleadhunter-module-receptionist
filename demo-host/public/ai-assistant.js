@@ -90,6 +90,8 @@
   var sheet = null
   var sheetShownAt = 0
   var portraitSrc = ''
+  // The part of the page really on screen: the keyboard shrinks it, and iOS pans it to keep the field in view.
+  var viewport = window.visualViewport || null
 
   function isMobile() {
     return window.innerWidth < MOBILE_MAX_WIDTH || window.innerHeight < MOBILE_MAX_HEIGHT
@@ -100,8 +102,20 @@
     var style = iframe.style
     if (isMobile()) {
       style.width = '100%'
-      style.height = '100%'
+      if (viewport) {
+        // Full screen means the visible area, not the layout viewport: with the keyboard open, iOS scrolls
+        // the page under a fixed frame and the site would show between the sheet and the keys.
+        style.top = viewport.offsetTop + 'px'
+        style.bottom = 'auto'
+        style.height = viewport.height + 'px'
+      } else {
+        style.top = ''
+        style.bottom = '0'
+        style.height = '100%'
+      }
     } else {
+      style.top = ''
+      style.bottom = '0'
       style.width = OPEN_WIDTH
       style.height = OPEN_HEIGHT
     }
@@ -256,6 +270,10 @@
   function removeAll() {
     window.removeEventListener('message', onMessage)
     window.removeEventListener('resize', onResize)
+    if (viewport) {
+      viewport.removeEventListener('resize', onResize)
+      viewport.removeEventListener('scroll', onResize)
+    }
     if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe)
     if (launcher && launcher.parentNode) launcher.parentNode.removeChild(launcher)
   }
@@ -318,6 +336,10 @@
     style.display = 'none'
     window.addEventListener('message', onMessage)
     window.addEventListener('resize', onResize)
+    if (viewport) {
+      viewport.addEventListener('resize', onResize)
+      viewport.addEventListener('scroll', onResize)
+    }
     iframe.addEventListener('load', postHostViewport)
     document.body.appendChild(iframe)
   }
