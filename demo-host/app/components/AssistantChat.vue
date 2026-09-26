@@ -1,6 +1,10 @@
 <template>
-  <div class="ai-widget" :class="{ 'ai-widget--inline': props.inline }" :style="accentStyle">
-    <Transition name="ai-open" @after-leave="onAfterLeave">
+  <div
+    class="ai-widget"
+    :class="{ 'ai-widget--inline': props.inline, 'ai-widget--embedded': isEmbedded }"
+    :style="accentStyle"
+  >
+    <Transition name="ai-open" :css="shouldAnimateOpening" @after-enter="onAfterEnter" @after-leave="onAfterLeave">
       <AssistantChatLauncher
         v-if="!isOpen"
         ref="launcherComponent"
@@ -232,6 +236,8 @@ const {
 const isOpen: Ref<boolean> = ref(props.inline)
 /** True while the panel plays its closing sheet: the loader keeps the frame large until it is gone. */
 const isPanelLeaving: Ref<boolean> = ref(false)
+/** False for one opening only: the loader's placeholder sheet already travelled, the panel takes its place at once. */
+const shouldAnimateOpening: Ref<boolean> = ref(true)
 /** What the loader must frame: the panel while it is open or still closing, the launcher otherwise. */
 const isFrameOpen: ComputedRef<boolean> = computed((): boolean => isOpen.value || isPanelLeaving.value)
 const launcherComponent: Ref<InstanceType<typeof AssistantChatLauncher> | null> = ref(null)
@@ -244,7 +250,7 @@ const launcherElement: ComputedRef<HTMLElement | null> = computed(
   (): HTMLElement | null => launcherComponent.value?.rootElement ?? null,
 )
 
-const { isMobileLayout, hostState }: UseAssistantWidgetFrameReturn = useAssistantWidgetFrame({
+const { isEmbedded, isMobileLayout, hostState }: UseAssistantWidgetFrameReturn = useAssistantWidgetFrame({
   inline: props.inline,
   isOpen: isFrameOpen,
   launcherElement,
@@ -281,8 +287,12 @@ function closesAssistantRun(index: number): boolean {
   return messages.value[index + 1]?.role !== 'assistant'
 }
 
-/** Open the panel, greet the visitor once, and move the keyboard focus inside. */
-function open(): void {
+/**
+ * Open the panel, greet the visitor once, and move the keyboard focus inside.
+ * @param instant - Show the panel without its opening sheet (the loader's placeholder already played it).
+ */
+function open(instant: boolean = false): void {
+  if (instant) shouldAnimateOpening.value = false
   isOpen.value = true
   if (messages.value.length === 0) {
     if (!props.inline) captureDemoEvent('assistant_opened')
@@ -307,6 +317,11 @@ function close(): void {
   isPanelLeaving.value = true
   isOpen.value = false
   nextTick((): void => launcherComponent.value?.focus())
+}
+
+/** The panel is in place: the next opening animates again. */
+function onAfterEnter(): void {
+  shouldAnimateOpening.value = true
 }
 
 /**
@@ -398,6 +413,12 @@ onBeforeUnmount((): void => {
 .ai-widget--inline {
   height: 100%;
 }
+/* On a client's site the loader draws the launcher itself: the widget's own only sizes the frame, unseen. */
+.ai-widget--embedded :deep(.ai-launcher) {
+  visibility: hidden;
+  pointer-events: none;
+  transition: none;
+}
 .ai-panel {
   position: fixed;
   right: max(22px, env(safe-area-inset-right, 0px));
@@ -438,11 +459,13 @@ onBeforeUnmount((): void => {
 
 /* ── Opening and closing, the way a sheet moves on iOS: a long ease-out in, a shorter ease-in out ──── */
 .ai-open-enter-active.ai-panel {
+  will-change: transform, opacity;
   transition:
     opacity 0.42s cubic-bezier(0.32, 0.72, 0, 1),
     transform 0.48s cubic-bezier(0.32, 0.72, 0, 1);
 }
 .ai-open-leave-active.ai-panel {
+  will-change: transform, opacity;
   transition:
     opacity 0.24s cubic-bezier(0.4, 0, 1, 1),
     transform 0.28s cubic-bezier(0.4, 0, 1, 1);

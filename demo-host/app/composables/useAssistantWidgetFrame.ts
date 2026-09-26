@@ -70,7 +70,8 @@ export function useAssistantWidgetFrame(options: UseAssistantWidgetFrameOptions)
     const data: Record<string, unknown> | null = typeof event.data === 'object' ? event.data : null
     if (!data) return
     if (data.type === 'dlh-assistant-open') {
-      options.onOpenRequest()
+      // `instant`: the loader's own sheet already played the opening, the panel shows at once in its place.
+      options.onOpenRequest(data.instant === true)
       return
     }
     if (data.type === 'dlh-assistant-state') {
