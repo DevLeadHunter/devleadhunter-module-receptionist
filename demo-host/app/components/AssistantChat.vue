@@ -434,8 +434,6 @@ onBeforeUnmount((): void => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* The sheet grows out of the launcher's portrait and shrinks back into it. */
-  transform-origin: calc(100% - 47px) calc(100% - 47px);
 }
 .ai-panel--inline {
   position: relative;
@@ -457,29 +455,23 @@ onBeforeUnmount((): void => {
   border: 0;
 }
 
-/* ── Opening and closing, the way a sheet moves on iOS: a long ease-out in, a shorter ease-in out ──── */
+/* ── Opening and closing: a fade that rises (Léo's pick, 26/09), quick and discreet, same on a phone ──── */
 .ai-open-enter-active.ai-panel {
   will-change: transform, opacity;
   transition:
-    opacity 0.42s cubic-bezier(0.32, 0.72, 0, 1),
-    transform 0.48s cubic-bezier(0.32, 0.72, 0, 1);
+    opacity 0.26s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .ai-open-leave-active.ai-panel {
   will-change: transform, opacity;
   transition:
-    opacity 0.24s cubic-bezier(0.4, 0, 1, 1),
-    transform 0.28s cubic-bezier(0.4, 0, 1, 1);
+    opacity 0.18s ease-in,
+    transform 0.18s ease-in;
 }
 .ai-open-enter-from.ai-panel,
 .ai-open-leave-to.ai-panel {
   opacity: 0;
-  transform: translate3d(0, 28px, 0) scale(0.86);
-}
-/* Full screen on a phone: the sheet slides up from the bottom edge and back down. */
-.ai-open-enter-from.ai-panel--mobile,
-.ai-open-leave-to.ai-panel--mobile {
-  opacity: 1;
-  transform: translate3d(0, 100%, 0);
+  transform: translate3d(0, 14px, 0);
 }
 /* The launcher steps aside quickly and pops back a beat after the sheet has gone. */
 .ai-open-enter-active.ai-launcher {

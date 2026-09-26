@@ -52,7 +52,7 @@
     '.dlh-launcher--away{opacity:0;transform:scale(.7);pointer-events:none}' +
     '.dlh-launcher--pop{animation:dlh-pop .34s cubic-bezier(.32,.72,0,1)}' +
     '@keyframes dlh-pop{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}' +
-    '.dlh-sheet{position:fixed;right:max(22px,env(safe-area-inset-right,0px));bottom:max(22px,env(safe-area-inset-bottom,0px));z-index:2147483000;width:392px;max-width:calc(100vw - 28px);height:min(628px,calc(100vh - 44px));display:flex;flex-direction:column;overflow:hidden;background:#fff;border:1px solid rgba(23,19,13,.12);border-radius:22px;box-shadow:0 30px 70px -30px rgba(23,19,13,.45);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#17130d;opacity:0;transform:translate3d(0,28px,0) scale(.86);transform-origin:calc(100% - 47px) calc(100% - 47px);transition:opacity .42s cubic-bezier(.32,.72,0,1),transform .48s cubic-bezier(.32,.72,0,1);will-change:transform,opacity}' +
+    '.dlh-sheet{position:fixed;right:max(22px,env(safe-area-inset-right,0px));bottom:max(22px,env(safe-area-inset-bottom,0px));z-index:2147483000;width:392px;max-width:calc(100vw - 28px);height:min(628px,calc(100vh - 44px));display:flex;flex-direction:column;overflow:hidden;background:#fff;border:1px solid rgba(23,19,13,.12);border-radius:22px;box-shadow:0 30px 70px -30px rgba(23,19,13,.45);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#17130d;opacity:0;transform:translate3d(0,14px,0);transition:opacity .26s cubic-bezier(.2,.7,.2,1),transform .3s cubic-bezier(.2,.7,.2,1);will-change:transform,opacity}' +
     '.dlh-sheet[hidden]{display:none}' +
     '.dlh-sheet--in{opacity:1;transform:none}' +
     '.dlh-sheet__head{display:flex;align-items:center;gap:12px;padding:14px 12px 12px 16px;border-bottom:1px solid rgba(23,19,13,.07)}' +
@@ -75,7 +75,7 @@
     '.dlh-launcher__dot{position:absolute;right:2px;bottom:2px;width:12px;height:12px;border-radius:50%;background:#2f9e5b;box-shadow:0 0 0 2px #fff}' +
     '.dlh-launcher--loading .dlh-launcher__portrait{animation:dlh-pulse 1s ease-in-out infinite}' +
     '@keyframes dlh-pulse{50%{opacity:.55}}' +
-    '@media (max-width:559px),(max-height:639px){.dlh-launcher{transform-origin:calc(100% - 27px) calc(100% - 27px)}.dlh-launcher__say{display:none}.dlh-launcher__portrait{width:54px;height:54px}.dlh-sheet{right:0;bottom:0;width:100vw;max-width:100vw;height:100dvh;border:0;border-radius:0;opacity:1;transform:translate3d(0,100%,0)}.dlh-sheet--in{transform:none}.dlh-sheet__head{padding-top:max(14px,env(safe-area-inset-top,0px))}}' +
+    '@media (max-width:559px),(max-height:639px){.dlh-launcher{transform-origin:calc(100% - 27px) calc(100% - 27px)}.dlh-launcher__say{display:none}.dlh-launcher__portrait{width:54px;height:54px}.dlh-sheet{right:0;bottom:0;width:100vw;max-width:100vw;height:100dvh;border:0;border-radius:0}.dlh-sheet__head{padding-top:max(14px,env(safe-area-inset-top,0px))}}' +
     '@media (prefers-reduced-motion:reduce){.dlh-launcher{transition:none}.dlh-launcher--pop{animation:none}.dlh-launcher__portrait{transition:none}.dlh-launcher--loading .dlh-launcher__portrait{animation:none}.dlh-sheet{transition:opacity .15s;transform:none}.dlh-sheet__dots i{animation:none}}'
 
   var launcher = null
@@ -275,7 +275,7 @@
         showFrame()
         postOpenAfterPaint(wasPlaceholderShown)
         // The widget paints its panel exactly where the sheet lands: the sheet leaves once it has landed.
-        if (wasPlaceholderShown) setTimeout(removePlaceholder, Math.max(220, 520 - (Date.now() - sheetShownAt)))
+        if (wasPlaceholderShown) setTimeout(removePlaceholder, Math.max(140, 340 - (Date.now() - sheetShownAt)))
       }
       return
     }
