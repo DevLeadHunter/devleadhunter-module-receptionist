@@ -19,4 +19,22 @@ export class AssistantPersonaUtils {
   static capitalizedSubjectPronoun(gender: AiAssistantPersonaGender | undefined): string {
     return gender === 'masculine' ? 'Il' : 'Elle'
   }
+
+  /**
+   * Direct object pronoun for the persona, lowercase ("le" / "la").
+   * @param gender - The persona gender from the public config; feminine when absent.
+   * @returns 'le' for a masculine persona, 'la' otherwise.
+   */
+  static objectPronoun(gender: AiAssistantPersonaGender | undefined): string {
+    return gender === 'masculine' ? 'le' : 'la'
+  }
+
+  /**
+   * Definite article before the persona's role, at the start of a sentence ("Le" / "La" réceptionniste).
+   * @param gender - The persona gender from the public config; feminine when absent.
+   * @returns 'Le' for a masculine persona, 'La' otherwise.
+   */
+  static capitalizedDefiniteArticle(gender: AiAssistantPersonaGender | undefined): string {
+    return gender === 'masculine' ? 'Le' : 'La'
+  }
 }

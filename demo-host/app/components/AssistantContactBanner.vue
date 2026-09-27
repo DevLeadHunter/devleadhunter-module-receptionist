@@ -7,7 +7,7 @@
         <path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9L4.9 19.1" stroke-linecap="round" />
       </svg>
       <span class="ac-pill__text">
-        <span class="ac-pill__label">Cet assistant vous plaît ?</span>
+        <span class="ac-pill__label">Votre réceptionniste vous plaît ?</span>
         <span class="ac-pill__hint">Écrivez-moi un mot</span>
       </span>
     </button>
@@ -23,7 +23,7 @@
         </button>
       </div>
       <p class="ac-card__intro">
-        Intéressé par l’assistant de {{ businessName }} ? Laissez-moi un mot, je reviens vers vous.
+        Votre réceptionniste pour {{ businessName }} vous intéresse ? Laissez-moi un mot, je reviens vers vous.
       </p>
       <textarea
         v-model="message"

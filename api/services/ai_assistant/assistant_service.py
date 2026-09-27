@@ -436,8 +436,9 @@ class AiAssistantService:
 
     @staticmethod
     def body_contains_assistant_link(assistant: AiAssistant, body: str) -> bool:
-        """Whether a rendered email or SMS body carries this assistant's public demo URL."""
-        return f"/ia/{assistant.slug}" in (body or "")
+        """Whether a rendered email or SMS body carries this assistant's demo page or its video page (which leads to it)."""
+        text = body or ""
+        return f"/ia/{assistant.slug}" in text or f"/va/{assistant.slug}" in text
 
     def expire_due_assistants(self, db: Session) -> int:
         """Expire the demo assistants past their countdown; a sold assistant is never touched.

@@ -336,8 +336,14 @@ d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprim
 
 - **Email** — `EmailVariables.resolve_assistant_link` : ancre tracée (comme `{lien_demo}`).
 - **SMS** — `SmsVariables` : lien nu sans schéma (`EmailVariables.resolve_assistant_url` + `as_sms_link`).
-- **Vidéo** — `{lien_video_assistant}` / `{vignette_video_assistant}` (email + SMS) : dégradent en vide
-  si la vidéo n'est pas prête (le CTA reste `{lien_assistant}` live).
+- **Vidéo** — `{lien_video_assistant}` / `{vignette_video_assistant}` (email + SMS). Avec `{lien_assistant}`
+  dans le même modèle, la vignette disparaît si la vidéo manque et le lien live reste. Sans lui (modèle
+  « vidéo seule »), la campagne met le prospect de côté tant que la vidéo n'est pas prête (`skipped_no_video`,
+  motif « Pas de vidéo de réceptionniste prête »), à l'envoi comme au lancement, et le reprend dès qu'elle
+  l'est (`reenqueue_campaigns_after_video_ready`, appelé par les deux chemins de génération). La case « Joindre
+  la vidéo de prospection » de la campagne vaut aussi pour la réceptionniste. En SMS, `assistant-video` retombe
+  sur `assistant-24-7` sans vidéo (`resolve_sms_template(..., assistant_video_ready=...)`), et le composeur
+  refuse l'aperçu. Un envoi qui porte `/va/{slug}` démarre le compte à rebours de la démo, comme `/ia/{slug}`.
 - **Gardes** — un template qui utilise `{lien_assistant}` ou la vidéo assistant n'est ni mis en file ni
   envoyé sans assistant actif : lancement, ajout de prospects et envoi email (`skipped_no_assistant`,
   motif « Pas d'assistant IA actif »), campagne SMS, relance SMS et composeur SMS. Un assistant généré
@@ -353,10 +359,11 @@ d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprim
   programmée après l'expiration est ignorée (« Assistant expiré avant la relance »). Le dashboard affiche
   « En attente d'envoi » puis « Expire dans N j ».
 
-**Modèles de prospection** : 5 emails (`seeders/email_template_seeder.py`, « Assistant IA - … » : réponses
-24/7, devis par photo, multilingue, relance, le prix cash) et 5 SMS (`services/sms/templates.py`, clés
+**Modèles de prospection** : 6 emails (`seeders/email_template_seeder.py`, « Assistant IA - … » : réponses
+24/7, devis par photo, multilingue, vidéo, relance, le prix cash) et 6 SMS (`services/sms/templates.py`, clés
 `assistant-*`), écrits autour de la demande restée sans réponse (le soir, une photo, la langue du client).
-Un seul lien, la démo (`{lien_assistant}`) ; le prix par `{prix_assistant}` ; chaque SMS tient en un segment
+Une seule porte par message, la démo (`{lien_assistant}`) ou la vidéo (`{vignette_video_assistant}` /
+`{lien_video_assistant}`, modèles « vidéo ») ; le prix par `{prix_assistant}` ; chaque SMS tient en un segment
 GSM-7 mention STOP et prénom compris avec un lien de 45 caractères (testé), sans `https://` (le lien SMS est
 nu). Les modèles déjà en base sont réécrits en place par `rewrite_assistant_emails_missed_requests` (sujet,
 corps, catégorie, ordre ; « demandes captées » y devient « devis par photo », ou est archivé si ce modèle
@@ -364,19 +371,30 @@ existe déjà).
 
 ### Vidéo de prospection
 
-Chaque assistant peut avoir une **vidéo courte** — clip webcam du vendeur en intro/outro, capture du
-widget qui répond au milieu — montée par ffmpeg, hébergée sur R2 (`videos/assistant/{slug}.mp4`) et
-jouée sur `/va/{slug}` (`demo-host/app/pages/va/[slug].vue`, à l'accent du prospect).
+Chaque assistant peut avoir une **vidéo courte** — clip webcam du vendeur en intro/outro, capture de la
+page démo au milieu — montée par ffmpeg, hébergée sur R2 (`videos/assistant/{slug}.mp4`) et jouée sur
+`/va/{slug}` (`demo-host/app/pages/va/[slug].vue`, à l'accent du prospect). La vidéo n'apparaît **pas** sur
+la page démo `/ia/{slug}` : l'email et le SMS mènent à `/va`, dont le bouton « Parler à {prénom} » mène à `/ia`.
 
+- **La scène filmée** (`services/assistant_widget_scene.py`, partagée par les deux captures) : le chat de
+  `/ia/{slug}` est déjà ouvert, la capture le cadre en entier (bord bas à 24 px du bas), joue « Voir un
+  exemple » (un client demande un devis, la réceptionniste demande une photo et transmet), puis ouvre les
+  créneaux (`.ai-chip--appointment`) si la prise laisse au moins 2 s avant le chapitre. Chaque étape part là où
+  le prompteur la nomme (24 % et 66 % de la prise du milieu). Les 7 dernières secondes montrent l'espace client
+  d'exemple, défilé jusqu'aux « Dernières demandes » (`services/assistant_space_chapter.py`, repères `.cs-home`,
+  `.cs-row`, bandeau `.cs-example` masqué). La pastille webcam passe **en bas à droite** (`pip_corner`), là où
+  la page laisse du vide : le chat est à gauche.
 - **Desktop d'abord** (comme le site) : le dashboard build tout sur le PC via le sidecar
-  (`/video/build-assistant-full` → `services/assistant_widget_clip_service.py`, capture image-par-image
-  avec le Chrome + ffmpeg bundlés), puis `POST /video-final` pousse le résultat sur R2. Le VPS n'est
-  jamais touché ; le desktop se release seul (CI Tauri à chaque push).
+  (`/video/build-assistant-full` → `services/assistant_widget_clip_service.py`, Chrome + ffmpeg bundlés), puis
+  `POST /video-final` pousse le résultat sur R2. La scène tourne sur l'horloge de la page (réponses tapées au
+  minuteur) : ses captures JPEG sont horodatées et assemblées à leur vrai rythme (liste ffconcat, 30 i/s
+  mesurés), le chapitre défile image par image. Le desktop se release seul (CI Tauri à chaque push).
 - **Fallback serveur** (`services/assistant_video_service.py`, Playwright headless) hors desktop ou sur
   échec — l'assistant n'a **aucune** dépendance Storyblok, donc le VPS génère seul.
 - **Clip présentateur par module** (`presenter_videos.module = 'ai-assistant'`) : un discours webcam
-  « assistant » distinct de celui des sites (Paramètres → Vidéo), avec option de **génération auto** à
-  la création de l'assistant (opt-in).
+  « réceptionniste » distinct de celui des sites (Paramètres → Vidéo, « Enregistrer avec le prompteur »), avec
+  option de **génération auto** à la création. Le texte du prompteur (`buildAssistantScript`) dit « votre
+  réceptionniste » et jamais « il » ni « elle » : le prénom et le genre changent à chaque démo.
 - **Mécanique partagée** avec le site : montage (`services/video_montage.py`), primitives communes
   (`services/video_pipeline.py`), poll/fetch sidecar (`web/app/services/sidecarVideoBuild.ts`).
 
@@ -893,6 +911,7 @@ dashboard (non instrumenté).
 | Verrou inter-modules | `api/services/contact_lock_service.py` |
 | Vidéo (serveur / VPS) | `api/services/assistant_video_service.py` |
 | Vidéo (capture desktop) | `api/services/assistant_widget_clip_service.py`, `api/scraper_sidecar.py` |
+| Vidéo (scène filmée, commune) | `api/services/assistant_widget_scene.py`, `api/services/assistant_space_chapter.py` |
 | Vidéo (commun site + assistant) | `api/services/video_pipeline.py`, `api/services/video_montage.py`, `web/app/services/sidecarVideoBuild.ts` |
 | Widget | `demo-host/app/components/AssistantChat.vue` |
 | Page de démo | `demo-host/app/pages/ia/[slug].vue` |
@@ -1168,7 +1187,30 @@ page :
   (`ClientSpaceIcon`). Composants `ClientSpaceRequests/Appointments/Faq/Calendar/Section/Badge/Contact`
   supprimés.
 
-Reste à faire : l'image de l'espace client dans `/ia` (`public/showroom/espace-client.webp`) et le chapitre
-vidéo montrent l'ancien design ; mode sombre ; lien qui se prolonge à chaque visite (écran d'accueil iPhone) ;
+Reste à faire : l'image de l'espace client dans `/ia` (`public/showroom/espace-client.webp`) montre l'ancien
+design (le chapitre vidéo, lui, filme la page en direct : réglé au douzième passage) ; mode sombre ; lien qui se prolonge à chaque visite (écran d'accueil iPhone) ;
 SMS d'alerte pointant vers `#demandes/{id}` ; détection « installée sur votre site » ; confirmation d'un
 créneau par SMS au visiteur.
+
+## Douzième passage — vidéo de prospection réparée (27/09, soir)
+
+Vérification faite avant l'enregistrement du clip de la réceptionniste. Le prompteur était prêt, mais la vidéo ne
+pouvait plus être générée ni envoyée :
+
+- **Capture cassée depuis la refonte de `/ia`** (26/09) : les deux captures cliquaient sur le lanceur
+  (`.ai-launcher`), absent d'une page où le chat est déjà ouvert, puis sur `.ai-book__open`, supprimé. Chaque
+  génération aurait échoué sur « Le widget ne s'est pas ouvert ». La scène est réécrite (`assistant_widget_scene.py`,
+  voir « Vidéo de prospection ») et vérifiée en local de bout en bout, clip webcam factice de 6 + 30 + 12 s.
+- **Rythme** : la capture PC prenait une image par tour de boucle et l'assemblait à 30 i/s, si bien qu'une scène à
+  minuteurs (l'exemple dure environ 5 s) aurait défilé en accéléré. Captures JPEG horodatées, 30 i/s tenus.
+- **Chapitre « espace »** aligné sur l'espace client refait le même jour (onzième passage) : il visait
+  `.csr__list` et `.cs__example`, qui n'existent plus. Il montre désormais le nouveau design.
+- **Pastille webcam** en bas à droite pour la réceptionniste (elle couvrait le chat), comme la bulle photo de la
+  vignette ; libellé de la vignette « votre réceptionniste en vidéo », pilule réduite si le prénom est long.
+- **Prompteur** : « revenir au texte recommandé » remettait le script du site ; le texte ne dit plus « elle »
+  (Hugo, Marc et Nathan font partie du casting) ; la mise en scène annonce la pastille en bas à droite.
+- **Envoi** : aucun modèle n'utilisait les variables vidéo. Ajout de l'email « Assistant IA - vidéo » (migration
+  `seed_assistant_video_email_template`, qui n'ajoute que lui) et du SMS `assistant-video`, avec leurs gardes
+  (voir « Intégration campagnes »).
+- **Vocabulaire** : page `/va` (« La réceptionniste de … vous répond », « Parler à {prénom} », accords par
+  `AssistantPersonaUtils`), bandeau de contact, cartes du dashboard et messages d'erreur disent « réceptionniste ».

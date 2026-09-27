@@ -9,8 +9,11 @@ import pytest
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.demo_video_status import DemoVideoStatus
 from services import video_pipeline
+from services.ai_assistant.assistant_service import ai_assistant_service
 from services.assistant_space_chapter import AssistantSpaceChapter
 from services.assistant_video_service import AssistantVideoService
+from services.assistant_widget_clip_service import AssistantWidgetClipService, CapturedFrames
+from services.assistant_widget_scene import EXAMPLE_SECONDS, AssistantWidgetScene
 from services.video_pipeline import VideoGenerationError
 
 
@@ -82,6 +85,60 @@ def test_the_space_chapter_takes_the_end_of_a_long_enough_segment() -> None:
     assert AssistantSpaceChapter.scroll_position(1.0, 600) == 600
 
 
+def test_the_scene_plays_the_example_then_the_slots_where_the_take_names_them() -> None:
+    """A 30 s take: the example when « a customer asks » is said, the slots at « an appointment », before the space."""
+    plan = AssistantWidgetScene.plan(30, 23)
+    assert plan.example_at == pytest.approx(7.2)
+    assert plan.booking_at == pytest.approx(19.8)
+    assert plan.booking_at >= plan.example_at + EXAMPLE_SECONDS
+    assert plan.booking_at <= 23 - 2
+
+
+def test_the_scene_drops_the_slots_when_they_would_not_stay_on_screen() -> None:
+    """A 20 s take leaves 13 s of widget: the example fits, the slots would flash before the space."""
+    plan = AssistantWidgetScene.plan(20, 13)
+    assert plan.example_at + EXAMPLE_SECONDS <= 13
+    assert plan.booking_at is None
+
+
+def test_the_scene_starts_the_example_early_enough_to_finish_it() -> None:
+    """The shortest take still plays its example after a beat on the greeting, even if it cannot end."""
+    plan = AssistantWidgetScene.plan(6, 6)
+    assert plan.example_at == pytest.approx(0.8)
+    assert plan.booking_at is None
+
+
+def test_the_concat_listing_plays_each_screenshot_for_as_long_as_it_stayed() -> None:
+    """The widget frames run from the scene's start to its end at their real pace; chapter frames last 1/fps."""
+    frames = CapturedFrames(widget_seconds=2.0, widget=[("w0.jpg", 0.05), ("w1.jpg", 0.8), ("w2.jpg", 1.5)])
+    frames.chapter = ["c0.jpg", "c1.jpg"]
+    listing = AssistantWidgetClipService.build_concat_listing(frames, fps=25)
+    lines = listing.splitlines()
+    assert lines[0] == "ffconcat version 1.0"
+    durations = [float(line.split(" ")[1]) for line in lines if line.startswith("duration")]
+    # The first frame covers the scene from 0, the last widget frame lasts until the scene's end.
+    assert durations[:3] == pytest.approx([0.8, 0.7, 0.5])
+    assert durations[3:] == pytest.approx([0.04, 0.04])
+    assert sum(durations) == pytest.approx(2.08)
+    # The concat demuxer ignores the last duration unless its file is listed once more.
+    assert lines[-1] == "file 'c1.jpg'"
+
+
+def test_the_concat_listing_without_a_chapter_repeats_the_last_widget_frame() -> None:
+    listing = AssistantWidgetClipService.build_concat_listing(
+        CapturedFrames(widget_seconds=1.0, widget=[("w0.jpg", 0.0)]), fps=30
+    )
+    assert listing.splitlines()[-1] == "file 'w0.jpg'"
+
+
+def test_a_video_page_link_counts_as_the_assistant_link() -> None:
+    """The video page leads to the demo: sending it starts the demo countdown like the demo link itself."""
+    assistant = SimpleNamespace(slug="toitures-morel")
+    assert ai_assistant_service.body_contains_assistant_link(assistant, "demo.dibodev.fr/va/toitures-morel")
+    assert ai_assistant_service.body_contains_assistant_link(assistant, "https://demo.dibodev.fr/ia/toitures-morel")
+    assert not ai_assistant_service.body_contains_assistant_link(assistant, "demo.dibodev.fr/v/toitures-morel")
+
+
 def test_reconcile_marks_orphaned_generations_failed() -> None:
     rows = [
         _assistant(1, status=AiAssistantStatus.ACTIVE.value, video_status=DemoVideoStatus.GENERATING.value),
@@ -109,7 +166,7 @@ def test_reconcile_without_orphans_does_not_commit() -> None:
 
 def test_request_generation_refuses_inactive_assistant() -> None:
     assistant = _assistant(1, status=AiAssistantStatus.DELETED.value)
-    with pytest.raises(ValueError, match="actif"):
+    with pytest.raises(ValueError, match="réceptionniste active"):
         AssistantVideoService().request_generation(_FakeDB(), assistant, user_id=1)
 
 

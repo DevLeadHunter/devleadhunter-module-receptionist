@@ -52,6 +52,7 @@ from services.assistant_video_service import (
     video_page_url,
 )
 from services.auth_service import get_current_active_user
+from services.demo_video_service import reenqueue_campaigns_after_video_ready
 from services.email_variables import EmailVariables
 from services.presenter_video_service import presenter_video_service
 from services.r2_storage_service import r2_storage
@@ -383,6 +384,7 @@ async def upload_assistant_video_final(
         assistant.video_generated_at = datetime.now(UTC)
         db.commit()
         db.refresh(assistant)
+        reenqueue_campaigns_after_video_ready(db, assistant.prospect_id, user.id)
     finally:
         shutil.rmtree(work_dir, ignore_errors=True)
     return _to_full_owner_response(db, assistant)

@@ -52,7 +52,7 @@
       to="/dashboard/settings/video"
       class="mt-2 block w-full text-center text-[11px] text-[var(--app-ink-soft)] underline underline-offset-2 transition-colors hover:text-[var(--app-ink)]"
     >
-      Configurer mon clip webcam « assistant »
+      Configurer mon clip webcam « réceptionniste »
     </NuxtLink>
   </div>
 </template>

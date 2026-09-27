@@ -2,12 +2,13 @@
 
 The assistant's video is its own thing (a *different* recording from the site video, per the module
 brief): the user's assistant-module presenter clip full-screen for the intro/outro, and in the middle
-a screen capture of the widget **answering** — it opens, a question is asked, the grounded reply
-writes itself, and the lead form appears; when the clip leaves enough time, the last seconds switch to the
+a screen capture of the demo page's chat **answering** — the scripted example plays (a customer writes,
+the receptionist asks for a photo and hands the request over), then the appointment slots open
+(:mod:`services.assistant_widget_scene`); when the clip leaves enough time, the last seconds switch to the
 example client space, where the requests land (:mod:`services.assistant_space_chapter`). It reuses the shared
-primitives both modules build on: the
-picture-in-picture ffmpeg montage (:mod:`services.video_montage`) and the presenter/memory/semaphore
-helpers (:mod:`services.video_pipeline`). Only the *capture* and the *storage namespace* change.
+primitives both modules build on: the picture-in-picture ffmpeg montage (:mod:`services.video_montage`, the
+webcam bubble bottom-right so it never covers the chat) and the presenter/memory/semaphore helpers
+(:mod:`services.video_pipeline`). Only the *capture* and the *storage namespace* change.
 
 Rendering happens in a temp dir, then the mp4 + jpg go to Cloudflare R2
 (``videos/assistant/{slug}.mp4`` / ``images/assistant/{slug}.jpg``); the player page is the demo host's
@@ -33,6 +34,8 @@ from models.ai_assistant import AiAssistant
 from models.presenter_video import PresenterVideo
 from services import video_montage, video_pipeline
 from services.assistant_space_chapter import AssistantSpaceChapter
+from services.assistant_widget_scene import AssistantWidgetScene
+from services.demo_video_service import reenqueue_campaigns_after_video_ready
 from services.r2_storage_service import r2_storage
 from services.video_pipeline import (
     MIN_FREE_MEMORY_MB_FOR_CAPTURE,
@@ -110,21 +113,21 @@ class AssistantVideoService:
         from services.presenter_video_service import presenter_video_service
 
         if assistant.status != AiAssistantStatus.ACTIVE.value:
-            raise ValueError("La vidéo ne peut être générée que pour un assistant actif.")
+            raise ValueError("La vidéo ne peut être générée que pour une réceptionniste active.")
         if assistant.video_status in (DemoVideoStatus.PENDING.value, DemoVideoStatus.GENERATING.value):
             raise ValueError("Une génération est déjà en cours pour cet assistant.")
 
         presenter = presenter_video_service.get_for_user(db, user_id, ASSISTANT_PRESENTER_MODULE)
         if presenter is None:
             raise ValueError(
-                "Aucun clip de présentation pour l'assistant. Enregistrez d'abord votre vidéo webcam "
-                "« assistant » dans les paramètres."
+                "Aucun clip de présentation pour la réceptionniste. Enregistrez d'abord votre vidéo webcam "
+                "« réceptionniste » dans les paramètres."
             )
         middle_seconds = presenter.duration_seconds - presenter.intro_seconds - presenter.outro_seconds
         if middle_seconds < MIN_SCROLL_SECONDS:
             raise ValueError(
                 "Intro + outro trop longues : il reste "
-                f"{middle_seconds:.0f}s pour montrer l'assistant (minimum {MIN_SCROLL_SECONDS:.0f}s)."
+                f"{middle_seconds:.0f}s pour montrer la réceptionniste (minimum {MIN_SCROLL_SECONDS:.0f}s)."
             )
 
         assistant.video_status = DemoVideoStatus.PENDING.value
@@ -204,7 +207,7 @@ class AssistantVideoService:
                 presenter = presenter_video_service.get_for_user(db, user_id, ASSISTANT_PRESENTER_MODULE)
                 if presenter is None:
                     assistant.video_status = DemoVideoStatus.FAILED.value
-                    assistant.video_error = "Aucun clip de présentation « assistant » configuré."
+                    assistant.video_error = "Aucun clip de présentation « réceptionniste » configuré."
                     db.commit()
                     return
 
@@ -237,6 +240,8 @@ class AssistantVideoService:
                 assistant.video_generated_at = datetime.now(UTC)
                 db.commit()
                 logger.info("Assistant prospection video ready for slug=%s", assistant.slug)
+                # A video-only campaign skipped this prospect at launch: the finished video lets it in now.
+                reenqueue_campaigns_after_video_ready(db, assistant.prospect_id, user_id)
             finally:
                 db.close()
 
@@ -278,6 +283,7 @@ class AssistantVideoService:
                     output_thumbnail=thumbnail_path,
                     presenter_photo_path=presenter_photo_path,
                     thumbnail_label=video_montage.THUMBNAIL_LABEL_ASSISTANT,
+                    pip_corner=video_montage.PIP_CORNER_RIGHT,
                 )
             except video_montage.VideoMontageError as exc:
                 raise VideoGenerationError(str(exc)) from exc
@@ -288,7 +294,7 @@ class AssistantVideoService:
             shutil.rmtree(work_dir, ignore_errors=True)
 
     def _capture_assistant_sync(self, url: str, seconds: float, work_dir: Path) -> tuple[Path, float, Path]:
-        """Blocking Playwright capture: the widget opening, answering a question, the lead form, then the space.
+        """Blocking Playwright capture: the chat framed, the scripted example, the appointment slots, then the space.
 
         Uses Playwright's SYNC API in a worker thread (a plain thread has no event loop, so spawning
         the browser works on every platform — same reason as the site capture). The example client space
@@ -333,43 +339,24 @@ class AssistantVideoService:
                     page.goto(internal_url, wait_until="load", timeout=45000)
                 page.wait_for_timeout(1200)
 
-                # Open the widget, then screenshot the page with it open (the product, for the thumbnail).
+                # Frame the chat whole, then screenshot it before the scene (the product, for the thumbnail).
                 try:
-                    page.click(".ai-launcher", timeout=8000)
-                    page.wait_for_selector(".ai-panel", timeout=8000)
+                    AssistantWidgetScene.frame(page)
                 except Exception as exc:
                     raise VideoGenerationError(f"Le widget ne s'est pas ouvert : {exc}") from exc
                 page.wait_for_timeout(900)
                 page.screenshot(path=str(screenshot_path))
 
-                scroll_start = time.monotonic()
-                scroll_offset = scroll_start - recording_start
-                deadline = scroll_start + seconds
+                scene_start = time.monotonic()
+                scroll_offset = scene_start - recording_start
+                deadline = scene_start + seconds
 
-                # Ask a question by clicking the first suggested reply (localised, always present).
-                try:
-                    page.click(".ai-chips button", timeout=4000)
-                except Exception:
-                    pass  # No chips (already messaged) — the greeting alone still reads well.
-
-                # Wait for the grounded reply: a second assistant bubble appears after the greeting.
-                try:
-                    page.wait_for_function("document.querySelectorAll('.ai-m--assistant').length >= 2", timeout=14000)
-                except Exception:
-                    pass
-                page.wait_for_timeout(1500)
-
-                # Show the lead capture near the end of the widget scene, then hold on it.
+                # The widget scene: the scripted example, then the appointment slots when the take leaves room.
                 chapter_seconds = AssistantSpaceChapter.seconds_for(seconds)
-                widget_deadline = deadline - chapter_seconds
-                if widget_deadline - time.monotonic() > 4:
-                    try:
-                        page.click(".ai-book__open", timeout=2000)
-                    except Exception:
-                        pass
-                remaining_ms = int(max(0.0, widget_deadline - time.monotonic()) * 1000)
-                if remaining_ms > 0:
-                    page.wait_for_timeout(remaining_ms)
+                widget_seconds = seconds - chapter_seconds
+                AssistantWidgetScene.play_in_real_time(
+                    page, AssistantWidgetScene.plan(seconds, widget_seconds), scene_start, widget_seconds
+                )
 
                 # The last chapter: the example space, scrolled to the requests. Never fails the video.
                 if chapter_seconds > 0:
@@ -391,10 +378,10 @@ class AssistantVideoService:
         except VideoGenerationError:
             raise
         except Exception as exc:
-            raise VideoGenerationError(f"Échec de la capture de l'assistant ({url}) : {exc}") from exc
+            raise VideoGenerationError(f"Échec de la capture de la réceptionniste ({url}) : {exc}") from exc
 
         if not screenshot_path.is_file():
-            raise VideoGenerationError("La capture d'écran de l'assistant est introuvable.")
+            raise VideoGenerationError("La capture d'écran de la réceptionniste est introuvable.")
         return capture_path, scroll_offset, screenshot_path
 
 

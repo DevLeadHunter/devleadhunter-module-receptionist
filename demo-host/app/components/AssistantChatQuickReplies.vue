@@ -3,11 +3,16 @@
     <button v-if="props.canPlayExample" type="button" class="ai-chip ai-chip--example" @click="emit('example')">
       {{ EXAMPLE_LABELS[props.lang].chip }}
     </button>
-    <button v-if="props.canSendPhoto" type="button" class="ai-chip" @click="emit('photo')">
+    <button v-if="props.canSendPhoto" type="button" class="ai-chip ai-chip--photo" @click="emit('photo')">
       <AssistantIcon name="camera" class="ai-chip__icon" />
       {{ PHOTO_LABELS[props.lang].chip }}
     </button>
-    <button v-if="props.canBookAppointment" type="button" class="ai-chip" @click="emit('appointment')">
+    <button
+      v-if="props.canBookAppointment"
+      type="button"
+      class="ai-chip ai-chip--appointment"
+      @click="emit('appointment')"
+    >
       <AssistantIcon name="calendar" class="ai-chip__icon" />
       {{ APPOINTMENT_LABELS[props.lang].chip }}
     </button>

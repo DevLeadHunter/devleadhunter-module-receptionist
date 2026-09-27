@@ -5,15 +5,16 @@
   </div>
   <main v-else class="av" :style="accentStyle">
     <div class="av__content">
-      <p class="av__kicker">Assistant en ligne</p>
+      <p class="av__kicker">Réceptionniste en ligne</p>
       <h1 class="av__title">
-        L'assistant de <em>{{ shortBusinessName }}</em> vous répond<span class="av__accent-dot">.</span>
+        {{ receptionistLabel }} de <em>{{ shortBusinessName }}</em> vous répond<span class="av__accent-dot">.</span>
       </h1>
       <p class="av__lede">
         <template v-if="videoDurationSeconds">
-          <strong>{{ videoDurationSeconds }} secondes</strong> pour le voir en action, puis parlez-lui vous-même.
+          <strong>{{ videoDurationSeconds }} secondes</strong> pour {{ objectPronoun }} voir en action, puis parlez-lui
+          vous-même.
         </template>
-        <template v-else>Une courte vidéo pour le voir en action, puis parlez-lui vous-même.</template>
+        <template v-else>Une courte vidéo pour {{ objectPronoun }} voir en action, puis parlez-lui vous-même.</template>
       </p>
 
       <div class="av__stage">
@@ -50,7 +51,7 @@
             <h2 class="av__endcard-title">À vous de lui parler<span class="av__accent-dot">.</span></h2>
             <p class="av__endcard-text">Posez-lui une question : {{ subjectPronoun }} répond en quelques secondes.</p>
             <a class="av__cta" :href="demoHref" @click="trackCtaClick('endcard')">
-              Essayer l'assistant
+              Parler à {{ assistant.assistant_name }}
               <svg
                 class="av__cta-icon"
                 width="18"
@@ -90,7 +91,7 @@
 
       <div class="av__cta-row" :class="{ 'av__cta-row--hidden': isEndCardVisible }">
         <a class="av__cta av__pulse" :href="demoHref" @click="trackCtaClick('page')">
-          Essayer l'assistant
+          Parler à {{ assistant.assistant_name }}
           <svg
             class="av__cta-icon"
             width="18"
@@ -122,7 +123,7 @@
       />
 
       <p v-if="ownerNameLabel" class="av__signature">
-        Assistant réalisé pour {{ shortBusinessName }} par {{ ownerNameLabel }}, développeur web
+        Conçu pour {{ shortBusinessName }} par {{ ownerNameLabel }}, développeur web
       </p>
     </div>
   </main>
@@ -171,7 +172,7 @@ const playLabelDurationSuffix: ComputedRef<string> = computed((): string =>
   videoDurationSeconds.value ? ` — ${videoDurationSeconds.value} s` : '',
 )
 
-/** Link to try the live assistant (the /a/ demo page). */
+/** Link to talk to the live receptionist (the /ia/ demo page). */
 const demoHref: ComputedRef<string> = computed((): string => `/ia/${slug.value}`)
 
 /** Owner name for the signature line (empty when the owner set no name). */
@@ -179,6 +180,14 @@ const ownerNameLabel: ComputedRef<string> = computed((): string => (assistant.va
 
 const subjectPronoun: ComputedRef<string> = computed((): string =>
   AssistantPersonaUtils.subjectPronoun(assistant.value?.assistant_gender),
+)
+
+const objectPronoun: ComputedRef<string> = computed((): string =>
+  AssistantPersonaUtils.objectPronoun(assistant.value?.assistant_gender),
+)
+
+const receptionistLabel: ComputedRef<string> = computed(
+  (): string => `${AssistantPersonaUtils.capitalizedDefiniteArticle(assistant.value?.assistant_gender)} réceptionniste`,
 )
 
 /** Read the video duration once its metadata loads, so the page can display it. */
@@ -197,7 +206,7 @@ function startPlayback(): void {
   captureDemoEvent('assistant_video_play')
 }
 
-/** Clip ended: the end card relays the « essayer l'assistant » CTA at the moment of highest intent. */
+/** Clip ended: the end card relays the « parler à … » CTA at the moment of highest intent. */
 function showEndCard(): void {
   isEndCardVisible.value = true
   if (playerRef.value) playerRef.value.controls = false
@@ -215,7 +224,7 @@ function replayVideo(): void {
 }
 
 /**
- * Track a click on the « essayer l'assistant » CTA (PostHog).
+ * Track a click on the « parler à … » CTA (PostHog).
  * @param placement - Which CTA was clicked: 'page' (below the video) or 'endcard' (end of clip).
  */
 function trackCtaClick(placement: 'page' | 'endcard'): void {
@@ -231,7 +240,9 @@ onMounted((): void => {
 })
 
 useHead({
-  title: computed((): string => `${assistant.value?.business_name ?? 'Assistant'} — votre assistant en vidéo`),
+  title: computed(
+    (): string => `${assistant.value?.business_name ?? 'Réceptionniste IA'} — votre réceptionniste en vidéo`,
+  ),
 })
 </script>
 

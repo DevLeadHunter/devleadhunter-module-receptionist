@@ -132,20 +132,22 @@ def test_an_old_photo_template_is_archived_when_the_new_one_already_exists(monke
     assert rows[12] == ("Assistant IA - devis par photo", 1)
 
 
-def test_every_assistant_email_links_the_demo_once_and_states_the_price() -> None:
-    assert len(_ASSISTANT_EMAILS) == 5
+def test_every_assistant_email_has_one_door_and_states_the_price() -> None:
+    """One door per email: the live demo, or the receptionist's video for the video template."""
+    assert len(_ASSISTANT_EMAILS) == 6
     for template in _ASSISTANT_EMAILS:
         body = str(template["body_html"])
-        assert body.count("{lien_assistant}") == 1, template["name"]
+        assert body.count("{lien_assistant}") + body.count("{vignette_video_assistant}") == 1, template["name"]
         assert "{prix_assistant}" in body, template["name"]
         assert "—" not in body + str(template["subject"]), template["name"]
         assert "http" not in body, template["name"]
 
 
-def test_every_assistant_sms_links_the_demo_once_without_a_scheme() -> None:
-    assert len(_ASSISTANT_SMS) == 5
+def test_every_assistant_sms_has_one_door_without_a_scheme() -> None:
+    assert len(_ASSISTANT_SMS) == 6
     for template in _ASSISTANT_SMS:
-        assert template.body.count("{lien_assistant}") == 1, template.key
+        doors = template.body.count("{lien_assistant}") + template.body.count("{lien_video_assistant}")
+        assert doors == 1, template.key
         assert "http" not in template.body, template.key
 
 
@@ -153,10 +155,11 @@ def test_every_assistant_sms_fits_one_segment_with_a_45_character_link() -> None
     variables = {
         "salutation": "Bonjour Geoffrey",
         "lien_assistant": "demo.dibodev.fr/ia/plomberie-chauffage-dupont",
+        "lien_video_assistant": "demo.dibodev.fr/va/plomberie-chauffage-dupont",
         "prix_assistant": "79 €",
         "signature": "Léo",
     }
-    assert len(variables["lien_assistant"]) == 45
+    assert len(variables["lien_assistant"]) == len(variables["lien_video_assistant"]) == 45
     for template in _ASSISTANT_SMS:
         body = sms_service.compose_from_template(template, variables)
         assert segment_count(body) == 1, f"{template.key}: {len(body)} chars"

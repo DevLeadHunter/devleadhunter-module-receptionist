@@ -2,7 +2,7 @@
 The last chapter of the assistant video: the example client space, where what the receptionist collects lands.
 
 The video's middle segment shows the widget answering; when the presenter clip leaves enough time, its last
-seconds switch to the example space (``/client/exemple``) and scroll gently down to the requests card, the way
+seconds switch to the example space (``/client/exemple``) and scroll gently down to its latest requests, the way
 the site video ends on the editor. Both captures share this script: the VPS one (Playwright's own recording,
 real time) and the desktop one (frame by frame), so the two videos tell the same story.
 """
@@ -16,13 +16,16 @@ from services.video_pipeline import MIN_SCROLL_SECONDS
 
 # How long the chapter lasts, and the shortest widget scene it may follow.
 CHAPTER_SECONDS = 7.0
-# Inside the chapter: a beat on the top of the space, a gentle scroll to the requests, then a hold.
+# Inside the chapter: a beat on the top of the space, a gentle scroll to the latest requests, then a hold.
 _HOLD_BEFORE_SCROLL = 0.17
 _SCROLL_UNTIL = 0.6
-# Where the requests card lands under the top of the viewport: the « N demandes à traiter » title stays in view.
+# Where the latest requests land under the top of the viewport: their « Dernières demandes » title stays in view.
 _CARD_TOP_MARGIN_PX = 100
 # The example banner is for the visitor, not for the video.
-_HIDE_BANNER_CSS = ".cs__example{display:none !important}"
+_HIDE_BANNER_CSS = ".cs-example{display:none !important}"
+# The space's home screen, and one row of its latest requests (the block the chapter scrolls to).
+_HOME_SELECTOR = ".cs-home"
+_REQUEST_ROW_SELECTOR = ".cs-home .cs-row"
 
 
 class AssistantSpaceChapter:
@@ -63,7 +66,7 @@ class AssistantSpaceChapter:
 
         Args:
             progress: The position inside the chapter, from 0 to 1.
-            target: The scroll that puts the requests card under the top of the viewport.
+            target: The scroll that puts the latest requests under the top of the viewport.
 
         Returns:
             0 during the first beat, an eased scroll up to ``target`` until 60 %, ``target`` after.
@@ -86,19 +89,21 @@ class AssistantSpaceChapter:
             url: The example space URL.
 
         Returns:
-            The scroll that puts the requests card under the top of the viewport.
+            The scroll that puts the latest requests under the top of the viewport.
         """
         try:
             page.goto(url, wait_until="networkidle", timeout=30000)
         except Exception:
             page.goto(url, wait_until="load", timeout=30000)
-        page.wait_for_selector(".csr__list", timeout=15000)
+        page.wait_for_selector(_HOME_SELECTOR, timeout=15000)
         page.add_style_tag(content=_HIDE_BANNER_CSS)
         page.evaluate("window.scrollTo(0, 0)")
         page.wait_for_timeout(300)
         target = page.evaluate(
-            "() => { const list = document.querySelector('.csr__list'); const card = list && list.closest('section');"
-            f" return card ? Math.max(0, Math.round(card.getBoundingClientRect().top + window.scrollY - {_CARD_TOP_MARGIN_PX})) : 0; }}"
+            "([selector, margin]) => { const row = document.querySelector(selector);"
+            " const block = row && row.parentElement;"
+            " return block ? Math.max(0, Math.round(block.getBoundingClientRect().top + window.scrollY - margin)) : 0; }",
+            [_REQUEST_ROW_SELECTOR, _CARD_TOP_MARGIN_PX],
         )
         return int(target or 0)
 
@@ -109,7 +114,7 @@ class AssistantSpaceChapter:
 
         Args:
             page: The Playwright (sync) page showing the space.
-            target: The scroll that puts the requests card under the top of the viewport.
+            target: The scroll that puts the latest requests under the top of the viewport.
             seconds: How long the chapter lasts.
             step_ms: The pause between two scroll steps.
         """

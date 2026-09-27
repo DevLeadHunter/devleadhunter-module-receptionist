@@ -1,15 +1,17 @@
 """Render the assistant video's *middle segment*: a screen capture of the public widget answering.
 
 This is the desktop counterpart of :meth:`assistant_video_service.AssistantVideoService._capture_assistant_sync`
-(the VPS path). It runs in the bundled sidecar, so — exactly like :mod:`services.storyblok_editor_clip_service`
-— it captures **frame by frame** (screenshots + the system ffmpeg) with the machine's own Chrome, never
-Playwright's ``record_video`` (whose bundled ffmpeg the frozen sidecar has no copy of).
+(the VPS path). It runs in the bundled sidecar with the machine's own Chrome and assembles screenshots with the
+system ffmpeg, never Playwright's ``record_video`` (whose bundled ffmpeg the frozen sidecar has no copy of) —
+exactly like :mod:`services.storyblok_editor_clip_service`.
 
-Unlike the site background, this needs **no authenticated session**: the widget is public, so the capture
-is a plain headless recording of ``/ia/{slug}?internal=1`` opening, answering a suggested question, and
-revealing the lead form; the last seconds switch to the example client space, where the requests land
-(:mod:`services.assistant_space_chapter`, shared with the VPS capture). The VPS montage later overlays the
-webcam PiP and the « Bonjour {Prénom} » pill.
+Unlike the site background, this needs **no authenticated session**: the widget is public, so the capture is a
+plain headless visit of ``/ia/{slug}?internal=1`` playing the scene of :mod:`services.assistant_widget_scene`
+(the scripted example, then the appointment slots); the last seconds switch to the example client space, where
+the requests land (:mod:`services.assistant_space_chapter`, shared with the VPS capture). The widget scene runs
+on the page's own clock (its replies are typed with timers), so its screenshots are timestamped and assembled
+at their real pace; the space chapter scrolls frame by frame. The VPS montage later overlays the webcam PiP and
+the « Bonjour {Prénom} » pill.
 """
 
 from __future__ import annotations
@@ -19,23 +21,34 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from services import video_montage
 from services.assistant_space_chapter import AssistantSpaceChapter
+from services.assistant_widget_scene import AssistantSceneProgress, AssistantWidgetScene
 
 logger = logging.getLogger(__name__)
 
-# The widget interaction is scripted against these frame milestones (fractions of the segment): open a
-# beat, ask a question, let the grounded reply write, then reveal the lead form and hold on it.
-_ASK_QUESTION_AT = 0.12
-_OPEN_LEAD_FORM_AT = 0.72
+# JPEG screenshots are several times faster to take than PNG: more frames per second of real time.
+_JPEG_QUALITY = 90
+_LISTING_NAME = "frames.ffconcat"
 
 
 class AssistantWidgetClipError(Exception):
     """Raised when the assistant widget clip cannot be produced."""
+
+
+@dataclass
+class CapturedFrames:
+    """The screenshots of one capture, in order: the timed widget scene, then the space chapter."""
+
+    widget_seconds: float
+    widget: list[tuple[str, float]] = field(default_factory=list)
+    chapter: list[str] = field(default_factory=list)
 
 
 class AssistantWidgetClipService:
@@ -62,7 +75,7 @@ class AssistantWidgetClipService:
         Args:
             demo_url: The assistant page (``/ia/{slug}``); visited with ``?internal=1``.
             output_path: Where the assembled middle-segment mp4 is written.
-            screenshot_path: Where the widget-open screenshot (thumbnail base) is written.
+            screenshot_path: Where the chat screenshot (thumbnail base) is written.
             executable_path: Chrome binary to drive (the sidecar's bundled/installed one).
             total_seconds: Duration the segment must fill (the presenter clip's middle).
             out_width: Output width in pixels.
@@ -87,15 +100,45 @@ class AssistantWidgetClipService:
         try:
             if on_progress:
                 on_progress("widget_capture")
-            self._capture_frames(
+            frames = self._capture_frames(
                 demo_url, frames_dir, screenshot_path, executable_path, total_seconds, out_width, out_height, fps
             )
             if on_progress:
                 on_progress("widget_assemble")
-            self._assemble(frames_dir, output_path, out_width, out_height, fps)
+            (frames_dir / _LISTING_NAME).write_text(self.build_concat_listing(frames, fps), encoding="utf-8")
+            self._assemble(frames_dir, output_path, out_width, out_height, fps, total_seconds)
             return output_path, screenshot_path
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)
+
+    @staticmethod
+    def build_concat_listing(frames: CapturedFrames, fps: int) -> str:
+        """
+        Write the ffconcat listing that plays each screenshot for as long as it stayed on screen.
+
+        A widget frame lasts until the next one was taken (the first one from the scene's start, the last one
+        until the scene's end); a chapter frame lasts one output frame.
+
+        Args:
+            frames: The captured screenshots.
+            fps: The output frame rate.
+
+        Returns:
+            The listing, ready for ffmpeg's concat demuxer.
+        """
+        lines: list[str] = ["ffconcat version 1.0"]
+        for index, (name, taken_at) in enumerate(frames.widget):
+            starts_at = 0.0 if index == 0 else taken_at
+            is_last = index + 1 == len(frames.widget)
+            ends_at = frames.widget_seconds if is_last else frames.widget[index + 1][1]
+            lines += [f"file '{name}'", f"duration {max(ends_at - starts_at, 0.001):.4f}"]
+        for name in frames.chapter:
+            lines += [f"file '{name}'", f"duration {1 / fps:.4f}"]
+        listed_names: list[str] = frames.chapter or [name for name, _ in frames.widget]
+        if listed_names:
+            # The concat demuxer ignores the last entry's duration unless that file is listed once more.
+            lines.append(f"file '{listed_names[-1]}'")
+        return "\n".join(lines) + "\n"
 
     def _capture_frames(
         self,
@@ -107,16 +150,15 @@ class AssistantWidgetClipService:
         out_width: int,
         out_height: int,
         fps: int,
-    ) -> None:
-        """Screenshot the widget answering into a numbered frame sequence."""
+    ) -> CapturedFrames:
+        """Screenshot the widget scene against the clock, then the space chapter frame by frame."""
         from playwright.sync_api import sync_playwright
 
-        total_frames = max(1, round(fps * total_seconds))
-        chapter_frames = round(fps * AssistantSpaceChapter.seconds_for(total_seconds))
-        widget_frames = max(1, total_frames - chapter_frames)
-        ask_at = max(1, round(widget_frames * _ASK_QUESTION_AT))
-        open_form_at = max(ask_at + 1, round(widget_frames * _OPEN_LEAD_FORM_AT))
-        interval_ms = max(8, round(1000 / fps))
+        chapter_seconds = AssistantSpaceChapter.seconds_for(total_seconds)
+        widget_seconds = max(0.1, total_seconds - chapter_seconds)
+        chapter_frame_count = round(fps * chapter_seconds)
+        plan = AssistantWidgetScene.plan(total_seconds, widget_seconds)
+        frames = CapturedFrames(widget_seconds=widget_seconds)
         internal_url = self._as_internal_url(demo_url)
         try:
             with sync_playwright() as playwright:
@@ -131,73 +173,73 @@ class AssistantWidgetClipService:
                 page.wait_for_timeout(1000)
 
                 try:
-                    page.click(".ai-launcher", timeout=8000)
-                    page.wait_for_selector(".ai-panel", timeout=8000)
+                    AssistantWidgetScene.frame(page)
                 except Exception as exc:
                     raise AssistantWidgetClipError(f"Le widget ne s'est pas ouvert : {exc}") from exc
                 page.wait_for_timeout(700)
-                # Product open → the still that becomes the email thumbnail.
+                # The chat before the scene becomes the still of the email thumbnail.
                 page.screenshot(path=str(screenshot_path))
 
-                asked = False
-                form_opened = False
-                for index in range(widget_frames):
-                    if index == ask_at and not asked:
-                        # Ask a question by clicking the first suggested reply (localised, always present).
-                        try:
-                            page.click(".ai-chips button", timeout=3000)
-                        except Exception:
-                            pass  # No chips (already messaged) — the greeting alone still reads well.
-                        asked = True
-                    if index == open_form_at and not form_opened:
-                        try:
-                            page.click(".ai-book__open", timeout=2000)
-                        except Exception:
-                            pass
-                        form_opened = True
-                    page.screenshot(path=str(frames_dir / f"f{index:05d}.png"))
-                    page.wait_for_timeout(interval_ms)
+                progress = AssistantSceneProgress()
+                started = time.monotonic()
+                while (elapsed := time.monotonic() - started) < widget_seconds:
+                    AssistantWidgetScene.play_due_steps(page, plan, elapsed, progress)
+                    name = f"w{len(frames.widget):05d}.jpg"
+                    page.screenshot(path=str(frames_dir / name), type="jpeg", quality=_JPEG_QUALITY)
+                    frames.widget.append((name, elapsed))
+                    # No need for more than the output rate: wait for the next frame slot when ahead of it.
+                    ahead_seconds = started + len(frames.widget) / fps - time.monotonic()
+                    if ahead_seconds > 0:
+                        page.wait_for_timeout(ahead_seconds * 1000)
 
                 # The last chapter: the example space, scrolled to the requests (the widget holds when it fails).
                 target: int | None = None
-                if chapter_frames > 0:
+                if chapter_frame_count > 0:
                     try:
                         target = AssistantSpaceChapter.open(page, AssistantSpaceChapter.url_for(demo_url))
                     except Exception:
                         logger.warning("Assistant clip: the space chapter could not be shown", exc_info=True)
-                for index in range(chapter_frames):
+                for index in range(chapter_frame_count):
                     if target is not None:
-                        position = AssistantSpaceChapter.scroll_position(index / chapter_frames, target)
+                        position = AssistantSpaceChapter.scroll_position(index / chapter_frame_count, target)
                         page.evaluate(f"window.scrollTo(0, {position})")
-                    page.screenshot(path=str(frames_dir / f"f{widget_frames + index:05d}.png"))
-                    page.wait_for_timeout(interval_ms)
+                    name = f"c{index:05d}.jpg"
+                    page.screenshot(path=str(frames_dir / name), type="jpeg", quality=_JPEG_QUALITY)
+                    frames.chapter.append(name)
 
                 context.close()
                 browser.close()
         except AssistantWidgetClipError:
             raise
         except Exception as exc:
-            raise AssistantWidgetClipError(f"Capture de l'assistant échouée ({demo_url}) : {exc}") from exc
+            raise AssistantWidgetClipError(f"Capture de la réceptionniste échouée ({demo_url}) : {exc}") from exc
 
-        if not any(frames_dir.iterdir()):
-            raise AssistantWidgetClipError("Aucune image de l'assistant capturée.")
+        if not frames.widget:
+            raise AssistantWidgetClipError("Aucune image de la réceptionniste capturée.")
         if not screenshot_path.is_file():
-            raise AssistantWidgetClipError("La capture d'écran de l'assistant est introuvable.")
+            raise AssistantWidgetClipError("La capture d'écran de la réceptionniste est introuvable.")
+        return frames
 
-    def _assemble(self, frames_dir: Path, output_path: Path, out_width: int, out_height: int, fps: int) -> None:
-        """Assemble the frame sequence into an mp4 with the system ffmpeg (all idle cores, low priority)."""
+    def _assemble(
+        self, frames_dir: Path, output_path: Path, out_width: int, out_height: int, fps: int, total_seconds: float
+    ) -> None:
+        """Assemble the timed screenshots into a constant-rate mp4 with the system ffmpeg (idle cores, low priority)."""
         args = [
             self._ffmpeg,
             "-y",
             "-hide_banner",
             "-loglevel",
             "error",
-            "-framerate",
-            str(fps),
+            "-f",
+            "concat",
+            "-safe",
+            "0",
             "-i",
-            str(frames_dir / "f%05d.png"),
+            str(frames_dir / _LISTING_NAME),
             "-vf",
-            f"scale={out_width}:{out_height}",
+            f"fps={fps},scale={out_width}:{out_height}",
+            "-t",
+            f"{total_seconds:.3f}",
             *video_montage.x264_encode_flags(fps),
             # Desktop: every idle core, below-normal priority — keeps the user's PC responsive.
             "-threads",
