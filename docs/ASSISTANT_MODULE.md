@@ -362,8 +362,11 @@ d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprim
 **Modèles de prospection** : 6 emails (`seeders/email_template_seeder.py`, « Assistant IA - … » : réponses
 24/7, devis par photo, multilingue, vidéo, relance, le prix cash) et 6 SMS (`services/sms/templates.py`, clés
 `assistant-*`), écrits autour de la demande restée sans réponse (le soir, une photo, la langue du client).
-Une seule porte par message, la démo (`{lien_assistant}`) ou la vidéo (`{vignette_video_assistant}` /
-`{lien_video_assistant}`, modèles « vidéo ») ; le prix par `{prix_assistant}` ; chaque SMS tient en un segment
+Chaque message mène à la démo (`{lien_assistant}`), sauf les modèles « vidéo » qui mènent à la vidéo
+(`{vignette_video_assistant}` / `{lien_video_assistant}`) ; les trois premiers emails (24/7, photo, multilingue)
+ajoutent la vignette de la vidéo sous le lien, vide tant qu'elle n'existe pas, comme `{vignette_video}` côté site
+(migration `add_assistant_video_thumbnail_to_first_emails`, qui ne réécrit que les modèles jamais retouchés) ;
+le prix par `{prix_assistant}` ; chaque SMS tient en un segment
 GSM-7 mention STOP et prénom compris avec un lien de 45 caractères (testé), sans `https://` (le lien SMS est
 nu). Les modèles déjà en base sont réécrits en place par `rewrite_assistant_emails_missed_requests` (sujet,
 corps, catégorie, ordre ; « demandes captées » y devient « devis par photo », ou est archivé si ce modèle
@@ -397,6 +400,15 @@ la page démo `/ia/{slug}` : l'email et le SMS mènent à `/va`, dont le bouton 
   réceptionniste » et jamais « il » ni « elle » : le prénom et le genre changent à chaque démo.
 - **Mécanique partagée** avec le site : montage (`services/video_montage.py`), primitives communes
   (`services/video_pipeline.py`), poll/fetch sidecar (`web/app/services/sidecarVideoBuild.ts`).
+- **Suivi** comme la vidéo du site : `/va` passe `surface: 'assistant'` à `useDemoVideoTracking` et branche
+  `DemoVideoEngagementTracker`, qui émet les events vidéo du site sous le préfixe `assistant_video_*`. Ouverture,
+  lecture, vue en entier et « revoir » partent aussi vers `POST /demo-events`, qui reconnaît le préfixe et notifie
+  sous le module assistant (`notify_assistant_video_event`, « 🤖 Assistant IA · Lance ta vidéo · Email »). Ces
+  events entrent dans la timeline et le score du prospect comme ceux du site (`_slugs_for_prospect` lit aussi les
+  slugs de ses réceptionnistes ; `lead_scoring` les compte comme la vidéo). Rien n'est suivi sur une visite
+  `?internal=1` ni sur une réceptionniste vendue.
+- **Durée de vie** : les fichiers R2 de la vidéo sont supprimés à l'expiration de la démo et à la suppression de
+  la réceptionniste (`AssistantVideoService.purge_video`), comme ceux d'un site.
 
 ### Vente par abonnement
 
@@ -871,8 +883,9 @@ l'assistant depuis un prospect selon le module actif.
 ### Tracking (PostHog, côté demo-host)
 
 Émis par le widget : `assistant_opened`, `assistant_message_sent`, `assistant_lead_submitted`,
-`assistant_photo_sent` ; la page vidéo `/va/{slug}` émet `assistant_video_play`, `assistant_video_endcard_shown` et
-`assistant_video_cta_click`. Tous portent la super-propriété **`surface: 'assistant'`** (le site porte
+`assistant_photo_sent` ; la page vidéo `/va/{slug}` émet les events vidéo du site sous le préfixe
+`assistant_video_*` (`_play`, `_resume`, `_pause`, `_replay`, `_progress`, `_complete`, `_watch_time`, `_seek`,
+`_fullscreen`, `_mute`, `_cta_click`, `_endcard_shown`). Tous portent la super-propriété **`surface: 'assistant'`** (le site porte
 `surface: 'demo'`), pour distinguer les modules dans le même projet PostHog. `useDemoTracking.init` accepte
 l'iframe pour la surface `assistant` (la page embed la passe), donc les events du widget partent aussi depuis un
 site client tant que la démo est `active`. Rien n'est tracé sur une visite `?internal=1`, sur un assistant vendu
@@ -1247,3 +1260,12 @@ pouvait plus être générée ni envoyée :
 Reste à faire : détection « installée sur votre site » (l'étape « sur votre site » reste ambre tant qu'on ne
 sait pas), confirmation d'un créneau par SMS au visiteur (décision), bloc « Vos essais » des maquettes
 (conversations de test du commerçant).
+
+## Quatorzième passage — vidéo de la réceptionniste à parité avec le site (27/09, nuit)
+
+- **Suivi et notifications de `/va`** (voir « Vidéo de prospection ») : la page utilisait le suivi générique des
+  démos, dont les beacons `demo_*` cherchaient un site du même slug ; elle ne notifiait donc rien sous le bon module,
+  et ses events vidéo n'entraient ni dans la timeline ni dans le score du prospect.
+- **Vignette dans les premiers emails** (voir « Modèles de prospection ») : les trois modèles J1 montrent la vidéo
+  dès qu'elle existe, sans attendre le modèle « vidéo ».
+- **Purge** des fichiers de la vidéo à l'expiration de la démo et à la suppression de la réceptionniste.

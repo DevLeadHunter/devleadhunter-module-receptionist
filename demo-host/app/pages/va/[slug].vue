@@ -133,14 +133,16 @@
 import type { ComputedRef, Ref } from 'vue'
 import { computed, onMounted, ref } from 'vue'
 import type { AiAssistantConfig } from '~/types/AiAssistant'
-import { captureDemoEvent, useDemoTracking } from '~/composables/useDemoTracking'
+import { useDemoVideoTracking } from '~/composables/useDemoVideoTracking'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
+import { DemoVideoEngagementTracker } from '~/utils/DemoVideoEngagementTracker'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { AssistantPersonaUtils } from '~/utils/AssistantPersonaUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 
 const route: ReturnType<typeof useRoute> = useRoute()
 const config: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
+const { init: initVideoTracking, capture }: ReturnType<typeof useDemoVideoTracking> = useDemoVideoTracking()
 const slug: ComputedRef<string> = computed((): string => String(route.params.slug ?? ''))
 
 const playerRef: Ref<HTMLVideoElement | null> = ref(null)
@@ -196,24 +198,23 @@ function readVideoDuration(): void {
   if (seconds && Number.isFinite(seconds)) videoDurationSeconds.value = Math.round(seconds)
 }
 
-/** First play: drop the custom overlay, hand over to native controls and start the clip. */
+/** First play: drop the overlay for the native controls and start the clip (the tracker reports the play). */
 function startPlayback(): void {
   hasStartedPlayback.value = true
   if (playerRef.value) {
     playerRef.value.controls = true
     void playerRef.value.play()
   }
-  captureDemoEvent('assistant_video_play')
 }
 
 /** Clip ended: the end card relays the « parler à … » CTA at the moment of highest intent. */
 function showEndCard(): void {
   isEndCardVisible.value = true
   if (playerRef.value) playerRef.value.controls = false
-  captureDemoEvent('assistant_video_endcard_shown')
+  capture('demo_video_endcard_shown')
 }
 
-/** Replay the video from its start (from the end card). */
+/** Replay the video from its start, from the end card (the tracker reports the replay). */
 function replayVideo(): void {
   isEndCardVisible.value = false
   if (playerRef.value) {
@@ -228,15 +229,17 @@ function replayVideo(): void {
  * @param placement - Which CTA was clicked: 'page' (below the video) or 'endcard' (end of clip).
  */
 function trackCtaClick(placement: 'page' | 'endcard'): void {
-  captureDemoEvent('assistant_video_cta_click', { placement })
+  capture('demo_video_cta_click', { href: demoHref.value, placement })
 }
 
-const { init: initTracking }: ReturnType<typeof useDemoTracking> = useDemoTracking()
-
-onMounted((): void => {
+onMounted(async (): Promise<void> => {
   const current: AiAssistantConfig | null | undefined = assistant.value
   if (!current) return
-  initTracking(current.slug, current.status, null, DemoBeaconUtils.channelFromQuery(route.query.src), 'assistant')
+  // A sold receptionist's page is watched by the client, never by a prospect: nothing to track or notify.
+  if (current.status === 'active') {
+    await initVideoTracking(current.slug, null, DemoBeaconUtils.channelFromQuery(route.query.src), 'assistant')
+  }
+  if (playerRef.value) new DemoVideoEngagementTracker(playerRef.value, capture).start()
 })
 
 useHead({

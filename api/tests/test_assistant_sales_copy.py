@@ -12,10 +12,12 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import migrations.add_assistant_video_thumbnail_to_first_emails as thumbnail_migration
 import migrations.raise_assistant_default_price as price_migration
 import migrations.rewrite_assistant_emails_missed_requests as emails_migration
 from core.config import settings
 from core.database import Base
+from enums.email_template_category import EmailTemplateCategory
 from models.prospect_db import ProspectDB
 from seeders.email_template_seeder import EMAIL_TEMPLATE_LIBRARY
 from services.ai_assistant.assistant_service import ai_assistant_service
@@ -132,15 +134,70 @@ def test_an_old_photo_template_is_archived_when_the_new_one_already_exists(monke
     assert rows[12] == ("Assistant IA - devis par photo", 1)
 
 
-def test_every_assistant_email_has_one_door_and_states_the_price() -> None:
-    """One door per email: the live demo, or the receptionist's video for the video template."""
+def test_every_assistant_email_links_the_demo_once_and_states_the_price() -> None:
+    """The demo linked once (video template aside); each first email shows the video thumbnail, empty until made."""
     assert len(_ASSISTANT_EMAILS) == 6
     for template in _ASSISTANT_EMAILS:
         body = str(template["body_html"])
-        assert body.count("{lien_assistant}") + body.count("{vignette_video_assistant}") == 1, template["name"]
+        is_video_template = template["name"] == "Assistant IA - vidéo"
+        is_first_email = template["category"] == EmailTemplateCategory.FIRST_EMAIL.value
+        assert body.count("{lien_assistant}") == (0 if is_video_template else 1), template["name"]
+        assert body.count("{vignette_video_assistant}") == (1 if is_first_email else 0), template["name"]
         assert "{prix_assistant}" in body, template["name"]
         assert "—" not in body + str(template["subject"]), template["name"]
         assert "http" not in body, template["name"]
+
+
+def test_the_seeded_first_emails_get_the_video_thumbnail_and_a_hand_edited_one_is_kept(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = _bare_engine(
+        "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT)",
+        "CREATE TABLE email_templates (id INTEGER PRIMARY KEY, user_id INT, name TEXT, subject TEXT, "
+        "body_html TEXT, variables TEXT, is_active INT, category TEXT, sort_order INT)",
+    )
+    library = {str(template["name"]): template for template in EMAIL_TEMPLATE_LIBRARY}
+    photo = library["Assistant IA - devis par photo"]
+    seeded_photo_body = str(photo["body_html"]).replace("{vignette_video_assistant}", "")
+    with engine.connect() as conn:
+        conn.execute(text("INSERT INTO users (id, email) VALUES (1, :email)"), {"email": settings.admin_email})
+        # Row 10 still holds the text seeded before the thumbnail: rewritten. Row 11 was edited by hand: kept.
+        conn.execute(
+            text(
+                "INSERT INTO email_templates (id, user_id, name, subject, body_html, variables, is_active, "
+                "category, sort_order) VALUES (10, 1, 'Assistant IA - devis par photo', :subject, :body, '[]', 1, "
+                "'first_email', 11)"
+            ),
+            {"subject": photo["subject"], "body": seeded_photo_body},
+        )
+        conn.execute(
+            text(
+                "INSERT INTO email_templates (id, user_id, name, subject, body_html, variables, is_active, "
+                "category, sort_order) VALUES (11, 1, 'Assistant IA - multilingue', 'Ma version', "
+                "'<p>Ma version</p>', '[]', 1, 'first_email', 12)"
+            )
+        )
+        conn.commit()
+    monkeypatch.setattr(thumbnail_migration, "engine", engine)
+
+    thumbnail_migration.run_migration()
+    thumbnail_migration.run_migration()
+
+    with engine.connect() as conn:
+        rows = {
+            row[0]: (row[1], row[2])
+            for row in conn.execute(text("SELECT id, body_html, variables FROM email_templates"))
+        }
+    assert rows[10][0] == photo["body_html"]
+    assert "vignette_video_assistant" in rows[10][1]
+    assert rows[11] == ("<p>Ma version</p>", "[]")
+
+
+def test_the_thumbnail_migration_recognises_each_first_email_as_seeded_before() -> None:
+    library = {str(template["name"]): template for template in EMAIL_TEMPLATE_LIBRARY}
+    for name, previous_digest in thumbnail_migration._PREVIOUSLY_SEEDED.items():
+        body_before = str(library[name]["body_html"]).replace("{vignette_video_assistant}", "")
+        assert thumbnail_migration._digest(str(library[name]["subject"]), body_before) == previous_digest, name
 
 
 def test_every_assistant_sms_has_one_door_without_a_scheme() -> None:

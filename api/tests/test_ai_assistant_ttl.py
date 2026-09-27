@@ -20,6 +20,12 @@ for _module in pkgutil.iter_modules(models.__path__):
     importlib.import_module("models." + _module.name)
 
 
+@pytest.fixture(autouse=True)
+def _video_files_kept_off_the_bucket(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The expiry deletes the demo's video files: never on the real bucket."""
+    monkeypatch.setattr("services.assistant_video_service.delete_files_for_slug", lambda slug: None)
+
+
 @pytest.fixture
 def db():
     engine = create_engine("sqlite://")

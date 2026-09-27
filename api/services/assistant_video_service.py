@@ -183,12 +183,17 @@ class AssistantVideoService:
             db.commit()
         return len(orphaned)
 
-    def clear_video(self, db: Session, assistant: AiAssistant) -> AiAssistant:
-        """Delete the generated video files and reset the assistant's video state."""
+    @staticmethod
+    def purge_video(assistant: AiAssistant) -> None:
+        """Delete the generated video files and reset the assistant's video state, left for the caller to commit."""
         delete_files_for_slug(assistant.slug)
         assistant.video_status = None
         assistant.video_error = None
         assistant.video_generated_at = None
+
+    def clear_video(self, db: Session, assistant: AiAssistant) -> AiAssistant:
+        """Delete the generated video files and reset the assistant's video state."""
+        self.purge_video(assistant)
         db.commit()
         db.refresh(assistant)
         return assistant

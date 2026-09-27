@@ -408,7 +408,7 @@ async def delete_assistant(
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> None:
-    """Soft-delete one of the caller's assistants."""
+    """Soft-delete one of the caller's assistants, and its prospection video files."""
     assistant = (
         db.query(AiAssistant)
         .filter(AiAssistant.id == assistant_id, AiAssistant.user_id == user.id, AiAssistant.deleted_at.is_(None))
@@ -416,6 +416,7 @@ async def delete_assistant(
     )
     if not assistant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
+    assistant_video_service.purge_video(assistant)
     assistant.status = AiAssistantStatus.DELETED.value
     assistant.deleted_at = datetime.utcnow()
     db.commit()

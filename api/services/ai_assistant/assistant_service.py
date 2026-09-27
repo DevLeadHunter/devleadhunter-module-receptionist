@@ -441,11 +441,13 @@ class AiAssistantService:
         return f"/ia/{assistant.slug}" in text or f"/va/{assistant.slug}" in text
 
     def expire_due_assistants(self, db: Session) -> int:
-        """Expire the demo assistants past their countdown; a sold assistant is never touched.
+        """Expire the demo assistants past their countdown and delete their video; a sold assistant is never touched.
 
         Returns:
             The number of assistants expired.
         """
+        from services.assistant_video_service import assistant_video_service
+
         due: list[AiAssistant] = (
             db.query(AiAssistant)
             .filter(
@@ -458,6 +460,7 @@ class AiAssistantService:
         )
         for assistant in due:
             assistant.status = AiAssistantStatus.EXPIRED.value
+            assistant_video_service.purge_video(assistant)
             logger.info("Assistant demo expired for slug=%s", assistant.slug)
         if due:
             db.commit()

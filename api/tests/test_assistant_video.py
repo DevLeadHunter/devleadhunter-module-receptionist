@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy.orm import Session
 
+from core.config import settings
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.demo_video_status import DemoVideoStatus
 from services import video_pipeline
@@ -137,6 +141,47 @@ def test_a_video_page_link_counts_as_the_assistant_link() -> None:
     assert ai_assistant_service.body_contains_assistant_link(assistant, "demo.dibodev.fr/va/toitures-morel")
     assert ai_assistant_service.body_contains_assistant_link(assistant, "https://demo.dibodev.fr/ia/toitures-morel")
     assert not ai_assistant_service.body_contains_assistant_link(assistant, "demo.dibodev.fr/v/toitures-morel")
+
+
+def test_an_expired_demo_loses_its_video_and_a_live_one_keeps_it(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The /va page closes with the demo: the expiry deletes the video files and resets the video state."""
+    purged_slugs: list[str] = []
+    monkeypatch.setattr("services.assistant_video_service.delete_files_for_slug", purged_slugs.append)
+    now = datetime.now(UTC)
+    due, fresh = (
+        ai_assistant_service.create(
+            db, user_id=1, business_name="Toitures Morel", prospect_id=prospect_id, country="FR", use_brand_color=False
+        )
+        for prospect_id in (1, 2)
+    )
+    for assistant in (due, fresh):
+        assistant.video_status = DemoVideoStatus.READY.value
+        assistant.video_generated_at = now
+    ai_assistant_service.start_demo_ttl(db, due, now - timedelta(days=settings.demo_site_ttl_days + 1))
+    ai_assistant_service.start_demo_ttl(db, fresh, now)
+
+    ai_assistant_service.expire_due_assistants(db)
+
+    assert purged_slugs == [due.slug]
+    assert (due.video_status, due.video_generated_at) == (None, None)
+    assert fresh.video_status == DemoVideoStatus.READY.value
+
+
+def test_deleting_an_assistant_deletes_its_video_files(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    from api.v1.routes.ai_assistants import delete_assistant
+
+    purged_slugs: list[str] = []
+    monkeypatch.setattr("services.assistant_video_service.delete_files_for_slug", purged_slugs.append)
+    assistant = ai_assistant_service.create(
+        db, user_id=1, business_name="Toitures Morel", prospect_id=1, country="FR", use_brand_color=False
+    )
+    assistant.video_status = DemoVideoStatus.READY.value
+    db.commit()
+
+    asyncio.run(delete_assistant(assistant.id, SimpleNamespace(id=1), db))
+
+    assert purged_slugs == [assistant.slug]
+    assert (assistant.status, assistant.video_status) == (AiAssistantStatus.DELETED.value, None)
 
 
 def test_reconcile_marks_orphaned_generations_failed() -> None:
