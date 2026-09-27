@@ -40,6 +40,8 @@ def _as_utc(value: datetime) -> datetime:
 
 
 _PUBLICLY_SERVED_STATUSES: tuple[str, ...] = (AiAssistantStatus.ACTIVE.value, AiAssistantStatus.DELIVERED.value)
+# The link of a longer slug no longer leaves room for the rest of a one-segment SMS.
+SLUG_MAX_CHARS = 40
 
 
 class AiAssistantService:
@@ -545,13 +547,27 @@ class AiAssistantService:
             )
 
     def _unique_slug(self, db: Session, business_name: str, prospect_id: int | None) -> str:
-        base_slug = self._slugify(business_name)[:80]
+        """
+        A free slug for a new assistant, ``SLUG_MAX_CHARS`` at most, cut between two words.
+
+        A taken slug gets a suffix (``-2``, ``-3``…), the name being cut again to make room for it.
+        """
+        base_slug = self._shorten_slug(self._slugify(business_name), SLUG_MAX_CHARS)
         candidate = base_slug
         suffix = 1
         while self._is_slug_taken(db, candidate, prospect_id):
             suffix += 1
-            candidate = f"{base_slug}-{suffix}"
+            ending = f"-{suffix}"
+            candidate = self._shorten_slug(base_slug, SLUG_MAX_CHARS - len(ending)) + ending
         return candidate
+
+    @staticmethod
+    def _shorten_slug(slug: str, max_chars: int) -> str:
+        """A slug cut to ``max_chars`` at its last hyphen, so no word is left halfway (a lone long word is cut)."""
+        if len(slug) <= max_chars:
+            return slug
+        last_hyphen = slug.rfind("-", 0, max_chars + 1)
+        return slug[:last_hyphen] if last_hyphen > 0 else slug[:max_chars]
 
     @staticmethod
     def _is_slug_taken(db: Session, slug: str, prospect_id: int | None) -> bool:
