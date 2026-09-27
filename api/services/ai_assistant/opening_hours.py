@@ -137,6 +137,23 @@ class OpeningHoursCalendar:
         return cls._is_open(cls._hours_by_weekday(opening_hours), moment)
 
     @classmethod
+    def weekday_of(cls, day_label: str) -> int | None:
+        """
+        The weekday a row of the hours names (Monday = 0), whatever its language or annotation.
+
+        Args:
+            day_label: The row's day, as the listing words it (« lundi », « samedi (Assomption) », « Montag »).
+
+        Returns:
+            The weekday, or None when the label names none.
+        """
+        day = cls._normalize(day_label)
+        for weekday, names in enumerate(cls.WEEKDAY_NAMES):
+            if day.startswith(names):
+                return weekday
+        return None
+
+    @classmethod
     def closed_hours_estimate(
         cls, opening_hours: list[dict[str, str]] | None, *, year: int, month: int
     ) -> ClosedHoursEstimate | None:

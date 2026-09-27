@@ -1,3 +1,5 @@
+import type { AiAssistantPublicBusiness } from '~/types/AiAssistantPublicBusiness'
+
 /** Grammatical gender the persona speaks in, resolved by the API from its first name. */
 export type AiAssistantPersonaGender = 'feminine' | 'masculine'
 
@@ -45,6 +47,7 @@ export type AiAssistantConfig = {
   video_thumbnail_url?: string | null
   monthly_price_label?: string | null
   closed_hours?: AiAssistantClosedHours | null
+  business?: AiAssistantPublicBusiness | null
 }
 
 /**

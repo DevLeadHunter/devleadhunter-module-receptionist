@@ -165,6 +165,28 @@ class AiAssistantClosedHours(BaseModel):
     estimated_requests: int
 
 
+class AiAssistantOpeningHoursRow(BaseModel):
+    """One day of the business's hours, as its Google listing words it (« lundi », « 08:00–12:00, 14:00–18:00 »)."""
+
+    day: str
+    hours: str
+    # The business's current weekday in its own time, for the page to point out.
+    is_today: bool = False
+
+
+class AiAssistantPublicBusiness(BaseModel):
+    """
+    The business as its customers see it on a sold receptionist's page: how to reach it and when.
+
+    It carries only what the receptionist itself may say: with the Google listing switched off as a source, the
+    page keeps the phone set in the dashboard and nothing from the listing.
+    """
+
+    phone: str | None = None
+    address: str | None = None
+    opening_hours: list[AiAssistantOpeningHoursRow] = Field(default_factory=list)
+
+
 class AiAssistantPublicResponse(BaseModel):
     """The configuration the chat widget needs to render itself for a prospect's assistant."""
 
@@ -195,6 +217,9 @@ class AiAssistantPublicResponse(BaseModel):
     # How long the business is closed while its customers look for it, for the demo page; None once sold or
     # when its hours are unknown.
     closed_hours: AiAssistantClosedHours | None = None
+    # The business's card (phone, address, hours) for the page its customers reach once the receptionist is sold;
+    # None for a demo.
+    business: AiAssistantPublicBusiness | None = None
 
 
 class AiAssistantInstalledPing(BaseModel):

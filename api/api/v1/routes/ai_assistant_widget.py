@@ -49,6 +49,7 @@ from services.ai_assistant.appointment_slots import (
     SlotNoLongerOffered,
 )
 from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.business_card import AiAssistantBusinessCard
 from services.ai_assistant.calendar_booking import SlotTakenError, ai_assistant_calendar_booking
 from services.ai_assistant.calendar_service import ai_assistant_calendar_service
 from services.ai_assistant.chat_service import ChatAnswer, ai_assistant_chat_service
@@ -150,6 +151,7 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
     """Public config consumed by the embedded chat widget."""
     assistant = public_assistant_or_404(db, slug)
     video_ready = has_ready_video(assistant)
+    is_sold = assistant.status == AiAssistantStatus.DELIVERED.value
     return AiAssistantPublicResponse(
         slug=assistant.slug,
         business_name=assistant.business_name,
@@ -160,6 +162,7 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
         status=assistant.status,
         **_listing_public_fields(db, assistant),
         **_owner_public_fields(assistant),
+        business=AiAssistantBusinessCard.of(assistant) if is_sold else None,
         video_available=video_ready,
         video_url=public_video_file_url(assistant.slug) if video_ready else None,
         video_thumbnail_url=public_thumbnail_url(assistant.slug, assistant.video_generated_at) if video_ready else None,
