@@ -102,15 +102,16 @@ class AiAssistantClientSpaceService:
             The assistant and the checked token.
 
         Raises:
-            ClientSpaceAccessError: When the link is malformed, forged, of an assistant that is not sold
-                any more, or expired (``is_expired``; an expired link past the renewal window is invalid).
+            ClientSpaceAccessError: When the link is malformed, forged, signed before its links were last cut, of an
+                assistant that is not sold any more, or expired (``is_expired``; an expired link past the renewal
+                window is invalid).
         """
-        link = AiAssistantClientLinks.read(token, now=now)
-        if link is None:
-            raise ClientSpaceAccessError(is_expired=False)
-        assistant = db.get(AiAssistant, link.assistant_id)
+        assistant_id = AiAssistantClientLinks.named_assistant_id(token)
+        assistant = db.get(AiAssistant, assistant_id) if assistant_id is not None else None
+        link = AiAssistantClientLinks.read(token, assistant, now=now) if assistant is not None else None
         if (
             assistant is None
+            or link is None
             or assistant.deleted_at is not None
             or assistant.status != AiAssistantStatus.DELIVERED.value
         ):
@@ -454,7 +455,7 @@ class AiAssistantClientSpaceService:
             The link, its expiry and where it went (never raises on a failed send).
         """
         current = (now or datetime.now(UTC)).replace(tzinfo=None)
-        url = AiAssistantClientLinks.url(assistant.id, now=current)
+        url = AiAssistantClientLinks.url(assistant, now=current)
         expires_at = current + timedelta(days=AiAssistantClientLinks.TTL_DAYS)
         if not send:
             return ClientLinkDelivery(url=url, expires_at=expires_at)
@@ -466,6 +467,34 @@ class AiAssistantClientSpaceService:
         )
         recipient, send_error = await self._email_business(db, assistant, rendered)
         return ClientLinkDelivery(url=url, expires_at=expires_at, sent_to=recipient, send_error=send_error)
+
+    @staticmethod
+    def revoke_links(db: Session, assistant: AiAssistant, *, operator_email: str) -> AiAssistant:
+        """
+        Stop every client-space link sent so far, alert SMS included: the next ones are signed with a new version.
+
+        Args:
+            db: Active database session.
+            assistant: A sold assistant.
+            operator_email: Who cut the links, for the activity log.
+
+        Returns:
+            The assistant, committed with its new link version.
+        """
+        assistant.client_link_version = (assistant.client_link_version or 0) + 1
+        db.commit()
+        db.refresh(assistant)
+        activity_log_service.record(
+            category=CATEGORY_ASSISTANT,
+            action="assistant_client_links_revoked",
+            status=STATUS_WARNING,
+            title=f"{assistant.business_name} · anciens liens de l'espace client coupés",
+            detail=f"Par {operator_email}",
+            user_id=assistant.user_id,
+            entity_type="prospect",
+            entity_id=assistant.prospect_id,
+        )
+        return assistant
 
     async def try_send_welcome(self, db: Session, assistant: AiAssistant) -> None:
         """
@@ -495,7 +524,7 @@ class AiAssistantClientSpaceService:
             The link, its expiry and where the email went (never raises on a failed send).
         """
         current = (now or datetime.now(UTC)).replace(tzinfo=None)
-        url = AiAssistantClientLinks.url(assistant.id, now=current)
+        url = AiAssistantClientLinks.url(assistant, now=current)
         expires_at = current + timedelta(days=AiAssistantClientLinks.TTL_DAYS)
         rendered = AiAssistantClientSpaceEmail.render_welcome(
             business_name=assistant.business_name,

@@ -259,6 +259,22 @@ async def issue_assistant_client_link(
     )
 
 
+@router.post("/{assistant_id}/client-link/revoke", response_model=AiAssistantResponse)
+async def revoke_assistant_client_links(
+    assistant_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """Stop every client-space link sent so far for one of the caller's sold assistants, alert SMS included."""
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
+    if assistant.status != AiAssistantStatus.DELIVERED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="L'espace client s'ouvre une fois l'assistant vendu."
+        )
+    ai_assistant_client_space_service.revoke_links(db, assistant, operator_email=user.email)
+    return _to_full_owner_response(db, assistant)
+
+
 @router.post("/{assistant_id}/deliver", response_model=AiAssistantResponse)
 async def deliver_assistant(
     assistant_id: int,

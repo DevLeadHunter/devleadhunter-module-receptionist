@@ -66,10 +66,12 @@
               :status="assistant.status"
               :is-regenerating="isRegenerating"
               :is-sending-client-link="isSendingClientLink"
+              :is-revoking-client-links="isRevokingClientLinks"
               :is-marking-sold="isMarkingSold"
               :is-deleting="isDeleting"
               @regenerate="regenerateAssistant"
               @send-client-space="clientSpaceConfirmModal?.open()"
+              @revoke-client-links="revokeLinksConfirmModal?.open()"
               @mark-sold="soldConfirmModal?.open()"
               @remove="deleteConfirmModal?.open()"
             />
@@ -140,6 +142,23 @@
       @confirm="sendClientSpace"
     />
     <UiConfirmModal
+      ref="revokeLinksConfirmModal"
+      title="Couper les anciens liens"
+      message="Tous les liens envoyés jusqu'ici, alertes SMS comprises, ne marcheront plus."
+      confirm-text="Couper les liens"
+      cancel-text="Annuler"
+      @confirm="revokeClientLinks"
+    />
+    <UiConfirmModal
+      ref="newClientLinkConfirmModal"
+      title="Anciens liens coupés"
+      :message="newClientLinkConfirmMessage"
+      confirm-text="Envoyer un nouveau lien à l'entreprise"
+      cancel-text="Plus tard"
+      confirm-button-variant="primary"
+      @confirm="sendClientSpace"
+    />
+    <UiConfirmModal
       ref="videoDeleteConfirmModal"
       title="Supprimer la vidéo"
       message="Supprimer la vidéo de prospection de cette réceptionniste ? Le lien envoyé dans les emails et SMS ne fonctionnera plus."
@@ -183,6 +202,7 @@ import type {
 } from '~/types/AiAssistant'
 import type { AssistantMutationNotice, AssistantRequestMutationNotice } from '~/types/DrawerStack'
 import type { AiAssistantDetailStat } from '~/types/AiAssistantDetailPage'
+import type { UiConfirmModalHandle } from '~/types/UiConfirmModal'
 import type { UiTab } from '~/types/UiTabs'
 import AssistantActionsCard from '~/components/ai-assistants/AssistantActionsCard.vue'
 import AssistantDemoPreviewCard from '~/components/ai-assistants/AssistantDemoPreviewCard.vue'
@@ -233,14 +253,17 @@ const loadError: Ref<string | null> = ref(null)
 const isRegenerating: Ref<boolean> = ref(false)
 const isDeleting: Ref<boolean> = ref(false)
 const isSendingClientLink: Ref<boolean> = ref(false)
+const isRevokingClientLinks: Ref<boolean> = ref(false)
 const isMarkingSold: Ref<boolean> = ref(false)
 const isVideoBusy: Ref<boolean> = ref(false)
 const isRemovingVideo: Ref<boolean> = ref(false)
 const videoPollTimer: Ref<ReturnType<typeof setInterval> | null> = ref(null)
-const deleteConfirmModal: Ref<{ open: () => void } | null> = ref(null)
-const clientSpaceConfirmModal: Ref<{ open: () => void } | null> = ref(null)
-const soldConfirmModal: Ref<{ open: () => void } | null> = ref(null)
-const videoDeleteConfirmModal: Ref<{ open: () => void } | null> = ref(null)
+const deleteConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
+const clientSpaceConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
+const revokeLinksConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
+const newClientLinkConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
+const soldConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
+const videoDeleteConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
 
 useSeoMeta({
   title: computed((): string => `${assistant.value?.business_name ?? 'Réceptionniste IA'} — DevLeadHunter`),
@@ -284,10 +307,20 @@ const stats: ComputedRef<AiAssistantDetailStat[]> = computed((): AiAssistantDeta
   ]
 })
 
-const clientSpaceConfirmMessage: ComputedRef<string> = computed((): string => {
-  const recipient: string = assistant.value?.email ? ` à ${assistant.value.email}` : " à l'adresse connue du commerce"
-  return `Envoyer au commerçant${recipient} le lien de son espace (demandes, rapport, réglages, abonnement) ? Le lien est aussi copié.`
-})
+/** « à patron@toitures-morel.fr », or the business's known address when the assistant has none. */
+const businessRecipientLabel: ComputedRef<string> = computed((): string =>
+  assistant.value?.email ? `à ${assistant.value.email}` : "à l'adresse connue du commerce",
+)
+
+const clientSpaceConfirmMessage: ComputedRef<string> = computed(
+  (): string =>
+    `Envoyer au commerçant ${businessRecipientLabel.value} le lien de son espace (demandes, rapport, réglages, abonnement) ? Le lien est aussi copié.`,
+)
+
+const newClientLinkConfirmMessage: ComputedRef<string> = computed(
+  (): string =>
+    `Les liens déjà envoyés ne s'ouvrent plus. Envoyer ${businessRecipientLabel.value} un nouveau lien de son espace ? Le lien est aussi copié.`,
+)
 
 const soldConfirmMessage: ComputedRef<string> = computed(
   (): string =>
@@ -379,6 +412,25 @@ async function sendClientSpace(): Promise<void> {
     toast.error("Lien de l'espace client indisponible pour l'instant.")
   } finally {
     isSendingClientLink.value = false
+  }
+}
+
+/**
+ * Stop every client-space link sent so far, then offer to send the business a new one.
+ * @returns A promise resolved once the links are cut (or the cut refused).
+ */
+async function revokeClientLinks(): Promise<void> {
+  if (!assistant.value || isRevokingClientLinks.value) return
+  isRevokingClientLinks.value = true
+  try {
+    const updated: AiAssistantSummary = await AiAssistantService.revokeClientLinks(assistant.value.id)
+    assistant.value = updated
+    drawerStack.notifyAssistantUpdated(updated)
+    newClientLinkConfirmModal.value?.open()
+  } catch {
+    toast.error('Impossible de couper les liens pour le moment.')
+  } finally {
+    isRevokingClientLinks.value = false
   }
 }
 

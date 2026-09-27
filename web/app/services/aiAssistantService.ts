@@ -279,6 +279,16 @@ export class AiAssistantService {
   }
 
   /**
+   * Stop every client-space link sent so far for a sold assistant, alert SMS included.
+   *
+   * @param assistantId - The sold assistant.
+   * @returns The assistant, whose next links are the only ones that open.
+   */
+  static revokeClientLinks(assistantId: number): Promise<AiAssistantSummary> {
+    return ApiClient.post<AiAssistantSummary>(`${BASE_URL}/${assistantId}/client-link/revoke`, {})
+  }
+
+  /**
    * Rebuild an assistant's knowledge from its prospect's latest data. Branding and persona
    * (name, tone, languages, accent) and the public link are preserved.
    *

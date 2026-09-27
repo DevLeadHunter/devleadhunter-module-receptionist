@@ -87,7 +87,7 @@ class AiAssistantStartReminders:
                 rendered = AiAssistantClientSpaceEmail.render_start_reminder(
                     business_name=assistant.business_name,
                     assistant_name=assistant.assistant_name,
-                    url=AiAssistantClientLinks.url(assistant.id, now=now),
+                    url=AiAssistantClientLinks.url(assistant, now=now),
                     days=days,
                     missing=missing,
                 )
