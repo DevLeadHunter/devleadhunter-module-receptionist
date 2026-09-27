@@ -513,9 +513,11 @@
     } catch (error) {
       // No storage: reported once per page load instead.
     }
+    // A simple request (text body, no-cors): sent without a preflight the host site's origin would fail.
     fetch(origin + '/embed-installed/' + encodeURIComponent(slug), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ host: host }),
       credentials: 'omit',
       keepalive: true,
