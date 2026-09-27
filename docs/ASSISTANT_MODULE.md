@@ -1109,3 +1109,14 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
   `MISTRAL_CHAT_MODEL` et `MISTRAL_VISION_MODEL` (30 req/min, 937k tokens/min ; 10 $ d'usage inclus par mois). Groq
   `gpt-oss-120b` reste le repli. Passage à `mistral-small-latest` par la variable d'environnement le jour où le paiement
   à l'usage est activé. Réglage à vérifier dans la console : « Allow the use of your API calls to train » était activé.
+- **Clavier iPhone, troisième passe (27/09, après-midi) et composer compact.** Léo voyait toujours ~20 pt de site entre
+  le composer et le clavier. Les références web (bram.us, mathix.dev, retours de widgets de chat) utilisent la même
+  géométrie que la nôtre ; ce qui manquait, ce sont deux protections : (1) le loader **fige la page hôte** pendant que
+  la feuille est ouverte sur téléphone (`lockHostScroll` : `body { position: fixed; top: -scrollY }`, remis à sa place
+  à la fermeture), iOS n'a donc plus rien à faire défiler pour garder le champ visible ; (2) le document de l'iframe est
+  **peint de la couleur du panneau** en plein écran (`documentElement.style.setProperty('background', …, 'important')`,
+  la page embed force `transparent !important`) : les quelques pixels qu'un clavier laisserait découverts montrent du
+  papier, jamais le site. Le **composer compact** (`isCompact = isMobileLayout`) remplace les boutons photo et
+  rendez-vous par un « + » (`AssistantIconPlus`) qui déplie les deux actions avec leurs libellés (`UI_LABELS.more`) ;
+  sur téléphone, le champ gagne 50 px (266 px sur iPhone 13, 196 px sur iPhone SE) ; sur ordinateur rien ne change.
+  Mesures sur un vrai téléphone : `demo.dibodev.fr/embed-test.html?slug=<slug>&debug=1&internal=1`.
