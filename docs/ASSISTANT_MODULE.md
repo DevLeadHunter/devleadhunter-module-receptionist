@@ -765,6 +765,7 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
 | `POST` | `/ai-assistants/{id}/client-link` | Lien de l'espace client d'un assistant vendu (`send` : l'envoyer par email au commerçant) |
 | `GET` | `/ai-assistants/client/{token}` | Espace client : demandes, rapport, réglages, abonnement |
 | `POST` | `/ai-assistants/client/{token}/requests/{id}/handled` | Marquer traitée une demande depuis l'espace client |
+| `POST` | `/ai-assistants/client/{token}/requests/{id}/dropped` | Mettre de côté une fausse demande (test, spam, doublon) depuis l'espace client |
 | `PATCH` | `/ai-assistants/client/{token}/settings` | Prénom, langues, mobile d'alerte, SMS / email oui-non |
 | `POST` | `/ai-assistants/client/{token}/billing-portal` | Session du portail Stripe Billing (retour sur l'espace) |
 | `POST` | `/ai-assistants/client/{token}/renew` | Depuis un lien expiré : nouveau lien envoyé à l'adresse du commerçant |
@@ -1133,3 +1134,41 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
   localhost), **Google Calendar API activée** (elle ne l'était pas : la connexion d'agenda aurait échoué), niveaux
   d'accès `calendar.events` (sensible) et `calendar.freebusy` ajoutés à l'écran de consentement ; reste la
   soumission au centre de validation (vidéo YouTube du parcours OAuth, justification), à faire avec Léo.
+
+## Onzième passage — refonte de l'espace client (27/09, `feat/client-space-redesign`)
+
+Léo a rejeté cinq maquettes (« amateur », « design IA », « triste ») avant de valider une direction tirée des
+outils que la cible utilise déjà (Mariages.net entreprises, Zenchef, TheFork Manager, Solocal Manager, Shine,
+Qonto). L'espace client (`demo-host/app/pages/client/[token].vue`) est réécrit comme un outil, plus comme une
+page :
+
+- **Quatre rubriques** (Accueil, Demandes, Agenda, Réglages) : barre d'onglets en bas sur téléphone, colonne de
+  gauche à partir de 1024 px (`ClientSpaceTabBar`, `ClientSpaceSidebar`). La position vit dans le hash
+  (`#demandes/12`, `#question/0`, `#reglages/alertes`, composable `useClientSpaceNavigation`) : le bouton retour
+  du téléphone fonctionne et un SMS pourra ouvrir directement une demande.
+- **Accueil** (`ClientSpaceHome`) : la réceptionniste et son statut, le bloc « À faire » (personnes à rappeler,
+  questions de la réceptionniste, agenda à connecter), les chiffres du dernier rapport, les trois dernières
+  demandes.
+- **Demandes** (`ClientSpaceRequestList`, `ClientSpaceRequestRow`) : filtres À rappeler / Rappelées / Toutes,
+  lignes groupées par jour (`received_day` et `received_time`, nouveaux champs de l'item, heure d'affaires), le
+  statut en petites capitales à droite, et les questions sans réponse de la réceptionniste dans la même liste,
+  comme si elle avait écrit. Une ligne s'ouvre en détail (`ClientSpaceRequestDetail`) : contact en premier
+  (appel ou email), message, créneaux ou rendez-vous, photos en grand, un bouton principal, « Rappelé », et
+  « Ce n'est pas une vraie demande » (nouvel endpoint `…/requests/{id}/dropped`, statut `dropped`). Sur
+  ordinateur, liste et détail côte à côte.
+- **Question de la réceptionniste** (`ClientSpaceQuestion`) : sa question, un champ, « Envoyer à … » ; la
+  réponse enregistrée rejoint « Ce que vous lui avez appris » (`ClientSpaceLearnedAnswers`).
+- **Agenda** (`ClientSpaceAgenda`) : bloc de connexion Google tant qu'il n'est pas connecté, rendez-vous à
+  confirmer (demandes de rendez-vous en attente), rendez-vous pris, réglages de réservation une fois connecté.
+- **Réglages** (`ClientSpaceSettingsMenu`) : listes groupées vers deux formulaires (`ClientSpaceSettings`,
+  prop `part` : réceptionniste ou alertes), le rapport, l'abonnement (portail Stripe), l'aide.
+- **Peau** : papier `#f7f5f0`, blocs blancs pleine largeur à filets `#ebe7df` (arrondis à partir de 1024 px),
+  Inter, Fraunces réservé au nom de l'entreprise, la couleur du client sur les actions et l'onglet actif via la
+  palette du widget (`AssistantAccentUtils`), rouge/vert/ambre réservés aux statuts, icônes Lucide inlinées
+  (`ClientSpaceIcon`). Composants `ClientSpaceRequests/Appointments/Faq/Calendar/Section/Badge/Contact`
+  supprimés.
+
+Reste à faire : l'image de l'espace client dans `/ia` (`public/showroom/espace-client.webp`) et le chapitre
+vidéo montrent l'ancien design ; mode sombre ; lien qui se prolonge à chaque visite (écran d'accueil iPhone) ;
+SMS d'alerte pointant vers `#demandes/{id}` ; détection « installée sur votre site » ; confirmation d'un
+créneau par SMS au visiteur.

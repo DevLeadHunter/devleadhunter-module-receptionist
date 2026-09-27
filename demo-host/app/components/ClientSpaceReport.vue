@@ -1,25 +1,39 @@
 <template>
-  <ClientSpaceSection title="Rapport du mois" :meta="report ? report.month_label : null">
-    <p v-if="!report" class="cs-muted">
-      Le premier rapport de {{ assistantName }} arrive au début du mois prochain, par email et ici.
-    </p>
+  <div class="cs-report">
+    <template v-if="!props.report">
+      <p class="cs-sec">Rapport du mois</p>
+      <div class="cs-block">
+        <p class="cs-text cs-text--dim">
+          Le premier rapport de {{ props.assistantName }} arrive au début du mois prochain, par email et ici.
+        </p>
+      </div>
+    </template>
     <template v-else>
-      <ul class="csp__grid">
-        <li v-for="figure in figures" :key="figure.label" class="csp__figure">
-          <span class="csp__value">{{ figure.value }}</span>
-          <span class="csp__label">{{ figure.label }}</span>
-        </li>
-      </ul>
-      <p v-if="report.languages_line" class="csp__line">Langues des conversations : {{ report.languages_line }}.</p>
-      <p v-if="report.handling_line" class="csp__line">{{ report.handling_line }}</p>
-      <template v-if="report.top_questions.length > 0">
-        <h3 class="csp__subtitle">Ce que vos visiteurs demandent le plus</h3>
-        <ol class="csp__questions">
-          <li v-for="question in report.top_questions" :key="question">{{ question }}</li>
-        </ol>
+      <p class="cs-sec">{{ props.report.month_label }}</p>
+      <div class="cs-block cs-stats">
+        <div v-for="figure in figures" :key="figure.label" class="cs-stat">
+          <span
+            ><b>{{ figure.value }}</b
+            ><span>{{ figure.label }}</span></span
+          >
+        </div>
+      </div>
+      <div v-if="props.report.languages_line || props.report.handling_line" class="cs-block cs-report__lines">
+        <p v-if="props.report.languages_line" class="cs-text">
+          Langues des conversations : {{ props.report.languages_line }}.
+        </p>
+        <p v-if="props.report.handling_line" class="cs-text">{{ props.report.handling_line }}</p>
+      </div>
+      <template v-if="props.report.top_questions.length > 0">
+        <p class="cs-sec">Ce que vos visiteurs demandent le plus</p>
+        <div class="cs-block">
+          <ol class="cs-report__questions">
+            <li v-for="question in props.report.top_questions" :key="question">{{ question }}</li>
+          </ol>
+        </div>
       </template>
     </template>
-  </ClientSpaceSection>
+  </div>
 </template>
 
 <script lang="ts" setup>
@@ -29,9 +43,9 @@ import type { AiAssistantClientReport } from '~/types/AiAssistantClientSpace'
 import type { ClientSpaceReportFigure, ClientSpaceReportProps } from '~/types/ClientSpaceReport'
 
 /**
- * The latest monthly report of the client's assistant: its figures, languages and most asked questions.
+ * The latest monthly report of the client's receptionist: its figures, languages and most asked questions.
  * @param report The latest report, or null before the first one.
- * @param assistantName The assistant's first name, for the waiting message.
+ * @param assistantName The receptionist's first name, for the waiting message.
  */
 const props: ClientSpaceReportProps = defineProps({
   report: { type: Object as PropType<AiAssistantClientReport | null>, default: null },
@@ -65,56 +79,19 @@ function plural(value: number, noun: string): string {
 </script>
 
 <style scoped>
-.csp__grid {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.cs-report {
   display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  align-content: start;
 }
 
-.csp__figure {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  border: 1px solid var(--cs-line);
-  border-top: 3px solid var(--a-accent);
-  border-radius: 12px;
-  background: var(--cs-card);
-  padding: 12px 8px;
+.cs-report__lines {
+  margin-top: 10px;
 }
 
-.csp__value {
-  font-family: Fraunces, Georgia, serif;
-  font-size: 26px;
-  font-weight: 600;
-  line-height: 1.1;
-}
-
-.csp__label {
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--cs-ink-dim);
-}
-
-.csp__line {
-  margin: 14px 0 0;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.csp__subtitle {
-  margin: 20px 0 8px;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.csp__questions {
+.cs-report__questions {
   margin: 0;
-  padding-left: 22px;
-  list-style: decimal;
-  font-size: 14px;
+  padding: 14px 16px 14px 36px;
+  font-size: 15px;
   line-height: 1.6;
 }
 </style>

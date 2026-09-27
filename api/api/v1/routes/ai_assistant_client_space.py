@@ -97,6 +97,8 @@ def _to_request_item(record: AiAssistantRequest, booked: str | None = None) -> A
         contact=record.contact,
         summary=(record.need_summary or record.need or "").strip() or None,
         received_label=_business_label(record.created_at, "%d/%m à %H:%M"),
+        received_day=_business_label(record.created_at, "%Y-%m-%d"),
+        received_time=_business_label(record.created_at, "%H:%M"),
         received_outside_hours=record.received_outside_hours,
         photo_urls=ai_assistant_request_service.photo_urls(record),
         appointment_slots=AiAssistantAppointmentSlots.labels(record.appointment_slots_json),
@@ -247,6 +249,18 @@ async def mark_client_request_handled(
     """Mark one of the assistant's requests handled from the client space."""
     assistant, _link = _open_client_space(db, token, request)
     record = ai_assistant_client_space_service.mark_handled(db, assistant, request_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demande introuvable")
+    return _to_request_item(record, ai_assistant_calendar_booking.booked_labels(db, [record.id]).get(record.id))
+
+
+@router.post("/client/{token}/requests/{request_id}/dropped", response_model=AiAssistantClientRequestItem)
+async def mark_client_request_dropped(
+    token: str, request_id: int, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantClientRequestItem:
+    """Set one of the assistant's requests aside (a test, spam, a duplicate) from the client space."""
+    assistant, _link = _open_client_space(db, token, request)
+    record = ai_assistant_client_space_service.mark_dropped(db, assistant, request_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demande introuvable")
     return _to_request_item(record, ai_assistant_calendar_booking.booked_labels(db, [record.id]).get(record.id))

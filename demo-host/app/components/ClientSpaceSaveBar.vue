@@ -1,6 +1,6 @@
 <template>
   <div class="cs-savebar">
-    <button type="submit" class="cs-button" :disabled="props.isBusy || !props.canSave">
+    <button type="submit" class="cs-btn cs-btn--primary" :disabled="props.isBusy || !props.canSave">
       {{ props.isBusy ? 'Enregistrement…' : 'Enregistrer' }}
     </button>
     <slot />
@@ -39,11 +39,11 @@ const props: ClientSpaceSaveBarProps = defineProps({
 
 .cs-savebar__error {
   font-size: 13px;
-  color: var(--cs-danger);
+  color: var(--cs-red);
 }
 
 .cs-savebar__saved {
   font-size: 13px;
-  color: var(--cs-ink-dim);
+  color: var(--cs-green);
 }
 </style>

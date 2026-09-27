@@ -1,0 +1,203 @@
+<template>
+  <article class="cs-detail">
+    <header v-if="props.showBack" class="cs-bar">
+      <button type="button" class="cs-bar__back" @click="emit('back')">
+        <ClientSpaceIcon name="chevron-left" />Demandes
+      </button>
+    </header>
+
+    <div class="cs-detail__body">
+      <div class="cs-head">
+        <span class="cs-avatar cs-avatar--lg">{{ initials }}</span>
+        <div class="cs-head__text">
+          <h1 class="cs-head__name">{{ props.request.name }}</h1>
+          <p class="cs-head__meta">
+            <b :class="`cs-head__status--${status.tone}`">{{ status.label }}</b>
+            · {{ props.request.received_label
+            }}<template v-if="props.request.received_outside_hours"> · hors horaires</template>
+          </p>
+        </div>
+      </div>
+
+      <a v-if="contactHref" class="cs-contact" :href="contactHref">
+        <ClientSpaceIcon :name="isPhone ? 'phone' : 'mail'" />
+        <span class="cs-contact__value">{{ props.request.contact }}</span>
+        <small>{{ isPhone ? 'appeler' : 'écrire' }}</small>
+      </a>
+      <p v-else class="cs-contact cs-contact--plain">
+        <ClientSpaceIcon name="user" />
+        <span class="cs-contact__value">{{ props.request.contact }}</span>
+      </p>
+
+      <p class="cs-sec">Message</p>
+      <div class="cs-block">
+        <p class="cs-text">{{ props.request.summary || 'Le visiteur n’a pas laissé de message.' }}</p>
+      </div>
+
+      <template v-if="props.request.appointment_booked">
+        <p class="cs-sec">Rendez-vous</p>
+        <div class="cs-block">
+          <p class="cs-text">
+            <b>{{ props.request.appointment_booked }}</b
+            >, réservé dans votre agenda.
+          </p>
+        </div>
+      </template>
+      <template v-else-if="props.request.appointment_slots.length > 0">
+        <p class="cs-sec">Créneaux souhaités</p>
+        <div class="cs-block">
+          <p v-for="slot in props.request.appointment_slots" :key="slot" class="cs-cell cs-detail__slot">
+            <ClientSpaceIcon name="calendar" /><span>{{ slot }}</span>
+          </p>
+          <p class="cs-text cs-text--dim">À confirmer avec le visiteur, par téléphone ou par message.</p>
+        </div>
+      </template>
+
+      <template v-if="props.request.photo_urls.length > 0">
+        <p class="cs-sec">{{ photosLabel }}</p>
+        <div class="cs-block cs-photos">
+          <a
+            v-for="(url, index) in props.request.photo_urls"
+            :key="url"
+            :href="url"
+            target="_blank"
+            rel="noopener noreferrer"
+            referrerpolicy="no-referrer"
+          >
+            <img :src="url" :alt="`Photo ${index + 1}`" loading="lazy" referrerpolicy="no-referrer" />
+          </a>
+        </div>
+      </template>
+
+      <p v-if="props.errorMessage" class="cs-notice cs-notice--error cs-detail__error">{{ props.errorMessage }}</p>
+    </div>
+
+    <div v-if="!props.readOnly" class="cs-actions">
+      <a v-if="contactHref" class="cs-btn cs-btn--primary" :href="contactHref">
+        <ClientSpaceIcon :name="isPhone ? 'phone' : 'mail'" />{{ isPhone ? 'Appeler' : 'Écrire un email' }}
+      </a>
+      <button
+        v-if="isPending"
+        type="button"
+        class="cs-btn"
+        :disabled="props.isBusy"
+        @click="emit('handled', props.request.id)"
+      >
+        <ClientSpaceIcon name="check" />{{ props.isBusy ? 'Un instant…' : isPhone ? 'Rappelé' : 'Répondu' }}
+      </button>
+      <p v-else class="cs-detail__done">{{ doneLabel }}</p>
+      <button
+        v-if="isPending"
+        type="button"
+        class="cs-quiet"
+        :disabled="props.isBusy"
+        @click="emit('dropped', props.request.id)"
+      >
+        Ce n’est pas une vraie demande
+      </button>
+    </div>
+  </article>
+</template>
+
+<script lang="ts" setup>
+import type { ComputedRef, EmitFn, PropType } from 'vue'
+import { computed } from 'vue'
+import type { AiAssistantClientRequest } from '~/types/AiAssistantClientSpace'
+import type { ClientSpaceRequestDetailEmits, ClientSpaceRequestDetailProps } from '~/types/ClientSpaceRequestDetail'
+import type { ClientSpaceRequestStatus } from '~/types/ClientSpaceRequestList'
+import { ClientSpaceRequestUtils } from '~/utils/ClientSpaceRequestUtils'
+import { ContactLinkUtils } from '~/utils/ContactLinkUtils'
+
+/**
+ * One request in full: the visitor, its contact as the first thing to tap, its message, its appointment or wished
+ * half-days, its photos in full width. One main button (call or write), « Rappelé » second, and a quiet way to set a
+ * false request aside.
+ * @param request The request.
+ * @param isBusy A call about this request is in flight.
+ * @param errorMessage Why the last call was refused, if it was.
+ * @param readOnly The example space: shown, never changed.
+ * @param showBack On a phone, the detail replaces the list and shows a way back.
+ */
+const props: ClientSpaceRequestDetailProps = defineProps({
+  request: { type: Object as PropType<AiAssistantClientRequest>, required: true },
+  isBusy: { type: Boolean, default: false },
+  errorMessage: { type: String as PropType<string | null>, default: null },
+  readOnly: { type: Boolean, default: false },
+  showBack: { type: Boolean, default: true },
+})
+
+const emit: EmitFn<ClientSpaceRequestDetailEmits> = defineEmits<ClientSpaceRequestDetailEmits>()
+
+const initials: ComputedRef<string> = computed((): string => ClientSpaceRequestUtils.initials(props.request.name))
+
+const status: ComputedRef<ClientSpaceRequestStatus> = computed((): ClientSpaceRequestStatus =>
+  ClientSpaceRequestUtils.status(props.request),
+)
+
+const isPending: ComputedRef<boolean> = computed((): boolean => props.request.status === 'new')
+
+const contactHref: ComputedRef<string | null> = computed((): string | null =>
+  ContactLinkUtils.href(props.request.contact),
+)
+
+const isPhone: ComputedRef<boolean> = computed((): boolean => contactHref.value?.startsWith('tel:') === true)
+
+const photosLabel: ComputedRef<string> = computed((): string =>
+  props.request.photo_urls.length === 1 ? 'Photo' : `${props.request.photo_urls.length} photos`,
+)
+
+const doneLabel: ComputedRef<string> = computed((): string =>
+  props.request.status === 'dropped' ? 'Mise de côté.' : isPhone.value ? 'Rappelé.' : 'Répondu.',
+)
+</script>
+
+<style scoped>
+.cs-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.cs-detail__body {
+  flex: 1;
+  padding-bottom: 16px;
+}
+
+.cs-head__status--red {
+  color: var(--cs-red);
+}
+.cs-head__status--accent {
+  color: var(--cs-accent-text);
+}
+.cs-head__status--green {
+  color: var(--cs-green);
+}
+.cs-head__status--grey {
+  color: var(--cs-dim);
+}
+.cs-head__status--amber {
+  color: var(--cs-amber);
+}
+
+.cs-detail__slot {
+  margin: 0;
+  font-weight: 500;
+}
+
+.cs-detail__slot :deep(.cs-icon) {
+  color: var(--cs-accent-text);
+}
+
+.cs-detail__error {
+  padding: 12px 16px 0;
+}
+
+.cs-detail__done {
+  margin: 0;
+  padding: 6px 0;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cs-green);
+}
+</style>

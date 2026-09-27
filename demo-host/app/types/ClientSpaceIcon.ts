@@ -1,0 +1,39 @@
+/** The Lucide icons the client space draws, by name. */
+export type ClientSpaceIconName =
+  | 'house'
+  | 'inbox'
+  | 'calendar'
+  | 'sliders-horizontal'
+  | 'phone'
+  | 'chevron-right'
+  | 'chevron-left'
+  | 'camera'
+  | 'message-square'
+  | 'clock'
+  | 'file-text'
+  | 'moon'
+  | 'mail'
+  | 'message-circle'
+  | 'check'
+  | 'send'
+  | 'external-link'
+  | 'code'
+  | 'triangle-alert'
+  | 'user'
+  | 'bell'
+  | 'x'
+  | 'loader-circle'
+  | 'credit-card'
+  | 'languages'
+  | 'calendar-check'
+  | 'arrow-left'
+  | 'help-circle'
+  | 'life-buoy'
+  | 'image'
+  | 'ban'
+  | 'chart-column'
+
+/** Props of the ClientSpaceIcon component. */
+export type ClientSpaceIconProps = {
+  name: ClientSpaceIconName
+}

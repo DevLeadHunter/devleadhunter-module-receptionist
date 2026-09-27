@@ -204,6 +204,29 @@ def test_a_token_never_reaches_another_assistant(db: Session) -> None:
     assert foreign.status == "new"
 
 
+def test_a_false_request_is_set_aside_without_counting_as_handled(db: Session) -> None:
+    assistant = _assistant(db)
+    other = _assistant(db, business_name="Garage Martin")
+    foreign = _request(db, other)
+    own = _request(db, assistant)
+    token = _token(assistant)
+
+    status_code, _detail = _status_of(routes.mark_client_request_dropped(token, foreign.id, VISITOR_REQUEST, db))
+    dropped = asyncio.run(routes.mark_client_request_dropped(token, own.id, VISITOR_REQUEST, db))
+    again = asyncio.run(routes.mark_client_request_handled(token, own.id, VISITOR_REQUEST, db))
+    page = asyncio.run(routes.get_client_space(token, VISITOR_REQUEST, db))
+
+    assert status_code == 404
+    assert dropped.status.value == "dropped"
+    # Set aside, it stays aside: « handled » does not revive it, and it is out of what waits.
+    assert again.status.value == "dropped"
+    assert page.pending_count == 0
+    # Stored 08:05 UTC on 14/09, read in business time (Paris, UTC+2 in September).
+    assert (dropped.received_day, dropped.received_time) == ("2026-09-14", "10:05")
+    db.refresh(foreign)
+    assert foreign.status == "new"
+
+
 def test_an_expired_link_asks_for_a_new_one_and_a_forged_or_demo_link_opens_nothing(db: Session) -> None:
     sold = _assistant(db)
     demo = _assistant(db, business_name="Démo Dupont", status="active")

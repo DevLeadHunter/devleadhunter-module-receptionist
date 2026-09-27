@@ -1,105 +1,120 @@
 <template>
-  <ClientSpaceSection title="Réglages">
-    <form class="css__form" @submit.prevent="submit">
-      <!-- Frozen while a save is in flight: a value typed meanwhile would be overwritten by the answer. -->
-      <fieldset class="css__fields" :disabled="props.isSaving || props.readOnly">
-        <label class="cs-field">
-          <span class="cs-label">Prénom affiché aux visiteurs</span>
-          <input v-model="assistantName" class="cs-input" type="text" maxlength="64" required autocomplete="off" />
-        </label>
-
-        <fieldset class="cs-field">
-          <legend class="cs-label">Langues proposées aux visiteurs</legend>
-          <div class="css__chips">
-            <label
-              v-for="option in languageOptions"
-              :key="option.code"
-              class="css__chip"
-              :class="{ 'css__chip--on': languages.includes(option.code) }"
-            >
-              <input
-                type="checkbox"
-                class="css__check"
-                :checked="languages.includes(option.code)"
-                @change="toggleLanguage(option.code)"
-              />
-              {{ option.label }}
-            </label>
-          </div>
-        </fieldset>
-
-        <label class="cs-field">
-          <span class="cs-label">Mobile qui reçoit les alertes SMS</span>
-          <input
-            v-model="alertPhone"
-            class="cs-input"
-            type="tel"
-            inputmode="tel"
-            maxlength="32"
-            placeholder="06 12 34 56 78 ou +352 621 123 456"
-            autocomplete="tel"
-          />
-        </label>
-
-        <div class="css__toggles">
-          <label class="css__toggle">
-            <input v-model="smsEnabled" type="checkbox" />
-            Alertes par SMS, au mobile ci-dessus
-          </label>
-          <label class="css__toggle">
-            <input v-model="emailEnabled" type="checkbox" />
-            Chaque demande par email
+  <form class="cs-settings" @submit.prevent="submit">
+    <!-- Frozen while a save is in flight: a value typed meanwhile would be overwritten by the answer. -->
+    <fieldset class="cs-settings__fields" :disabled="props.isSaving || props.readOnly">
+      <template v-if="props.part === 'assistant'">
+        <p class="cs-sec">Prénom</p>
+        <div class="cs-block cs-settings__block">
+          <label class="cs-field">
+            <span class="cs-label">Prénom affiché aux visiteurs</span>
+            <input v-model="assistantName" class="cs-input" type="text" maxlength="64" required autocomplete="off" />
+            <span class="cs-hint">Elle se présente toujours comme réceptionniste IA de votre entreprise.</span>
           </label>
         </div>
 
-        <template v-if="smsEnabled">
-          <fieldset class="cs-field">
-            <legend class="cs-label">SMS immédiat pour</legend>
-            <div class="css__chips">
+        <p class="cs-sec">Langues proposées aux visiteurs</p>
+        <div class="cs-block">
+          <label
+            v-for="option in props.languageOptions"
+            :key="option.code"
+            class="cs-cell cs-settings__choice"
+            :class="{ 'cs-settings__choice--on': languages.includes(option.code) }"
+          >
+            <input
+              type="checkbox"
+              class="cs-settings__check"
+              :checked="languages.includes(option.code)"
+              @change="toggleLanguage(option.code)"
+            />
+            <span>{{ option.label }}</span>
+            <ClientSpaceIcon v-if="languages.includes(option.code)" name="check" class="cs-settings__tick" />
+          </label>
+        </div>
+      </template>
+
+      <template v-else>
+        <p class="cs-sec">Par SMS</p>
+        <div class="cs-block cs-settings__block">
+          <label class="cs-settings__switch">
+            <span>
+              <b>Alertes par SMS</b>
+              <span>Tout de suite, pour les demandes qui ne peuvent pas attendre.</span>
+            </span>
+            <input v-model="smsEnabled" type="checkbox" />
+          </label>
+          <label class="cs-field">
+            <span class="cs-label">Mobile qui reçoit les SMS</span>
+            <input
+              v-model="alertPhone"
+              class="cs-input"
+              type="tel"
+              inputmode="tel"
+              maxlength="32"
+              placeholder="06 12 34 56 78 ou +352 621 123 456"
+              autocomplete="tel"
+            />
+          </label>
+          <template v-if="smsEnabled">
+            <p class="cs-label">SMS immédiat pour</p>
+            <div class="cs-settings__chips">
               <label
                 v-for="option in CLIENT_SPACE_REQUEST_TYPE_OPTIONS"
                 :key="option.value"
-                class="css__chip"
-                :class="{ 'css__chip--on': smsTypes.includes(option.value) }"
+                class="cs-settings__chip"
+                :class="{ 'cs-settings__chip--on': smsTypes.includes(option.value) }"
               >
                 <input
                   type="checkbox"
-                  class="css__check"
+                  class="cs-settings__check"
                   :checked="smsTypes.includes(option.value)"
                   @change="toggleSmsType(option.value)"
                 />
                 {{ option.label }}
               </label>
             </div>
-            <span class="css__hint">Les autres demandes arrivent par email seulement.</span>
-          </fieldset>
+            <span class="cs-hint">Les autres demandes arrivent par email seulement.</span>
+          </template>
+        </div>
 
-          <fieldset class="cs-field">
-            <legend class="cs-label">Ne pas déranger</legend>
-            <div class="css__hours">
+        <p class="cs-sec">Par email</p>
+        <div class="cs-block cs-settings__block">
+          <label class="cs-settings__switch">
+            <span>
+              <b>Chaque demande par email</b>
+              <span>À l’adresse de votre entreprise, avec le message et les photos.</span>
+            </span>
+            <input v-model="emailEnabled" type="checkbox" />
+          </label>
+        </div>
+
+        <template v-if="smsEnabled">
+          <p class="cs-sec">Ne pas déranger</p>
+          <div class="cs-block cs-settings__block">
+            <div class="cs-settings__hours">
               <span>de</span>
-              <select v-model.number="quietStartHour" class="cs-input css__hour" aria-label="Début de la plage">
+              <select v-model.number="quietStartHour" class="cs-input cs-settings__hour" aria-label="Début de la plage">
                 <option v-for="hour in HOURS" :key="hour" :value="hour">{{ hour }} h</option>
               </select>
               <span>à</span>
-              <select v-model.number="quietEndHour" class="cs-input css__hour" aria-label="Fin de la plage">
+              <select v-model.number="quietEndHour" class="cs-input cs-settings__hour" aria-label="Fin de la plage">
                 <option v-for="hour in HOURS" :key="hour" :value="hour">{{ hour }} h</option>
               </select>
             </div>
-            <span class="css__hint">Les SMS reçus dans la plage partent à sa fin.</span>
-          </fieldset>
+            <span class="cs-hint">Les SMS reçus dans la plage partent à sa fin. Mêmes heures : jamais retenus.</span>
+          </div>
         </template>
-      </fieldset>
+      </template>
+    </fieldset>
 
+    <div v-if="!props.readOnly" class="cs-settings__foot">
       <ClientSpaceSaveBar
-        v-if="!props.readOnly"
-        :is-busy="isSaving"
+        :is-busy="props.isSaving"
         :can-save="canSave"
-        :error-message="errorMessage"
-        :show-saved="hasSaved && !hasChanges"
+        :error-message="props.errorMessage"
+        :show-saved="props.hasSaved && !hasChanges"
       />
-    </form>
-  </ClientSpaceSection>
+    </div>
+  </form>
 </template>
 
 <script lang="ts" setup>
@@ -112,15 +127,20 @@ import type {
   AiAssistantClientSettings,
   AiAssistantClientSettingsUpdate,
 } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceSettingsEmits, ClientSpaceSettingsProps } from '~/types/ClientSpaceSettings'
+import type {
+  ClientSpaceSettingsEmits,
+  ClientSpaceSettingsPart,
+  ClientSpaceSettingsProps,
+} from '~/types/ClientSpaceSettings'
 import { CLIENT_SPACE_REQUEST_TYPE_OPTIONS } from '~/constants/ClientSpaceRequestTypes'
 
 /** Whole hours of the day, for the quiet window. */
 const HOURS: number[] = Array.from({ length: 24 }, (_: unknown, hour: number): number => hour)
 
 /**
- * The few settings a client changes alone: the assistant's first name, its languages and the alerts (mobile,
- * SMS and email switches, the request types texted at once, the quiet window).
+ * The settings a client changes alone, in two screens: the receptionist (her first name, her languages) and the
+ * alerts (mobile, SMS and email switches, the request types texted at once, the quiet window).
+ * @param part Which screen this form is.
  * @param settings The current settings, defaults applied.
  * @param languageOptions The languages the widget can speak.
  * @param isSaving A save is in flight.
@@ -129,6 +149,7 @@ const HOURS: number[] = Array.from({ length: 24 }, (_: unknown, hour: number): n
  * @param readOnly The example space: shown, never saved.
  */
 const props: ClientSpaceSettingsProps = defineProps({
+  part: { type: String as PropType<ClientSpaceSettingsPart>, required: true },
   settings: { type: Object as PropType<AiAssistantClientSettings>, required: true },
   languageOptions: { type: Array as PropType<AiAssistantClientLanguageOption[]>, required: true },
   isSaving: { type: Boolean, default: false },
@@ -150,10 +171,13 @@ const quietEndHour: Ref<number> = ref(props.settings.alert_quiet_end_hour)
 
 const changes: ComputedRef<AiAssistantClientSettingsUpdate> = computed((): AiAssistantClientSettingsUpdate => {
   const update: AiAssistantClientSettingsUpdate = {}
-  const name: string = assistantName.value.trim()
-  if (name && name !== props.settings.assistant_name) update.assistant_name = name
-  if ([...languages.value].sort().join() !== [...props.settings.languages].sort().join()) {
-    update.languages = [...languages.value]
+  if (props.part === 'assistant') {
+    const name: string = assistantName.value.trim()
+    if (name && name !== props.settings.assistant_name) update.assistant_name = name
+    if ([...languages.value].sort().join() !== [...props.settings.languages].sort().join()) {
+      update.languages = [...languages.value]
+    }
+    return update
   }
   if (alertPhone.value.trim() !== (props.settings.alert_phone ?? '')) update.alert_phone = alertPhone.value.trim()
   if (smsEnabled.value !== props.settings.alert_sms_enabled) update.alert_sms_enabled = smsEnabled.value
@@ -218,76 +242,109 @@ watch(
 </script>
 
 <style scoped>
-.css__form {
+.cs-settings {
   display: grid;
-  gap: 18px;
+  align-content: start;
 }
 
-.css__fields {
+.cs-settings__fields {
   display: grid;
-  gap: 18px;
   margin: 0;
   padding: 0;
   border: 0;
   min-width: 0;
 }
 
-.css__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.cs-settings__block {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
 }
 
-.css__chip {
+.cs-settings__choice {
   cursor: pointer;
-  border: 1px solid var(--cs-line);
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 13px;
-  background: var(--cs-card);
 }
 
-.css__chip--on {
-  border-color: var(--a-accent);
-  background: color-mix(in srgb, var(--a-accent) 14%, #fff);
+.cs-settings__choice--on {
+  font-weight: 600;
 }
 
-.css__check {
+.cs-settings__tick {
+  color: var(--cs-accent-text);
+}
+
+.cs-settings__check {
   position: absolute;
   opacity: 0;
   pointer-events: none;
 }
 
-.css__toggles {
-  display: grid;
-  gap: 10px;
-  font-size: 14px;
-}
-
-.css__toggle {
+.cs-settings__switch {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  cursor: pointer;
 }
 
-.css__toggle input {
-  margin-top: 3px;
-  accent-color: var(--a-accent);
+.cs-settings__switch > span {
+  display: grid;
+  gap: 2px;
+  line-height: 1.35;
 }
 
-.css__hint {
-  font-size: 12.5px;
-  color: var(--cs-ink-dim);
+.cs-settings__switch b {
+  font-size: 15.5px;
+  font-weight: 600;
 }
 
-.css__hours {
+.cs-settings__switch > span > span {
+  font-size: 13px;
+  color: var(--cs-dim);
+}
+
+.cs-settings__switch input {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--cs-accent-strong);
+}
+
+.cs-settings__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cs-settings__chip {
+  cursor: pointer;
+  border: 1px solid var(--cs-line);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 14px;
+  background: var(--cs-card);
+}
+
+.cs-settings__chip--on {
+  border-color: var(--cs-accent-strong);
+  background: var(--cs-accent-tint);
+  color: var(--cs-accent-text);
+  font-weight: 600;
+}
+
+.cs-settings__hours {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 14px;
+  font-size: 15px;
 }
 
-.css__hour {
+.cs-settings__hour {
   width: auto;
+}
+
+.cs-settings__foot {
+  padding: 18px 16px 24px;
 }
 </style>

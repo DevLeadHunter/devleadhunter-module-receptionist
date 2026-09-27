@@ -189,7 +189,29 @@ class AiAssistantClientSpaceService:
         )
 
     @staticmethod
-    def mark_handled(db: Session, assistant: AiAssistant, request_id: int) -> AiAssistantRequest | None:
+    def _own_request(db: Session, assistant: AiAssistant, request_id: int) -> AiAssistantRequest | None:
+        """
+        One of the assistant's real requests, by id.
+
+        Args:
+            db: Active database session.
+            assistant: The assistant the link opens.
+            request_id: The request.
+
+        Returns:
+            The request, or None when it is not one of this assistant's real requests.
+        """
+        return (
+            db.query(AiAssistantRequest)
+            .filter(
+                AiAssistantRequest.id == request_id,
+                AiAssistantRequest.assistant_id == assistant.id,
+                AiAssistantRequest.is_test.is_(False),
+            )
+            .first()
+        )
+
+    def mark_handled(self, db: Session, assistant: AiAssistant, request_id: int) -> AiAssistantRequest | None:
         """
         Mark one of the assistant's requests handled.
 
@@ -201,18 +223,30 @@ class AiAssistantClientSpaceService:
         Returns:
             The request, or None when it is not one of this assistant's real requests.
         """
-        request = (
-            db.query(AiAssistantRequest)
-            .filter(
-                AiAssistantRequest.id == request_id,
-                AiAssistantRequest.assistant_id == assistant.id,
-                AiAssistantRequest.is_test.is_(False),
-            )
-            .first()
-        )
+        request = self._own_request(db, assistant, request_id)
         if request is None:
             return None
         ai_assistant_request_service.mark_handled(db, request)
+        db.refresh(request)
+        return request
+
+    def mark_dropped(self, db: Session, assistant: AiAssistant, request_id: int) -> AiAssistantRequest | None:
+        """
+        Set one of the assistant's requests aside: a test, spam, a duplicate. It leaves the list of things to do
+        without counting as handled.
+
+        Args:
+            db: Active database session (committed).
+            assistant: The assistant the link opens.
+            request_id: The request.
+
+        Returns:
+            The request, or None when it is not one of this assistant's real requests.
+        """
+        request = self._own_request(db, assistant, request_id)
+        if request is None:
+            return None
+        ai_assistant_request_service.mark_dropped(db, request)
         db.refresh(request)
         return request
 

@@ -19,6 +19,9 @@ export type AiAssistantClientRequest = {
   contact: string
   summary: string | null
   received_label: string
+  /** The same moment split for grouping and display: « 2026-09-14 » and « 10:05 », business time. */
+  received_day: string
+  received_time: string
   received_outside_hours: boolean | null
   photo_urls: string[]
   appointment_slots: string[]

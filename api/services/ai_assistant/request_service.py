@@ -391,6 +391,23 @@ class AiAssistantRequestService:
         db.commit()
         return True
 
+    def mark_dropped(self, db: Session, request: AiAssistantRequest) -> bool:
+        """
+        Set a request aside (a test, spam, a duplicate): out of the things to do, not handled either.
+
+        Args:
+            db: Active database session (committed).
+            request: The request.
+
+        Returns:
+            True when it changed, False when it was already handled or dropped.
+        """
+        if request.status != AiAssistantRequestStatus.NEW.value:
+            return False
+        self._set_status(request, AiAssistantRequestStatus.DROPPED)
+        db.commit()
+        return True
+
     def counts_for_assistants(self, db: Session, assistant_ids: list[int]) -> dict[int, RequestCounts]:
         """
         Request counts per assistant for the dashboard list (tests excluded), in one aggregate query.

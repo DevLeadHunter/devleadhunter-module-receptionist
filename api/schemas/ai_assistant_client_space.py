@@ -23,6 +23,9 @@ class AiAssistantClientRequestItem(BaseModel):
     summary: str | None = None
     # « 14/09 à 10:05 », business time (Paris).
     received_label: str
+    # The same moment split for grouping and display: « 2026-09-14 » and « 10:05 », business time.
+    received_day: str = ""
+    received_time: str = ""
     received_outside_hours: bool | None = None
     photo_urls: list[str] = Field(default_factory=list)
     # Wished half-days of an appointment request (« lun. 28/09, matin »).

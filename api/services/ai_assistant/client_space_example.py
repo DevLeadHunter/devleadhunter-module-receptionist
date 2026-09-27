@@ -74,6 +74,8 @@ class AiAssistantClientSpaceExample:
                     contact="06 12 34 56 78",
                     summary="Fuite depuis la tempête, des tuiles ont bougé côté rue. Souhaite un passage cette semaine.",
                     received_label=f"{yesterday:%d/%m} à 21:43",
+                    received_day=f"{yesterday:%Y-%m-%d}",
+                    received_time="21:43",
                     received_outside_hours=True,
                 ),
                 AiAssistantClientRequestItem(
@@ -84,6 +86,8 @@ class AiAssistantClientSpaceExample:
                     contact="julien.bernard@exemple.fr",
                     summary="Devis pour l'isolation des combles, environ 60 m².",
                     received_label=f"{yesterday:%d/%m} à 12:10",
+                    received_day=f"{yesterday:%Y-%m-%d}",
+                    received_time="12:10",
                     received_outside_hours=False,
                     appointment_slots=[
                         f"{FrenchDateFormatter.short_date(next_visit)}, matin",
@@ -98,6 +102,8 @@ class AiAssistantClientSpaceExample:
                     contact="06 98 76 54 32",
                     summary="Remplacement des gouttières d'une maison de plain-pied.",
                     received_label=f"{earlier:%d/%m} à 08:05",
+                    received_day=f"{earlier:%Y-%m-%d}",
+                    received_time="08:05",
                     received_outside_hours=False,
                 ),
             ],
