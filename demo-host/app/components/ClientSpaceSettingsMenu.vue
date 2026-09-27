@@ -23,6 +23,7 @@ import { computed } from 'vue'
 import type {
   AiAssistantClientCalendar,
   AiAssistantClientLanguageOption,
+  AiAssistantClientLimit,
   AiAssistantClientSettings,
   AiAssistantClientSpace,
   AiAssistantClientSubscription,
@@ -63,6 +64,14 @@ const languagesLabel: ComputedRef<string> = computed((): string => {
   return labels.join(', ')
 })
 
+/** How many subjects the receptionist keeps a set answer on (« 6 sujets », « 4 sujets sur 6 »). */
+const limitsLabel: ComputedRef<string> = computed((): string => {
+  const total: number = props.space.limits.length
+  const active: number = props.space.limits.filter((limit: AiAssistantClientLimit): boolean => limit.enabled).length
+  if (total === 0) return ''
+  return active === total ? `${total} sujets` : `${active} sujets sur ${total}`
+})
+
 const groups: ComputedRef<ClientSpaceSettingsGroup[]> = computed((): ClientSpaceSettingsGroup[] => {
   const settings: AiAssistantClientSettings = props.space.settings
   const calendar: AiAssistantClientCalendar = props.space.calendar
@@ -94,6 +103,13 @@ const groups: ComputedRef<ClientSpaceSettingsGroup[]> = computed((): ClientSpace
           value: learned === 1 ? '1 réponse' : `${learned} réponses`,
           tone: 'plain',
           screen: 'learned',
+        },
+        {
+          key: 'limits',
+          label: 'Prix, délais, garanties',
+          value: limitsLabel.value,
+          tone: 'plain',
+          screen: 'limits',
         },
       ],
     },

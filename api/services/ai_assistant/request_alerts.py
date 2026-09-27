@@ -534,6 +534,25 @@ class AiAssistantRequestAlerts:
             AiAssistant.deleted_at.is_(None),
         )
 
+    async def send_test_sms(self, db: Session, assistant: AiAssistant) -> bool:
+        """
+        Text the alert mobile once, so the business sees where its alerts arrive.
+
+        Args:
+            db: Active database session.
+            assistant: The sold assistant, its alert mobile set.
+
+        Returns:
+            True when the operator's SMS sender took the message.
+        """
+        phone = assistant.alert_phone_e164
+        if not phone:
+            return False
+        text = to_strict_gsm7(
+            f"Test de {assistant.assistant_name} pour {assistant.business_name} : vos alertes SMS arrivent bien ici."
+        )
+        return await self._send_sms(db, assistant, phone, text)
+
     async def run_pass(self) -> None:
         """One runner pass: held SMS, reminders, then the operator's 48 h warnings (a failing step skips alone)."""
         steps = (self.send_due_sms, self.send_reminders, self.notify_operator_of_waiting_requests)

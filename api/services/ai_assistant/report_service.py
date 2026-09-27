@@ -26,7 +26,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from core.database import SessionLocal
-from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus, AiAssistantRequestType
+from enums.ai_assistant_request import (
+    AiAssistantRequestChannel,
+    AiAssistantRequestOutcome,
+    AiAssistantRequestStatus,
+    AiAssistantRequestType,
+)
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.assistant_llm import AssistantLlmUsage
 from enums.assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
@@ -270,6 +275,7 @@ class AiAssistantReportService:
                 AiAssistantRequest.type,
                 AiAssistantRequest.channel,
                 AiAssistantRequest.status,
+                AiAssistantRequest.outcome,
                 AiAssistantRequest.received_outside_hours,
                 AiAssistantRequest.created_at,
                 AiAssistantRequest.handled_at,
@@ -303,6 +309,7 @@ class AiAssistantReportService:
             languages=self._language_shares(language_rows),
             average_handling_hours=(round(sum(handling_hours) / len(handling_hours), 1) if handling_hours else None),
             top_questions=await self._top_questions(db, assistant, visitor_turns),
+            won=sum(1 for row in requests if row.outcome == AiAssistantRequestOutcome.WON.value),
         )
 
     def service_start(self, db: Session, assistant_id: int, period: ReportPeriod) -> datetime | None:

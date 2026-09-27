@@ -20,7 +20,7 @@ import segno
 from sqlalchemy.orm import Session
 
 from core.config import settings
-from enums.ai_assistant_request import AiAssistantRequestStatus
+from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestStatus
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
 from enums.assistant_widget_language import AssistantWidgetLanguage
@@ -35,6 +35,7 @@ from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
 from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
 from services.ai_assistant.client_space_email import AiAssistantClientSpaceEmail
 from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
+from services.ai_assistant.limits import AiAssistantLimits, AssistantLimit
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_email import RenderedEmail
 from services.ai_assistant.request_service import ai_assistant_request_service
@@ -341,6 +342,44 @@ class AiAssistantClientSpaceService:
         ai_assistant_request_service.mark_dropped(db, request)
         db.refresh(request)
         return request
+
+    def set_outcome(
+        self, db: Session, assistant: AiAssistant, request_id: int, outcome: AiAssistantRequestOutcome | None
+    ) -> AiAssistantRequest | None:
+        """
+        Note what became of one of the assistant's requests: a client won, lost, or cleared.
+
+        Args:
+            db: Active database session.
+            assistant: The assistant the link opens.
+            request_id: The request.
+            outcome: The outcome, or None to clear it.
+
+        Returns:
+            The request, or None when it is not one of this assistant's real requests.
+        """
+        record = self._own_request(db, assistant, request_id)
+        if record is None:
+            return None
+        ai_assistant_request_service.set_outcome(db, record, outcome)
+        return record
+
+    @staticmethod
+    def set_limits(db: Session, assistant: AiAssistant, updates: list[dict[str, Any]]) -> list[AssistantLimit]:
+        """
+        Keep the business's edits of the imposed answers.
+
+        Args:
+            db: Active database session.
+            assistant: The assistant.
+            updates: The edits, as ``{"key", "answer", "enabled"}`` dicts.
+
+        Returns:
+            The limits as they now read.
+        """
+        assistant.limits_json = AiAssistantLimits.clean(updates, assistant.business_name)
+        db.commit()
+        return AiAssistantLimits.effective(assistant)
 
     async def update_settings(self, db: Session, assistant: AiAssistant, fields: dict[str, Any]) -> AiAssistant:
         """

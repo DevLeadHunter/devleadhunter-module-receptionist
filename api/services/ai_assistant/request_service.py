@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import case, func
@@ -23,7 +23,12 @@ from sqlalchemy.orm import Session
 
 from core.database import SessionLocal
 from enums.ai_assistant_photo import AiAssistantPhotoUrgency
-from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus, AiAssistantRequestType
+from enums.ai_assistant_request import (
+    AiAssistantRequestChannel,
+    AiAssistantRequestOutcome,
+    AiAssistantRequestStatus,
+    AiAssistantRequestType,
+)
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
 from models.ai_assistant_conversation import AiAssistantConversation
@@ -240,7 +245,9 @@ class AiAssistantRequestService:
         # A photo attached meanwhile may have made the request urgent: that reading wins over the words.
         db.refresh(request)
         if request.type == AiAssistantRequestType.URGENT.value:
-            analysis = RequestAnalysis(type=AiAssistantRequestType.URGENT, summary=analysis.summary)
+            analysis = RequestAnalysis(
+                type=AiAssistantRequestType.URGENT, summary=analysis.summary, event=analysis.event
+            )
         # Half-days or a slot picked in the widget make it an appointment request, unless the words say it is urgent.
         booked = (
             db.query(AiAssistantAppointment.id)
@@ -258,6 +265,7 @@ class AiAssistantRequestService:
         request_type = self._type_with_photos(analyzed, request)
         request.type = request_type.value
         request.need_summary = analysis.summary or request.need
+        request.event_json = asdict(analysis.event) if analysis.event is not None else None
         db.commit()
         if request.is_test or not self._claim_announcement(db, request):
             return
@@ -405,6 +413,27 @@ class AiAssistantRequestService:
         if request.status != AiAssistantRequestStatus.NEW.value:
             return False
         self._set_status(request, AiAssistantRequestStatus.DROPPED)
+        db.commit()
+        return True
+
+    def set_outcome(self, db: Session, request: AiAssistantRequest, outcome: AiAssistantRequestOutcome | None) -> bool:
+        """
+        Note what became of a request the owner called back: a client won, lost, or nothing yet.
+
+        Args:
+            db: Active database session (committed).
+            request: The request.
+            outcome: The outcome, or None to clear it.
+
+        Returns:
+            True when it changed; False for a request set aside, which has no outcome.
+        """
+        if request.status == AiAssistantRequestStatus.DROPPED.value:
+            return False
+        if request.status == AiAssistantRequestStatus.NEW.value and outcome is not None:
+            self._set_status(request, AiAssistantRequestStatus.HANDLED)
+        request.outcome = outcome.value if outcome is not None else None
+        request.outcome_at = datetime.now(UTC).replace(tzinfo=None) if outcome is not None else None
         db.commit()
         return True
 

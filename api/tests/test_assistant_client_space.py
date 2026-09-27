@@ -7,7 +7,7 @@ called directly.
 
 import asyncio
 from collections.abc import Iterator
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -23,7 +23,7 @@ import services.ai_assistant.client_space_service as client_space_module
 import services.ai_assistant.start_reminders as start_reminders_module
 import services.email_sending_service as email_sending_module
 from core.config import settings
-from enums.ai_assistant_request import AiAssistantRequestType
+from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestType
 from enums.assistant_widget_language import AssistantWidgetLanguage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_report import AiAssistantReport
@@ -34,12 +34,21 @@ from models.user import User
 from schemas.ai_assistant import AiAssistantInstalledPing
 from schemas.ai_assistant_client_space import (
     AiAssistantClientGoogleProfileUpdate,
+    AiAssistantClientLimitsUpdate,
+    AiAssistantClientLimitUpdate,
     AiAssistantClientLinkRequest,
+    AiAssistantClientRequestOutcomeUpdate,
     AiAssistantClientSettingsUpdate,
 )
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.client_links import AiAssistantClientLinks
+from services.ai_assistant.event_intake import AiAssistantEventIntake, EventIntakeContext
+from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
+from services.ai_assistant.limits import AiAssistantLimits
+from services.ai_assistant.report_email import AiAssistantReportEmail
+from services.ai_assistant.report_service import ai_assistant_report_service
 from services.ai_assistant.request_alerts import AlertSms
+from services.ai_assistant.request_analyzer import ai_assistant_request_analyzer
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
 from services.rate_limiter import SlidingWindowRateLimiter
 from services.sms.gsm_segments import segment_count
@@ -610,3 +619,150 @@ def test_start_reminders_go_at_three_and_fourteen_days_while_steps_are_missing(
     assert [item[0] for item in sent] == [sold.id, sold.id]
     assert "il reste 2 étapes" in sent[0][1] and sent[1][1].startswith("Deux semaines")
     assert ready.start_reminder_j3_sent_at is not None and ready.start_reminder_j14_sent_at is not None
+
+
+def test_a_called_back_request_is_marked_won_or_lost_and_the_month_counts_the_clients(db: Session) -> None:
+    assistant = _assistant(db)
+    fresh = _request(db, assistant, created_at=datetime(2026, 9, 14, 8, 5))
+    aside = _request(db, assistant, status="dropped", created_at=datetime(2026, 9, 15, 8, 5))
+
+    def outcome(request_id: int, value: AiAssistantRequestOutcome | None) -> Any:
+        return asyncio.run(
+            routes.set_client_request_outcome(
+                _token(assistant), request_id, AiAssistantClientRequestOutcomeUpdate(outcome=value), VISITOR_REQUEST, db
+            )
+        )
+
+    won = outcome(fresh.id, AiAssistantRequestOutcome.WON)
+    assert (won.status.value, won.outcome) == ("handled", AiAssistantRequestOutcome.WON)
+    stats = asyncio.run(
+        ai_assistant_report_service.compute(db, assistant, start=datetime(2026, 9, 1), end=datetime(2026, 10, 1))
+    )
+    assert (
+        stats.won == 1
+        and AiAssistantReportEmail.won_line(stats, "Sofia") == "Sofia vous a apporté 1 client ce mois-ci."
+    )
+    lost = outcome(fresh.id, AiAssistantRequestOutcome.LOST)
+    assert lost.outcome is AiAssistantRequestOutcome.LOST and lost.status.value == "handled"
+    cleared = outcome(fresh.id, None)
+    assert cleared.outcome is None and cleared.status.value == "handled"
+    untouched = outcome(aside.id, AiAssistantRequestOutcome.WON)
+    assert untouched.status.value == "dropped" and untouched.outcome is None
+    with pytest.raises(HTTPException):
+        outcome(999_999, AiAssistantRequestOutcome.WON)
+
+
+def test_the_client_can_text_its_alert_mobile_once_the_number_is_saved(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assistant = _assistant(db)
+    texted: list[str] = []
+
+    async def fake_test(db_: Session, target: AiAssistant) -> bool:
+        texted.append(target.alert_phone_e164 or "")
+        return True
+
+    monkeypatch.setattr(routes.ai_assistant_request_alerts, "send_test_sms", fake_test)
+    with pytest.raises(HTTPException) as refused:
+        asyncio.run(routes.send_client_test_sms(_token(assistant), VISITOR_REQUEST, db))
+    assert refused.value.status_code == 400 and texted == []
+
+    assistant.alert_phone_e164 = "+33612345678"
+    db.commit()
+    answer = asyncio.run(routes.send_client_test_sms(_token(assistant), VISITOR_REQUEST, db))
+    assert answer.sent is True and answer.to_label == "+33612345678" and texted == ["+33612345678"]
+
+
+def test_the_business_edits_what_its_receptionist_says_on_prices_and_the_prompt_obeys(db: Session) -> None:
+    assistant = _assistant(db)
+
+    page = asyncio.run(routes.get_client_space(_token(assistant), VISITOR_REQUEST, db))
+    assert [limit.key for limit in page.limits] == ["price", "delay", "warranty", "emergency", "area", "payment"]
+    assert all(limit.enabled for limit in page.limits) and "Toitures Morel" in page.limits[0].answer
+
+    edited = asyncio.run(
+        routes.update_client_limits(
+            _token(assistant),
+            AiAssistantClientLimitsUpdate(
+                limits=[
+                    AiAssistantClientLimitUpdate(
+                        key="price", answer="  Comptez entre 80 et 120 € de l'heure,  devis gratuit. "
+                    ),
+                    AiAssistantClientLimitUpdate(key="payment", answer="", enabled=False),
+                    # Sent back untouched by the form: stays the proposed sentence, never frozen as the client's.
+                    AiAssistantClientLimitUpdate(
+                        key="delay", answer=AiAssistantLimits.defaults("Toitures Morel")[1].answer
+                    ),
+                    AiAssistantClientLimitUpdate(key="unknown", answer="x"),
+                ]
+            ),
+            VISITOR_REQUEST,
+            db,
+        )
+    )
+    by_key = {limit.key: limit for limit in edited}
+    assert by_key["price"].answer == "Comptez entre 80 et 120 € de l'heure, devis gratuit."
+    assert by_key["payment"].enabled is False and "Toitures Morel" in by_key["payment"].answer
+    assert "unknown" not in by_key and len(edited) == 6
+    assert [item["key"] for item in assistant.limits_json or []] == ["price", "payment"]
+
+    prompt = ai_assistant_knowledge_builder.render_system_prompt(
+        assistant.knowledge_json or {}, assistant_name="Sofia", limits=AiAssistantLimits.effective(assistant)
+    )
+    assert "SUJETS SENSIBLES" in prompt
+    assert (
+        "- Prix et tarifs : réponds avec les mots de l'entreprise : « Comptez entre 80 et 120 € de l'heure, devis "
+        "gratuit. »" in prompt
+    )
+    # An untouched subject is only a fallback: published prices or delays are still given.
+    assert "- Délai d'intervention : si l'information ne figure pas ci-dessous" in prompt
+    assert "Paiement et acompte" not in prompt
+    bare = ai_assistant_knowledge_builder.render_system_prompt(assistant.knowledge_json or {}, assistant_name="Sofia")
+    assert "SUJETS SENSIBLES" not in bare
+
+
+def test_an_event_trade_gets_the_intake_block_and_the_taken_days_and_its_requests_carry_the_event(
+    db: Session,
+) -> None:
+    assert AiAssistantEventIntake.is_event_trade("Salle de réception") is True
+    assert AiAssistantEventIntake.is_event_trade("Traiteur") is True
+    assert AiAssistantEventIntake.is_event_trade("Couvreur") is False
+    # A whole Saturday and a long evening take their days; a one-hour call does not.
+    taken = AiAssistantEventIntake.taken_days(
+        [
+            (datetime(2027, 6, 11, 22, 0), datetime(2027, 6, 12, 22, 0)),
+            (datetime(2027, 6, 19, 15, 0), datetime(2027, 6, 19, 23, 30)),
+            (datetime(2027, 6, 26, 9, 0), datetime(2027, 6, 26, 10, 0)),
+        ]
+    )
+    assert taken == (date(2027, 6, 12), date(2027, 6, 19))
+    context = EventIntakeContext(busy_days=taken, agenda_known=True)
+    prompt = ai_assistant_knowledge_builder.render_system_prompt({}, assistant_name="Sofia", event_intake=context)
+    assert "ÉVÉNEMENT : quand un visiteur parle" in prompt and "sam. 12/06/2027, sam. 19/06/2027" in prompt
+    blind = AiAssistantEventIntake.prompt_lines(EventIntakeContext(busy_days=(), agenda_known=False))
+    assert any("ne vois pas l'agenda" in line for line in blind)
+
+    details = ai_assistant_request_analyzer.event_of(
+        {"date": " samedi 12 juin 2027 ", "place": None, "guests": "80", "budget": "autour de 8 000 €"}
+    )
+    assert details is not None and (details.date, details.place, details.guests, details.budget) == (
+        "samedi 12 juin 2027",
+        None,
+        80,
+        "autour de 8 000 €",
+    )
+    assert ai_assistant_request_analyzer.event_of({"date": "null", "guests": True}) is None
+    iso = ai_assistant_request_analyzer.event_of({"date": "2027-06-12", "guests": 80})
+    assert iso is not None and iso.date == "samedi 12 juin 2027"
+    assert ai_assistant_request_analyzer.event_of("mariage") is None
+
+    assistant = _assistant(db)
+    _request(db, assistant, event_json={"date": "2027-06-12", "guests": 80, "budget": "8 000 €", "place": None})
+    page = asyncio.run(routes.get_client_space(_token(assistant), VISITOR_REQUEST, db))
+    event = page.requests[0].event
+    assert event is not None and (event.date, event.guests, event.budget, event.place) == (
+        "samedi 12 juin 2027",
+        80,
+        "8 000 €",
+        None,
+    )

@@ -75,6 +75,8 @@ class AiAssistant(Base):
     alert_sms_types: Mapped[list | None] = mapped_column(JSON, nullable=True)
     alert_quiet_start_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
     alert_quiet_end_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # The business's edits of the imposed answers (« prix », « délai »…): [{key, answer, enabled}], NULL = defaults.
+    limits_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
     # The client requires its visitors' data to stay with Mistral (EU): no Groq fallback. NULL = False.
     eu_only: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     # Once sold: when the assistant became the business's (subscription webhook, or « vendu hors Stripe »).

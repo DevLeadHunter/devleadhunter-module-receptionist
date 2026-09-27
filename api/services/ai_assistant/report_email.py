@@ -48,6 +48,8 @@ class MonthlyStats:
     # Mean delay between a request and its « traitée » mark, over the requests marked so far.
     average_handling_hours: float | None
     top_questions: tuple[str, ...]
+    # Requests the owner marked « client gagné » (a field the older reports do not have).
+    won: int = 0
 
     @property
     def is_empty(self) -> bool:
@@ -75,6 +77,7 @@ class MonthlyStats:
             urgent=int(stats_json.get("urgent") or 0),
             photo_requests=int(stats_json.get("photo_requests") or 0),
             handled=int(stats_json.get("handled") or 0),
+            won=int(stats_json.get("won") or 0),
             outside_hours_pct=int(outside_hours) if outside_hours is not None else None,
             languages=tuple(
                 LanguageShare(code=str(share["code"]), share_pct=int(share["share_pct"]))
@@ -223,6 +226,23 @@ class AiAssistantReportEmail:
         return f"{stats.handled} {handled}, en {cls.delay_label(stats.average_handling_hours)} en moyenne."
 
     @staticmethod
+    def won_line(stats: MonthlyStats, assistant_name: str) -> str | None:
+        """
+        The clients-won sentence (« Sofia vous a apporté 3 clients ce mois-ci. »).
+
+        Args:
+            stats: The month's figures.
+            assistant_name: The assistant's first name, escaped by the caller when it goes in HTML.
+
+        Returns:
+            The sentence, or None when no request was marked won.
+        """
+        if not stats.won:
+            return None
+        clients = "client" if stats.won == 1 else "clients"
+        return f"{assistant_name} vous a apporté {stats.won} {clients} ce mois-ci."
+
+    @staticmethod
     def delay_label(hours: float) -> str:
         """A handling delay in words (« moins d'une heure », « 5 h », « 3 jours »), unbreakable."""
         if hours < 1:
@@ -275,6 +295,9 @@ class AiAssistantReportEmail:
         handling = cls.handling_line(stats)
         if handling:
             sections.append(AiAssistantRequestEmail.paragraph(handling))
+        won = cls.won_line(stats, html.escape(content.assistant_name))
+        if won:
+            sections.append(AiAssistantRequestEmail.paragraph(f"<strong>{won}</strong>"))
         if stats.top_questions:
             questions_html = "".join(
                 f'<li style="margin:0 0 6px">{html.escape(question)}</li>' for question in stats.top_questions

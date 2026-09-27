@@ -18,7 +18,13 @@
           >
         </div>
       </div>
-      <div v-if="props.report.languages_line || props.report.handling_line" class="cs-block cs-report__lines">
+      <div
+        v-if="props.report.languages_line || props.report.handling_line || props.report.won_line"
+        class="cs-block cs-report__lines"
+      >
+        <p v-if="props.report.won_line" class="cs-text">
+          <b>{{ props.report.won_line }}</b>
+        </p>
         <p v-if="props.report.languages_line" class="cs-text">
           Langues des conversations : {{ props.report.languages_line }}.
         </p>
@@ -64,6 +70,8 @@ const figures: ComputedRef<ClientSpaceReportFigure[]> = computed((): ClientSpace
   if (report.photo_requests > 0) shown.push({ value: String(report.photo_requests), label: 'avec photo' })
   if (report.urgent > 0) shown.push({ value: String(report.urgent), label: plural(report.urgent, 'urgence') })
   if (report.outside_hours_pct !== null) shown.push({ value: `${report.outside_hours_pct} %`, label: 'hors horaires' })
+  if (report.won > 0)
+    shown.push({ value: String(report.won), label: report.won > 1 ? 'clients gagnés' : 'client gagné' })
   return shown
 })
 

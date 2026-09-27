@@ -50,6 +50,8 @@ export class ClientSpaceRequestUtils {
    * @returns The status label and its tone.
    */
   static status(request: AiAssistantClientRequest): ClientSpaceRequestStatus {
+    if (request.outcome === 'won') return { label: 'Gagnée', tone: 'green' }
+    if (request.outcome === 'lost') return { label: 'Perdue', tone: 'grey' }
     if (request.status === 'handled') return { label: 'Rappelée', tone: 'grey' }
     if (request.status === 'dropped') return { label: 'Sans suite', tone: 'grey' }
     if (request.appointment_booked) return { label: 'RDV pris', tone: 'green' }

@@ -819,6 +819,9 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
 | `POST` | `/ai-assistants/client/{token}/requests/{id}/handled` | Marquer traitée une demande depuis l'espace client |
 | `POST` | `/ai-assistants/client/{token}/requests/{id}/dropped` | Mettre de côté une fausse demande (test, spam, doublon) depuis l'espace client |
 | `PATCH` | `/ai-assistants/client/{token}/settings` | Prénom, langues, mobile d'alerte, SMS / email oui-non |
+| `POST` | `/ai-assistants/client/{token}/requests/{id}/outcome` | Ce qu'est devenue une demande rappelée : `won`, `lost` ou `null` (une demande mise de côté n'en a pas) |
+| `POST` | `/ai-assistants/client/{token}/alerts/test-sms` | Un SMS de test sur le mobile d'alerte enregistré (2 par heure et par assistant) |
+| `PATCH` | `/ai-assistants/client/{token}/limits` | Les réponses imposées (prix, délai, garantie, urgence, zone, paiement) : phrase et interrupteur par sujet |
 | `POST` | `/ai-assistants/client/{token}/google-profile` | Le client dit si l'adresse de la réceptionniste est sur sa fiche Google (étape « Pour démarrer ») |
 | `POST` | `/ai-assistants/public/{slug}/installed` | Le loader signale l'hôte du site où il tourne (`installed_at`, `installed_host` ; jamais le demo host) |
 | `POST` | `/ai-assistants/client/{token}/billing-portal` | Session du portail Stripe Billing (retour sur l'espace) |
@@ -1317,10 +1320,6 @@ module le porte désormais de bout en bout.
 - **Encart « Ce que {prénom} ne fera jamais »** sur `/ia` (prix ou délai non fixés, jamais une personne, photos
   effacées après le devis), tel que le PDF le promet.
 
-Reste : test client complet par Léo (Stripe à 1 € puis remettre 79 € et l'e-mail), R7 boîte mail en variante
-Resend après la campagne V1, R16 intake événement (V2) ; par Léo seul : R15 (vidéo YouTube + justification des
-scopes), L8 première référence, portrait de Sofia.
-
 ## Seizième passage — la réceptionniste suivie jusqu'au bout (27/09, nuit)
 
 - **Canal et variante** sur les liens de la réceptionniste (email `?src=email&v=…`, SMS par le lien court `/s/`),
@@ -1339,3 +1338,32 @@ scopes), L8 première référence, portrait de Sofia.
   est supprimée.
 - Les messages du contexte vidéo parlent de « réceptionniste », et le lien « Configurer mon clip webcam » de la fiche
   mène directement à la section du clip réceptionniste.
+
+## Dix-huitième passage — R16 intake événement, sujets sensibles, clients gagnés, SMS test (28/09, nuit)
+
+- **Intake événement (R16, V2 mariages / traiteurs)** (`services/ai_assistant/event_intake.py`) : un métier
+  d'événement se reconnaît à la catégorie Google (mariage, wedding, banquet, réception, traiteur, événement,
+  séminaire, orchestre, photographe ; pas « domaine » ni « château », des vignobles et des monuments chez Google). Son prompt gagne un bloc « ÉVÉNEMENT », appliqué quand un visiteur parle d'un événement : obtenir la
+  date, le lieu, le nombre d'invités et le budget, une question à la fois, AVANT tout rappel, résumer, puis
+  demander les coordonnées, sans jamais confirmer une réservation ni un prix. Testé avec le vrai modèle le 28/09 :
+  date notée sans être dite libre, budget demandé, puis coordonnées. Agenda connecté : les **jours déjà pris** sur un an (période occupée ≥ 6 h, en heure
+  d'affaires, freebusy Google mis en cache 15 min) sont listés au modèle, qui refuse ces dates et présente les
+  autres comme « pas prises à ce jour, à confirmer ». L'analyseur de demande renvoie aussi `event` (date, lieu,
+  invités, budget) → `ai_assistant_requests.event_json`, affiché dans le détail de l'espace client (bloc
+  « Événement »). Démo : exemple scripté « mariage le 12 juin 2027, 80 invités » pour ces métiers, volume de
+  demandes « un lieu de réception » (traiteur sorti des restaurants).
+- **Sujets sensibles (L7)** (`services/ai_assistant/limits.py`, colonne `ai_assistants.limits_json`) : six sujets
+  (prix, délai, garantie, urgence hors horaires, zone, paiement) avec une phrase par défaut nommant l'entreprise.
+  La phrase par défaut n'est qu'un **repli** (« si l'information ne figure pas ci-dessous ») : les tarifs publiés
+  sur le site ou la fiche restent donnés. Une phrase **réécrite par le client** est dite telle quelle (« réponds avec
+  les mots de l'entreprise »). Écran « Prix, délais, garanties » (`#reglages/limites`) ; un sujet éteint retombe
+  sur les règles générales (ne rien inventer). Le bloc « SUJETS SENSIBLES » suit les règles absolues du prompt.
+- **Clients gagnés (L6)** : après « Rappelé », le client dit « Client gagné » ou « Pas donné suite »
+  (`ai_assistant_requests.outcome` / `outcome_at`, statuts « Gagnée » / « Perdue » dans la liste) ; le rapport
+  mensuel compte `won` et dit « {prénom} vous a apporté N clients ce mois-ci » (email et espace).
+- **SMS test** : bouton « Envoyer un SMS test » sous le mobile d'alerte (numéro enregistré seulement, 2 par heure)
+  via l'expéditeur SMS de l'opérateur.
+
+Reste : test client complet par Léo (Stripe à 1 € puis remettre 79 € et l'e-mail), R7 boîte mail en variante
+Resend après la campagne V1 ; par Léo seul : R15 (vidéo YouTube + justification des scopes), L8 première
+référence, portrait de Sofia.

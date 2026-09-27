@@ -54,6 +54,14 @@
               autocomplete="tel"
             />
           </label>
+          <div v-if="!props.readOnly" class="cs-settings__test">
+            <button type="button" class="cs-btn cs-btn--small" :disabled="!canTestSms" @click="emit('test-sms')">
+              {{ props.testSmsState === 'sending' ? 'Envoi…' : 'Envoyer un SMS test' }}
+            </button>
+            <span class="cs-hint" :class="{ 'cs-hint--error': props.testSmsState === 'failed' }">{{
+              testSmsHint
+            }}</span>
+          </div>
           <template v-if="smsEnabled">
             <p class="cs-label">SMS immédiat pour</p>
             <div class="cs-settings__chips">
@@ -126,6 +134,7 @@ import type {
   AiAssistantClientRequestType,
   AiAssistantClientSettings,
   AiAssistantClientSettingsUpdate,
+  AiAssistantClientTestSmsState,
 } from '~/types/AiAssistantClientSpace'
 import type {
   ClientSpaceSettingsEmits,
@@ -147,6 +156,8 @@ const HOURS: number[] = Array.from({ length: 24 }, (_: unknown, hour: number): n
  * @param errorMessage Why the last save was refused, if it was.
  * @param hasSaved The last save went through.
  * @param readOnly The example space: shown, never saved.
+ * @param testSmsState Where the test SMS to the saved mobile stands.
+ * @param testSmsMessage What the API said of the test SMS, if anything.
  */
 const props: ClientSpaceSettingsProps = defineProps({
   part: { type: String as PropType<ClientSpaceSettingsPart>, required: true },
@@ -156,6 +167,8 @@ const props: ClientSpaceSettingsProps = defineProps({
   errorMessage: { type: String as PropType<string | null>, default: null },
   hasSaved: { type: Boolean, default: false },
   readOnly: { type: Boolean, default: false },
+  testSmsState: { type: String as PropType<AiAssistantClientTestSmsState>, default: 'idle' },
+  testSmsMessage: { type: String as PropType<string | null>, default: null },
 })
 
 const emit: EmitFn<ClientSpaceSettingsEmits> = defineEmits<ClientSpaceSettingsEmits>()
@@ -193,6 +206,23 @@ const changes: ComputedRef<AiAssistantClientSettingsUpdate> = computed((): AiAss
 })
 
 const hasChanges: ComputedRef<boolean> = computed((): boolean => Object.keys(changes.value).length > 0)
+
+/** The test goes to the saved mobile: not while the number typed differs from it, nor without one. */
+const canTestSms: ComputedRef<boolean> = computed(
+  (): boolean =>
+    Boolean(props.settings.alert_phone) &&
+    changes.value.alert_phone === undefined &&
+    props.testSmsState !== 'sending' &&
+    !props.isSaving,
+)
+
+const testSmsHint: ComputedRef<string> = computed((): string => {
+  if (!props.settings.alert_phone) return 'Enregistrez d’abord votre mobile.'
+  if (changes.value.alert_phone !== undefined) return 'Enregistrez le nouveau numéro avant le test.'
+  if (props.testSmsState === 'sent') return props.testSmsMessage ?? 'SMS envoyé.'
+  if (props.testSmsState === 'failed') return props.testSmsMessage ?? 'Envoi impossible pour le moment.'
+  return 'Un SMS pour vérifier que vos alertes arrivent bien.'
+})
 
 // Languages set only by the operator (not offered here) stay on the server: an empty choice is refused only
 // when the client emptied it.
@@ -242,6 +272,16 @@ watch(
 </script>
 
 <style scoped>
+.cs-settings__test {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.cs-hint--error {
+  color: var(--cs-red);
+}
+
 .cs-settings {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

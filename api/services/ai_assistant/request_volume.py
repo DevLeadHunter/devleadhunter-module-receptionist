@@ -41,6 +41,11 @@ class AiAssistantRequestVolume:
     DEFAULT: ClassVar[TradeVolume] = TradeVolume(label="un commerce comme le vôtre", monthly_requests=20)
     # Accent-free word starts, checked in order: the first trade with a word of the category starting so wins.
     _TRADES: ClassVar[tuple[tuple[tuple[str, ...], TradeVolume], ...]] = (
+        # First: a caterer is an event trade before being a restaurant.
+        (
+            ("mariage", "banquet", "recept", "traiteur", "evenement", "seminaire"),
+            TradeVolume(label="un lieu de réception", monthly_requests=25),
+        ),
         (("plomb", "chauffag", "sanitaire"), TradeVolume(label="un plombier", monthly_requests=30)),
         (("serrur",), TradeVolume(label="un serrurier", monthly_requests=30)),
         (("electric",), TradeVolume(label="un électricien", monthly_requests=20)),
@@ -63,7 +68,7 @@ class AiAssistantRequestVolume:
         (("coiff", "barbier", "barber"), TradeVolume(label="un salon de coiffure", monthly_requests=40)),
         (("esthetic", "beaute", "onglerie"), TradeVolume(label="un institut de beauté", monthly_requests=35)),
         (
-            ("restaurant", "pizzeria", "brasserie", "traiteur"),
+            ("restaurant", "pizzeria", "brasserie"),
             TradeVolume(label="un restaurant", monthly_requests=40),
         ),
         (("immobili",), TradeVolume(label="une agence immobilière", monthly_requests=25)),

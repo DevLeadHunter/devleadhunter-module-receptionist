@@ -102,6 +102,7 @@
               :show-back="!isWide"
               @handled="markHandled"
               @dropped="markDropped"
+              @outcome="setOutcome"
               @back="closeDetail"
             />
             <ClientSpaceQuestion
@@ -171,8 +172,22 @@
               :is-saving="isSavingSettings"
               :error-message="settingsError"
               :has-saved="hasSavedSettings"
+              :test-sms-state="testSmsState"
+              :test-sms-message="testSmsMessage"
               :read-only="isExample"
+              @test-sms="sendTestSms"
               @save="saveSettings"
+            />
+
+            <ClientSpaceLimits
+              v-else-if="location.settingsScreen === 'limits'"
+              :limits="space.limits"
+              :assistant-name="space.assistant_name"
+              :is-saving="isSavingLimits"
+              :error-message="limitsError"
+              :has-saved="hasSavedLimits"
+              :read-only="isExample"
+              @save="saveLimits"
             />
 
             <ClientSpaceLearnedAnswers
@@ -385,10 +400,13 @@ import type {
   AiAssistantClientCalendarUpdate,
   AiAssistantClientFaqResponse,
   AiAssistantClientGoogleProfile,
+  AiAssistantClientLimit,
+  AiAssistantClientLimitUpdate,
   AiAssistantClientPortal,
   AiAssistantClientRenew,
   AiAssistantClientRenewState,
   AiAssistantClientRequest,
+  AiAssistantClientRequestOutcome,
   AiAssistantClientSettings,
   AiAssistantClientSettingsUpdate,
   AiAssistantClientSpace,
@@ -396,6 +414,8 @@ import type {
   AiAssistantClientSpaceState,
   AiAssistantClientSubscription,
   AiAssistantClientSubscriptionStatus,
+  AiAssistantClientTestSms,
+  AiAssistantClientTestSmsState,
   AiAssistantClientUnansweredEntry,
 } from '~/types/AiAssistantClientSpace'
 import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
@@ -419,6 +439,7 @@ const SETTINGS_TITLES: Record<ClientSpaceSettingsScreen, string> = {
   learned: 'Ce que vous lui avez appris',
   report: 'Rapport du mois',
   subscription: 'Abonnement',
+  limits: 'Prix, délais, garanties',
   google: 'Votre fiche Google',
   install: 'Sur votre site',
   help: 'Aide',
@@ -493,6 +514,11 @@ const calendarError: Ref<string | null> = ref(null)
 const hasSavedCalendar: Ref<boolean> = ref(false)
 const copiedKey: Ref<ClientSpaceCopyKey | null> = ref(null)
 const isSavingGoogle: Ref<boolean> = ref(false)
+const isSavingLimits: Ref<boolean> = ref(false)
+const limitsError: Ref<string | null> = ref(null)
+const hasSavedLimits: Ref<boolean> = ref(false)
+const testSmsState: Ref<AiAssistantClientTestSmsState> = ref('idle')
+const testSmsMessage: Ref<string | null> = ref(null)
 const googleError: Ref<string | null> = ref(null)
 // Google opened in another tab: the space reloads when the client comes back to this one.
 const isAwaitingCalendar: Ref<boolean> = ref(false)
@@ -683,14 +709,18 @@ function replaceRequest(updated: AiAssistantClientRequest): void {
  * @param action « handled » or « dropped ».
  * @returns A promise resolved once the API answered.
  */
-async function changeRequest(requestId: number, action: 'handled' | 'dropped'): Promise<void> {
+async function changeRequest(
+  requestId: number,
+  action: 'handled' | 'dropped' | 'outcome',
+  body: Record<string, unknown> | undefined = undefined,
+): Promise<void> {
   if (!space.value || busyRequestId.value !== null) return
   busyRequestId.value = requestId
   actionError.value = null
   try {
     const updated: AiAssistantClientRequest = await $fetch<AiAssistantClientRequest>(
       `${endpoint.value}/requests/${requestId}/${action}`,
-      { method: 'POST' },
+      { method: 'POST', body },
     )
     replaceRequest(updated)
   } catch (error: unknown) {
@@ -716,6 +746,39 @@ async function markHandled(requestId: number): Promise<void> {
  */
 async function markDropped(requestId: number): Promise<void> {
   await changeRequest(requestId, 'dropped')
+}
+
+/**
+ * Say what became of a request called back: a client won, lost, or nothing yet.
+ * @param requestId The request.
+ * @param outcome The outcome, or null to clear it.
+ * @returns A promise resolved once the API answered.
+ */
+async function setOutcome(requestId: number, outcome: AiAssistantClientRequestOutcome | null): Promise<void> {
+  await changeRequest(requestId, 'outcome', { outcome })
+}
+
+/**
+ * Text the saved alert mobile once, so the client sees the alerts arrive.
+ * @returns A promise resolved once the API answered.
+ */
+async function sendTestSms(): Promise<void> {
+  if (testSmsState.value === 'sending') return
+  testSmsState.value = 'sending'
+  testSmsMessage.value = null
+  try {
+    const answer: AiAssistantClientTestSms = await $fetch<AiAssistantClientTestSms>(
+      `${endpoint.value}/alerts/test-sms`,
+      {
+        method: 'POST',
+      },
+    )
+    testSmsState.value = answer.sent ? 'sent' : 'failed'
+    testSmsMessage.value = answer.sent ? `SMS envoyé au ${answer.to_label ?? 'mobile enregistré'}.` : answer.reason
+  } catch (error: unknown) {
+    testSmsState.value = 'failed'
+    testSmsMessage.value = failureMessage(error, 'Envoi impossible pour le moment.')
+  }
 }
 
 /**
@@ -803,6 +866,30 @@ async function saveSettings(update: AiAssistantClientSettingsUpdate): Promise<vo
     settingsError.value = failureMessage(error, 'Enregistrement impossible, réessayez dans un instant.')
   } finally {
     isSavingSettings.value = false
+  }
+}
+
+/**
+ * Keep the business's edits of what the receptionist says on prices, delays, warranties.
+ * @param updates Every subject, as edited.
+ * @returns A promise resolved once the API answered.
+ */
+async function saveLimits(updates: AiAssistantClientLimitUpdate[]): Promise<void> {
+  const current: AiAssistantClientSpace | null = space.value
+  if (!current || isSavingLimits.value) return
+  isSavingLimits.value = true
+  limitsError.value = null
+  hasSavedLimits.value = false
+  try {
+    current.limits = await $fetch<AiAssistantClientLimit[]>(`${endpoint.value}/limits`, {
+      method: 'PATCH',
+      body: { limits: updates },
+    })
+    hasSavedLimits.value = true
+  } catch (error: unknown) {
+    limitsError.value = failureMessage(error, 'Enregistrement impossible, réessayez dans un instant.')
+  } finally {
+    isSavingLimits.value = false
   }
 }
 
@@ -1001,6 +1088,10 @@ watch(
   (): void => {
     hasSavedSettings.value = false
     settingsError.value = null
+    testSmsState.value = 'idle'
+    testSmsMessage.value = null
+    hasSavedLimits.value = false
+    limitsError.value = null
   },
 )
 

@@ -54,9 +54,11 @@ from services.ai_assistant.calendar_service import ai_assistant_calendar_service
 from services.ai_assistant.chat_service import ChatAnswer, ai_assistant_chat_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
+from services.ai_assistant.event_intake import ai_assistant_event_intake
 from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.follow_up_marker import MAX_FOLLOW_UP_CHARS
 from services.ai_assistant.installation_service import ai_assistant_installation_service
+from services.ai_assistant.limits import AiAssistantLimits
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.photo_service import (
     MAX_PHOTO_BYTES,
@@ -272,6 +274,8 @@ async def chat_with_assistant(
     languages = assistant.languages
     tone = assistant.tone
     eu_only = bool(assistant.eu_only)
+    limits = AiAssistantLimits.effective(assistant)
+    event_intake = await ai_assistant_event_intake.context(db, assistant)
     # The model may take tens of seconds: the pool connection goes back meanwhile (the journal opens its own).
     db.commit()
     answer = await ai_assistant_chat_service.answer(
@@ -281,6 +285,8 @@ async def chat_with_assistant(
         tone=tone,
         history=history,
         eu_only=eu_only,
+        limits=limits,
+        event_intake=event_intake,
     )
     _journal_turn(db, assistant, slug=slug, payload=payload, answer=answer)
     return AiAssistantChatResponse(
@@ -307,6 +313,8 @@ async def stream_chat_with_assistant(
     languages = assistant.languages
     tone = assistant.tone
     eu_only = bool(assistant.eu_only)
+    limits = AiAssistantLimits.effective(assistant)
+    event_intake = await ai_assistant_event_intake.context(db, assistant)
     offer_booking = ai_assistant_chat_service.asks_for_appointment(history[-1]["content"])
     # The model may take tens of seconds: the pool connection goes back meanwhile (the journal opens its own).
     db.commit()
@@ -320,6 +328,8 @@ async def stream_chat_with_assistant(
             tone=tone,
             history=history,
             eu_only=eu_only,
+            limits=limits,
+            event_intake=event_intake,
         ):
             if delta.final is not None:
                 answer = delta.final

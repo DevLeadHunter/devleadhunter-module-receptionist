@@ -15,9 +15,21 @@ type TradeExample = {
   photo: string | null
   /** « samedi matin », empty when the example is not an appointment. */
   slots: string
+  /** An event trade (wedding venue, caterer): the script collects the date, the guests, the budget. */
+  isEvent?: boolean
 }
 
 const TRADE_EXAMPLES: TradeExample[] = [
+  {
+    keywords: ['mariage', 'banquet', 'recept', 'traiteur', 'evenement', 'seminaire'],
+    need: 'mariage le samedi 12 juin 2027, 80 invités, tout sur place, autour de 8 000 €',
+    opening: 'Bonsoir, nous nous marions le samedi 12 juin 2027 : est-ce encore possible chez vous ? Nous serions 80.',
+    kind: 'quote',
+    hasPhoto: false,
+    photo: null,
+    slots: '',
+    isEvent: true,
+  },
   {
     keywords: ['couvreur', 'toiture', 'charpent', 'zingu'],
     need: 'fuite après la tempête, tuiles déplacées côté rue',
@@ -230,6 +242,20 @@ export class AssistantDemoScenarioUtils {
     // The shared script of the other languages is a leak under a sink: its photo goes with it.
     const photoFile: string | null = lang === 'fr' ? match.photo : 'plomberie'
     const photoUrl: string | null = photoFile ? `/showroom/examples/${photoFile}.jpg` : null
+    if (lang === 'fr' && match.isEvent) {
+      return [
+        { role: 'user', content: opening },
+        {
+          role: 'assistant',
+          content: `Félicitations ! Je note le samedi 12 juin 2027 : ${businessName} vérifie la date dans son agenda et vous la confirme. Pour préparer une proposition : tout sur place, cérémonie, repas et soirée, ou seulement le repas ?`,
+        },
+        { role: 'user', content: 'Tout sur place, avec un budget autour de 8 000 €.' },
+        {
+          role: 'assistant',
+          content: `C'est noté : un mariage le samedi 12 juin 2027, 80 invités, tout sur place, autour de 8 000 €. Laissez-moi votre prénom et un téléphone : ${businessName} vous rappelle avec une proposition.`,
+        },
+      ]
+    }
     if (lang === 'fr' && match.kind === 'appointment') {
       const when: string = match.slots
         ? `${match.slots.charAt(0).toUpperCase()}${match.slots.slice(1)} si possible`

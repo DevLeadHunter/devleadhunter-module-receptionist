@@ -44,11 +44,16 @@ class AiAssistantRequest(Base):
     photos_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
     # Half-days wished for an appointment (« [{"date": "2026-09-28", "period": "morning"}] »), picked in the widget.
     appointment_slots_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # An event request's details (« {date, place, guests, budget} »), as the analyzer read them.
+    event_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # NULL when the business hours are unknown — never counted as « hors horaires » by default.
     received_outside_hours: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     # Left from a « ?internal=1 » visit (the operator testing): recorded, never announced, out of the KPIs.
     is_test: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     owner_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # What became of the request once called back: « won » / « lost », NULL until the owner says.
+    outcome: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    outcome_at: Mapped[datetime | None] = mapped_column(nullable=True)
     handled_at: Mapped[datetime | None] = mapped_column(nullable=True)
     owner_notified_at: Mapped[datetime | None] = mapped_column(nullable=True)
     # When the business owner's alerts were routed (sold assistant only): reminders follow from it.

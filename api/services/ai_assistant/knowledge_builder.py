@@ -18,8 +18,10 @@ from typing import Any
 from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from enums.assistant_knowledge_source import AssistantKnowledgeSource
 from services.ai_assistant.config_builder import ai_assistant_config_builder
+from services.ai_assistant.event_intake import AiAssistantEventIntake, EventIntakeContext
 from services.ai_assistant.faq_service import FaqEntry, ai_assistant_faq_service
 from services.ai_assistant.knowledge_budget import AiAssistantKnowledgeBudget, KnowledgePassage, KnowledgeSourceText
+from services.ai_assistant.limits import AiAssistantLimits, AssistantLimit
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.french_date_formatter import FrenchDateFormatter
 from services.templates.site_content import (
@@ -151,6 +153,8 @@ class AiAssistantKnowledgeBuilder:
         tone: str | None = None,
         now: datetime | None = None,
         question: str | None = None,
+        limits: list[AssistantLimit] | None = None,
+        event_intake: EventIntakeContext | None = None,
     ) -> str:
         """Render the French system prompt that grounds the assistant on ``knowledge``.
 
@@ -163,6 +167,8 @@ class AiAssistantKnowledgeBuilder:
             now: The business's current local time; defaults to the clock in the business timezone.
             question: The visitor's latest message: when the website and the documents exceed the prompt's
                 budget, the passages closest to it are kept.
+            limits: The imposed answers (prices, delays…), said as they are on their subjects.
+            event_intake: For an event trade, what to collect and the days already taken in the agenda.
 
         Returns:
             The system prompt string.
@@ -228,6 +234,12 @@ class AiAssistantKnowledgeBuilder:
         ]
         if tone:
             lines.append(f"- Ton : {tone}.")
+        if limits:
+            lines.append("")
+            lines.extend(AiAssistantLimits.prompt_lines(limits))
+        if event_intake is not None:
+            lines.append("")
+            lines.extend(AiAssistantEventIntake.prompt_lines(event_intake))
 
         # The Google listing (and the site prepared from it) and the website can be switched off; a document has
         # its own switch and only the enabled ones are in ``documents``.

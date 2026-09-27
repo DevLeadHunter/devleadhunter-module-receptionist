@@ -1,4 +1,4 @@
-import type { AiAssistantClientRequest } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientRequest, AiAssistantClientRequestOutcome } from '~/types/AiAssistantClientSpace'
 
 /** Props of the client-space request detail. */
 export type ClientSpaceRequestDetailProps = {
@@ -12,9 +12,16 @@ export type ClientSpaceRequestDetailProps = {
   showBack: boolean
 }
 
+/** One line of the event block: what the visitor said of the date, the place, the guests or the budget. */
+export type ClientSpaceRequestEventRow = {
+  label: string
+  value: string
+}
+
 /** Events of the ClientSpaceRequestDetail component. */
 export type ClientSpaceRequestDetailEmits = {
   handled: [requestId: number]
   dropped: [requestId: number]
+  outcome: [requestId: number, outcome: AiAssistantClientRequestOutcome | null]
   back: []
 }

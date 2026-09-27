@@ -34,6 +34,16 @@
         <p class="cs-text">{{ props.request.summary || 'Le visiteur n’a pas laissé de message.' }}</p>
       </div>
 
+      <template v-if="eventRows.length > 0">
+        <p class="cs-sec">Événement</p>
+        <div class="cs-block">
+          <p v-for="row in eventRows" :key="row.label" class="cs-cell cs-detail__event">
+            <span class="cs-detail__event-label">{{ row.label }}</span>
+            <b>{{ row.value }}</b>
+          </p>
+        </div>
+      </template>
+
       <template v-if="props.request.appointment_booked">
         <p class="cs-sec">Rendez-vous</p>
         <div class="cs-block">
@@ -85,6 +95,40 @@
       >
         <ClientSpaceIcon name="check" />{{ props.isBusy ? 'Un instant…' : isPhone ? 'Rappelé' : 'Répondu' }}
       </button>
+      <template v-else-if="props.request.status === 'handled'">
+        <p v-if="props.request.outcome" class="cs-detail__done">
+          {{ outcomeLabel }}
+          <button
+            type="button"
+            class="cs-quiet cs-detail__change"
+            :disabled="props.isBusy"
+            @click="emit('outcome', props.request.id, null)"
+          >
+            Changer
+          </button>
+        </p>
+        <template v-else>
+          <p class="cs-detail__done">{{ doneLabel }} Et ensuite ?</p>
+          <div class="cs-detail__outcome">
+            <button
+              type="button"
+              class="cs-btn"
+              :disabled="props.isBusy"
+              @click="emit('outcome', props.request.id, 'won')"
+            >
+              <ClientSpaceIcon name="check" />Client gagné
+            </button>
+            <button
+              type="button"
+              class="cs-btn"
+              :disabled="props.isBusy"
+              @click="emit('outcome', props.request.id, 'lost')"
+            >
+              Pas donné suite
+            </button>
+          </div>
+        </template>
+      </template>
       <p v-else class="cs-detail__done">{{ doneLabel }}</p>
       <button
         v-if="isPending"
@@ -102,8 +146,12 @@
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType } from 'vue'
 import { computed } from 'vue'
-import type { AiAssistantClientRequest } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceRequestDetailEmits, ClientSpaceRequestDetailProps } from '~/types/ClientSpaceRequestDetail'
+import type { AiAssistantClientEvent, AiAssistantClientRequest } from '~/types/AiAssistantClientSpace'
+import type {
+  ClientSpaceRequestDetailEmits,
+  ClientSpaceRequestDetailProps,
+  ClientSpaceRequestEventRow,
+} from '~/types/ClientSpaceRequestDetail'
 import type { ClientSpaceRequestStatus } from '~/types/ClientSpaceRequestList'
 import { ClientSpaceRequestUtils } from '~/utils/ClientSpaceRequestUtils'
 import { ContactLinkUtils } from '~/utils/ContactLinkUtils'
@@ -111,7 +159,7 @@ import { ContactLinkUtils } from '~/utils/ContactLinkUtils'
 /**
  * One request in full: the visitor, its contact as the first thing to tap, its message, its appointment or wished
  * half-days, its photos in full width. One main button (call or write), « Rappelé » second, and a quiet way to set a
- * false request aside.
+ * false request aside. Once called back, the business says what became of it: a client won, or not.
  * @param request The request.
  * @param isBusy A call about this request is in flight.
  * @param errorMessage Why the last call was refused, if it was.
@@ -146,8 +194,25 @@ const photosLabel: ComputedRef<string> = computed((): string =>
   props.request.photo_urls.length === 1 ? 'Photo' : `${props.request.photo_urls.length} photos`,
 )
 
+/** The event's details as rows (date, place, guests, budget), only the ones the visitor gave. */
+const eventRows: ComputedRef<ClientSpaceRequestEventRow[]> = computed((): ClientSpaceRequestEventRow[] => {
+  const event: AiAssistantClientEvent | null = props.request.event
+  if (!event) return []
+  const rows: ClientSpaceRequestEventRow[] = []
+  if (event.date) rows.push({ label: 'Date', value: event.date })
+  if (event.place) rows.push({ label: 'Lieu', value: event.place })
+  if (event.guests !== null) rows.push({ label: 'Invités', value: String(event.guests) })
+  if (event.budget) rows.push({ label: 'Budget', value: event.budget })
+  return rows
+})
+
 const doneLabel: ComputedRef<string> = computed((): string =>
   props.request.status === 'dropped' ? 'Mise de côté.' : isPhone.value ? 'Rappelé.' : 'Répondu.',
+)
+
+/** What became of the request, after the call back (« Rappelé. Client gagné. »). */
+const outcomeLabel: ComputedRef<string> = computed(
+  (): string => `${doneLabel.value} ${props.request.outcome === 'won' ? 'Client gagné.' : 'Pas donné suite.'}`,
 )
 </script>
 
@@ -161,6 +226,26 @@ const doneLabel: ComputedRef<string> = computed((): string =>
 .cs-detail__body {
   flex: 1;
   padding-bottom: 16px;
+}
+
+.cs-detail__event {
+  justify-content: space-between;
+}
+
+.cs-detail__event-label {
+  color: var(--cs-dim);
+}
+
+.cs-detail__outcome {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.cs-detail__change {
+  margin-left: 8px;
+  padding: 0;
+  font-size: 13px;
 }
 
 .cs-head__status--red {

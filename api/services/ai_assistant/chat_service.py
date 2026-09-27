@@ -16,8 +16,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from enums.assistant_llm import AssistantLlmUsage
+from services.ai_assistant.event_intake import EventIntakeContext
 from services.ai_assistant.follow_up_marker import FollowUpMarker, FollowUpMarkerStream
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
+from services.ai_assistant.limits import AssistantLimit
 from services.ai_assistant.llm_router import assistant_llm_router
 from services.ai_assistant.missing_info_marker import (
     MissingInfoMarker,
@@ -109,6 +111,8 @@ class AiAssistantChatService:
         languages: list[str] | None = None,
         tone: str | None = None,
         eu_only: bool = False,
+        limits: list[AssistantLimit] | None = None,
+        event_intake: EventIntakeContext | None = None,
     ) -> ChatAnswer:
         """Answer the latest visitor message, grounded strictly on ``knowledge``.
 
@@ -128,7 +132,15 @@ class AiAssistantChatService:
         # Only a conversation ending on the visitor's message is a question to answer (the models refuse others).
         if not turns or turns[-1]["role"] != "user":
             return ChatAnswer(reply=_FALLBACK_REPLY)
-        messages = self._messages(knowledge, assistant_name=assistant_name, languages=languages, tone=tone, turns=turns)
+        messages = self._messages(
+            knowledge,
+            assistant_name=assistant_name,
+            languages=languages,
+            tone=tone,
+            turns=turns,
+            limits=limits,
+            event_intake=event_intake,
+        )
         raw = await assistant_llm_router.chat(AssistantLlmUsage.CHAT, messages, eu_only=eu_only)
         reply, question = MissingInfoMarker.split(clean_model_text(raw or ""))
         reply, follow_ups = FollowUpMarker.split(reply)
@@ -147,6 +159,8 @@ class AiAssistantChatService:
         languages: list[str] | None = None,
         tone: str | None = None,
         eu_only: bool = False,
+        limits: list[AssistantLimit] | None = None,
+        event_intake: EventIntakeContext | None = None,
     ) -> AsyncIterator[ChatDelta]:
         """Answer the latest visitor message as it is written, grounded strictly on ``knowledge``.
 
@@ -167,7 +181,15 @@ class AiAssistantChatService:
             yield ChatDelta(text=_FALLBACK_REPLY)
             yield ChatDelta(final=ChatAnswer(reply=_FALLBACK_REPLY))
             return
-        messages = self._messages(knowledge, assistant_name=assistant_name, languages=languages, tone=tone, turns=turns)
+        messages = self._messages(
+            knowledge,
+            assistant_name=assistant_name,
+            languages=languages,
+            tone=tone,
+            turns=turns,
+            limits=limits,
+            event_intake=event_intake,
+        )
         marker = MissingInfoMarkerStream()
         follow_ups = FollowUpMarkerStream()
         async for chunk in assistant_llm_router.chat_stream(AssistantLlmUsage.CHAT, messages, eu_only=eu_only):
@@ -205,12 +227,20 @@ class AiAssistantChatService:
         languages: list[str] | None,
         tone: str | None,
         turns: list[dict[str, Any]],
+        limits: list[AssistantLimit] | None = None,
+        event_intake: EventIntakeContext | None = None,
     ) -> list[dict[str, Any]]:
         """The grounded system prompt followed by the conversation, its size logged."""
         visitor_messages = [turn["content"] for turn in turns if turn["role"] == "user"]
         question = "\n".join(visitor_messages[-QUESTION_MESSAGES:])
         system_prompt = ai_assistant_knowledge_builder.render_system_prompt(
-            knowledge, assistant_name=assistant_name, languages=languages, tone=tone, question=question
+            knowledge,
+            assistant_name=assistant_name,
+            languages=languages,
+            tone=tone,
+            question=question,
+            limits=limits,
+            event_intake=event_intake,
         )
         identity = knowledge.get("identity") if isinstance(knowledge.get("identity"), dict) else {}
         business_name = identity.get("business_name") or "?"

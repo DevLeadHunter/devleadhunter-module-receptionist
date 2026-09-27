@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from core.config import settings
-from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
+from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestStatus, AiAssistantRequestType
 from enums.assistant_calendar_status import AssistantCalendarConnection
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
 from enums.assistant_widget_language import AssistantWidgetLanguage
@@ -20,6 +20,7 @@ from schemas.ai_assistant_client_space import (
     AiAssistantClientCalendar,
     AiAssistantClientGoogleProfile,
     AiAssistantClientLanguageOption,
+    AiAssistantClientLimit,
     AiAssistantClientReport,
     AiAssistantClientRequestItem,
     AiAssistantClientSettings,
@@ -32,6 +33,7 @@ from services.ai_assistant.client_links import AiAssistantClientLinks
 from services.ai_assistant.client_space_service import AiAssistantClientSpaceService
 from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
+from services.ai_assistant.limits import AiAssistantLimits
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.french_date_formatter import FrenchDateFormatter
 
@@ -73,6 +75,10 @@ class AiAssistantClientSpaceExample:
             embed_snippet=AiAssistantEmbedSnippet.render("toitures-morel"),
             google_profile=AiAssistantClientSpaceExample._google_profile(),
             installed=None,
+            limits=[
+                AiAssistantClientLimit(key=limit.key, topic=limit.topic, answer=limit.answer, enabled=limit.enabled)
+                for limit in AiAssistantLimits.defaults(_BUSINESS_NAME)
+            ],
             pending_count=2,
             requests=[
                 AiAssistantClientRequestItem(
@@ -115,6 +121,7 @@ class AiAssistantClientSpaceExample:
                     received_day=f"{earlier:%Y-%m-%d}",
                     received_time="08:05",
                     received_outside_hours=False,
+                    outcome=AiAssistantRequestOutcome.WON,
                 ),
             ],
             report=AiAssistantClientReport(
@@ -128,6 +135,8 @@ class AiAssistantClientSpaceExample:
                 outside_hours_pct=58,
                 languages_line="français 90 %, anglais 10 %",
                 handling_line="12 demandes marquées traitées, en 3 h en moyenne.",
+                won=4,
+                won_line=f"{_ASSISTANT_NAME} vous a apporté 4 clients ce mois-ci.",
                 top_questions=[
                     "Intervenez-vous sur les toits en ardoise ?",
                     "Faites-vous le démoussage ?",

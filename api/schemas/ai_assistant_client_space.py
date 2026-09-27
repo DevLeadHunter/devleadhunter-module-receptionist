@@ -5,11 +5,20 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints
 
-from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
+from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestStatus, AiAssistantRequestType
 from enums.assistant_calendar_status import AssistantCalendarConnection
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
 from enums.assistant_widget_language import AssistantWidgetLanguage
 from schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantUnansweredEntry
+
+
+class AiAssistantClientEvent(BaseModel):
+    """What an event request said of the event; each field None until the visitor gave it."""
+
+    date: str | None = None
+    place: str | None = None
+    guests: int | None = None
+    budget: str | None = None
 
 
 class AiAssistantClientRequestItem(BaseModel):
@@ -32,6 +41,47 @@ class AiAssistantClientRequestItem(BaseModel):
     appointment_slots: list[str] = Field(default_factory=list)
     # The appointment booked in the agenda (« mar. 29/09 à 14:30 (Révision) »).
     appointment_booked: str | None = None
+    # What became of the request once called back: a client won, lost, or nothing said yet.
+    outcome: AiAssistantRequestOutcome | None = None
+    # The event described, for a wedding, a reception, a catering request.
+    event: AiAssistantClientEvent | None = None
+
+
+class AiAssistantClientRequestOutcomeUpdate(BaseModel):
+    """The business says what became of a request it called back; None clears it."""
+
+    outcome: AiAssistantRequestOutcome | None = None
+
+
+class AiAssistantClientLimit(BaseModel):
+    """A sensitive subject and the sentence the receptionist says on it, as the business set it."""
+
+    key: str
+    topic: str
+    answer: str
+    enabled: bool = True
+
+
+class AiAssistantClientLimitUpdate(BaseModel):
+    """The business's edit of one subject."""
+
+    key: str = Field(min_length=1, max_length=32)
+    answer: str = Field(default="", max_length=300)
+    enabled: bool = True
+
+
+class AiAssistantClientLimitsUpdate(BaseModel):
+    """The business's edits of its receptionist's imposed answers."""
+
+    limits: list[AiAssistantClientLimitUpdate] = Field(default_factory=list, max_length=20)
+
+
+class AiAssistantClientTestSms(BaseModel):
+    """Whether the test SMS left for the client's alert mobile."""
+
+    sent: bool
+    to_label: str | None = None
+    reason: str | None = None
 
 
 class AiAssistantClientReport(BaseModel):
@@ -49,6 +99,9 @@ class AiAssistantClientReport(BaseModel):
     languages_line: str | None = None
     handling_line: str | None = None
     top_questions: list[str] = Field(default_factory=list)
+    # Requests the business marked « client gagné », and the sentence that says it.
+    won: int = 0
+    won_line: str | None = None
 
 
 class AiAssistantClientSubscription(BaseModel):
@@ -175,6 +228,8 @@ class AiAssistantClientSpaceResponse(BaseModel):
     google_profile: AiAssistantClientGoogleProfile | None = None
     # The widget seen on the business's site, once the line is pasted; None until then.
     installed: AiAssistantClientInstalled | None = None
+    # What the receptionist never improvises: the imposed answers, as the business set them.
+    limits: list[AiAssistantClientLimit] = Field(default_factory=list)
 
 
 class AiAssistantClientSettingsUpdate(BaseModel):

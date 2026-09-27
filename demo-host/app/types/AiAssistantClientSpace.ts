@@ -6,6 +6,9 @@ export type AiAssistantClientRequestType = 'question' | 'quote' | 'appointment' 
 /** Where the business is with a request. */
 export type AiAssistantClientRequestStatus = 'new' | 'handled' | 'dropped'
 
+/** What became of a request once called back: a client won, or not. */
+export type AiAssistantClientRequestOutcome = 'won' | 'lost'
+
 /**
  * One request as its client sees it; `received_label` is already in business time (« 14/09 à 10:05 »),
  * `appointment_slots` are the wished half-days of an appointment request (« lun. 28/09, matin »), to confirm,
@@ -26,6 +29,18 @@ export type AiAssistantClientRequest = {
   photo_urls: string[]
   appointment_slots: string[]
   appointment_booked: string | null
+  /** What became of the request once called back; null until the business says. */
+  outcome: AiAssistantClientRequestOutcome | null
+  /** The event described, for a wedding, a reception, a catering request; null otherwise. */
+  event: AiAssistantClientEvent | null
+}
+
+/** What an event request said of the event; each field null until the visitor gave it. */
+export type AiAssistantClientEvent = {
+  date: string | null
+  place: string | null
+  guests: number | null
+  budget: string | null
 }
 
 /** The latest monthly report of the assistant; its sentences come ready-made, like in the report email. */
@@ -41,7 +56,20 @@ export type AiAssistantClientReport = {
   languages_line: string | null
   handling_line: string | null
   top_questions: string[]
+  /** Requests the business marked « client gagné », and the sentence that says it. */
+  won: number
+  won_line: string | null
 }
+
+/** Whether the test SMS left for the client's alert mobile. */
+export type AiAssistantClientTestSms = {
+  sent: boolean
+  to_label: string | null
+  reason: string | null
+}
+
+/** Where the test SMS stands, as the alerts screen shows it. */
+export type AiAssistantClientTestSmsState = 'idle' | 'sending' | 'sent' | 'failed'
 
 /** Where the client's subscription stands. */
 export type AiAssistantClientSubscriptionStatus = 'incomplete' | 'active' | 'past_due' | 'canceled'
@@ -144,6 +172,23 @@ export type AiAssistantClientSpace = {
   google_profile: AiAssistantClientGoogleProfile | null
   /** The widget seen on the business's site, once the line is pasted; null until then. */
   installed: AiAssistantClientInstalled | null
+  /** What the receptionist never improvises: the imposed answers, as the business set them. */
+  limits: AiAssistantClientLimit[]
+}
+
+/** A sensitive subject and the sentence the receptionist says on it. */
+export type AiAssistantClientLimit = {
+  key: string
+  topic: string
+  answer: string
+  enabled: boolean
+}
+
+/** The business's edit of one subject. */
+export type AiAssistantClientLimitUpdate = {
+  key: string
+  answer: string
+  enabled: boolean
 }
 
 /** The receptionist's address, ready for the business's Google profile, its voicemail and its printed matter. */

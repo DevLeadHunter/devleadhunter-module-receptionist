@@ -21,6 +21,13 @@ class AiAssistantRequestStatus(str, Enum):
     DROPPED = "dropped"
 
 
+class AiAssistantRequestOutcome(str, Enum):
+    """What became of a request the owner called back: a client won, or not."""
+
+    WON = "won"
+    LOST = "lost"
+
+
 class AiAssistantRequestChannel(str, Enum):
     """Where the request came in."""
 

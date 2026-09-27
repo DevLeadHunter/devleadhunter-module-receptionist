@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from api.v1.routes.ai_assistant_common import client_ip, confirmation_response, faq_response
 from core.database import get_db
-from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
+from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestStatus, AiAssistantRequestType
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
 from enums.assistant_widget_language import AssistantWidgetLanguage
 from models.ai_assistant import AiAssistant
@@ -23,18 +23,23 @@ from schemas.ai_assistant_client_space import (
     AiAssistantClientCalendar,
     AiAssistantClientCalendarConnect,
     AiAssistantClientCalendarUpdate,
+    AiAssistantClientEvent,
     AiAssistantClientGoogleProfile,
     AiAssistantClientGoogleProfileUpdate,
     AiAssistantClientInstalled,
     AiAssistantClientLanguageOption,
+    AiAssistantClientLimit,
+    AiAssistantClientLimitsUpdate,
     AiAssistantClientPortalResponse,
     AiAssistantClientRenewResponse,
     AiAssistantClientReport,
     AiAssistantClientRequestItem,
+    AiAssistantClientRequestOutcomeUpdate,
     AiAssistantClientSettings,
     AiAssistantClientSettingsUpdate,
     AiAssistantClientSpaceResponse,
     AiAssistantClientSubscription,
+    AiAssistantClientTestSms,
 )
 from schemas.ai_assistant_faq import AiAssistantFaqEntryRequest, AiAssistantFaqResponse
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
@@ -50,10 +55,12 @@ from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.google_calendar_client import GoogleCalendarError
 from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
+from services.ai_assistant.limits import AiAssistantLimits, AssistantLimit
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.report_email import AiAssistantReportEmail, MonthlyStats
 from services.ai_assistant.report_service import ReportPeriod
-from services.ai_assistant.request_alerts import AlertSettings
+from services.ai_assistant.request_alerts import AlertSettings, ai_assistant_request_alerts
+from services.ai_assistant.request_analyzer import AiAssistantRequestAnalyzer
 from services.ai_assistant.request_service import ai_assistant_request_service
 from services.assistant_pricing_service import AssistantPricingService
 from services.french_date_formatter import FrenchDateFormatter
@@ -61,6 +68,7 @@ from services.rate_limiter import (
     assistant_client_limiter,
     assistant_client_renew_daily_limiter,
     assistant_client_renew_limiter,
+    assistant_client_test_sms_limiter,
 )
 
 logger = logging.getLogger(__name__)
@@ -107,6 +115,8 @@ def _to_request_item(record: AiAssistantRequest, booked: str | None = None) -> A
         photo_urls=ai_assistant_request_service.photo_urls(record),
         appointment_slots=AiAssistantAppointmentSlots.labels(record.appointment_slots_json),
         appointment_booked=booked,
+        outcome=AiAssistantRequestOutcome(record.outcome) if record.outcome else None,
+        event=_to_event(record.event_json),
     )
 
 
@@ -138,7 +148,7 @@ def _to_appointment(
     )
 
 
-def _to_report(report: AiAssistantReport) -> AiAssistantClientReport:
+def _to_report(report: AiAssistantReport, assistant_name: str) -> AiAssistantClientReport:
     stats = MonthlyStats.from_json(report.stats_json or {})
     return AiAssistantClientReport(
         month_label=FrenchDateFormatter.month_year(ReportPeriod.of_key(report.month).first_day),
@@ -152,6 +162,8 @@ def _to_report(report: AiAssistantReport) -> AiAssistantClientReport:
         languages_line=AiAssistantReportEmail.language_line(stats.languages),
         handling_line=AiAssistantReportEmail.handling_line(stats),
         top_questions=list(stats.top_questions),
+        won=stats.won,
+        won_line=AiAssistantReportEmail.won_line(stats, assistant_name),
     )
 
 
@@ -179,6 +191,26 @@ def _to_google_profile(assistant: AiAssistant) -> AiAssistantClientGoogleProfile
         linked_at_label=_business_label(linked_at, "%d/%m/%Y") if linked_at is not None else None,
         is_linked=linked_at is not None,
     )
+
+
+def _to_limits(limits: list[AssistantLimit]) -> list[AiAssistantClientLimit]:
+    return [
+        AiAssistantClientLimit(key=limit.key, topic=limit.topic, answer=limit.answer, enabled=limit.enabled)
+        for limit in limits
+    ]
+
+
+def _to_event(event_json: object) -> AiAssistantClientEvent | None:
+    if not isinstance(event_json, dict):
+        return None
+    guests = event_json.get("guests")
+    event = AiAssistantClientEvent(
+        date=AiAssistantRequestAnalyzer.date_text(event_json.get("date")),
+        place=str(event_json.get("place")) if event_json.get("place") else None,
+        guests=int(guests) if isinstance(guests, int) and not isinstance(guests, bool) else None,
+        budget=str(event_json.get("budget")) if event_json.get("budget") else None,
+    )
+    return event if any((event.date, event.place, event.guests, event.budget)) else None
 
 
 def _to_installed(assistant: AiAssistant) -> AiAssistantClientInstalled | None:
@@ -227,7 +259,7 @@ async def get_client_space(
         link_expires_label=_business_label(fresh_link.expires_at, "%d/%m/%Y"),
         pending_count=ai_assistant_client_space_service.pending_count(db, assistant),
         requests=[_to_request_item(record, booked.get(record.id)) for record in records],
-        report=_to_report(report) if report is not None else None,
+        report=_to_report(report, assistant.assistant_name) if report is not None else None,
         settings=_to_settings(assistant),
         language_options=[
             AiAssistantClientLanguageOption(code=language, label=LANGUAGE_NAMES.get(language.value, language.value))
@@ -246,6 +278,7 @@ async def get_client_space(
         embed_snippet=AiAssistantEmbedSnippet.render(assistant.slug),
         google_profile=_to_google_profile(assistant),
         installed=_to_installed(assistant),
+        limits=_to_limits(AiAssistantLimits.effective(assistant)),
     )
 
 
@@ -297,6 +330,53 @@ async def mark_client_request_dropped(
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demande introuvable")
     return _to_request_item(record, ai_assistant_calendar_booking.booked_labels(db, [record.id]).get(record.id))
+
+
+@router.post("/client/{token}/requests/{request_id}/outcome", response_model=AiAssistantClientRequestItem)
+async def set_client_request_outcome(
+    token: str,
+    request_id: int,
+    payload: AiAssistantClientRequestOutcomeUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> AiAssistantClientRequestItem:
+    """What became of a request the business called back: a client won, lost, or cleared (nothing set aside)."""
+    assistant, _link = _open_client_space(db, token, request)
+    record = ai_assistant_client_space_service.set_outcome(db, assistant, request_id, payload.outcome)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demande introuvable")
+    return _to_request_item(record, ai_assistant_calendar_booking.booked_labels(db, [record.id]).get(record.id))
+
+
+@router.post("/client/{token}/alerts/test-sms", response_model=AiAssistantClientTestSms)
+async def send_client_test_sms(token: str, request: Request, db: Session = Depends(get_db)) -> AiAssistantClientTestSms:
+    """Text the client's alert mobile once, so they see their alerts arrive (two tests an hour at most)."""
+    assistant, _link = _open_client_space(db, token, request)
+    if not assistant.alert_phone_e164:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Ajoutez d'abord votre mobile, puis enregistrez."
+        )
+    if not assistant_client_test_sms_limiter.allow(f"test-sms:{assistant.id}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Deux SMS de test par heure au plus : réessayez plus tard.",
+        )
+    sent = await ai_assistant_request_alerts.send_test_sms(db, assistant)
+    return AiAssistantClientTestSms(
+        sent=sent,
+        to_label=assistant.alert_phone_e164,
+        reason=None if sent else "Envoi impossible pour le moment : l'expéditeur SMS n'a pas pris le message.",
+    )
+
+
+@router.patch("/client/{token}/limits", response_model=list[AiAssistantClientLimit])
+async def update_client_limits(
+    token: str, payload: AiAssistantClientLimitsUpdate, request: Request, db: Session = Depends(get_db)
+) -> list[AiAssistantClientLimit]:
+    """The business edits what its receptionist says on prices, delays, warranties… or switches a subject off."""
+    assistant, _link = _open_client_space(db, token, request)
+    limits = ai_assistant_client_space_service.set_limits(db, assistant, [item.model_dump() for item in payload.limits])
+    return _to_limits(limits)
 
 
 @router.patch("/client/{token}/settings", response_model=AiAssistantClientSettings)
