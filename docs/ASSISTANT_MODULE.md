@@ -351,9 +351,11 @@ d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprim
   motif « Pas d'assistant IA actif »), campagne SMS, relance SMS et composeur SMS. Un assistant généré
   après coup rejoint la file des campagnes actives (`enqueue_ready_prospect`), comme une démo.
 - **Module** — une campagne est « assistant » dès qu'un de ses templates, J1, A/B **ou relance**, utilise
-  une variable assistant, `{prix_assistant}` compris. Le contact du prospect (email ou SMS) bloque alors l'autre
-  module **45 j** (`services/contact_lock_service.py`), pour ne pas démarcher deux fois le même prospect entre le
-  site et l'assistant.
+  une variable assistant, `{prix_assistant}` compris. La mise en file réserve le prospect pour ce module, chaque
+  message envoyé (email ou SMS de campagne, relance SMS manuelle ou automatique) repousse la réservation, et l'autre
+  module attend **45 j** après ce dernier message (`services/contact_lock_service.py`) ; l'envoi revérifie le verrou
+  (« Réservé par un autre module »). Les messages écrits à la main (composeurs email et SMS) restent libres, la
+  fiche prospect affiche la réservation.
 - **Durée de vie** — comme un site, la démo compte à rebours `demo_site_ttl_days` (21 j) à partir du
   **premier** email ou SMS qui porte son lien (`demo_link_sent_at` → `expires_at` ; boucle horaire
   `services/ai_assistant/cleanup_service.py` → statut `expired`, page et widget en 404). Un assistant
@@ -1379,3 +1381,10 @@ référence, portrait de Sofia.
   lien de 47 caractères.
 - **Page `/va`** hors des moteurs de recherche, et renvoi vers la démo quand la vidéo manque.
 - **Page Stockage** : fichiers vidéo de la réceptionniste classés, nommés, datés et purgés comme ceux des sites.
+
+## Vingtième passage — verrou entre modules (28/09)
+
+- **Relance SMS manuelle** (page SMS, un prospect ou « tout relancer ») : un prospect réservé par l'autre module n'y
+  figure plus, et l'envoi pose la réservation « Sites web », comme la relance automatique.
+- **Délai compté depuis le dernier message** : chaque email ou SMS de campagne envoyé repousse la réservation de son
+  module, et l'envoi revérifie le verrou quand une file longue a laissé l'autre module passer entre-temps.
