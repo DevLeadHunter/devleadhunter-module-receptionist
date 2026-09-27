@@ -159,7 +159,7 @@ def test_the_system_prompt_asks_for_the_trailing_line_and_for_lists_when_enumera
     assert "Jamais une question que l'entreprise poserait au client" in prompt
     # They follow the reply: probable answers to its question, else what comes next; never generic, never repeated.
     assert "les réponses les plus probables à cette question" in prompt
-    assert "pas de réponse à trou (« Mon prénom est … »)" in prompt
+    assert "pas de réponse à trou ni d'exemple fictif (« Mon prénom est … », « 06 xx xx xx xx »" in prompt
     assert "Jamais une suggestion générique sans lien avec l'échange, jamais une déjà proposée plus tôt" in prompt
     assert prompt.rstrip().endswith("2 ou 3 suggestions qui suivent exactement ce que tu viens de dire.")
     assert "UNE ligne par élément commençant par « - »" in prompt
