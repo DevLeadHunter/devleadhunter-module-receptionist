@@ -1220,6 +1220,7 @@ useHead({
   display: flex;
   align-items: baseline;
   gap: 8px;
+  min-width: 0;
 }
 
 .cs-row__name {

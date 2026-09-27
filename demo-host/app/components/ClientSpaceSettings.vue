@@ -244,6 +244,7 @@ watch(
 <style scoped>
 .cs-settings {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
 }
 

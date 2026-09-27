@@ -193,6 +193,7 @@ function open(entry: ClientSpaceSettingsEntry): void {
 <style scoped>
 .cs-menu {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
 }
 

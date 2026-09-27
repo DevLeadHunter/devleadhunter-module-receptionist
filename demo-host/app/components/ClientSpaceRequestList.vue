@@ -147,6 +147,7 @@ function askedLabel(count: number): string {
 <style scoped>
 .cs-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
 }
 

@@ -41,6 +41,7 @@ const countLabel: ComputedRef<string> = computed((): string => {
 <style scoped>
 .cs-learned {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
 }
 

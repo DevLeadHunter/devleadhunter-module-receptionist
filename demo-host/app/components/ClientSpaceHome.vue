@@ -184,6 +184,7 @@ function act(task: ClientSpaceHomeTask): void {
 <style scoped>
 .cs-home {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
 }
 

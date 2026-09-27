@@ -81,6 +81,7 @@ function plural(value: number, noun: string): string {
 <style scoped>
 .cs-report {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
 }
 

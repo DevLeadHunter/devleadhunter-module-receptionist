@@ -241,6 +241,7 @@ watch(
 <style scoped>
 .cs-agenda {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
 }
 
