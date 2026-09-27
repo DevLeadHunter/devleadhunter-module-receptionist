@@ -95,7 +95,7 @@ def test_the_assistant_calls_go_to_mistral_first_and_log_their_cost(
         answer = _chat(AssistantLlmRouter())
 
     assert answer == "Du lundi au vendredi, 8 h - 18 h."
-    assert providers["mistral"].calls[0]["model"] == "mistral-small-latest"
+    assert providers["mistral"].calls[0]["model"] == router_module.settings.mistral_chat_model
     # With a fallback to try, Mistral gets half of the 40 s budget and no retry.
     assert (providers["mistral"].calls[0]["timeout"], providers["mistral"].calls[0]["retries"]) == (20.0, 0)
     assert providers["groq"].calls == []

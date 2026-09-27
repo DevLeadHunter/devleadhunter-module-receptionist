@@ -1101,3 +1101,11 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
 - **Dibodev marqué vendu en prod (27/09, workflow `deliver`)** : `status=delivered`, e-mail de bienvenue parti à l'adresse
   de l'assistant ; la réceptionniste de dibodev.fr n'expire plus et alerte le commerçant à chaque demande (SMS une fois le
   mobile d'alerte posé dans l'espace client).
+- **Modèle Mistral du plan gratuit (27/09, midi).** Clé posée (secret GitHub + `.env` local), mais sur le plan « Free » de
+  La Plateforme (0 € de crédit, sans carte) `mistral-small` et `mistral-medium` répondent 429 avec
+  `x-ratelimit-limit-req-minute: 0` et `mistral-large` 403 ; seuls **Ministral 3 (8B, 14B)**, Nemo et Pixtral répondent.
+  Testé avec le vrai prompt de la réceptionniste : `ministral-14b-2512` suit `§MANQUE`/`§SUITE` sur leur ligne, sans gras,
+  suit la langue, n'invente pas de service (Nemo, lui, en invente) et lit les photos → nouveau défaut de
+  `MISTRAL_CHAT_MODEL` et `MISTRAL_VISION_MODEL` (30 req/min, 937k tokens/min ; 10 $ d'usage inclus par mois). Groq
+  `gpt-oss-120b` reste le repli. Passage à `mistral-small-latest` par la variable d'environnement le jour où le paiement
+  à l'usage est activé. Réglage à vérifier dans la console : « Allow the use of your API calls to train » était activé.
