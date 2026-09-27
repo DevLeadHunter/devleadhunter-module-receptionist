@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import time as clock
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import ClassVar
@@ -135,7 +136,7 @@ class AiAssistantEventIntake:
         return days
 
     @staticmethod
-    def taken_days(periods: object) -> tuple[date, ...]:
+    def taken_days(periods: Iterable[tuple[datetime, datetime]]) -> tuple[date, ...]:
         """
         The business days a set of busy periods (naive UTC) takes: those busy ``TAKEN_HOURS`` or more.
 
@@ -146,7 +147,7 @@ class AiAssistantEventIntake:
             The taken days, sorted.
         """
         hours: dict[date, float] = {}
-        for start_utc, end_utc in periods:  # type: ignore[union-attr]
+        for start_utc, end_utc in periods:
             cursor = OpeningHoursCalendar.to_business_time(start_utc)
             local_end = OpeningHoursCalendar.to_business_time(end_utc)
             while cursor < local_end:

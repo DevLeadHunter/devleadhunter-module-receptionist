@@ -179,6 +179,3 @@ class AiAssistantLimits:
     def _clean_answer(cls, value: Any) -> str:
         """A typed answer on one line, bounded."""
         return " ".join(str(value or "").split())[: cls.MAX_ANSWER_CHARS]
-
-
-ai_assistant_limits = AiAssistantLimits()
