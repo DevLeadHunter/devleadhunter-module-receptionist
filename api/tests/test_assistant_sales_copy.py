@@ -201,7 +201,7 @@ def test_the_thumbnail_migration_recognises_each_first_email_as_seeded_before() 
 
 
 def test_every_assistant_sms_has_one_door_without_a_scheme() -> None:
-    assert len(_ASSISTANT_SMS) == 6
+    assert len(_ASSISTANT_SMS) == 7
     for template in _ASSISTANT_SMS:
         doors = template.body.count("{lien_assistant}") + template.body.count("{lien_video_assistant}")
         assert doors == 1, template.key

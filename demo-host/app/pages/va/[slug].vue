@@ -1,8 +1,7 @@
 <template>
   <div v-if="pending" class="av av--message">Chargement…</div>
-  <div v-else-if="!assistant || !assistant.video_available" class="av av--message av--error">
-    Vidéo introuvable ou pas encore prête.
-  </div>
+  <div v-else-if="!assistant" class="av av--message av--error">Vidéo introuvable ou expirée.</div>
+  <div v-else-if="!assistant.video_available" class="av av--message">Ouverture de la démo…</div>
   <main v-else class="av" :style="accentStyle">
     <div class="av__content">
       <p class="av__kicker">Réceptionniste en ligne</p>
@@ -243,6 +242,11 @@ function trackCtaClick(placement: 'page' | 'endcard'): void {
 onMounted(async (): Promise<void> => {
   const current: AiAssistantConfig | null | undefined = assistant.value
   if (!current) return
+  // Without its video, the visitor lands on the live demo, as on the site's video page.
+  if (!current.video_available) {
+    await navigateTo(demoHref.value, { external: true })
+    return
+  }
   // A sold receptionist's page is watched by the client, never by a prospect: nothing to track or notify.
   if (current.status === 'active') {
     await initVideoTracking(current.slug, abVariant.value, channel.value, 'assistant')
@@ -250,10 +254,9 @@ onMounted(async (): Promise<void> => {
   if (playerRef.value) new DemoVideoEngagementTracker(playerRef.value, capture).start()
 })
 
-useHead({
-  title: computed(
-    (): string => `${assistant.value?.business_name ?? 'Réceptionniste IA'} — votre réceptionniste en vidéo`,
-  ),
+useSeoMeta({
+  title: (): string => `${assistant.value?.business_name ?? 'Réceptionniste IA'} — votre réceptionniste en vidéo`,
+  robots: 'noindex',
 })
 </script>
 

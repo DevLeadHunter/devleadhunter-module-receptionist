@@ -344,8 +344,8 @@ d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprim
   motif « Pas de vidéo de réceptionniste prête »), à l'envoi comme au lancement, et le reprend dès qu'elle
   l'est (`reenqueue_campaigns_after_video_ready`, appelé par les deux chemins de génération). La case « Joindre
   la vidéo de prospection » de la campagne vaut aussi pour la réceptionniste. En SMS, `assistant-video` retombe
-  sur `assistant-24-7` sans vidéo (`resolve_sms_template(..., assistant_video_ready=...)`), et le composeur
-  refuse l'aperçu. Un envoi qui porte `/va/{slug}` démarre le compte à rebours de la démo, comme `/ia/{slug}`.
+  sur `assistant-24-7` sans vidéo, et la relance `assistant-relance-video` sur `assistant-relance`
+  (`resolve_sms_template(..., assistant_video_ready=...)`), et le composeur refuse l'aperçu. Un envoi qui porte `/va/{slug}` démarre le compte à rebours de la démo, comme `/ia/{slug}`.
 - **Gardes** — un template qui utilise `{lien_assistant}` ou la vidéo assistant n'est ni mis en file ni
   envoyé sans assistant actif : lancement, ajout de prospects et envoi email (`skipped_no_assistant`,
   motif « Pas d'assistant IA actif »), campagne SMS, relance SMS et composeur SMS. Un assistant généré
@@ -362,8 +362,8 @@ d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprim
   « En attente d'envoi » puis « Expire dans N j ».
 
 **Modèles de prospection** : 6 emails (`seeders/email_template_seeder.py`, « Assistant IA - … » : réponses
-24/7, devis par photo, multilingue, vidéo, relance, le prix cash) et 6 SMS (`services/sms/templates.py`, clés
-`assistant-*`), écrits autour de la demande restée sans réponse (le soir, une photo, la langue du client).
+24/7, devis par photo, multilingue, vidéo, relance, le prix cash) et 7 SMS (`services/sms/templates.py`, clés
+`assistant-*`, dont la relance vidéo « la vidéo de mon email : … Votre réceptionniste, {prix_assistant}/mois »), écrits autour de la demande restée sans réponse (le soir, une photo, la langue du client).
 Chaque message mène à la démo (`{lien_assistant}`), sauf les modèles « vidéo » qui mènent à la vidéo
 (`{vignette_video_assistant}` / `{lien_video_assistant}`) ; les trois premiers emails (24/7, photo, multilingue)
 ajoutent la vignette de la vidéo sous le lien, vide tant qu'elle n'existe pas, comme `{vignette_video}` côté site
@@ -426,7 +426,12 @@ la page démo `/ia/{slug}` : l'email et le SMS mènent à `/va`, dont le bouton 
   le PC, la fenêtre de progression du site suit les étapes de la réceptionniste (`RECEPTIONIST_VIDEO_BUILD_PHASES`)
   et une erreur affiche le message de l'API.
 - **Durée de vie** : les fichiers R2 de la vidéo sont supprimés à l'expiration de la démo et à la suppression de
-  la réceptionniste (`AssistantVideoService.purge_video`), comme ceux d'un site.
+  la réceptionniste (`AssistantVideoService.purge_video`), comme ceux d'un site. La page Stockage les range en
+  « Vidéo (réceptionniste) » et « Vignette (réceptionniste) », avec le nom du prospect et le compte à rebours de sa
+  démo (une réceptionniste supprimée rend ses fichiers expirés) ; la purge des expirés et le contrôle de cohérence
+  les couvrent aussi.
+- **Page `/va`** : `noindex` comme `/v` ; sans vidéo (supprimée, pas encore générée), elle renvoie vers `/ia` en
+  gardant le canal et la variante, comme `/v` renvoie vers la démo du site.
 
 ### Vente par abonnement
 
@@ -1367,3 +1372,10 @@ module le porte désormais de bout en bout.
 Reste : test client complet par Léo (Stripe à 1 € puis remettre 79 € et l'e-mail), R7 boîte mail en variante
 Resend après la campagne V1 ; par Léo seul : R15 (vidéo YouTube + justification des scopes), L8 première
 référence, portrait de Sofia.
+
+## Dix-neuvième passage — derniers écarts vidéo avec le site (28/09, nuit)
+
+- **SMS de relance vidéo** `assistant-relance-video`, repli `assistant-relance` sans vidéo ; un seul segment avec un
+  lien de 47 caractères.
+- **Page `/va`** hors des moteurs de recherche, et renvoi vers la démo quand la vidéo manque.
+- **Page Stockage** : fichiers vidéo de la réceptionniste classés, nommés, datés et purgés comme ceux des sites.
