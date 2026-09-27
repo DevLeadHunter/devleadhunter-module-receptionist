@@ -16,8 +16,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar
 
+import segno
 from sqlalchemy.orm import Session
 
+from core.config import settings
 from enums.ai_assistant_request import AiAssistantRequestStatus
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
@@ -165,6 +167,75 @@ class AiAssistantClientSpaceService:
             )
             .count()
         )
+
+    @staticmethod
+    def page_url(assistant: AiAssistant) -> str:
+        """
+        The receptionist's own page on the demo host: the address the business hands out.
+
+        Args:
+            assistant: The assistant.
+
+        Returns:
+            An absolute URL.
+        """
+        return f"{settings.demo_host_base_url.rstrip('/')}/ia/{assistant.slug}"
+
+    @classmethod
+    def page_short_link(cls, assistant: AiAssistant) -> str:
+        """The receptionist's page without its scheme, as it is read on a voicemail or printed."""
+        return cls.page_url(assistant).split("://", 1)[-1]
+
+    @staticmethod
+    def qr_svg(url: str) -> str:
+        """
+        An address as an inline SVG QR code, ink on transparent, sized by the page that shows it.
+
+        Args:
+            url: The address to encode.
+
+        Returns:
+            The SVG markup.
+        """
+        return segno.make(url, error="m").svg_inline(scale=6, border=2, dark="#17130d", light=None, omitsize=True)
+
+    @classmethod
+    def voicemail_text(cls, assistant: AiAssistant) -> str:
+        """
+        The greeting a business records on its voicemail so an unanswered call still finds the receptionist.
+
+        Args:
+            assistant: The assistant.
+
+        Returns:
+            The text, ready to read.
+        """
+        return (
+            f"Bonjour, vous êtes bien chez {assistant.business_name}. Je ne peux pas vous répondre pour le moment. "
+            f"Écrivez à {assistant.assistant_name}, ma réceptionniste, sur {cls.page_short_link(assistant)} : "
+            "votre demande est notée, avec une photo si besoin, et je vous rappelle dès que possible. À bientôt."
+        )
+
+    @staticmethod
+    def set_google_profile_linked(
+        db: Session, assistant: AiAssistant, linked: bool, *, now: datetime | None = None
+    ) -> AiAssistant:
+        """
+        Note whether the receptionist's address is on the business's Google profile.
+
+        Args:
+            db: Active database session.
+            assistant: The assistant.
+            linked: True when the business says the link is posted.
+            now: Current time (tests); defaults to now.
+
+        Returns:
+            The assistant.
+        """
+        current = (now or datetime.now(UTC)).replace(tzinfo=None)
+        assistant.google_profile_linked_at = current if linked else None
+        db.commit()
+        return assistant
 
     @staticmethod
     def website_url(db: Session, assistant: AiAssistant) -> str | None:

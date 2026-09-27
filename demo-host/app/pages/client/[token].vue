@@ -214,7 +214,87 @@
               </div>
             </div>
 
+            <div v-else-if="location.settingsScreen === 'google' && space.google_profile" class="cs-screen__body">
+              <p class="cs-sec">L’adresse de {{ space.assistant_name }}</p>
+              <div class="cs-block">
+                <p class="cs-text">
+                  Sur votre fiche Google, deux boutons peuvent mener à {{ space.assistant_name }} : « Site web » et «
+                  Prendre rendez-vous ». Collez-y cette adresse : vos clients y arrivent en un geste, même sans site.
+                </p>
+                <pre class="cs-code">{{ space.google_profile.page_url }}</pre>
+                <div class="cs-screen__actions">
+                  <button type="button" class="cs-btn" @click="copyText(space.google_profile.page_url, 'link')">
+                    <ClientSpaceIcon :name="copiedKey === 'link' ? 'check' : 'code'" />
+                    {{ copiedKey === 'link' ? 'Copiée' : 'Copier l’adresse' }}
+                  </button>
+                </div>
+              </div>
+              <p class="cs-sec">Où la coller</p>
+              <div class="cs-block">
+                <ol class="cs-steps">
+                  <li>
+                    Cherchez votre entreprise sur Google, connecté au compte qui gère la fiche, puis « Modifier le
+                    profil ».
+                  </li>
+                  <li>Dans « Coordonnées », champ « Site web » : collez l’adresse.</li>
+                  <li>
+                    Dans « Réservations » (ou « Lien de rendez-vous »), collez la même adresse, puis enregistrez. Google
+                    l’affiche en quelques minutes.
+                  </li>
+                </ol>
+                <label class="cs-check">
+                  <input
+                    type="checkbox"
+                    :checked="space.google_profile.is_linked"
+                    :disabled="isSavingGoogle || isExample"
+                    @change="setGoogleLinked(($event.target as HTMLInputElement).checked)"
+                  />
+                  <span>
+                    <b>C’est fait, l’adresse est sur ma fiche</b>
+                    <span>{{
+                      space.google_profile.is_linked && space.google_profile.linked_at_label
+                        ? `Posée le ${space.google_profile.linked_at_label}.`
+                        : 'Cochez quand c’est fait : l’étape passe en vert sur votre accueil.'
+                    }}</span>
+                  </span>
+                </label>
+                <p v-if="googleError" class="cs-notice cs-notice--error">{{ googleError }}</p>
+              </div>
+              <p class="cs-sec">Votre messagerie vocale</p>
+              <div class="cs-block">
+                <p class="cs-text cs-text--dim">
+                  Un appel manqué peut encore aboutir : enregistrez ce message, il renvoie vers
+                  {{ space.assistant_name }}.
+                </p>
+                <pre class="cs-code cs-code--prose">{{ space.google_profile.voicemail_text }}</pre>
+                <div class="cs-screen__actions">
+                  <button
+                    type="button"
+                    class="cs-btn"
+                    @click="copyText(space.google_profile.voicemail_text, 'voicemail')"
+                  >
+                    <ClientSpaceIcon :name="copiedKey === 'voicemail' ? 'check' : 'message-square'" />
+                    {{ copiedKey === 'voicemail' ? 'Copié' : 'Copier le message' }}
+                  </button>
+                </div>
+              </div>
+              <p class="cs-sec">QR à imprimer</p>
+              <div class="cs-block">
+                <p class="cs-text cs-text--dim">Carte de visite, camionnette, devis : la même adresse, à scanner.</p>
+                <!-- eslint-disable-next-line vue/no-v-html -->
+                <div class="cs-qr" v-html="space.google_profile.qr_svg"></div>
+                <div class="cs-screen__actions">
+                  <a class="cs-btn" :href="qrDownloadHref" :download="`qr-${space.assistant_name}.svg`">
+                    <ClientSpaceIcon name="image" />Télécharger le QR
+                  </a>
+                </div>
+              </div>
+            </div>
+
             <div v-else-if="location.settingsScreen === 'install'" class="cs-screen__body">
+              <p v-if="space.installed" class="cs-notice cs-notice--ok">
+                Installée sur {{ space.installed.host }}, vue le {{ space.installed.seen_label }}.
+              </p>
               <p class="cs-sec">La ligne à coller</p>
               <div class="cs-block">
                 <p class="cs-text">
@@ -224,9 +304,9 @@
                 </p>
                 <pre class="cs-code">{{ space.embed_snippet }}</pre>
                 <div class="cs-screen__actions">
-                  <button type="button" class="cs-btn" @click="copySnippet">
-                    <ClientSpaceIcon :name="hasCopiedSnippet ? 'check' : 'code'" />
-                    {{ hasCopiedSnippet ? 'Copiée' : 'Copier la ligne' }}
+                  <button type="button" class="cs-btn" @click="copyText(space.embed_snippet ?? '', 'snippet')">
+                    <ClientSpaceIcon :name="copiedKey === 'snippet' ? 'check' : 'code'" />
+                    {{ copiedKey === 'snippet' ? 'Copiée' : 'Copier la ligne' }}
                   </button>
                 </div>
               </div>
@@ -304,6 +384,7 @@ import type {
   AiAssistantClientCalendarConnect,
   AiAssistantClientCalendarUpdate,
   AiAssistantClientFaqResponse,
+  AiAssistantClientGoogleProfile,
   AiAssistantClientPortal,
   AiAssistantClientRenew,
   AiAssistantClientRenewState,
@@ -319,6 +400,7 @@ import type {
 } from '~/types/AiAssistantClientSpace'
 import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
 import type { ClientSpaceSettingsScreen } from '~/types/ClientSpaceNavigation'
+import type { ClientSpaceCopyKey } from '~/types/ClientSpacePage'
 import { useClientSpaceNavigation } from '~/composables/useClientSpaceNavigation'
 import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
@@ -337,6 +419,7 @@ const SETTINGS_TITLES: Record<ClientSpaceSettingsScreen, string> = {
   learned: 'Ce que vous lui avez appris',
   report: 'Rapport du mois',
   subscription: 'Abonnement',
+  google: 'Votre fiche Google',
   install: 'Sur votre site',
   help: 'Aide',
 }
@@ -408,7 +491,9 @@ const renewState: Ref<AiAssistantClientRenewState> = ref('idle')
 const isCalendarBusy: Ref<boolean> = ref(false)
 const calendarError: Ref<string | null> = ref(null)
 const hasSavedCalendar: Ref<boolean> = ref(false)
-const hasCopiedSnippet: Ref<boolean> = ref(false)
+const copiedKey: Ref<ClientSpaceCopyKey | null> = ref(null)
+const isSavingGoogle: Ref<boolean> = ref(false)
+const googleError: Ref<string | null> = ref(null)
 // Google opened in another tab: the space reloads when the client comes back to this one.
 const isAwaitingCalendar: Ref<boolean> = ref(false)
 let wideQuery: MediaQueryList | null = null
@@ -493,6 +578,12 @@ const periodLine: ComputedRef<string> = computed((): string => {
   }
   if (subscription.status === 'past_due') return `Échéance du ${subscription.period_end_label}.`
   return `Prochain renouvellement le ${subscription.period_end_label}.`
+})
+
+/** The QR code as a file the client saves: the API's SVG in a data URL. */
+const qrDownloadHref: ComputedRef<string> = computed((): string => {
+  const svg: string = space.value?.google_profile?.qr_svg ?? ''
+  return svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : ''
 })
 
 /** An email carrying the line to paste, for whoever looks after the website. */
@@ -751,20 +842,43 @@ async function renewLink(): Promise<void> {
 }
 
 /**
- * Copy the line to paste; the button says so for a moment.
+ * Copy a text (the address, the voicemail, the line to paste); its button says so for a moment.
+ * @param text What to copy.
+ * @param key Which button said it.
  * @returns A promise resolved once the clipboard answered.
  */
-async function copySnippet(): Promise<void> {
-  const snippet: string = space.value?.embed_snippet ?? ''
-  if (!snippet) return
+async function copyText(text: string, key: ClientSpaceCopyKey): Promise<void> {
+  if (!text) return
   try {
-    await navigator.clipboard.writeText(snippet)
-    hasCopiedSnippet.value = true
+    await navigator.clipboard.writeText(text)
+    copiedKey.value = key
     window.setTimeout((): void => {
-      hasCopiedSnippet.value = false
+      if (copiedKey.value === key) copiedKey.value = null
     }, 2500)
   } catch {
-    window.prompt('Copiez cette ligne :', snippet)
+    window.prompt('Copiez ce texte :', text)
+  }
+}
+
+/**
+ * Tell the API whether the receptionist's address is on the business's Google profile.
+ * @param linked True when the client ticked the box.
+ * @returns A promise resolved once the API answered.
+ */
+async function setGoogleLinked(linked: boolean): Promise<void> {
+  const current: AiAssistantClientSpace | null = space.value
+  if (!current?.google_profile || isSavingGoogle.value) return
+  isSavingGoogle.value = true
+  googleError.value = null
+  try {
+    current.google_profile = await $fetch<AiAssistantClientGoogleProfile>(`${endpoint.value}/google-profile`, {
+      method: 'POST',
+      body: { linked },
+    })
+  } catch (error: unknown) {
+    googleError.value = failureMessage(error, 'Enregistrement impossible, réessayez dans un instant.')
+  } finally {
+    isSavingGoogle.value = false
   }
 }
 
@@ -1177,6 +1291,72 @@ useHead({
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+.cs-code--prose {
+  font-family: inherit;
+  font-size: 14.5px;
+  line-height: 1.5;
+  word-break: normal;
+}
+
+.cs-steps {
+  margin: 0;
+  padding: 14px 16px 14px 36px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.cs-steps li {
+  margin: 0 0 8px;
+}
+
+.cs-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border-top: 1px solid var(--cs-line);
+  cursor: pointer;
+}
+
+.cs-check input {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+  accent-color: var(--cs-accent-strong);
+}
+
+.cs-check > span {
+  display: grid;
+  gap: 2px;
+  line-height: 1.35;
+}
+
+.cs-check b {
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.cs-check > span > span {
+  font-size: 13px;
+  color: var(--cs-dim);
+}
+
+.cs-qr {
+  padding: 0 16px 14px;
+}
+
+.cs-qr svg {
+  display: block;
+  width: 168px;
+  height: auto;
+}
+
+.cs-qr svg .qrline {
+  stroke: var(--cs-ink);
 }
 
 .cs-text {
@@ -1645,6 +1825,14 @@ useHead({
 
 .cs-notice--error {
   color: var(--cs-red);
+}
+
+.cs-notice--ok {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--cs-line);
+  background: var(--cs-green-soft);
+  color: var(--cs-green);
+  font-weight: 600;
 }
 
 .cs-example {

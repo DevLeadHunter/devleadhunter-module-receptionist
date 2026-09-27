@@ -499,12 +499,40 @@
     schedulePrefetch()
   }
 
+  /**
+   * Tell the demo host the receptionist runs on this website, once per browsing session and never for our
+   * own pages: the business's space then shows the line as installed.
+   */
+  function reportInstallation() {
+    var host = window.location.hostname
+    if (!host || host === new URL(origin).hostname || host === 'localhost') return
+    var key = 'dlh-assistant-installed-' + slug
+    try {
+      if (window.sessionStorage.getItem(key)) return
+      window.sessionStorage.setItem(key, '1')
+    } catch (error) {
+      // No storage: reported once per page load instead.
+    }
+    fetch(origin + '/embed-installed/' + encodeURIComponent(slug), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ host: host }),
+      credentials: 'omit',
+      keepalive: true,
+    }).catch(function () {
+      // Never disturb the host page.
+    })
+  }
+
   fetch(origin + '/embed-launcher/' + encodeURIComponent(slug), { credentials: 'omit' })
     .then(function (response) {
       return response.ok ? response.json() : null
     })
     .then(function (config) {
-      if (config && config.assistant_name) render(config)
+      if (config && config.assistant_name) {
+        render(config)
+        reportInstallation()
+      }
     })
     .catch(function () {
       // The receptionist stays silent rather than breaking the host page.

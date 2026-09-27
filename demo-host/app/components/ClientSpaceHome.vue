@@ -85,6 +85,8 @@
 import type { ComputedRef, EmitFn, PropType } from 'vue'
 import { computed } from 'vue'
 import type {
+  AiAssistantClientGoogleProfile,
+  AiAssistantClientInstalled,
   AiAssistantClientReport,
   AiAssistantClientRequest,
   AiAssistantClientSettings,
@@ -124,7 +126,10 @@ const isStarting: ComputedRef<boolean> = computed(
   (): boolean => !props.space.is_example && props.space.requests.length === 0 && props.space.report === null,
 )
 
-/** The steps to start: the SMS number, the receptionist on the site, the agenda. A done step has no action. */
+/**
+ * The steps to start: the SMS number, the address on the Google profile, the line on the site, the agenda. A
+ * done step has no action.
+ */
 const steps: ComputedRef<ClientSpaceHomeTask[]> = computed((): ClientSpaceHomeTask[] => {
   const settings: AiAssistantClientSettings = props.space.settings
   const name: string = props.space.assistant_name
@@ -147,15 +152,49 @@ const steps: ComputedRef<ClientSpaceHomeTask[]> = computed((): ClientSpaceHomeTa
           detail: 'pour être prévenu tout de suite',
           action: 'Ajouter',
         },
-    {
-      key: 'install',
-      icon: 'code',
-      tone: 'amber',
-      title: `${name} sur votre site`,
-      detail: 'une ligne à coller, ou à envoyer',
-      action: 'Installer',
-    },
   ]
+  const profile: AiAssistantClientGoogleProfile | null = props.space.google_profile
+  if (profile) {
+    list.push(
+      profile.is_linked
+        ? {
+            key: 'google',
+            icon: 'check',
+            tone: 'green',
+            title: 'Adresse sur votre fiche Google',
+            detail: profile.linked_at_label ? `posée le ${profile.linked_at_label}` : 'posée',
+            action: '',
+          }
+        : {
+            key: 'google',
+            icon: 'external-link',
+            tone: 'amber',
+            title: 'Adresse sur votre fiche Google',
+            detail: 'les boutons Site web et Prendre rendez-vous',
+            action: 'Voir',
+          },
+    )
+  }
+  const installed: AiAssistantClientInstalled | null = props.space.installed
+  list.push(
+    installed
+      ? {
+          key: 'install',
+          icon: 'check',
+          tone: 'green',
+          title: `${name} sur votre site`,
+          detail: `installée sur ${installed.host}`,
+          action: '',
+        }
+      : {
+          key: 'install',
+          icon: 'code',
+          tone: 'amber',
+          title: `${name} sur votre site`,
+          detail: 'une ligne à coller, ou à envoyer',
+          action: 'Installer',
+        },
+  )
   if (props.space.calendar.status === 'connected') {
     list.push({ key: 'calendar', icon: 'check', tone: 'green', title: 'Agenda Google', detail: 'connecté', action: '' })
   } else if (props.space.calendar.status !== 'unavailable') {
@@ -250,6 +289,7 @@ function act(task: ClientSpaceHomeTask): void {
   if (task.key === 'requests') emit('open-requests')
   else if (task.key === 'questions') emit('open-question', 0)
   else if (task.key === 'sms') emit('open-settings-screen', 'alerts')
+  else if (task.key === 'google') emit('open-settings-screen', 'google')
   else if (task.key === 'install') emit('open-settings-screen', 'install')
   else emit('open-agenda')
 }

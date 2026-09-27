@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
+from core.config import settings
 from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
 from enums.assistant_calendar_status import AssistantCalendarConnection
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
@@ -17,6 +18,7 @@ from enums.assistant_widget_language import AssistantWidgetLanguage
 from schemas.ai_assistant_client_space import (
     AiAssistantClientAppointmentItem,
     AiAssistantClientCalendar,
+    AiAssistantClientGoogleProfile,
     AiAssistantClientLanguageOption,
     AiAssistantClientReport,
     AiAssistantClientRequestItem,
@@ -27,6 +29,7 @@ from schemas.ai_assistant_client_space import (
 from schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantUnansweredEntry
 from services.ai_assistant.calendar_settings import DURATION_CHOICES, MIN_NOTICE_CHOICES
 from services.ai_assistant.client_links import AiAssistantClientLinks
+from services.ai_assistant.client_space_service import AiAssistantClientSpaceService
 from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
@@ -68,6 +71,8 @@ class AiAssistantClientSpaceExample:
             fresh_token=None,
             website_url=None,
             embed_snippet=AiAssistantEmbedSnippet.render("toitures-morel"),
+            google_profile=AiAssistantClientSpaceExample._google_profile(),
+            installed=None,
             pending_count=2,
             requests=[
                 AiAssistantClientRequestItem(
@@ -81,6 +86,7 @@ class AiAssistantClientSpaceExample:
                     received_day=f"{yesterday:%Y-%m-%d}",
                     received_time="21:43",
                     received_outside_hours=True,
+                    photo_urls=[f"{settings.demo_host_base_url.rstrip('/')}/showroom/examples/toiture.jpg"],
                 ),
                 AiAssistantClientRequestItem(
                     id=2,
@@ -192,6 +198,24 @@ class AiAssistantClientSpaceExample:
                     last_seen=yesterday,
                 )
             ],
+        )
+
+    @staticmethod
+    def _google_profile() -> AiAssistantClientGoogleProfile:
+        """The fictional receptionist's address, so the « fiche Google » screen reads like the real one."""
+        url = f"{settings.demo_host_base_url.rstrip('/')}/ia/toitures-morel"
+        short_link = url.split("://", 1)[-1]
+        return AiAssistantClientGoogleProfile(
+            page_url=url,
+            short_link=short_link,
+            qr_svg=AiAssistantClientSpaceService.qr_svg(url),
+            voicemail_text=(
+                f"Bonjour, vous êtes bien chez {_BUSINESS_NAME}. Je ne peux pas vous répondre pour le moment. "
+                f"Écrivez à {_ASSISTANT_NAME}, ma réceptionniste, sur {short_link} : votre demande est notée, avec une "
+                "photo si besoin, et je vous rappelle dès que possible. À bientôt."
+            ),
+            linked_at_label=None,
+            is_linked=False,
         )
 
     @staticmethod

@@ -127,15 +127,23 @@ const groups: ComputedRef<ClientSpaceSettingsGroup[]> = computed((): ClientSpace
       ],
     },
   ]
-  const connections: ClientSpaceSettingsEntry[] = [
-    {
-      key: 'install',
-      label: `${props.space.assistant_name} sur votre site`,
-      value: 'La ligne à coller',
-      tone: 'plain',
-      screen: 'install',
-    },
-  ]
+  const connections: ClientSpaceSettingsEntry[] = []
+  if (props.space.google_profile) {
+    connections.push({
+      key: 'google',
+      label: 'Votre fiche Google',
+      value: props.space.google_profile.is_linked ? 'Adresse posée' : 'À poser',
+      tone: props.space.google_profile.is_linked ? 'green' : 'amber',
+      screen: 'google',
+    })
+  }
+  connections.push({
+    key: 'install',
+    label: `${props.space.assistant_name} sur votre site`,
+    value: props.space.installed ? `Installée sur ${props.space.installed.host}` : 'La ligne à coller',
+    tone: props.space.installed ? 'green' : 'plain',
+    screen: 'install',
+  })
   if (calendar.status !== 'unavailable') {
     connections.push({
       key: 'calendar',

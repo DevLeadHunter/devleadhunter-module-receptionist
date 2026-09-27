@@ -77,6 +77,16 @@ class AiAssistant(Base):
     alert_quiet_end_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # The client requires its visitors' data to stay with Mistral (EU): no Groq fallback. NULL = False.
     eu_only: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # Once sold: when the assistant became the business's (subscription webhook, or « vendu hors Stripe »).
+    delivered_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # The widget's loader saw itself on the business's own website: the host, and the last sighting.
+    installed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    installed_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # The business said the receptionist's address is on its Google profile (« Pour démarrer »).
+    google_profile_linked_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # The « Pour démarrer » reminders emailed 3 and 14 days after the sale (set even when nothing was left).
+    start_reminder_j3_sent_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    start_reminder_j14_sent_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(onupdate=datetime.utcnow, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)

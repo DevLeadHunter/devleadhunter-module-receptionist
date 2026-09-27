@@ -113,6 +113,36 @@ class AiAssistantClientAppointmentItem(BaseModel):
     contact: str
 
 
+class AiAssistantClientGoogleProfile(BaseModel):
+    """The receptionist's address, ready for the business's Google profile, its voicemail and its printed matter."""
+
+    # The receptionist's own page: the link for « Site web » and « Prendre rendez-vous » of the profile.
+    page_url: str
+    # The same address without its scheme, as it is read on a voicemail or printed.
+    short_link: str
+    # The address as an inline SVG QR code, to print on a card, a van, a quote.
+    qr_svg: str
+    # A voicemail greeting the business can record as is.
+    voicemail_text: str
+    # « 27/09/2026 » once the business said the link is on its profile.
+    linked_at_label: str | None = None
+    is_linked: bool = False
+
+
+class AiAssistantClientGoogleProfileUpdate(BaseModel):
+    """The business ticks (or unticks) « le lien est sur ma fiche »."""
+
+    linked: bool
+
+
+class AiAssistantClientInstalled(BaseModel):
+    """Where the widget's loader was last seen on the business's own website."""
+
+    host: str
+    # « 27/09 à 21:15 », business time.
+    seen_label: str
+
+
 class AiAssistantClientSpaceResponse(BaseModel):
     """Everything the client-space page shows."""
 
@@ -141,6 +171,10 @@ class AiAssistantClientSpaceResponse(BaseModel):
     website_url: str | None = None
     # The line to paste on the website to show the receptionist (« Sur votre site » screen).
     embed_snippet: str | None = None
+    # The receptionist's address for the Google profile, the voicemail and the printed QR.
+    google_profile: AiAssistantClientGoogleProfile | None = None
+    # The widget seen on the business's site, once the line is pasted; None until then.
+    installed: AiAssistantClientInstalled | None = None
 
 
 class AiAssistantClientSettingsUpdate(BaseModel):

@@ -104,6 +104,11 @@ class AiAssistantResponse(BaseModel):
     unanswered_count: int = 0
     alerts: AiAssistantAlertSettings
     eu_only: bool = False
+    # Once sold: the sale date, where the widget was last seen on the business's site, the Google link step.
+    delivered_at: datetime | None = None
+    installed_at: datetime | None = None
+    installed_host: str | None = None
+    google_profile_linked_at: datetime | None = None
     created_at: datetime
 
 
@@ -189,6 +194,12 @@ class AiAssistantPublicResponse(BaseModel):
     # How long the business is closed while its customers look for it, for the demo page; None once sold or
     # when its hours are unknown.
     closed_hours: AiAssistantClosedHours | None = None
+
+
+class AiAssistantInstalledPing(BaseModel):
+    """The widget's loader reporting the website it runs on."""
+
+    host: str = Field(min_length=1, max_length=253)
 
 
 class AiAssistantInterestRequest(BaseModel):

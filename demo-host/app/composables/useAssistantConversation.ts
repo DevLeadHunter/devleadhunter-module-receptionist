@@ -360,6 +360,8 @@ export function useAssistantConversation(
       } else {
         await wait(EXAMPLE_VISITOR_DELAY_MS)
       }
+      // The scripted customer's photo shows in its bubble, like a real upload would.
+      if (step.photoUrl) photoPreviews.value = { ...photoPreviews.value, [messages.value.length]: step.photoUrl }
       messages.value.push({ role: step.role, content: step.content })
     }
     isPlayingExample = false

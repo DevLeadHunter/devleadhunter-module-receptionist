@@ -178,6 +178,52 @@ class AiAssistantClientSpaceEmail:
         )
 
     @staticmethod
+    def render_start_reminder(
+        *, business_name: str, assistant_name: str, url: str, days: int, missing: list[str]
+    ) -> RenderedEmail:
+        """
+        Render the reminder sent 3 or 14 days after the sale while « Pour démarrer » steps are missing.
+
+        Args:
+            business_name: The business.
+            assistant_name: Its assistant's first name.
+            url: The signed client-space link.
+            days: How many days since the sale (3 or 14).
+            missing: The steps not done, as the client reads them.
+
+        Returns:
+            Subject and HTML body; every stored text is HTML-escaped.
+        """
+        name = html.escape(assistant_name)
+        count = len(missing)
+        plural = "s" if count > 1 else ""
+        items_html = "".join(f'<li style="margin:0 0 6px">{html.escape(step)}</li>' for step in missing)
+        subject = (
+            f"{assistant_name} n'a pas encore reçu de demande : il reste {count} étape{plural}"
+            if days <= 3
+            else f"Deux semaines : {assistant_name} attend toujours vos visiteurs"
+        )
+        body = "".join(
+            [
+                AiAssistantRequestEmail.paragraph(
+                    f"<strong>{name}</strong> travaille pour <strong>{html.escape(business_name)}</strong> depuis "
+                    f"{days} jours, mais vos clients n'ont pas encore de porte pour y arriver. Il reste :"
+                ),
+                f'<ul style="margin:0 0 16px;padding-left:22px">{items_html}</ul>',
+                AiAssistantRequestEmail.paragraph(
+                    "Tout se règle depuis votre espace, en quelques minutes : rubrique Accueil, « Pour démarrer »."
+                ),
+                AiAssistantRequestEmail.button("Ouvrir mon espace", f"{url}#accueil"),
+                AiAssistantRequestEmail.paragraph(
+                    "Ce lien personnel donne accès à vos demandes : ne le transférez pas. Une question ? Répondez à "
+                    "cet email.",
+                    muted=True,
+                ),
+            ]
+        )
+        return RenderedEmail(subject=subject, html=AiAssistantRequestEmail.document(body))
+
+    @staticmethod
     def render_calendar_connected(
         *, assistant_name: str, business_name: str, account_email: str | None
     ) -> RenderedEmail:

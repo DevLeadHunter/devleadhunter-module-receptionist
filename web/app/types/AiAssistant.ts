@@ -37,6 +37,11 @@ export type AiAssistantSummary = {
   unanswered_count: number
   alerts: AiAssistantAlertSettings
   eu_only: boolean
+  /** Once sold: the sale date, where the widget was last seen on the client's site, the Google link step. */
+  delivered_at: string | null
+  installed_at: string | null
+  installed_host: string | null
+  google_profile_linked_at: string | null
   created_at: string
 }
 

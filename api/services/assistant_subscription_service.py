@@ -244,6 +244,7 @@ class AssistantSubscriptionService:
             return
         if assistant.status in (AiAssistantStatus.ACTIVE.value, AiAssistantStatus.EXPIRED.value):
             assistant.status = AiAssistantStatus.DELIVERED.value
+            assistant.delivered_at = assistant.delivered_at or datetime.now(UTC).replace(tzinfo=None)
         if not (assistant.email or "").strip() and client_email and client_email.strip():
             assistant.email = client_email.strip()[:255]
 

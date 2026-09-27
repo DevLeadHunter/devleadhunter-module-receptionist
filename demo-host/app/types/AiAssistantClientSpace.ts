@@ -140,6 +140,26 @@ export type AiAssistantClientSpace = {
   website_url: string | null
   /** The line to paste on the website to show the receptionist. */
   embed_snippet: string | null
+  /** The receptionist's address for the Google profile, the voicemail and the printed QR. */
+  google_profile: AiAssistantClientGoogleProfile | null
+  /** The widget seen on the business's site, once the line is pasted; null until then. */
+  installed: AiAssistantClientInstalled | null
+}
+
+/** The receptionist's address, ready for the business's Google profile, its voicemail and its printed matter. */
+export type AiAssistantClientGoogleProfile = {
+  page_url: string
+  short_link: string
+  qr_svg: string
+  voicemail_text: string
+  linked_at_label: string | null
+  is_linked: boolean
+}
+
+/** Where the widget's loader was last seen on the business's own website. */
+export type AiAssistantClientInstalled = {
+  host: string
+  seen_label: string
 }
 
 /** A question the receptionist could not answer, with how often visitors asked it (dates in naive UTC). */

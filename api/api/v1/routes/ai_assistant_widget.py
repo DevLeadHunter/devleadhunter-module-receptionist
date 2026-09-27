@@ -34,6 +34,7 @@ from schemas.ai_assistant import (
     AiAssistantChatRequest,
     AiAssistantChatResponse,
     AiAssistantClosedHours,
+    AiAssistantInstalledPing,
     AiAssistantInterestRequest,
     AiAssistantLeadRequest,
     AiAssistantLeadResponse,
@@ -55,6 +56,7 @@ from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
 from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.follow_up_marker import MAX_FOLLOW_UP_CHARS
+from services.ai_assistant.installation_service import ai_assistant_installation_service
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.photo_service import (
     MAX_PHOTO_BYTES,
@@ -531,6 +533,19 @@ async def submit_assistant_photo(
         need=need,
         remaining=max(MAX_PHOTOS_PER_SESSION - kept, 0),
     )
+
+
+@router.post("/public/{slug}/installed", status_code=status.HTTP_204_NO_CONTENT)
+async def report_assistant_installation(
+    slug: str, payload: AiAssistantInstalledPing, request: Request, db: Session = Depends(get_db)
+) -> None:
+    """The loader saw itself on a website: remember where, so the business and the operator know the line is in."""
+    if not assistant_lead_limiter.allow(f"installed:{slug}:{client_ip(request)}"):
+        return
+    assistant = ai_assistant_service.get_public_by_slug(db, slug)
+    if not assistant:
+        return  # Unknown or inactive slug: ignore, like the interest beacon.
+    ai_assistant_installation_service.record(db, assistant, payload.host)
 
 
 @router.post("/public/{slug}/interest", status_code=status.HTTP_204_NO_CONTENT)

@@ -104,6 +104,10 @@ def _to_owner_response(
         ),
         alerts=_alert_settings(assistant),
         eu_only=bool(assistant.eu_only),
+        delivered_at=assistant.delivered_at,
+        installed_at=assistant.installed_at,
+        installed_host=assistant.installed_host,
+        google_profile_linked_at=assistant.google_profile_linked_at,
         unanswered_count=len(ai_assistant_faq_service.unanswered_of(assistant.knowledge_json)),
         created_at=assistant.created_at,
     )

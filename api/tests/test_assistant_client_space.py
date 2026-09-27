@@ -17,8 +17,10 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 import api.v1.routes.ai_assistant_client_space as routes
+import api.v1.routes.ai_assistant_widget as widget_routes
 import api.v1.routes.ai_assistants as owner_routes
 import services.ai_assistant.client_space_service as client_space_module
+import services.ai_assistant.start_reminders as start_reminders_module
 import services.email_sending_service as email_sending_module
 from core.config import settings
 from enums.ai_assistant_request import AiAssistantRequestType
@@ -29,7 +31,12 @@ from models.ai_assistant_request import AiAssistantRequest
 from models.ai_assistant_subscription import AiAssistantSubscription
 from models.prospect_db import ProspectDB
 from models.user import User
-from schemas.ai_assistant_client_space import AiAssistantClientLinkRequest, AiAssistantClientSettingsUpdate
+from schemas.ai_assistant import AiAssistantInstalledPing
+from schemas.ai_assistant_client_space import (
+    AiAssistantClientGoogleProfileUpdate,
+    AiAssistantClientLinkRequest,
+    AiAssistantClientSettingsUpdate,
+)
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.client_links import AiAssistantClientLinks
 from services.ai_assistant.request_alerts import AlertSms
@@ -535,3 +542,71 @@ def test_each_visit_carries_a_fresh_link_the_site_and_the_line_to_paste(db: Sess
     base = settings.demo_host_base_url.rstrip("/")
     assert page.embed_snippet == f'<script src="{base}/ai-assistant.js" data-slug="{assistant.slug}" defer></script>'
     assert example.fresh_token is None and example.website_url is None and example.embed_snippet is not None
+
+
+def test_the_google_profile_step_and_the_installed_widget_show_in_the_space(db: Session) -> None:
+    assistant = _assistant(db)
+    ours = settings.demo_host_base_url.split("://", 1)[-1].split("/", 1)[0]
+
+    page = asyncio.run(routes.get_client_space(_token(assistant), VISITOR_REQUEST, db))
+    profile = page.google_profile
+    assert profile is not None and profile.page_url.endswith(f"/ia/{assistant.slug}")
+    assert profile.short_link == profile.page_url.split("://", 1)[-1]
+    assert profile.qr_svg.startswith("<svg") and "viewBox" in profile.qr_svg
+    assert assistant.assistant_name in profile.voicemail_text and profile.short_link in profile.voicemail_text
+    assert profile.is_linked is False and page.installed is None
+
+    ticked = asyncio.run(
+        routes.update_client_google_profile(
+            _token(assistant), AiAssistantClientGoogleProfileUpdate(linked=True), VISITOR_REQUEST, db
+        )
+    )
+    assert ticked.is_linked is True and ticked.linked_at_label is not None
+    # The loader reports the business's site; our own host and junk are ignored.
+    for host in ("WWW.Toitures-Morel.fr", ours, "not a host", "localhost"):
+        asyncio.run(
+            widget_routes.report_assistant_installation(
+                assistant.slug, AiAssistantInstalledPing(host=host), VISITOR_REQUEST, db
+            )
+        )
+    page = asyncio.run(routes.get_client_space(_token(assistant), VISITOR_REQUEST, db))
+    assert page.installed is not None and page.installed.host == "www.toitures-morel.fr"
+    assert page.google_profile is not None and page.google_profile.is_linked is True
+
+
+def test_start_reminders_go_at_three_and_fourteen_days_while_steps_are_missing(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sold = _assistant(db, delivered_at=datetime(2026, 9, 20, 10, 0))
+    ready = _assistant(
+        db,
+        business_name="Couverture Petit",
+        delivered_at=datetime(2026, 9, 20, 10, 0),
+        alert_phone_e164="+33612345678",
+        installed_at=datetime(2026, 9, 21, 9, 0),
+        installed_host="couverture-petit.fr",
+    )
+    sent: list[tuple[int, str]] = []
+
+    async def fake_send(
+        db_: Session, assistant: AiAssistant, rendered: Any, *, recipient: str, recipient_name: str
+    ) -> None:
+        sent.append((assistant.id, rendered.subject))
+        return None
+
+    monkeypatch.setattr(
+        start_reminders_module.AiAssistantBusinessMailer, "business_email", staticmethod(lambda db_, a: a.email)
+    )
+    monkeypatch.setattr(start_reminders_module.AiAssistantBusinessMailer, "send", staticmethod(fake_send))
+    monkeypatch.setattr(
+        start_reminders_module.ai_assistant_calendar_service, "connection", lambda db_, a: ("unavailable", None)
+    )
+    reminders = start_reminders_module.ai_assistant_start_reminders
+
+    assert asyncio.run(reminders.send_due(db, now=datetime(2026, 9, 22, 10, 0))) == 0
+    assert asyncio.run(reminders.send_due(db, now=datetime(2026, 9, 23, 11, 0))) == 1
+    assert asyncio.run(reminders.send_due(db, now=datetime(2026, 9, 24, 11, 0))) == 0
+    assert asyncio.run(reminders.send_due(db, now=datetime(2026, 10, 5, 11, 0))) == 1
+    assert [item[0] for item in sent] == [sold.id, sold.id]
+    assert "il reste 2 étapes" in sent[0][1] and sent[1][1].startswith("Deux semaines")
+    assert ready.start_reminder_j3_sent_at is not None and ready.start_reminder_j14_sent_at is not None

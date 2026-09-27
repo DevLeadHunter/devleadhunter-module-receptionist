@@ -11,6 +11,8 @@ type TradeExample = {
   opening: string
   kind: AssistantLeadSummary['kind']
   hasPhoto: boolean
+  /** The example photo the customer sends (a file of `/showroom/examples/`), null when none fits. */
+  photo: string | null
   /** « samedi matin », empty when the example is not an appointment. */
   slots: string
 }
@@ -23,6 +25,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
       "Bonjour, j'ai une fuite depuis la tempête, des tuiles ont bougé côté rue. Vous pouvez passer cette semaine ?",
     kind: 'quote',
     hasPhoto: true,
+    photo: 'toiture',
     slots: '',
   },
   {
@@ -31,6 +34,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
     opening: "Bonjour, ça goutte sous l'évier de la cuisine depuis ce matin. Vous pouvez passer cette semaine ?",
     kind: 'quote',
     hasPhoto: true,
+    photo: 'plomberie',
     slots: '',
   },
   {
@@ -39,6 +43,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
     opening: 'Bonjour, plus de courant dans la cuisine, le tableau saute dès que je le remonte. Vous pouvez venir ?',
     kind: 'question',
     hasPhoto: false,
+    photo: null,
     slots: '',
   },
   {
@@ -47,6 +52,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
     opening: "Bonjour, j'ai une rayure sur la portière avant droite. Vous faites un devis carrosserie ?",
     kind: 'quote',
     hasPhoto: true,
+    photo: 'carrosserie',
     slots: '',
   },
   {
@@ -54,7 +60,8 @@ const TRADE_EXAMPLES: TradeExample[] = [
     need: 'taille de haie sur 30 m et tonte, devis annuel',
     opening: "Bonjour, j'ai 30 m de haie à tailler et la pelouse à tondre. Vous faites un devis à l'année ?",
     kind: 'quote',
-    hasPhoto: false,
+    hasPhoto: true,
+    photo: 'jardin',
     slots: '',
   },
   {
@@ -63,6 +70,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
     opening: 'Bonjour, une fissure est apparue sur le mur du garage. Vous pouvez passer voir pour un devis ?',
     kind: 'quote',
     hasPhoto: true,
+    photo: 'batiment',
     slots: '',
   },
   {
@@ -71,6 +79,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
     opening: 'Bonjour, une fenêtre ferme mal, je voudrais un devis pour la remplacer.',
     kind: 'quote',
     hasPhoto: true,
+    photo: 'defaut',
     slots: '',
   },
   {
@@ -79,6 +88,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
     opening: "Bonjour, j'ai un salon de 25 m² à repeindre. Vous pouvez me faire un devis ?",
     kind: 'quote',
     hasPhoto: false,
+    photo: null,
     slots: '',
   },
   {
@@ -87,6 +97,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
     opening: "Bonjour, ma porte a claqué, les clés sont à l'intérieur. Vous pouvez venir vite ?",
     kind: 'question',
     hasPhoto: false,
+    photo: null,
     slots: '',
   },
   {
@@ -95,6 +106,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
     opening: "Bonjour, je voudrais une coupe et la barbe samedi matin, c'est possible ?",
     kind: 'appointment',
     hasPhoto: false,
+    photo: null,
     slots: 'samedi matin',
   },
   {
@@ -103,6 +115,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
     opening: "Bonsoir, une table pour 6 samedi soir, avec un menu sans gluten, c'est possible ?",
     kind: 'appointment',
     hasPhoto: false,
+    photo: null,
     slots: 'samedi soir',
   },
   {
@@ -111,6 +124,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
     opening: "Bonjour, j'ai une douleur depuis hier, vous auriez un premier rendez-vous rapidement ?",
     kind: 'appointment',
     hasPhoto: false,
+    photo: null,
     slots: '',
   },
   {
@@ -119,6 +133,7 @@ const TRADE_EXAMPLES: TradeExample[] = [
     opening: 'Bonjour, je voudrais une estimation de ma maison avant de la mettre en vente.',
     kind: 'question',
     hasPhoto: false,
+    photo: null,
     slots: '',
   },
 ]
@@ -129,6 +144,7 @@ const DEFAULT_EXAMPLE: TradeExample = {
   opening: "Bonjour, j'aurais besoin d'un devis. Vous pouvez me rappeler dans la journée ?",
   kind: 'quote',
   hasPhoto: false,
+  photo: null,
   slots: '',
 }
 
@@ -211,6 +227,9 @@ export class AssistantDemoScenarioUtils {
     const labels: AssistantExampleLabels = EXAMPLE_LABELS[lang]
     const match: TradeExample = AssistantDemoScenarioUtils.match(tradeLabel)
     const opening: string = lang === 'fr' ? match.opening : labels.visitor
+    // The shared script of the other languages is a leak under a sink: its photo goes with it.
+    const photoFile: string | null = lang === 'fr' ? match.photo : 'plomberie'
+    const photoUrl: string | null = photoFile ? `/showroom/examples/${photoFile}.jpg` : null
     if (lang === 'fr' && match.kind === 'appointment') {
       const when: string = match.slots
         ? `${match.slots.charAt(0).toUpperCase()}${match.slots.slice(1)} si possible`
@@ -243,7 +262,7 @@ export class AssistantDemoScenarioUtils {
     return [
       { role: 'user', content: opening },
       { role: 'assistant', content: labels.askPhoto.replace('{business}', businessName) },
-      { role: 'user', content: PHOTO_LABELS[lang].sent },
+      { role: 'user', content: PHOTO_LABELS[lang].sent, ...(photoUrl ? { photoUrl } : {}) },
       { role: 'assistant', content: labels.thanks.replace('{business}', businessName) },
     ]
   }

@@ -801,6 +801,8 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
 | `POST` | `/ai-assistants/client/{token}/requests/{id}/handled` | Marquer traitée une demande depuis l'espace client |
 | `POST` | `/ai-assistants/client/{token}/requests/{id}/dropped` | Mettre de côté une fausse demande (test, spam, doublon) depuis l'espace client |
 | `PATCH` | `/ai-assistants/client/{token}/settings` | Prénom, langues, mobile d'alerte, SMS / email oui-non |
+| `POST` | `/ai-assistants/client/{token}/google-profile` | Le client dit si l'adresse de la réceptionniste est sur sa fiche Google (étape « Pour démarrer ») |
+| `POST` | `/ai-assistants/public/{slug}/installed` | Le loader signale l'hôte du site où il tourne (`installed_at`, `installed_host` ; jamais le demo host) |
 | `POST` | `/ai-assistants/client/{token}/billing-portal` | Session du portail Stripe Billing (retour sur l'espace) |
 | `POST` | `/ai-assistants/client/{token}/renew` | Depuis un lien expiré : nouveau lien envoyé à l'adresse du commerçant |
 | `POST` | `/ai-assistants/client/{token}/calendar/connect` | Page de consentement Google de l'agenda (503 si Google n'est pas configuré) |
@@ -1257,9 +1259,10 @@ pouvait plus être générée ni envoyée :
 - Copies sans pronom féminin (Hugo est aussi réceptionniste) : « restée sans réponse », « la question vous est
   transmise ».
 
-Reste à faire : détection « installée sur votre site » (l'étape « sur votre site » reste ambre tant qu'on ne
-sait pas), confirmation d'un créneau par SMS au visiteur (décision), bloc « Vos essais » des maquettes
-(conversations de test du commerçant).
+Décisions prises à la place de Léo le soir même (mandat « décide à ma place, réfère-toi au PDF ») :
+confirmation d'un créneau par SMS au visiteur sans agenda → non (le patron confirme) ; bloc « Vos essais » → non
+(les essais du client sont des demandes normales) ; L2 essai 14 j + paliers → non ; L3 calculateur en euros et L4
+carte humaine → non ; L7 → règles du prompt conservées, table éditable après la première vente.
 
 ## Quatorzième passage — vidéo de la réceptionniste à parité avec le site (27/09, nuit)
 
@@ -1269,3 +1272,33 @@ sait pas), confirmation d'un créneau par SMS au visiteur (décision), bloc « V
 - **Vignette dans les premiers emails** (voir « Modèles de prospection ») : les trois modèles J1 montrent la vidéo
   dès qu'elle existe, sans attendre le modèle « vidéo ».
 - **Purge** des fichiers de la vidéo à l'expiration de la démo et à la suppression de la réceptionniste.
+
+## Quinzième passage — « Pour démarrer » complet (27/09, nuit)
+
+Le chemin du client final vers la réceptionniste (PDF du 24/09, p. 8-9) passe d'abord par la fiche Google : le
+module le porte désormais de bout en bout.
+
+- **Écran « Votre fiche Google »** (`#reglages/fiche-google`, menu Connexions) : l'adresse de la réceptionniste
+  (`{demo host}/ia/{slug}`) à coller dans « Site web » et « Prendre rendez-vous » de la fiche, guide en trois
+  étapes, case « C'est fait » (`POST …/google-profile`, colonne `google_profile_linked_at`), message de messagerie
+  vocale prêt à lire, QR en SVG (`segno`, `client_space_service.qr_svg`) à télécharger. Étape « Adresse sur votre
+  fiche Google » dans « Pour démarrer ».
+- **Détection « installée sur votre site »** : le loader (`ai-assistant.js`) signale l'hôte de la page où il
+  tourne, une fois par session et jamais depuis le demo host, à `/embed-installed/{slug}` (route serveur du
+  demo-host) qui relaie à `POST /public/{slug}/installed` ; `installation_service.py` garde `installed_host`
+  + `installed_at` (au plus une écriture par heure). L'étape « sur votre site » passe en vert, l'écran « Sur votre
+  site » l'affiche, le résumé du dashboard montre « Sur son site » et « Fiche Google ».
+- **Relances J+3 / J+14** (`start_reminders.py`, passe horaire du nettoyeur) : tant qu'il manque le numéro SMS,
+  l'adresse sur la fiche Google ou la ligne sur le site, ou l'agenda (états `disconnected` / `error` seulement),
+  un email « Pour démarrer » part 3 puis 14 jours après la vente (`delivered_at`, daté au webhook Stripe et à
+  « vendu hors Stripe », rétro-daté pour les ventes existantes par la migration
+  `add_ai_assistant_start_columns`). Chaque relance est réclamée avant l'envoi : jamais deux fois.
+- **Photos d'exemple par métier** (`public/showroom/examples/`, Unsplash) : l'exemple scripté du widget montre la
+  photo du métier (`AssistantDemoScenarioUtils`, `photoUrl` du pas « photo envoyée »), l'espace vitrine porte une
+  vraie photo de toiture sur sa demande urgente.
+- **Encart « Ce que {prénom} ne fera jamais »** sur `/ia` (prix ou délai non fixés, jamais une personne, photos
+  effacées après le devis), tel que le PDF le promet.
+
+Reste : test client complet par Léo (Stripe à 1 € puis remettre 79 € et l'e-mail), R7 boîte mail en variante
+Resend après la campagne V1, R16 intake événement (V2) ; par Léo seul : R15 (vidéo YouTube + justification des
+scopes), L8 première référence, portrait de Sofia.

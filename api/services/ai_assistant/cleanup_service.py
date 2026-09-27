@@ -9,6 +9,7 @@ from core.database import SessionLocal
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
 from services.ai_assistant.photo_service import ai_assistant_photo_service
+from services.ai_assistant.start_reminders import ai_assistant_start_reminders
 from services.assistant_subscription_service import assistant_subscription_service
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,14 @@ class AiAssistantCleanupRunner:
                     logger.info("Purged assistant conversations past retention: %s", forgotten)
             except Exception as exc:
                 logger.exception("Assistant demo expiry failed: %s", exc)
+                db.rollback()
+            # The « Pour démarrer » reminders, on their own so a mail failure never blocks the purges.
+            try:
+                reminded: int = await ai_assistant_start_reminders.send_due(db)
+                if reminded:
+                    logger.info("Sent assistant start reminders: %s", reminded)
+            except Exception:
+                logger.exception("Assistant start reminders failed")
                 db.rollback()
             # Its own step: the 90-day deletion promise must not depend on the expiry pass succeeding.
             try:

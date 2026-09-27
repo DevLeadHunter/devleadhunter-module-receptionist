@@ -23,6 +23,9 @@ from schemas.ai_assistant_client_space import (
     AiAssistantClientCalendar,
     AiAssistantClientCalendarConnect,
     AiAssistantClientCalendarUpdate,
+    AiAssistantClientGoogleProfile,
+    AiAssistantClientGoogleProfileUpdate,
+    AiAssistantClientInstalled,
     AiAssistantClientLanguageOption,
     AiAssistantClientPortalResponse,
     AiAssistantClientRenewResponse,
@@ -165,6 +168,27 @@ def _to_subscription(subscription: AiAssistantSubscription) -> AiAssistantClient
     )
 
 
+def _to_google_profile(assistant: AiAssistant) -> AiAssistantClientGoogleProfile:
+    url = ai_assistant_client_space_service.page_url(assistant)
+    linked_at = assistant.google_profile_linked_at
+    return AiAssistantClientGoogleProfile(
+        page_url=url,
+        short_link=ai_assistant_client_space_service.page_short_link(assistant),
+        qr_svg=ai_assistant_client_space_service.qr_svg(url),
+        voicemail_text=ai_assistant_client_space_service.voicemail_text(assistant),
+        linked_at_label=_business_label(linked_at, "%d/%m/%Y") if linked_at is not None else None,
+        is_linked=linked_at is not None,
+    )
+
+
+def _to_installed(assistant: AiAssistant) -> AiAssistantClientInstalled | None:
+    if assistant.installed_at is None or not assistant.installed_host:
+        return None
+    return AiAssistantClientInstalled(
+        host=assistant.installed_host, seen_label=_business_label(assistant.installed_at, "%d/%m à %H:%M")
+    )
+
+
 def _to_settings(assistant: AiAssistant) -> AiAssistantClientSettings:
     alerts = AlertSettings.of(assistant)
     offered = {language.value for language in AssistantWidgetLanguage}
@@ -220,6 +244,8 @@ async def get_client_space(
         fresh_token=fresh_token,
         website_url=ai_assistant_client_space_service.website_url(db, assistant),
         embed_snippet=AiAssistantEmbedSnippet.render(assistant.slug),
+        google_profile=_to_google_profile(assistant),
+        installed=_to_installed(assistant),
     )
 
 
@@ -286,6 +312,16 @@ async def update_client_settings(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     return _to_settings(updated)
+
+
+@router.post("/client/{token}/google-profile", response_model=AiAssistantClientGoogleProfile)
+async def update_client_google_profile(
+    token: str, payload: AiAssistantClientGoogleProfileUpdate, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantClientGoogleProfile:
+    """The business says whether the receptionist's address is on its Google profile (a « Pour démarrer » step)."""
+    assistant, _link = _open_client_space(db, token, request)
+    ai_assistant_client_space_service.set_google_profile_linked(db, assistant, payload.linked)
+    return _to_google_profile(assistant)
 
 
 @router.post("/client/{token}/billing-portal", response_model=AiAssistantClientPortalResponse)
