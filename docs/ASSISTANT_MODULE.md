@@ -1091,7 +1091,7 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
   viewport** (`window.visualViewport` : `top = offsetTop`, `height = height`, `bottom: auto`, écouteurs `resize` +
   `scroll`) tant que le widget est ouvert sur mobile ; sur desktop, `bottom: 0`. À vérifier sur un vrai iPhone
   (Chromium n'émule pas le clavier).
-- **Vu en prod pendant la vérification (27/09, 00 h).** (1) Le modèle laisse parfois un caractère NUL (` `) en fin de
+- **Vu en prod pendant la vérification (27/09, 00 h).** (1) Le modèle laisse parfois un caractère NUL (`\u0000`) en fin de
   réponse ; renvoyé dans l'historique, il fait échouer l'appel suivant et le modèle le recopie. `chat_service.clean_model_text`
   retire les caractères de contrôle de la réponse, des deltas du flux, et de l'historique reçu du widget (une conversation
   déjà empoisonnée dans le localStorage est nettoyée à chaque tour). (2) **`MISTRAL_API_KEY` n'est PAS posée sur l'API de
