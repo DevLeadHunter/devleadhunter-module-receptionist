@@ -86,6 +86,7 @@ class AiAssistantResponse(BaseModel):
     # Prospection video state: NULL when never requested, else pending/generating/ready/failed.
     video_status: str | None = None
     video_page_url: str | None = None
+    video_thumbnail_url: str | None = None
     video_error: str | None = None
     # Subscription state: NULL when no active subscription, else the locked plan the client pays.
     subscription_status: str | None = None

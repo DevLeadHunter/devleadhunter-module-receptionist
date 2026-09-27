@@ -184,6 +184,28 @@ def test_deleting_an_assistant_deletes_its_video_files(db: Session, monkeypatch:
     assert (assistant.status, assistant.video_status) == (AiAssistantStatus.DELETED.value, None)
 
 
+def test_the_owner_sees_the_thumbnail_of_a_ready_video_only(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The detail page previews the thumbnail the emails show, cache-busted by the generation instant."""
+    from api.v1.routes.ai_assistants import get_assistant
+
+    monkeypatch.setattr("services.assistant_video_service.r2_storage.public_url", lambda key: f"https://cdn/{key}")
+    assistant = ai_assistant_service.create(
+        db, user_id=1, business_name="Toitures Morel", prospect_id=1, country="FR", use_brand_color=False
+    )
+    owner = SimpleNamespace(id=1)
+
+    before = asyncio.run(get_assistant(assistant.id, owner, db))
+    assistant.video_status = DemoVideoStatus.READY.value
+    assistant.video_generated_at = datetime(2026, 9, 27, 21, 0, tzinfo=UTC)
+    db.commit()
+    ready = asyncio.run(get_assistant(assistant.id, owner, db))
+
+    assert before.video_thumbnail_url is None
+    assert ready.video_thumbnail_url is not None
+    assert ready.video_thumbnail_url.startswith("https://cdn/") and assistant.slug in ready.video_thumbnail_url
+    assert ready.video_thumbnail_url.endswith(f"?v={int(assistant.video_generated_at.timestamp())}")
+
+
 def test_reconcile_marks_orphaned_generations_failed() -> None:
     rows = [
         _assistant(1, status=AiAssistantStatus.ACTIVE.value, video_status=DemoVideoStatus.GENERATING.value),

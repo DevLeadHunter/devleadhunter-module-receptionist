@@ -208,15 +208,15 @@ def test_every_assistant_sms_has_one_door_without_a_scheme() -> None:
         assert "http" not in template.body, template.key
 
 
-def test_every_assistant_sms_fits_one_segment_with_a_45_character_link() -> None:
+def test_every_assistant_sms_fits_one_segment_with_a_47_character_link() -> None:
     variables = {
         "salutation": "Bonjour Geoffrey",
-        "lien_assistant": "demo.dibodev.fr/ia/plomberie-chauffage-dupont",
-        "lien_video_assistant": "demo.dibodev.fr/va/plomberie-chauffage-dupont",
+        "lien_assistant": "demo.dibodev.fr/s/ia/plomberie-chauffage-dupont",
+        "lien_video_assistant": "demo.dibodev.fr/s/va/plomberie-chauffage-dupont",
         "prix_assistant": "79 €",
         "signature": "Léo",
     }
-    assert len(variables["lien_assistant"]) == len(variables["lien_video_assistant"]) == 45
+    assert len(variables["lien_assistant"]) == len(variables["lien_video_assistant"]) == 47
     for template in _ASSISTANT_SMS:
         body = sms_service.compose_from_template(template, variables)
         assert segment_count(body) == 1, f"{template.key}: {len(body)} chars"

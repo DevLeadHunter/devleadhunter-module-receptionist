@@ -24,6 +24,7 @@ from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.website_crawler import ai_assistant_website_crawler
 from services.ai_assistant.website_sync import AiAssistantWebsiteSync
+from services.demo_slug_guard import DemoSlugGuard
 from services.enrichment_service import enrichment_service
 from services.mistral_service import mistral_service
 from services.sms.phone_normalizer import to_served_mobile
@@ -233,7 +234,7 @@ class AiAssistantService:
         assistant = AiAssistant(
             user_id=user_id,
             prospect_id=prospect_id,
-            slug=self._unique_slug(db, business_name),
+            slug=self._unique_slug(db, business_name, prospect_id),
             status=AiAssistantStatus.ACTIVE.value,
             **fields,
         )
@@ -543,14 +544,20 @@ class AiAssistantService:
                 "[Assistant] Auto re-enqueue after assistant ready failed for prospect %s", prospect_id, exc_info=True
             )
 
-    def _unique_slug(self, db: Session, business_name: str) -> str:
+    def _unique_slug(self, db: Session, business_name: str, prospect_id: int | None) -> str:
         base_slug = self._slugify(business_name)[:80]
         candidate = base_slug
         suffix = 1
-        while db.query(AiAssistant).filter(AiAssistant.slug == candidate).first() is not None:
+        while self._is_slug_taken(db, candidate, prospect_id):
             suffix += 1
             candidate = f"{base_slug}-{suffix}"
         return candidate
+
+    @staticmethod
+    def _is_slug_taken(db: Session, slug: str, prospect_id: int | None) -> bool:
+        """Whether a new assistant can't take this slug: another assistant holds it, or another prospect's site."""
+        is_held_by_an_assistant = db.query(AiAssistant.id).filter(AiAssistant.slug == slug).first() is not None
+        return is_held_by_an_assistant or DemoSlugGuard.is_used_by_another_prospect(db, slug, prospect_id)
 
     @staticmethod
     def _slugify(value: str) -> str:

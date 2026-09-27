@@ -47,6 +47,7 @@ from services.assistant_video_service import (
     ASSISTANT_PRESENTER_MODULE,
     assistant_video_service,
     has_ready_video,
+    public_thumbnail_url,
     thumbnail_object_key,
     video_object_key,
     video_page_url,
@@ -87,6 +88,9 @@ def _to_owner_response(
         expires_at=assistant.expires_at,
         video_status=assistant.video_status,
         video_page_url=video_page_url(assistant.slug) if has_ready_video(assistant) else None,
+        video_thumbnail_url=(
+            public_thumbnail_url(assistant.slug, assistant.video_generated_at) if has_ready_video(assistant) else None
+        ),
         video_error=assistant.video_error,
         subscription_status=getattr(subscription, "status", None),
         subscription_amount_cents=getattr(subscription, "amount_cents", None),

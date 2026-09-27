@@ -23,6 +23,7 @@ export type AiAssistantSummary = {
   expires_at: string | null
   video_status: string | null
   video_page_url: string | null
+  video_thumbnail_url: string | null
   video_error: string | null
   subscription_status: string | null
   subscription_amount_cents: number | null

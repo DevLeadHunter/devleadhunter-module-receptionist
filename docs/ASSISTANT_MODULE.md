@@ -334,8 +334,10 @@ Comment l'assistant est proposé au prospect, puis vendu.
 `{lien_assistant}` (résolu vers l'assistant **actif** de l'expéditeur pour ce prospect — jamais celui
 d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprimé — vide sinon) :
 
-- **Email** — `EmailVariables.resolve_assistant_link` : ancre tracée (comme `{lien_demo}`).
-- **SMS** — `SmsVariables` : lien nu sans schéma (`EmailVariables.resolve_assistant_url` + `as_sms_link`).
+- **Email** — `EmailVariables.resolve_assistant_link` : ancre tracée (comme `{lien_demo}`). Le lien de la démo et
+  celui de la vidéo portent `?src=email` et la variante A/B (`&v=A`), comme ceux du site (`email_tracked_link`).
+- **SMS** — `SmsVariables` : lien court sans schéma (`demo.dibodev.fr/s/ia/…`, `/s/va/…`, `sms_tracked_link`),
+  que le demo host redirige avec `?src=sms`, comme ceux du site.
 - **Vidéo** — `{lien_video_assistant}` / `{vignette_video_assistant}` (email + SMS). Avec `{lien_assistant}`
   dans le même modèle, la vignette disparaît si la vidéo manque et le lien live reste. Sans lui (modèle
   « vidéo seule »), la campagne met le prospect de côté tant que la vidéo n'est pas prête (`skipped_no_video`,
@@ -405,8 +407,18 @@ la page démo `/ia/{slug}` : l'email et le SMS mènent à `/va`, dont le bouton 
   lecture, vue en entier et « revoir » partent aussi vers `POST /demo-events`, qui reconnaît le préfixe et notifie
   sous le module assistant (`notify_assistant_video_event`, « 🤖 Assistant IA · Lance ta vidéo · Email »). Ces
   events entrent dans la timeline et le score du prospect comme ceux du site (`_slugs_for_prospect` lit aussi les
-  slugs de ses réceptionnistes ; `lead_scoring` les compte comme la vidéo). Rien n'est suivi sur une visite
-  `?internal=1` ni sur une réceptionniste vendue.
+  slugs de ses réceptionnistes ; `lead_scoring` les compte comme la vidéo). Le bouton « Parler à {prénom} » garde
+  le canal et la variante de la visite jusqu'à `/ia` (`DemoBeaconUtils.attributedPath`), qui enregistre la variante
+  comme la démo d'un site. Rien n'est suivi sur une visite `?internal=1` ni sur une réceptionniste vendue.
+- **Au-delà de la fiche** : la température de la liste des prospects, les « leads chauds » de l'accueil et le
+  récap du soir comptent aussi les pages de la réceptionniste (`BehaviorService._slugs_by_prospect`,
+  `send_daily_recap`). Les deux modules étant suivis par slug, un nouveau site ou une nouvelle réceptionniste ne
+  prend jamais le slug d'une démo d'un autre prospect (`services/demo_slug_guard.py`) ; ceux d'un même prospect
+  peuvent le partager.
+- **Dashboard** : la carte « Vidéo de prospection » montre la vignette (qui ouvre la page vidéo), copie le lien,
+  régénère ou supprime la vidéo (`DELETE /ai-assistants/{id}/video`, confirmation). Pendant une génération sur
+  le PC, la fenêtre de progression du site suit les étapes de la réceptionniste (`RECEPTIONIST_VIDEO_BUILD_PHASES`)
+  et une erreur affiche le message de l'API.
 - **Durée de vie** : les fichiers R2 de la vidéo sont supprimés à l'expiration de la démo et à la suppression de
   la réceptionniste (`AssistantVideoService.purge_video`), comme ceux d'un site.
 
@@ -1302,3 +1314,12 @@ module le porte désormais de bout en bout.
 Reste : test client complet par Léo (Stripe à 1 € puis remettre 79 € et l'e-mail), R7 boîte mail en variante
 Resend après la campagne V1, R16 intake événement (V2) ; par Léo seul : R15 (vidéo YouTube + justification des
 scopes), L8 première référence, portrait de Sofia.
+
+## Seizième passage — la réceptionniste suivie jusqu'au bout (27/09, nuit)
+
+- **Canal et variante** sur les liens de la réceptionniste (email `?src=email&v=…`, SMS par le lien court `/s/`),
+  gardés de `/va` à `/ia` : les notifications de la vidéo disent « · Email » ou « · SMS » dans une vraie campagne.
+- **Carte vidéo du dashboard** au niveau de celle du site : vignette, suppression, fenêtre de progression, vrai
+  message d'erreur.
+- **Liste des prospects, leads chauds et récap du soir** : les visites de la réceptionniste y comptent, et un slug
+  n'est jamais partagé entre deux prospects.

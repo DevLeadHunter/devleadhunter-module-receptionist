@@ -73,7 +73,13 @@
               @mark-sold="soldConfirmModal?.open()"
               @remove="deleteConfirmModal?.open()"
             />
-            <AssistantVideoCard :assistant="assistant" :is-busy="isVideoBusy" @generate="generateVideo" />
+            <AssistantVideoCard
+              :assistant="assistant"
+              :is-busy="isVideoBusy"
+              :is-removing-video="isRemovingVideo"
+              @generate="generateVideo"
+              @remove-video="videoDeleteConfirmModal?.open()"
+            />
             <AssistantSubscriptionCard :assistant="assistant" />
           </template>
 
@@ -134,6 +140,14 @@
       @confirm="sendClientSpace"
     />
     <UiConfirmModal
+      ref="videoDeleteConfirmModal"
+      title="Supprimer la vidéo"
+      message="Supprimer la vidéo de prospection de cette réceptionniste ? Le lien envoyé dans les emails et SMS ne fonctionnera plus."
+      confirm-text="Supprimer"
+      cancel-text="Annuler"
+      @confirm="removeVideo"
+    />
+    <UiConfirmModal
       ref="soldConfirmModal"
       title="Marquer comme vendu"
       :message="soldConfirmMessage"
@@ -142,6 +156,17 @@
       confirm-button-variant="primary"
       @confirm="markSold"
     />
+
+    <UiVideoGenerationModal
+      :open="videoProgress.isOpen.value"
+      title="Génération de la vidéo"
+      :steps="videoProgress.steps.value"
+      :log-lines="videoProgress.logLines.value"
+      :elapsed-seconds="videoProgress.elapsedSeconds.value"
+      :error-message="videoProgress.errorMessage.value"
+      :is-running="videoProgress.isRunning.value"
+      @close="videoProgress.close()"
+    />
   </div>
 </template>
 
@@ -149,6 +174,7 @@
 import type { ComputedRef, Ref } from 'vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { UseOpenExternalUrlReturn, UseToastReturn, UseCopyToClipboardReturn } from '~/types/Composables'
+import type { UseVideoGenerationProgressReturn } from '~/composables/useVideoGenerationProgress'
 import type {
   AiAssistantClientLink,
   AiAssistantRequestItem,
@@ -170,7 +196,9 @@ import AssistantSummaryCard from '~/components/ai-assistants/AssistantSummaryCar
 import AssistantVideoCard from '~/components/ai-assistants/AssistantVideoCard.vue'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { AssistantSidecarService } from '~/services/assistantSidecarService'
+import { RECEPTIONIST_VIDEO_BUILD_PHASES } from '~/constants/videoBuildPhases'
 import { useToast } from '~/composables/useToast'
+import { useVideoGenerationProgress } from '~/composables/useVideoGenerationProgress'
 import { useDrawerStackStore } from '~/stores/drawerStack'
 import { assistantStatusLabel, demoUrlWithInternal } from '~/utils/aiAssistantLabels'
 import { assistantPortraitUrl } from '~/utils/assistantPortrait'
@@ -183,6 +211,7 @@ const toast: UseToastReturn = useToast()
 const drawerStack: ReturnType<typeof useDrawerStackStore> = useDrawerStackStore()
 const { copy }: UseCopyToClipboardReturn = useCopyToClipboard()
 const { openExternalUrl }: UseOpenExternalUrlReturn = useOpenExternalUrl()
+const videoProgress: UseVideoGenerationProgressReturn = useVideoGenerationProgress(RECEPTIONIST_VIDEO_BUILD_PHASES)
 
 /** How many of the assistant's requests the detail page lists. */
 const RECENT_REQUESTS_LIMIT: number = 6
@@ -206,10 +235,12 @@ const isDeleting: Ref<boolean> = ref(false)
 const isSendingClientLink: Ref<boolean> = ref(false)
 const isMarkingSold: Ref<boolean> = ref(false)
 const isVideoBusy: Ref<boolean> = ref(false)
+const isRemovingVideo: Ref<boolean> = ref(false)
 const videoPollTimer: Ref<ReturnType<typeof setInterval> | null> = ref(null)
 const deleteConfirmModal: Ref<{ open: () => void } | null> = ref(null)
 const clientSpaceConfirmModal: Ref<{ open: () => void } | null> = ref(null)
 const soldConfirmModal: Ref<{ open: () => void } | null> = ref(null)
+const videoDeleteConfirmModal: Ref<{ open: () => void } | null> = ref(null)
 
 useSeoMeta({
   title: computed((): string => `${assistant.value?.business_name ?? 'Réceptionniste IA'} — DevLeadHunter`),
@@ -377,22 +408,53 @@ async function removeAssistant(): Promise<void> {
 async function generateVideo(): Promise<void> {
   if (!assistant.value || isVideoBusy.value) return
   isVideoBusy.value = true
+  videoProgress.start(assistant.value.slug, 'Publication de la vidéo')
   try {
     const build: Awaited<ReturnType<typeof AssistantSidecarService.buildFullVideo>> =
       await AssistantSidecarService.buildFullVideo(assistant.value.id)
     if (build.status === 'done' && build.assistant) {
+      videoProgress.finish()
       assistant.value = build.assistant
+      videoProgress.close()
       toast.success('Vidéo générée sur votre ordinateur.')
       return
     }
-    if (build.status === 'failed') toast.info('Génération locale indisponible, bascule sur le serveur…')
+    if (build.status === 'unavailable') {
+      videoProgress.close()
+    } else {
+      // The window stays open with the error and its log, and says the server takes over.
+      videoProgress.fail(build.message ?? 'Échec de la génération locale.')
+      videoProgress.note('Bascule sur le serveur…')
+    }
     assistant.value = await AiAssistantService.generateVideo(assistant.value.id)
-    toast.success('Génération de la vidéo lancée.')
     startVideoPolling()
-  } catch {
-    toast.error("Vidéo impossible : enregistrez d'abord votre clip webcam « assistant » dans les paramètres.")
+    videoProgress.note('Montage lancé sur le serveur, suivi sur la carte « Vidéo de prospection ».')
+    toast.success('Génération de la vidéo lancée.')
+  } catch (error) {
+    const message: string = error instanceof Error ? error.message : 'Échec du lancement de la génération.'
+    videoProgress.fail(message)
+    toast.error(message)
   } finally {
     isVideoBusy.value = false
+  }
+}
+
+/**
+ * Delete the prospection video: its files, its link and its state.
+ * @returns A promise resolved once deleted (or refused).
+ */
+async function removeVideo(): Promise<void> {
+  if (!assistant.value || isRemovingVideo.value) return
+  isRemovingVideo.value = true
+  try {
+    const updated: AiAssistantSummary = await AiAssistantService.clearVideo(assistant.value.id)
+    assistant.value = updated
+    drawerStack.notifyAssistantUpdated(updated)
+    toast.success('Vidéo supprimée.')
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : 'Suppression de la vidéo impossible.')
+  } finally {
+    isRemovingVideo.value = false
   }
 }
 

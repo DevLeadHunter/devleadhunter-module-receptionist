@@ -16,15 +16,20 @@
       {{ props.assistant.video_error || 'La génération a échoué.' }}
     </p>
     <template v-if="props.assistant.video_status === 'ready' && props.assistant.video_page_url">
-      <div class="mt-3 space-y-2">
-        <button
-          type="button"
-          class="btn-secondary w-full text-xs"
-          @click="openExternalUrl(props.assistant.video_page_url)"
-        >
-          <UIcon name="i-lucide-play" class="mr-1.5 h-3.5 w-3.5" />
-          Voir la vidéo
-        </button>
+      <button
+        type="button"
+        class="mt-3 block w-full cursor-pointer overflow-hidden rounded-lg border border-[var(--app-line)] transition-opacity hover:opacity-90"
+        title="Ouvrir la page vidéo"
+        @click="openExternalUrl(props.assistant.video_page_url)"
+      >
+        <img
+          v-if="props.assistant.video_thumbnail_url"
+          :src="props.assistant.video_thumbnail_url"
+          alt="Vignette de la vidéo de prospection"
+          class="w-full"
+        />
+      </button>
+      <div class="mt-2 space-y-2">
         <button type="button" class="btn-secondary w-full text-xs" @click="copy(props.assistant.video_page_url)">
           {{ copied ? 'Lien copié !' : 'Copier le lien vidéo' }}
         </button>
@@ -35,6 +40,14 @@
           @click="emit('generate')"
         >
           {{ props.isBusy ? 'Lancement…' : 'Régénérer la vidéo' }}
+        </button>
+        <button
+          type="button"
+          class="btn-secondary w-full text-xs text-[var(--app-red)] disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="props.isRemovingVideo"
+          @click="emit('remove-video')"
+        >
+          {{ props.isRemovingVideo ? 'Suppression…' : 'Supprimer la vidéo' }}
         </button>
       </div>
     </template>
@@ -70,6 +83,10 @@ const props: AssistantVideoCardProps = defineProps({
     required: true,
   },
   isBusy: {
+    type: Boolean,
+    default: false,
+  },
+  isRemovingVideo: {
     type: Boolean,
     default: false,
   },

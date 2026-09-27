@@ -174,8 +174,16 @@ const playLabelDurationSuffix: ComputedRef<string> = computed((): string =>
   videoDurationSeconds.value ? ` — ${videoDurationSeconds.value} s` : '',
 )
 
-/** Link to talk to the live receptionist (the /ia/ demo page). */
-const demoHref: ComputedRef<string> = computed((): string => `/ia/${slug.value}`)
+const abVariant: ComputedRef<string | null> = computed((): string | null =>
+  DemoBeaconUtils.variantFromQuery(route.query.v),
+)
+
+const channel: ComputedRef<string> = computed((): string => DemoBeaconUtils.channelFromQuery(route.query.src))
+
+/** Link to talk to the live receptionist (the /ia/ demo page), keeping the variant and channel of the visit. */
+const demoHref: ComputedRef<string> = computed((): string =>
+  DemoBeaconUtils.attributedPath(`/ia/${slug.value}`, abVariant.value, channel.value),
+)
 
 /** Owner name for the signature line (empty when the owner set no name). */
 const ownerNameLabel: ComputedRef<string> = computed((): string => (assistant.value?.owner_name ?? '').trim())
@@ -237,7 +245,7 @@ onMounted(async (): Promise<void> => {
   if (!current) return
   // A sold receptionist's page is watched by the client, never by a prospect: nothing to track or notify.
   if (current.status === 'active') {
-    await initVideoTracking(current.slug, null, DemoBeaconUtils.channelFromQuery(route.query.src), 'assistant')
+    await initVideoTracking(current.slug, abVariant.value, channel.value, 'assistant')
   }
   if (playerRef.value) new DemoVideoEngagementTracker(playerRef.value, capture).start()
 })
