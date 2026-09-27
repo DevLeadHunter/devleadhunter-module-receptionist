@@ -33,6 +33,8 @@ export type AiAssistantSummary = {
   requests_30d: number
   requests_outside_hours_pct: number | null
   churn_risk: boolean
+  /** Questions visitors asked that the knowledge could not answer, waiting for a reply in the FAQ. */
+  unanswered_count: number
   alerts: AiAssistantAlertSettings
   eu_only: boolean
   created_at: string

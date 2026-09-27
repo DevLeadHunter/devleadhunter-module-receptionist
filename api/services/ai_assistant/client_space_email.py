@@ -8,6 +8,7 @@ from __future__ import annotations
 import html
 from datetime import date
 
+from services.ai_assistant.faq_service import UnansweredQuestion
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RenderedEmail
 
 
@@ -77,6 +78,58 @@ class AiAssistantClientSpaceEmail:
         )
         return RenderedEmail(
             subject=f"Bienvenue : {assistant_name} travaille pour vous",
+            html=AiAssistantRequestEmail.document(body),
+        )
+
+    @staticmethod
+    def render_unanswered_digest(
+        *, business_name: str, assistant_name: str, questions: list[UnansweredQuestion], url: str
+    ) -> RenderedEmail:
+        """
+        Render the weekly email of the questions the assistant could not answer.
+
+        Args:
+            business_name: The business.
+            assistant_name: Its assistant's first name.
+            questions: The questions of the week, most asked first.
+            url: The signed client-space link, where each gets its answer.
+
+        Returns:
+            Subject and HTML body; every stored text is HTML-escaped.
+        """
+        name = html.escape(assistant_name)
+        count = len(questions)
+        plural = "s" if count > 1 else ""
+        items_html = "".join(
+            '<li style="margin:0 0 8px">'
+            f"<strong>{html.escape(question.question)}</strong>"
+            + (f' <span style="color:#6b6257">(posée {question.count} fois)</span>' if question.count > 1 else "")
+            + "</li>"
+            for question in questions
+        )
+        body = "".join(
+            [
+                AiAssistantRequestEmail.paragraph(
+                    f"Cette semaine, des visiteurs de <strong>{html.escape(business_name)}</strong> ont posé "
+                    f"<strong>{count} question{plural}</strong> que <strong>{name}</strong> n'a pas su "
+                    "répondre. Elle a proposé un rappel à chaque fois, mais une réponse écrite une fois vaut pour "
+                    "tous les suivants."
+                ),
+                f'<ul style="margin:0 0 16px;padding-left:22px">{items_html}</ul>',
+                AiAssistantRequestEmail.paragraph(
+                    f"Répondez en une phrase depuis votre espace, rubrique « Ce que {name} n'a pas su répondre » : "
+                    f"dès la prochaine question, {name} répond à votre place."
+                ),
+                AiAssistantRequestEmail.button("Répondre depuis mon espace", url),
+                AiAssistantRequestEmail.paragraph(
+                    "Vous recevez ce récapitulatif le lundi, seulement les semaines où il y a de nouvelles "
+                    "questions. Ce lien personnel donne accès à vos demandes : ne le transférez pas.",
+                    muted=True,
+                ),
+            ]
+        )
+        return RenderedEmail(
+            subject=f"{count} question{plural} que {assistant_name} n'a pas su répondre cette semaine",
             html=AiAssistantRequestEmail.document(body),
         )
 

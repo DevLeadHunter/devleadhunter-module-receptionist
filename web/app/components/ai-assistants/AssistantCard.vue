@@ -74,6 +74,14 @@
           <UIcon name="i-lucide-messages-square" class="h-3.5 w-3.5" />
           {{ props.assistant.conversations_30d }} conv. / 30 j
         </span>
+        <span
+          v-if="props.assistant.unanswered_count > 0"
+          class="flex items-center gap-1.5 text-[var(--app-ink)] tabular-nums"
+          :title="`${props.assistant.unanswered_count} question(s) posée(s) par des visiteurs, sans réponse dans la base : à compléter dans l'onglet Questions`"
+        >
+          <UIcon name="i-lucide-message-circle-question" class="h-3.5 w-3.5" />
+          {{ props.assistant.unanswered_count }} sans réponse
+        </span>
       </div>
 
       <div class="relative z-20 flex flex-wrap gap-2">

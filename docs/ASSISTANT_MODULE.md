@@ -1120,3 +1120,16 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
   rendez-vous par un « + » (`AssistantIconPlus`) qui déplie les deux actions avec leurs libellés (`UI_LABELS.more`) ;
   sur téléphone, le champ gagne 50 px (266 px sur iPhone 13, 196 px sur iPhone SE) ; sur ordinateur rien ne change.
   Mesures sur un vrai téléphone : `demo.dibodev.fr/embed-test.html?slug=<slug>&debug=1&internal=1`.
+- **Vers les 100 % (27/09, après-midi).** (1) **Récap hebdo des questions sans réponse** : `services/ai_assistant/unanswered_digest.py`,
+  passé par le runner des demandes ; le lundi dès 8 h (heure de l'entreprise), chaque assistant vendu dont des
+  questions sans réponse ont été posées dans la semaine reçoit `render_unanswered_digest` (liste avec le nombre de
+  fois, bouton vers l'espace) ; une fois par semaine au plus (`knowledge_json.unanswered_digest_week`), rien les
+  semaines sans nouvelle question, jamais pour une démo ni un commerçant muet. (2) **Compteur** `unanswered_count`
+  dans `AiAssistantResponse`, affiché sur la carte de la liste (« N sans réponse »). (3) **Prompteur du clip
+  réceptionniste** : `buildAssistantScript` (intro 6 s, milieu 30 s dont les 7 dernières secondes sur l'espace,
+  outro 12 s), `UiPresenterVideoRecorder` prend un `module`, `AssistantPresenterClipCard` ouvre le recorder
+  (Paramètres → Vidéo → « Enregistrer avec le prompteur »). (4) **R15, côté console Google (projet `devleadhunter`,
+  compte dibodevcode@gmail.com)** : URI de redirection agenda ajoutées au client « DevLeadHunter API » (prod +
+  localhost), **Google Calendar API activée** (elle ne l'était pas : la connexion d'agenda aurait échoué), niveaux
+  d'accès `calendar.events` (sensible) et `calendar.freebusy` ajoutés à l'écran de consentement ; reste la
+  soumission au centre de validation (vidéo YouTube du parcours OAuth, justification), à faire avec Léo.

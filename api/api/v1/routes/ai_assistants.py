@@ -38,6 +38,7 @@ from services.ai_assistant.client_space_service import ai_assistant_client_space
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ConversationCounts, ai_assistant_conversation_service
 from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
+from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.report_service import ai_assistant_report_service
 from services.ai_assistant.request_alerts import AlertSettings
 from services.ai_assistant.request_service import RequestCounts, ai_assistant_request_service
@@ -102,6 +103,7 @@ def _to_owner_response(
         ),
         alerts=_alert_settings(assistant),
         eu_only=bool(assistant.eu_only),
+        unanswered_count=len(ai_assistant_faq_service.unanswered_of(assistant.knowledge_json)),
         created_at=assistant.created_at,
     )
 

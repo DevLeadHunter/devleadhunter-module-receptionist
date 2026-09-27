@@ -116,6 +116,36 @@ class AiAssistantFaqService:
             entries.append({"question": question, "count": 1, "first_seen": now, "last_seen": now})
         self._save(db, assistant, unanswered=entries)
 
+    @staticmethod
+    def unanswered_digest_week(assistant: AiAssistant) -> str | None:
+        """
+        The ISO week (« 2026-W40 ») the weekly digest of unanswered questions last went for, if any.
+
+        Args:
+            assistant: The assistant.
+
+        Returns:
+            The week key, or None before the first digest.
+        """
+        knowledge = assistant.knowledge_json or {}
+        week = knowledge.get("unanswered_digest_week")
+        return week if isinstance(week, str) and week else None
+
+    def mark_unanswered_digest(self, db: Session, assistant: AiAssistant, week: str) -> None:
+        """
+        Remember that the weekly digest was handled for a week (sent, or nothing to send).
+
+        Args:
+            db: Active database session.
+            assistant: The assistant.
+            week: The ISO week key (« 2026-W40 »).
+        """
+        knowledge = dict(assistant.knowledge_json or {})
+        knowledge["unanswered_digest_week"] = week
+        assistant.knowledge_json = knowledge
+        db.commit()
+        db.refresh(assistant)
+
     def add_faq(self, db: Session, assistant: AiAssistant, question: str, answer: str) -> None:
         """
         Add a question and its answer to the FAQ; the same question leaves the unanswered list.

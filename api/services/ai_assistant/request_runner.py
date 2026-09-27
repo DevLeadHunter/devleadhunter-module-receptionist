@@ -8,6 +8,7 @@ import logging
 from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
 from services.ai_assistant.request_alerts import ai_assistant_request_alerts
 from services.ai_assistant.request_service import ai_assistant_request_service
+from services.ai_assistant.unanswered_digest import ai_assistant_unanswered_digest
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +17,9 @@ class AiAssistantRequestRunner:
     """
     The requests' background pass, every few minutes.
 
-    It covers the lost announcements, the held SMS, the J+1 reminders, the operator's 48 h warnings, and the
-    visitors' appointment confirmations (lost ones) and J-1 reminders.
+    It covers the lost announcements, the held SMS, the J+1 reminders, the operator's 48 h warnings, the
+    visitors' appointment confirmations (lost ones) and J-1 reminders, and the Monday digest of the questions
+    an assistant could not answer.
     """
 
     @staticmethod
@@ -37,4 +39,5 @@ class AiAssistantRequestRunner:
                 logger.exception("Assistant request runner pass failed")
             await ai_assistant_request_alerts.run_pass()
             await ai_assistant_appointment_notices.run_pass_in_background()
+            await ai_assistant_unanswered_digest.run_pass()
             await asyncio.sleep(interval_seconds)

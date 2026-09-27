@@ -100,6 +100,8 @@ class AiAssistantResponse(BaseModel):
     requests_outside_hours_pct: int | None = None
     # A subscriber for 30 days whose assistant had no conversation and no request over the last 30.
     churn_risk: bool = False
+    # Questions visitors asked that the knowledge could not answer, waiting for the owner's reply (FAQ).
+    unanswered_count: int = 0
     alerts: AiAssistantAlertSettings
     eu_only: bool = False
     created_at: datetime
