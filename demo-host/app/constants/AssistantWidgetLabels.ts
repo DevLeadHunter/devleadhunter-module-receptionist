@@ -120,6 +120,7 @@ export const UI_LABELS: Record<AssistantWidgetLang, AssistantUiLabels> = {
     language: 'Langue',
     message: 'Votre message',
     send: 'Envoyer',
+    more: "Plus d'actions",
   },
   nl: {
     close: 'Sluiten',
@@ -130,6 +131,7 @@ export const UI_LABELS: Record<AssistantWidgetLang, AssistantUiLabels> = {
     language: 'Taal',
     message: 'Uw bericht',
     send: 'Versturen',
+    more: 'Meer acties',
   },
   en: {
     close: 'Close',
@@ -140,6 +142,7 @@ export const UI_LABELS: Record<AssistantWidgetLang, AssistantUiLabels> = {
     language: 'Language',
     message: 'Your message',
     send: 'Send',
+    more: 'More actions',
   },
   de: {
     close: 'Schließen',
@@ -150,6 +153,7 @@ export const UI_LABELS: Record<AssistantWidgetLang, AssistantUiLabels> = {
     language: 'Sprache',
     message: 'Ihre Nachricht',
     send: 'Senden',
+    more: 'Weitere Aktionen',
   },
   lu: {
     close: 'Zoumaachen',
@@ -160,6 +164,7 @@ export const UI_LABELS: Record<AssistantWidgetLang, AssistantUiLabels> = {
     language: 'Sprooch',
     message: 'Är Noriicht',
     send: 'Schécken',
+    more: 'Méi Aktiounen',
   },
 }
 

@@ -9,6 +9,7 @@ import AssistantIconCalendar from '~/components/AssistantIconCalendar.vue'
 import AssistantIconCamera from '~/components/AssistantIconCamera.vue'
 import AssistantIconClose from '~/components/AssistantIconClose.vue'
 import AssistantIconPencil from '~/components/AssistantIconPencil.vue'
+import AssistantIconPlus from '~/components/AssistantIconPlus.vue'
 import AssistantIconSend from '~/components/AssistantIconSend.vue'
 
 const props: AssistantIconProps = defineProps({
@@ -24,6 +25,7 @@ const GLYPHS: Record<AssistantIconName, Component> = {
   close: AssistantIconClose,
   send: AssistantIconSend,
   pencil: AssistantIconPencil,
+  plus: AssistantIconPlus,
 }
 </script>
 

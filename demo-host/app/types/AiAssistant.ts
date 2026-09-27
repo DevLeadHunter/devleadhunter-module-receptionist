@@ -196,6 +196,8 @@ export type AssistantUiLabels = {
   language: string
   message: string
   send: string
+  /** The « + » of a narrow bar, which unfolds the photo and appointment actions. */
+  more: string
 }
 
 /**

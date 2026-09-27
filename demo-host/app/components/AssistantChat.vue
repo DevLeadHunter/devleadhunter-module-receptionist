@@ -129,6 +129,7 @@
           :is-busy="isBusy || isStreaming"
           :can-send-photo="photosRemaining > 0"
           :can-book="!leadSent"
+          :is-compact="isMobileLayout"
           @send="sendDraft"
           @photo="openPhotoPanel"
           @appointment="openSlotPanel"
@@ -359,6 +360,24 @@ watch(
   (): void => {
     scrollToLatest()
   },
+)
+
+// Full screen on a phone, the frame's own document paints the sheet's paper: the few pixels a keyboard may leave
+// between the sheet and the keys show paper, never the site behind.
+watch(
+  [isFrameOpen, isMobileLayout],
+  async ([isShown, isMobile]: [boolean, boolean]): Promise<void> => {
+    if (!import.meta.client || props.inline) return
+    const root: HTMLElement = document.documentElement
+    if (!isShown || !isMobile) {
+      root.style.removeProperty('background')
+      return
+    }
+    await nextTick()
+    const panel: HTMLElement | null = document.querySelector<HTMLElement>('.ai-panel')
+    if (panel) root.style.setProperty('background', getComputedStyle(panel).backgroundColor, 'important')
+  },
+  { immediate: true },
 )
 
 watch(isSlotPanelOpen, async (isShown: boolean): Promise<void> => {

@@ -94,6 +94,8 @@
   var viewport = window.visualViewport || null
   var viewportWatch = 0
   var lastViewportKey = ''
+  // The host page's scroll while the sheet covers it on a phone: frozen, and put back on close.
+  var hostScroll = null
 
   function isMobile() {
     return window.innerWidth < MOBILE_MAX_WIDTH || window.innerHeight < MOBILE_MAX_HEIGHT
@@ -150,6 +152,36 @@
   function stopViewportWatch() {
     if (viewportWatch) clearInterval(viewportWatch)
     viewportWatch = 0
+  }
+
+  // iOS scrolls the page to keep a focused field in view, and that pan is what drags a fixed frame away from
+  // the visible area: with the page frozen under the sheet there is nothing left to pan.
+  function lockHostScroll() {
+    if (hostScroll || !isMobile()) return
+    var body = document.body
+    var style = body.style
+    hostScroll = {
+      top: window.pageYOffset || document.documentElement.scrollTop || 0,
+      overflow: style.overflow,
+      position: style.position,
+      offset: style.top,
+      width: style.width,
+    }
+    style.overflow = 'hidden'
+    style.position = 'fixed'
+    style.top = -hostScroll.top + 'px'
+    style.width = '100%'
+  }
+
+  function unlockHostScroll() {
+    if (!hostScroll) return
+    var style = document.body.style
+    style.overflow = hostScroll.overflow
+    style.position = hostScroll.position
+    style.top = hostScroll.offset
+    style.width = hostScroll.width
+    window.scrollTo(0, hostScroll.top)
+    hostScroll = null
   }
 
   function postHostViewport() {
@@ -274,6 +306,7 @@
     if (!iframe) return
     isOpen = true
     iframe.style.display = 'block'
+    lockHostScroll()
     applySize()
     startViewportWatch()
     // The launcher steps aside while the sheet grows out of it, then leaves the page.
@@ -291,6 +324,7 @@
     wantsOpen = false
     hasWidgetOpened = false
     stopViewportWatch()
+    unlockHostScroll()
     if (iframe) iframe.style.display = 'none'
     // The widget shrank its sheet back into the launcher: it pops back where the sheet went.
     clearTimeout(launcherHideTimer)
@@ -302,6 +336,7 @@
 
   function removeAll() {
     stopViewportWatch()
+    unlockHostScroll()
     window.removeEventListener('message', onMessage)
     window.removeEventListener('resize', onResize)
     if (viewport) {
