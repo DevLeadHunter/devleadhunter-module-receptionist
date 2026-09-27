@@ -38,6 +38,19 @@
         background: repeating-linear-gradient(45deg, #e8f5e9, #e8f5e9 10px, #c8e6c9 10px, #c8e6c9 20px);
         cursor: pointer;
       }
+      .viewport-debug {
+        position: fixed;
+        top: 4px;
+        left: 4px;
+        z-index: 2147483647;
+        margin: 0;
+        padding: 4px 6px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.78);
+        color: #7cff7c;
+        font: 11px/1.35 monospace;
+        pointer-events: none;
+      }
     </style>
   </head>
   <body>
@@ -52,6 +65,7 @@
       </p>
     </main>
     <button type="button" class="probe" id="probe">Zone de la page hôte — cliquable autour du widget</button>
+    <pre id="viewport-debug" class="viewport-debug" hidden></pre>
     <script>
       var params = new URLSearchParams(location.search)
       var loader = document.createElement('script')
@@ -63,6 +77,48 @@
         document.getElementById('probe-result').textContent =
           'Clic reçu par la page hôte à ' + new Date().toLocaleTimeString()
       })
+      // ?debug=1 : the visual viewport, the frame and the sheet inside it, refreshed four times a second, so a
+      // keyboard problem can be read off a real phone in one screenshot.
+      if (params.get('debug') === '1') {
+        var badge = document.getElementById('viewport-debug')
+        badge.hidden = false
+        setInterval(function () {
+          var vv = window.visualViewport
+          var frame = document.getElementById('dlh-assistant-frame')
+          var lines = [
+            'inner ' + window.innerWidth + 'x' + window.innerHeight + ' scrollY ' + Math.round(window.scrollY),
+          ]
+          if (vv) {
+            lines.push(
+              'vv h ' +
+                Math.round(vv.height) +
+                ' top ' +
+                Math.round(vv.offsetTop) +
+                ' pageTop ' +
+                Math.round(vv.pageTop),
+            )
+          }
+          if (frame) {
+            var rect = frame.getBoundingClientRect()
+            lines.push('frame style top ' + frame.style.top + ' h ' + frame.style.height)
+            lines.push('frame rect top ' + Math.round(rect.top) + ' bottom ' + Math.round(rect.bottom))
+            try {
+              var inner = frame.contentDocument
+              var panel = inner && inner.querySelector('.ai-panel')
+              var compose = inner && inner.querySelector('.ai-compose')
+              lines.push('iframe innerH ' + frame.contentWindow.innerHeight)
+              if (panel) {
+                var panelRect = panel.getBoundingClientRect()
+                lines.push('panel top ' + Math.round(panelRect.top) + ' bottom ' + Math.round(panelRect.bottom))
+              }
+              if (compose) lines.push('compose bottom ' + Math.round(compose.getBoundingClientRect().bottom))
+            } catch (error) {
+              lines.push('iframe: ' + error.message)
+            }
+          }
+          badge.textContent = lines.join(String.fromCharCode(10))
+        }, 250)
+      }
     </script>
   </body>
 </html>

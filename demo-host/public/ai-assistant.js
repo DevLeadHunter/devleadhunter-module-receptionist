@@ -92,6 +92,8 @@
   var portraitSrc = ''
   // The part of the page really on screen: the keyboard shrinks it, and iOS pans it to keep the field in view.
   var viewport = window.visualViewport || null
+  var viewportWatch = 0
+  var lastViewportKey = ''
 
   function isMobile() {
     return window.innerWidth < MOBILE_MAX_WIDTH || window.innerHeight < MOBILE_MAX_HEIGHT
@@ -105,9 +107,9 @@
       if (viewport) {
         // Full screen means the visible area, not the layout viewport: with the keyboard open, iOS scrolls
         // the page under a fixed frame and the site would show between the sheet and the keys.
-        style.top = viewport.offsetTop + 'px'
+        style.top = Math.round(viewport.offsetTop) + 'px'
         style.bottom = 'auto'
-        style.height = viewport.height + 'px'
+        style.height = Math.round(viewport.height) + 'px'
       } else {
         style.top = ''
         style.bottom = '0'
@@ -119,6 +121,35 @@
       style.width = OPEN_WIDTH
       style.height = OPEN_HEIGHT
     }
+  }
+
+  function viewportKey() {
+    return [
+      viewport ? Math.round(viewport.offsetTop) : 0,
+      viewport ? Math.round(viewport.height) : 0,
+      window.innerWidth,
+      window.innerHeight,
+    ].join(',')
+  }
+
+  // iOS moves the visual viewport in steps while the keyboard and the toolbars animate, and does not always
+  // send the last step as an event: while the sheet is open on a phone, the frame is re-fitted on a timer too.
+  function startViewportWatch() {
+    stopViewportWatch()
+    if (!viewport) return
+    lastViewportKey = viewportKey()
+    viewportWatch = setInterval(function () {
+      if (!isOpen || !isMobile()) return
+      var key = viewportKey()
+      if (key === lastViewportKey) return
+      lastViewportKey = key
+      applySize()
+    }, 200)
+  }
+
+  function stopViewportWatch() {
+    if (viewportWatch) clearInterval(viewportWatch)
+    viewportWatch = 0
   }
 
   function postHostViewport() {
@@ -244,6 +275,7 @@
     isOpen = true
     iframe.style.display = 'block'
     applySize()
+    startViewportWatch()
     // The launcher steps aside while the sheet grows out of it, then leaves the page.
     launcher.classList.remove('dlh-launcher--loading', 'dlh-launcher--pop')
     launcher.classList.add('dlh-launcher--away')
@@ -258,6 +290,7 @@
     isOpen = false
     wantsOpen = false
     hasWidgetOpened = false
+    stopViewportWatch()
     if (iframe) iframe.style.display = 'none'
     // The widget shrank its sheet back into the launcher: it pops back where the sheet went.
     clearTimeout(launcherHideTimer)
@@ -268,6 +301,7 @@
   }
 
   function removeAll() {
+    stopViewportWatch()
     window.removeEventListener('message', onMessage)
     window.removeEventListener('resize', onResize)
     if (viewport) {

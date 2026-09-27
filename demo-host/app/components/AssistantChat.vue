@@ -449,11 +449,11 @@ onBeforeUnmount((): void => {
   box-shadow: none;
 }
 .ai-panel--mobile {
-  right: 0;
-  bottom: 0;
-  width: 100vw;
-  max-width: 100vw;
-  height: 100dvh;
+  /* Pinned to the frame's four edges: the loader sizes the frame to the visible area, the sheet follows it. */
+  inset: 0;
+  width: auto;
+  max-width: none;
+  height: auto;
   border-radius: 0;
   border: 0;
 }
