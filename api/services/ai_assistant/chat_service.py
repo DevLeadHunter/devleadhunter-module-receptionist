@@ -36,6 +36,10 @@ MAX_MESSAGE_CHARS = 2000
 QUESTION_MESSAGES = 3
 
 # Shown when the model cannot answer (no key, outage): never leave the visitor without a path forward.
+# Mistral sometimes ends a reply with a NUL character; sent back in the history, it makes the next call fail, and
+# the model mirrors it in its next reply. Control characters (line breaks and tabs aside) are dropped everywhere.
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
 _FALLBACK_REPLY = (
     "Je rencontre un souci technique momentané. Laissez-moi votre nom et un moyen de vous recontacter, "
     "et un conseiller reviendra vers vous rapidement."
@@ -48,6 +52,19 @@ _APPOINTMENT_INTENT = re.compile(
     r"\b(rendez[- ]?vous|rdv|creneaux?|reserver|reservation|afspraak|afspraken|reserveren|reservatie|"
     r"termin|terminvereinbarung|reservieren|appointment|appointments|booking|book)\b"
 )
+
+
+def clean_model_text(text: str) -> str:
+    """
+    A model's text without control characters (line breaks and tabs kept).
+
+    Args:
+        text: What the model wrote, or what a widget sends back from an earlier reply.
+
+    Returns:
+        The same text, control characters dropped.
+    """
+    return _CONTROL_CHARS.sub("", text)
 
 
 @dataclass(frozen=True)
@@ -113,7 +130,7 @@ class AiAssistantChatService:
             return ChatAnswer(reply=_FALLBACK_REPLY)
         messages = self._messages(knowledge, assistant_name=assistant_name, languages=languages, tone=tone, turns=turns)
         raw = await assistant_llm_router.chat(AssistantLlmUsage.CHAT, messages, eu_only=eu_only)
-        reply, question = MissingInfoMarker.split(raw or "")
+        reply, question = MissingInfoMarker.split(clean_model_text(raw or ""))
         reply, follow_ups = FollowUpMarker.split(reply)
         return ChatAnswer(
             reply=reply or _FALLBACK_REPLY,
@@ -154,7 +171,7 @@ class AiAssistantChatService:
         marker = MissingInfoMarkerStream()
         follow_ups = FollowUpMarkerStream()
         async for chunk in assistant_llm_router.chat_stream(AssistantLlmUsage.CHAT, messages, eu_only=eu_only):
-            text = follow_ups.feed(marker.feed(chunk))
+            text = follow_ups.feed(marker.feed(clean_model_text(chunk)))
             if text:
                 yield ChatDelta(text=text)
         text = follow_ups.feed(marker.finish()) + follow_ups.finish()
@@ -217,12 +234,14 @@ class AiAssistantChatService:
             content = turn.get("content")
             if role not in ("user", "assistant") or not isinstance(content, str) or not content.strip():
                 continue
-            text = content.strip()[:MAX_MESSAGE_CHARS]
+            text = clean_model_text(content).strip()[:MAX_MESSAGE_CHARS]
             follow_ups = turn.get("follow_ups")
             if role == "assistant" and isinstance(follow_ups, list):
                 # The suggestions offered under that reply, back in the form the model wrote them: it sees what
                 # it already proposed and offers something else.
-                text = FollowUpMarker.with_marker(text, [item for item in follow_ups if isinstance(item, str)])
+                text = FollowUpMarker.with_marker(
+                    text, [clean_model_text(item) for item in follow_ups if isinstance(item, str)]
+                )
             bounded.append({"role": role, "content": text})
         return bounded
 

@@ -183,3 +183,41 @@ def test_past_suggestions_go_back_to_the_model_as_the_marker_it_wrote() -> None:
     assert FollowUpMarker.with_marker("Texte.", []) == "Texte."
     # The line the model wrote back is read again as the marker: what goes out comes back in one piece.
     assert FollowUpMarker.split(turns[1]["content"]) == ("Oui, des sites vitrines.", ("Un devis ?", "Vos délais ?"))
+
+
+@pytest.mark.asyncio
+async def test_a_nul_character_from_the_model_never_reaches_the_reply_the_chips_or_the_next_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Mistral sometimes ends a reply with NUL: dropped from the reply and the chips, and from a history that carries it."""
+    seen: list[list[dict[str, Any]]] = []
+
+    async def fake_chat(_usage: Any, messages: Any, **_kwargs: Any) -> str:
+        seen.append(messages)
+        return "Oui, des sites vitrines." + chr(0) + chr(10) * 2 + "SUITE: Un devis ? | Vos delais ?" + chr(0)
+
+    monkeypatch.setattr(chat_module.assistant_llm_router, "chat", fake_chat)
+    poisoned = [
+        {"role": "user", "content": "Vous faites des sites ?"},
+        {"role": "assistant", "content": "Oui." + chr(0), "follow_ups": ["Un devis ?" + chr(0)]},
+        {"role": "user", "content": "Un devis ?" + chr(0)},
+    ]
+
+    answer = await ai_assistant_chat_service.answer(knowledge=_KB, assistant_name="Sofia", history=poisoned)
+
+    assert answer.reply == "Oui, des sites vitrines." and answer.follow_ups == ("Un devis ?", "Vos delais ?")
+    assert all(chr(0) not in message["content"] for message in seen[0])
+    assert seen[0][2]["content"] == "Oui." + chr(10) * 2 + "SUITE: Un devis ?".replace("SUITE", "§SUITE")
+
+
+def test_the_streamed_reply_drops_control_characters_as_they_land(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        chat_module.assistant_llm_router,
+        "chat_stream",
+        _deltas("Oui, la carrosserie" + chr(0), " aussi." + chr(10), chr(10) + "SUITE: Un devis ?" + chr(0)),
+    )
+
+    deltas = _answer_stream(knowledge=_KB, assistant_name="Sofia", history=_MESSAGES)
+
+    assert "".join(delta.text for delta in deltas if delta.text).rstrip() == "Oui, la carrosserie aussi."
+    assert deltas[-1].final is not None and deltas[-1].final.follow_ups == ("Un devis ?",)

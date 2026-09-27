@@ -1091,3 +1091,13 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
   viewport** (`window.visualViewport` : `top = offsetTop`, `height = height`, `bottom: auto`, écouteurs `resize` +
   `scroll`) tant que le widget est ouvert sur mobile ; sur desktop, `bottom: 0`. À vérifier sur un vrai iPhone
   (Chromium n'émule pas le clavier).
+- **Vu en prod pendant la vérification (27/09, 00 h).** (1) Le modèle laisse parfois un caractère NUL (` `) en fin de
+  réponse ; renvoyé dans l'historique, il fait échouer l'appel suivant et le modèle le recopie. `chat_service.clean_model_text`
+  retire les caractères de contrôle de la réponse, des deltas du flux, et de l'historique reçu du widget (une conversation
+  déjà empoisonnée dans le localStorage est nettoyée à chaque tour). (2) **`MISTRAL_API_KEY` n'est PAS posée sur l'API de
+  prod** : `mistral_service.is_configured` est faux, toutes les réponses viennent de Groq (`openai/gpt-oss-120b`) en
+  premier et sans repli, et le palier gratuit de Groq rend 429 dès 3-4 appels par minute → phrase « souci technique » au
+  visiteur. À poser sur le VPS (prérequis hors dépôt) avant de vendre.
+- **Dibodev marqué vendu en prod (27/09, workflow `deliver`)** : `status=delivered`, e-mail de bienvenue parti à l'adresse
+  de l'assistant ; la réceptionniste de dibodev.fr n'expire plus et alerte le commerçant à chaque demande (SMS une fois le
+  mobile d'alerte posé dans l'espace client).
