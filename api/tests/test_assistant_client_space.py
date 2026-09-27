@@ -129,6 +129,11 @@ def test_the_link_is_short_signed_canonical_bound_to_its_assistant_and_expires()
         assert AiAssistantClientLinks.read(forged, now=now) is None
     assert AiAssistantClientLinks.read(token.replace("42", "٤٢", 1), now=now) is None
     assert AiAssistantClientLinks.sms_link(42, now=now) == AiAssistantClientLinks.page_url(token).split("://")[1]
+    # An alert opens the space on its request.
+    assert AiAssistantClientLinks.url(42, request_id=7, now=now) == (
+        f"{AiAssistantClientLinks.page_url(token)}#demandes/7"
+    )
+    assert AiAssistantClientLinks.sms_link(42, request_id=7, now=now).endswith(f"/client/{token}#demandes/7")
 
 
 def test_the_page_shows_the_assistant_requests_report_settings_and_subscription(db: Session) -> None:
@@ -510,3 +515,23 @@ def test_the_scheduled_cancellation_is_read_from_stripe(db: Session) -> None:
     service.update_from_stripe_subscription(db, {"id": "sub_1", "status": "active", "cancel_at_period_end": False})
 
     assert (scheduled, row.cancel_at_period_end, row.status) == (True, False, "active")
+
+
+def test_each_visit_carries_a_fresh_link_the_site_and_the_line_to_paste(db: Session) -> None:
+    assistant = _assistant(db, custom_domain="toitures-morel.fr")
+    unnamed = _assistant(db, business_name="Couverture Petit")
+    db.query(ProspectDB).filter(ProspectDB.id == unnamed.prospect_id).update({"website": "www.couverture-petit.fr"})
+    db.commit()
+
+    page = asyncio.run(routes.get_client_space(_token(assistant), VISITOR_REQUEST, db))
+    other = asyncio.run(routes.get_client_space(_token(unnamed), VISITOR_REQUEST, db))
+    example = asyncio.run(routes.get_client_space("exemple", VISITOR_REQUEST, db))
+
+    fresh = AiAssistantClientLinks.read(page.fresh_token or "")
+    assert fresh is not None and fresh.assistant_id == assistant.id and fresh.is_expired is False
+    assert page.link_expires_label == routes._business_label(fresh.expires_at, "%d/%m/%Y")
+    assert page.website_url == "https://toitures-morel.fr"
+    assert other.website_url == "https://www.couverture-petit.fr"
+    base = settings.demo_host_base_url.rstrip("/")
+    assert page.embed_snippet == f'<script src="{base}/ai-assistant.js" data-slug="{assistant.slug}" defer></script>'
+    assert example.fresh_token is None and example.website_url is None and example.embed_snippet is not None

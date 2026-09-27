@@ -17,6 +17,7 @@ const SETTINGS_HASHES: Record<ClientSpaceSettingsScreen, string> = {
   learned: 'reponses',
   report: 'rapport',
   subscription: 'abonnement',
+  install: 'installation',
   help: 'aide',
 }
 

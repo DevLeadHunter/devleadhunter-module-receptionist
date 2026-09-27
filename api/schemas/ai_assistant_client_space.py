@@ -134,6 +134,13 @@ class AiAssistantClientSpaceResponse(BaseModel):
     # The answers the business wrote, and the questions its assistant could not answer.
     faq: list[AiAssistantFaqEntry] = Field(default_factory=list)
     unanswered: list[AiAssistantUnansweredEntry] = Field(default_factory=list)
+    # A fresh 30-day token for a valid link (never for the example): the page moves its URL to it, so a link
+    # opened at least once a month never expires, and an icon on the phone's home screen keeps working.
+    fresh_token: str | None = None
+    # The business's own website, when known (« Ouvrir votre site » on the first day).
+    website_url: str | None = None
+    # The line to paste on the website to show the receptionist (« Sur votre site » screen).
+    embed_snippet: str | None = None
 
 
 class AiAssistantClientSettingsUpdate(BaseModel):

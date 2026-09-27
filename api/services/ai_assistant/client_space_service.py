@@ -26,6 +26,7 @@ from models.ai_assistant import AiAssistant
 from models.ai_assistant_report import AiAssistantReport
 from models.ai_assistant_request import AiAssistantRequest
 from models.ai_assistant_subscription import AiAssistantSubscription
+from models.prospect_db import ProspectDB
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
@@ -164,6 +165,26 @@ class AiAssistantClientSpaceService:
             )
             .count()
         )
+
+    @staticmethod
+    def website_url(db: Session, assistant: AiAssistant) -> str | None:
+        """
+        The business's own website, where its widget is embedded: the custom domain, else the prospect's site.
+
+        Args:
+            db: Active database session.
+            assistant: The assistant.
+
+        Returns:
+            An absolute URL, or None when no site is known.
+        """
+        site = assistant.custom_domain
+        if not site and assistant.prospect_id is not None:
+            site = db.query(ProspectDB.website).filter(ProspectDB.id == assistant.prospect_id).scalar()
+        cleaned = (site or "").strip()
+        if not cleaned:
+            return None
+        return cleaned if cleaned.startswith(("http://", "https://")) else f"https://{cleaned}"
 
     @staticmethod
     def latest_report(db: Session, assistant: AiAssistant) -> AiAssistantReport | None:

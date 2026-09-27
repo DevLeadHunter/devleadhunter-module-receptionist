@@ -11,8 +11,8 @@
       </div>
     </template>
     <p v-if="!props.space.is_example" class="cs-menu__foot">
-      Lien personnel, valable jusqu’au {{ props.space.link_expires_label }}. Ne le transférez pas : il donne accès à vos
-      demandes.
+      Lien personnel : il se prolonge à chaque ouverture (valable jusqu’au {{ props.space.link_expires_label }}). Ne le
+      transférez pas : il donne accès à vos demandes.
     </p>
   </div>
 </template>
@@ -127,25 +127,26 @@ const groups: ComputedRef<ClientSpaceSettingsGroup[]> = computed((): ClientSpace
       ],
     },
   ]
+  const connections: ClientSpaceSettingsEntry[] = [
+    {
+      key: 'install',
+      label: `${props.space.assistant_name} sur votre site`,
+      value: 'La ligne à coller',
+      tone: 'plain',
+      screen: 'install',
+    },
+  ]
   if (calendar.status !== 'unavailable') {
-    list.push({
-      title: 'Connexions',
-      entries: [
-        {
-          key: 'calendar',
-          label: 'Google Agenda',
-          value:
-            calendar.status === 'connected'
-              ? 'Connecté'
-              : calendar.status === 'error'
-                ? 'À reconnecter'
-                : 'À connecter',
-          tone: calendar.status === 'connected' ? 'green' : 'amber',
-          screen: 'agenda',
-        },
-      ],
+    connections.push({
+      key: 'calendar',
+      label: 'Google Agenda',
+      value:
+        calendar.status === 'connected' ? 'Connecté' : calendar.status === 'error' ? 'À reconnecter' : 'À connecter',
+      tone: calendar.status === 'connected' ? 'green' : 'amber',
+      screen: 'agenda',
     })
   }
+  list.push({ title: 'Connexions', entries: connections })
   if (props.space.report) {
     list.push({
       title: 'Chaque mois',

@@ -6,7 +6,7 @@
 
     <main v-else-if="state === 'expired'" class="cs-message">
       <h1 class="cs-message__title">Ce lien a expiré</h1>
-      <p class="cs-muted">Pour protéger vos demandes, un lien ne dure que 30 jours.</p>
+      <p class="cs-muted">Pour protéger vos demandes, un lien qui n’a pas été ouvert depuis 30 jours expire.</p>
       <button v-if="renewState === 'idle'" type="button" class="cs-btn cs-btn--primary" @click="renewLink">
         Recevoir un nouveau lien par email
       </button>
@@ -214,6 +214,46 @@
               </div>
             </div>
 
+            <div v-else-if="location.settingsScreen === 'install'" class="cs-screen__body">
+              <p class="cs-sec">La ligne à coller</p>
+              <div class="cs-block">
+                <p class="cs-text">
+                  Collez cette ligne sur votre site, juste avant la fin de chaque page (la balise
+                  <code>{{ BODY_END_TAG }}</code
+                  >) : {{ space.assistant_name }} apparaît en bas à droite.
+                </p>
+                <pre class="cs-code">{{ space.embed_snippet }}</pre>
+                <div class="cs-screen__actions">
+                  <button type="button" class="cs-btn" @click="copySnippet">
+                    <ClientSpaceIcon :name="hasCopiedSnippet ? 'check' : 'code'" />
+                    {{ hasCopiedSnippet ? 'Copiée' : 'Copier la ligne' }}
+                  </button>
+                </div>
+              </div>
+              <p class="cs-sec">Ou à envoyer</p>
+              <div class="cs-block">
+                <p class="cs-text cs-text--dim">
+                  Quelqu’un s’occupe de votre site (une agence, un proche, votre prestataire) ? Envoyez-lui la ligne.
+                  Vous pouvez aussi répondre à l’un de nos emails : on l’installe avec vous.
+                </p>
+                <div class="cs-screen__actions">
+                  <a class="cs-btn" :href="snippetMailto"><ClientSpaceIcon name="mail" />Envoyer par email</a>
+                </div>
+              </div>
+              <p class="cs-sec">Vérifier</p>
+              <div class="cs-block">
+                <p class="cs-text cs-text--dim">
+                  Ouvrez votre site : la bulle de {{ space.assistant_name }} doit apparaître en bas à droite de chaque
+                  page. Testez-la comme un client et laissez votre numéro : la demande arrive ici, et par SMS.
+                </p>
+                <div v-if="space.website_url" class="cs-screen__actions">
+                  <a class="cs-btn" :href="space.website_url" target="_blank" rel="noopener">
+                    <ClientSpaceIcon name="external-link" />Ouvrir votre site
+                  </a>
+                </div>
+              </div>
+            </div>
+
             <div v-else class="cs-screen__body">
               <p class="cs-sec">Une question ?</p>
               <div class="cs-block">
@@ -227,9 +267,17 @@
                 <p class="cs-text cs-text--dim">
                   <template v-if="isExample">Cet exemple n’a pas de lien personnel.</template>
                   <template v-else>
-                    Ce lien personnel est valable jusqu’au {{ space.link_expires_label }}. Il donne accès à vos demandes
-                    : ne le transférez pas. Vous en recevez un nouveau par email quand il expire.
+                    Ce lien personnel se prolonge à chaque ouverture : tant que vous l’ouvrez au moins une fois par
+                    mois, il reste valable (pour l’instant jusqu’au {{ space.link_expires_label }}). Il donne accès à
+                    vos demandes : ne le transférez pas. S’il expire, vous en recevez un nouveau par email.
                   </template>
+                </p>
+              </div>
+              <p class="cs-sec">Sur votre téléphone</p>
+              <div class="cs-block">
+                <p class="cs-text cs-text--dim">
+                  Ajoutez cette page à l’écran d’accueil de votre téléphone (bouton Partager, puis « Sur l’écran
+                  d’accueil ») : vous retrouvez vos demandes d’un geste, comme une application.
                 </p>
               </div>
             </div>
@@ -289,11 +337,18 @@ const SETTINGS_TITLES: Record<ClientSpaceSettingsScreen, string> = {
   learned: 'Ce que vous lui avez appris',
   report: 'Rapport du mois',
   subscription: 'Abonnement',
+  install: 'Sur votre site',
   help: 'Aide',
 }
 
 /** From this width, the sidebar replaces the tab bar and a request opens beside the list. */
 const WIDE_QUERY: string = '(min-width: 1024px)'
+
+/** Where the browser keeps the latest link of a space, so an icon on the home screen outlives its 30 days. */
+const STORED_LINK_PREFIX: string = 'client-space-link:'
+
+/** The tag the line to paste goes before, shown as text (a template cannot carry it as markup). */
+const BODY_END_TAG: string = '</body>'
 
 const route: ReturnType<typeof useRoute> = useRoute()
 const config: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
@@ -310,7 +365,15 @@ const { data: load }: Awaited<ReturnType<typeof useAsyncData<AiAssistantClientSp
         return { state: 'ready', space: await $fetch<AiAssistantClientSpace>(endpoint.value) }
       } catch (error: unknown) {
         const status: number | undefined = ApiRefusalUtils.status(error)
-        if (status === 401) return { state: 'expired', space: null }
+        if (status === 401) {
+          const stored: string | null = storedFreshToken()
+          if (stored && stored !== token.value) {
+            // The link kept on the home screen lapsed, but the space was opened since: follow the fresher one.
+            window.location.replace(`/client/${stored}${window.location.search}${window.location.hash}`)
+            return { state: 'loading', space: null }
+          }
+          return { state: 'expired', space: null }
+        }
         if (status === 404) return { state: 'invalid', space: null }
         return { state: 'unavailable', space: null }
       }
@@ -345,6 +408,7 @@ const renewState: Ref<AiAssistantClientRenewState> = ref('idle')
 const isCalendarBusy: Ref<boolean> = ref(false)
 const calendarError: Ref<string | null> = ref(null)
 const hasSavedCalendar: Ref<boolean> = ref(false)
+const hasCopiedSnippet: Ref<boolean> = ref(false)
 // Google opened in another tab: the space reloads when the client comes back to this one.
 const isAwaitingCalendar: Ref<boolean> = ref(false)
 let wideQuery: MediaQueryList | null = null
@@ -362,15 +426,21 @@ const portraitFallbackUrl: ComputedRef<string> = computed((): string =>
   ),
 )
 
-/** The business's colour in its four shades, as the widget derives them, so any colour stays readable. */
+/**
+ * The business's colour in its shades, as the widget derives them, so any colour stays readable: the text shade
+ * and the tint exist for the day and for the night, the stylesheet picks the pair the screen wants.
+ */
 const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<string, string> => {
-  const palette: AssistantAccentPalette = AssistantAccentUtils.palette(space.value?.accent_color)
+  const light: AssistantAccentPalette = AssistantAccentUtils.palette(space.value?.accent_color)
+  const dark: AssistantAccentPalette = AssistantAccentUtils.darkPalette(space.value?.accent_color)
   return {
-    '--a-accent': palette.accent,
-    '--cs-accent': palette.accent,
-    '--cs-accent-strong': palette.strong,
-    '--cs-accent-text': palette.text,
-    '--cs-accent-tint': palette.tint,
+    '--a-accent': light.accent,
+    '--cs-accent': light.accent,
+    '--cs-accent-strong': light.strong,
+    '--cs-accent-text-light': light.text,
+    '--cs-accent-tint-light': light.tint,
+    '--cs-accent-text-dark': dark.text,
+    '--cs-accent-tint-dark': dark.tint,
   }
 })
 
@@ -424,6 +494,58 @@ const periodLine: ComputedRef<string> = computed((): string => {
   if (subscription.status === 'past_due') return `Échéance du ${subscription.period_end_label}.`
   return `Prochain renouvellement le ${subscription.period_end_label}.`
 })
+
+/** An email carrying the line to paste, for whoever looks after the website. */
+const snippetMailto: ComputedRef<string> = computed((): string => {
+  const name: string = space.value?.assistant_name ?? ''
+  const business: string = space.value?.business_name ?? ''
+  const subject: string = `${name}, la réceptionniste du site ${business}`
+  const body: string =
+    `Bonjour,\n\nPouvez-vous coller cette ligne sur le site ${business}, juste avant la balise ${BODY_END_TAG} de ` +
+    `chaque page ?\n\n${space.value?.embed_snippet ?? ''}\n\nMerci !`
+  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+})
+
+/**
+ * The assistant a token names (its first segment), to key the link the browser keeps.
+ * @param value The token.
+ * @returns The assistant's id as written in the token, or an empty string for the example.
+ */
+function tokenAssistantId(value: string): string {
+  return /^\d+\./.test(value) ? (value.split('.')[0] ?? '') : ''
+}
+
+/**
+ * The latest link the browser kept for the same space as the URL's token.
+ * @returns The stored token, or null when there is none (or no storage).
+ */
+function storedFreshToken(): string | null {
+  const id: string = tokenAssistantId(token.value)
+  if (!id) return null
+  try {
+    return window.localStorage.getItem(`${STORED_LINK_PREFIX}${id}`)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Move to the fresh link the API issued: the URL, and the browser's memory of it, so the link kept on the home
+ * screen keeps opening the space month after month.
+ * @param fresh The fresh token.
+ */
+function adoptFreshToken(fresh: string): void {
+  const id: string = tokenAssistantId(fresh)
+  try {
+    if (id) window.localStorage.setItem(`${STORED_LINK_PREFIX}${id}`, fresh)
+  } catch {
+    // Private browsing or storage off: the URL still moves.
+  }
+  const path: string = `/client/${fresh}`
+  if (window.location.pathname !== path) {
+    window.history.replaceState(window.history.state, '', `${path}${window.location.search}${window.location.hash}`)
+  }
+}
 
 /**
  * Switch to the « lien expiré » screen when the link lapsed during the visit.
@@ -629,6 +751,24 @@ async function renewLink(): Promise<void> {
 }
 
 /**
+ * Copy the line to paste; the button says so for a moment.
+ * @returns A promise resolved once the clipboard answered.
+ */
+async function copySnippet(): Promise<void> {
+  const snippet: string = space.value?.embed_snippet ?? ''
+  if (!snippet) return
+  try {
+    await navigator.clipboard.writeText(snippet)
+    hasCopiedSnippet.value = true
+    window.setTimeout((): void => {
+      hasCopiedSnippet.value = false
+    }, 2500)
+  } catch {
+    window.prompt('Copiez cette ligne :', snippet)
+  }
+}
+
+/**
  * Open Google's consent page in a new tab to connect the client's agenda.
  * @returns A promise resolved once the tab is on its way to Google, or once the failure is shown.
  */
@@ -736,6 +876,7 @@ watch(
     if (!value) return
     state.value = value.state
     space.value = value.space
+    if (value.state === 'ready' && value.space?.fresh_token) adoptFreshToken(value.space.fresh_token)
   },
   { immediate: true },
 )
@@ -790,6 +931,9 @@ useHead({
   --cs-amber: #b26a00;
   --cs-amber-soft: #fbf0dc;
   --cs-on-accent: #ffffff;
+  --cs-accent-text: var(--cs-accent-text-light);
+  --cs-accent-tint: var(--cs-accent-tint-light);
+  color-scheme: light;
   min-height: 100dvh;
   background: var(--cs-bg);
   color: var(--cs-ink);
@@ -797,6 +941,29 @@ useHead({
   font-size: 15px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+}
+
+/* At night: the same paper and ink, turned over with care; the accent's shades come from the API's palette. */
+@media (prefers-color-scheme: dark) {
+  .cs {
+    --cs-bg: #14120f;
+    --cs-card: #1d1a16;
+    --cs-card-unread: #221e19;
+    --cs-ink: #f1ece3;
+    --cs-dim: #a79f92;
+    --cs-faint: #7c7569;
+    --cs-line: #2e2a24;
+    --cs-online: #4fc07b;
+    --cs-red: #ef7b6d;
+    --cs-red-soft: #3b1f1b;
+    --cs-green: #66c48b;
+    --cs-green-soft: #1b3125;
+    --cs-amber: #e4a94a;
+    --cs-amber-soft: #3a2c15;
+    --cs-accent-text: var(--cs-accent-text-dark);
+    --cs-accent-tint: var(--cs-accent-tint-dark);
+    color-scheme: dark;
+  }
 }
 
 .cs-muted {
@@ -827,6 +994,11 @@ useHead({
   font-weight: 600;
   color: var(--cs-accent-text);
   cursor: pointer;
+}
+
+.cs-sec__count {
+  font-weight: 600;
+  color: var(--cs-accent-text);
 }
 
 .cs-block {
@@ -994,6 +1166,19 @@ useHead({
   font-weight: 700;
 }
 
+.cs-code {
+  margin: 0 16px 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--cs-line);
+  border-radius: 10px;
+  background: var(--cs-bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 .cs-text {
   margin: 0;
   padding: 14px 16px;
@@ -1120,6 +1305,11 @@ useHead({
 .cs-todo__icon--amber {
   background: var(--cs-amber-soft);
   color: var(--cs-amber);
+}
+
+.cs-todo__icon--green {
+  background: var(--cs-green-soft);
+  color: var(--cs-green);
 }
 
 .cs-todo__text {

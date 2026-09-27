@@ -9,8 +9,9 @@
         </template>
       </dl>
       <p v-else class="cs-text cs-text--dim">
-        Dès qu’un visiteur pose une question à laquelle {{ props.assistantName }} ne sait pas répondre, elle vous la
-        transmet dans vos demandes. Votre réponse apparaît ici, et elle la reprend telle quelle.
+        Dès qu’un visiteur pose une question à laquelle {{ props.assistantName }} ne sait pas répondre, la question vous
+        est transmise dans vos demandes. Votre réponse apparaît ici, et {{ props.assistantName }} la reprend telle
+        quelle.
       </p>
     </div>
   </div>

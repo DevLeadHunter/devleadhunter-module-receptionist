@@ -20,7 +20,7 @@
         {{
           props.calendar.status === 'error'
             ? `Les rendez-vous repassent en demandes à confirmer. Reconnectez votre agenda pour que ${props.assistantName} réserve à nouveau.`
-            : `${props.assistantName} note les créneaux souhaités mais ne peut pas réserver à votre place. Une fois connecté, elle propose vos créneaux libres et réserve directement.`
+            : `${props.assistantName} note les créneaux souhaités mais ne peut pas réserver à votre place. Une fois connecté, ${props.assistantName} propose vos créneaux libres et réserve directement.`
         }}
       </p>
       <button
@@ -273,12 +273,15 @@ watch(
 }
 
 .cs-agenda__appointment {
-  gap: 14px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 2px 14px;
 }
 
 .cs-agenda__when {
-  flex: none;
-  min-width: 118px;
+  padding-top: 1px;
+  white-space: nowrap;
   font-size: 14px;
   font-weight: 600;
   color: var(--cs-accent-text);
@@ -286,7 +289,6 @@ watch(
 
 .cs-agenda__who {
   display: grid;
-  flex: 1;
   min-width: 0;
   line-height: 1.35;
 }

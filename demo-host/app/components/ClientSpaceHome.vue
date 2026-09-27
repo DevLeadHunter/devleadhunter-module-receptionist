@@ -9,7 +9,10 @@
       @select="emit('open-settings-screen', 'assistant')"
     />
 
-    <p class="cs-sec">À faire</p>
+    <p class="cs-sec">
+      {{ isStarting ? 'Pour démarrer' : 'À faire' }}
+      <span v-if="isStarting" class="cs-sec__count">{{ doneStepCount }} / {{ tasks.length }}</span>
+    </p>
     <div class="cs-block">
       <div v-for="task in tasks" :key="task.key" class="cs-todo">
         <span class="cs-todo__icon" :class="`cs-todo__icon--${task.tone}`"><ClientSpaceIcon :name="task.icon" /></span>
@@ -17,7 +20,9 @@
           <b>{{ task.title }}</b>
           <span>{{ task.detail }}</span>
         </span>
-        <button type="button" class="cs-btn cs-btn--small" @click="act(task)">{{ task.action }}</button>
+        <button v-if="task.action" type="button" class="cs-btn cs-btn--small" @click="act(task)">
+          {{ task.action }}
+        </button>
       </div>
       <p v-if="tasks.length === 0" class="cs-text cs-text--dim cs-home__clear">
         Rien à faire pour le moment. {{ props.space.assistant_name }} veille.
@@ -50,7 +55,7 @@
       </p>
     </div>
 
-    <p class="cs-sec">
+    <p class="cs-sec cs-home__latest">
       Dernières demandes
       <button v-if="props.space.requests.length > 0" type="button" class="cs-sec__link" @click="emit('open-requests')">
         Toutes
@@ -65,8 +70,13 @@
       />
       <p v-if="latest.length === 0" class="cs-text cs-text--dim">
         Personne n’a encore laissé ses coordonnées. Testez {{ props.space.assistant_name }} comme un client : ouvrez
-        votre site, posez-lui une question et laissez votre numéro. La demande apparaîtra ici.
+        votre site, posez une question et laissez votre numéro. La demande apparaîtra ici, et vous recevrez le SMS.
       </p>
+      <div v-if="latest.length === 0 && props.space.website_url" class="cs-home__open">
+        <a class="cs-btn" :href="props.space.website_url" target="_blank" rel="noopener">
+          <ClientSpaceIcon name="external-link" />Ouvrir votre site
+        </a>
+      </div>
     </div>
   </div>
 </template>
@@ -77,6 +87,7 @@ import { computed } from 'vue'
 import type {
   AiAssistantClientReport,
   AiAssistantClientRequest,
+  AiAssistantClientSettings,
   AiAssistantClientSpace,
 } from '~/types/AiAssistantClientSpace'
 import type {
@@ -90,8 +101,8 @@ import type {
 const LATEST_COUNT: number = 3
 
 /**
- * The first screen of the client space: the receptionist and her status, what there is to do, the month's
- * figures, the latest requests. Every block leads somewhere.
+ * The first screen of the client space: the receptionist and her status, what there is to do (or, before the
+ * first request, the steps to start), the month's figures, the latest requests. Every block leads somewhere.
  * @param space The whole space, as served by the API.
  * @param portraitUrl The receptionist's photo.
  * @param portraitFallbackUrl The bust drawn when the photo is missing.
@@ -108,7 +119,60 @@ const pendingRequests: ComputedRef<AiAssistantClientRequest[]> = computed((): Ai
   props.space.requests.filter((item: AiAssistantClientRequest): boolean => item.status === 'new'),
 )
 
-const tasks: ComputedRef<ClientSpaceHomeTask[]> = computed((): ClientSpaceHomeTask[] => {
+/** Before the first request and the first report, the home walks the client through the start. */
+const isStarting: ComputedRef<boolean> = computed(
+  (): boolean => !props.space.is_example && props.space.requests.length === 0 && props.space.report === null,
+)
+
+/** The steps to start: the SMS number, the receptionist on the site, the agenda. A done step has no action. */
+const steps: ComputedRef<ClientSpaceHomeTask[]> = computed((): ClientSpaceHomeTask[] => {
+  const settings: AiAssistantClientSettings = props.space.settings
+  const name: string = props.space.assistant_name
+  const hasPhone: boolean = settings.alert_sms_enabled && Boolean(settings.alert_phone)
+  const list: ClientSpaceHomeTask[] = [
+    hasPhone
+      ? {
+          key: 'sms',
+          icon: 'check',
+          tone: 'green',
+          title: 'Numéro pour les SMS',
+          detail: settings.alert_phone ?? '',
+          action: '',
+        }
+      : {
+          key: 'sms',
+          icon: 'message-square',
+          tone: 'amber',
+          title: 'Numéro pour les SMS',
+          detail: 'pour être prévenu tout de suite',
+          action: 'Ajouter',
+        },
+    {
+      key: 'install',
+      icon: 'code',
+      tone: 'amber',
+      title: `${name} sur votre site`,
+      detail: 'une ligne à coller, ou à envoyer',
+      action: 'Installer',
+    },
+  ]
+  if (props.space.calendar.status === 'connected') {
+    list.push({ key: 'calendar', icon: 'check', tone: 'green', title: 'Agenda Google', detail: 'connecté', action: '' })
+  } else if (props.space.calendar.status !== 'unavailable') {
+    list.push({
+      key: 'calendar',
+      icon: 'calendar',
+      tone: 'amber',
+      title: 'Agenda Google',
+      detail: 'pour y prendre les rendez-vous',
+      action: props.space.calendar.status === 'error' ? 'Reconnecter' : 'Connecter',
+    })
+  }
+  return list
+})
+
+/** What there is to do once the space lives: people to call back, questions, the agenda. */
+const todos: ComputedRef<ClientSpaceHomeTask[]> = computed((): ClientSpaceHomeTask[] => {
   const list: ClientSpaceHomeTask[] = []
   const pending: number = props.space.pending_count
   if (pending > 0) {
@@ -134,7 +198,7 @@ const tasks: ComputedRef<ClientSpaceHomeTask[]> = computed((): ClientSpaceHomeTa
         questions === 1
           ? `1 question de ${props.space.assistant_name}`
           : `${questions} questions de ${props.space.assistant_name}`,
-      detail: 'elle n’a pas su répondre',
+      detail: questions === 1 ? 'restée sans réponse' : 'restées sans réponse',
       action: 'Répondre',
     })
   }
@@ -150,6 +214,14 @@ const tasks: ComputedRef<ClientSpaceHomeTask[]> = computed((): ClientSpaceHomeTa
   }
   return list
 })
+
+const tasks: ComputedRef<ClientSpaceHomeTask[]> = computed((): ClientSpaceHomeTask[] =>
+  isStarting.value ? steps.value : todos.value,
+)
+
+const doneStepCount: ComputedRef<number> = computed(
+  (): number => steps.value.filter((step: ClientSpaceHomeTask): boolean => step.action === '').length,
+)
 
 const figures: ComputedRef<ClientSpaceHomeFigure[]> = computed((): ClientSpaceHomeFigure[] => {
   const report: AiAssistantClientReport | null = props.space.report
@@ -177,6 +249,8 @@ const latest: ComputedRef<AiAssistantClientRequest[]> = computed((): AiAssistant
 function act(task: ClientSpaceHomeTask): void {
   if (task.key === 'requests') emit('open-requests')
   else if (task.key === 'questions') emit('open-question', 0)
+  else if (task.key === 'sms') emit('open-settings-screen', 'alerts')
+  else if (task.key === 'install') emit('open-settings-screen', 'install')
   else emit('open-agenda')
 }
 </script>
@@ -190,5 +264,13 @@ function act(task: ClientSpaceHomeTask): void {
 
 .cs-home__clear {
   padding: 16px;
+}
+
+.cs-home__open {
+  padding: 0 16px 16px;
+}
+
+.cs-home__open .cs-btn {
+  width: 100%;
 }
 </style>

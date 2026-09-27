@@ -1,11 +1,11 @@
 import type { AiAssistantClientSpace } from '~/types/AiAssistantClientSpace'
 import type { ClientSpaceSettingsScreen } from '~/types/ClientSpaceNavigation'
 
-/** One line of the home's « À faire » block. */
+/** One line of the home's « À faire » block, or one step of « Pour démarrer » (a done step has no action). */
 export type ClientSpaceHomeTask = {
-  key: 'requests' | 'questions' | 'calendar'
-  icon: 'phone' | 'help-circle' | 'calendar'
-  tone: 'red' | 'accent' | 'amber'
+  key: 'requests' | 'questions' | 'calendar' | 'sms' | 'install'
+  icon: 'phone' | 'help-circle' | 'calendar' | 'check' | 'code' | 'message-square'
+  tone: 'red' | 'accent' | 'amber' | 'green'
   title: string
   detail: string
   action: string

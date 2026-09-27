@@ -722,7 +722,11 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
   un neuf (avec « lien personnel : ne transférez pas cet email tel quel »). Un lien falsifié, non
   canonique, d'un assistant supprimé ou non vendu, n'ouvre rien (404) ; un lien expiré répond 401
   « demandez un nouveau lien » et la page propose de l'envoyer à l'adresse du commerçant (jamais
-  affichée), jusqu'à 90 jours après son expiration.
+  affichée), jusqu'à 90 jours après son expiration. **Depuis le 27/09, chaque ouverture prolonge le lien** :
+  la réponse porte `fresh_token` (30 jours à compter de la visite), la page remplace son URL par ce jeton
+  (`history.replaceState`) et le garde dans `localStorage` (`client-space-link:<id>`) ; un lien expiré (icône
+  sur l'écran d'accueil, ancien SMS) rebascule sur le jeton mémorisé s'il en existe un plus frais. Les SMS et
+  emails d'alerte ouvrent directement la demande annoncée (`#demandes/{id}`).
 - **Envoi depuis le dashboard** : bouton « Envoyer l'espace client » des cartes vendues (email
   transactionnel depuis l'identité d'envoi de l'owner, adresse du commerçant comme pour les demandes ;
   le lien est aussi copié).
@@ -781,7 +785,7 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
 | `POST` | `/ai-assistants/public/{slug}/interest` | Signaler l'intérêt de l'owner (pop-up « me contacter ») |
 | `GET` | `/ai-assistants/public/{slug}/subscribe` | Lien d'abonnement : Checkout Session Stripe fraîche, puis redirection |
 | `POST` | `/ai-assistants/{id}/client-link` | Lien de l'espace client d'un assistant vendu (`send` : l'envoyer par email au commerçant) |
-| `GET` | `/ai-assistants/client/{token}` | Espace client : demandes, rapport, réglages, abonnement |
+| `GET` | `/ai-assistants/client/{token}` | Espace client : demandes, rapport, réglages, abonnement, agenda ; renvoie aussi `fresh_token` (lien prolongé), `website_url` et `embed_snippet` |
 | `POST` | `/ai-assistants/client/{token}/requests/{id}/handled` | Marquer traitée une demande depuis l'espace client |
 | `POST` | `/ai-assistants/client/{token}/requests/{id}/dropped` | Mettre de côté une fausse demande (test, spam, doublon) depuis l'espace client |
 | `PATCH` | `/ai-assistants/client/{token}/settings` | Prénom, langues, mobile d'alerte, SMS / email oui-non |
@@ -1187,10 +1191,10 @@ page :
   (`ClientSpaceIcon`). Composants `ClientSpaceRequests/Appointments/Faq/Calendar/Section/Badge/Contact`
   supprimés.
 
-Reste à faire : l'image de l'espace client dans `/ia` (`public/showroom/espace-client.webp`) montre l'ancien
-design (le chapitre vidéo, lui, filme la page en direct : réglé au douzième passage) ; mode sombre ; lien qui se prolonge à chaque visite (écran d'accueil iPhone) ;
-SMS d'alerte pointant vers `#demandes/{id}` ; détection « installée sur votre site » ; confirmation d'un
-créneau par SMS au visiteur.
+Le soir même (correctif `b8e32c4e`) : un nom de visiteur long élargissait toute la pile mobile (`display: grid`
+sans colonne explicite) ; chaque pile reçoit `grid-template-columns: minmax(0, 1fr)` et la ligne de titre d'une
+demande `min-width: 0`.
+
 
 ## Douzième passage — vidéo de prospection réparée (27/09, soir)
 
@@ -1214,3 +1218,32 @@ pouvait plus être générée ni envoyée :
   (voir « Intégration campagnes »).
 - **Vocabulaire** : page `/va` (« La réceptionniste de … vous répond », « Parler à {prénom} », accords par
   `AssistantPersonaUtils`), bandeau de contact, cartes du dashboard et messages d'erreur disent « réceptionniste ».
+
+## Treizième passage — finitions de l'espace client (27/09, nuit)
+
+- **Lien qui se prolonge** : `fresh_token` à chaque ouverture valide, URL remplacée et jeton mémorisé dans le
+  navigateur (voir « Lien magique ») ; écran d'aide « Sur votre téléphone » (ajout à l'écran d'accueil).
+- **Alertes qui ouvrent la demande** : SMS et emails d'alerte pointent vers `…/client/<jeton>#demandes/{id}`
+  (`AiAssistantClientLinks.url` / `sms_link(request_id=…)`) ; une demande absente de la liste affiche « Cette
+  demande n'est plus dans la liste ».
+- **Premier jour** (`ClientSpaceHome`) : sans demande ni rapport, le bloc « À faire » devient « Pour démarrer
+  n / 3 » (numéro SMS, réceptionniste sur le site, agenda Google ; une étape faite passe en vert sans bouton) et
+  le bloc des demandes vide propose « Ouvrir votre site » (`website_url` = domaine du client, sinon site du
+  prospect).
+- **Écran « Sur votre site »** (`#reglages/installation`, entrée du menu Connexions) : la ligne à coller
+  (`embed_snippet`, bouton Copier), l'envoi par email (mailto pré-rempli), la vérification.
+- **Mode sombre** : `prefers-color-scheme: dark` retourne les jetons `--cs-*` (papier #14120f, cartes #1d1a16) ;
+  la couleur du client garde une nuance texte lisible et une teinte sombre (`AssistantAccentUtils.darkPalette`),
+  la page pose les deux paires (`--cs-accent-text-light/dark`, `--cs-accent-tint-light/dark`) et la feuille
+  choisit.
+- **Agenda** : la ligne d'un rendez-vous pris est une grille `auto minmax(0, 1fr)` (la date ne pousse plus le
+  contact hors d'un petit écran).
+- **Showroom `/ia`** : `scripts/capture_client_space_example.py` capture désormais la vue ordinateur
+  (`#demandes/2`, 1280 × 800 → 1400 × 875) ; le chapitre vidéo, réglé au douzième passage, filme ce même
+  accueil (`.cs-home`) jusqu'à sa première demande.
+- Copies sans pronom féminin (Hugo est aussi réceptionniste) : « restée sans réponse », « la question vous est
+  transmise ».
+
+Reste à faire : détection « installée sur votre site » (l'étape « sur votre site » reste ambre tant qu'on ne
+sait pas), confirmation d'un créneau par SMS au visiteur (décision), bloc « Vos essais » des maquettes
+(conversations de test du commerçant).

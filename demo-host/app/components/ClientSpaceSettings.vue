@@ -8,7 +8,7 @@
           <label class="cs-field">
             <span class="cs-label">Prénom affiché aux visiteurs</span>
             <input v-model="assistantName" class="cs-input" type="text" maxlength="64" required autocomplete="off" />
-            <span class="cs-hint">Elle se présente toujours comme réceptionniste IA de votre entreprise.</span>
+            <span class="cs-hint">Se présente toujours aux visiteurs comme réceptionniste IA de votre entreprise.</span>
           </label>
         </div>
 

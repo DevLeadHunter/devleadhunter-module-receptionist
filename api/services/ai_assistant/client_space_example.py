@@ -27,6 +27,7 @@ from schemas.ai_assistant_client_space import (
 from schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantUnansweredEntry
 from services.ai_assistant.calendar_settings import DURATION_CHOICES, MIN_NOTICE_CHOICES
 from services.ai_assistant.client_links import AiAssistantClientLinks
+from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.french_date_formatter import FrenchDateFormatter
@@ -64,6 +65,9 @@ class AiAssistantClientSpaceExample:
             accent_color=_ACCENT_COLOR,
             link_expires_label=f"{current + timedelta(days=AiAssistantClientLinks.TTL_DAYS):%d/%m/%Y}",
             is_example=True,
+            fresh_token=None,
+            website_url=None,
+            embed_snippet=AiAssistantEmbedSnippet.render("toitures-morel"),
             pending_count=2,
             requests=[
                 AiAssistantClientRequestItem(

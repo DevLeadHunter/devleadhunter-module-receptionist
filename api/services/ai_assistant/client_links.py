@@ -4,7 +4,8 @@ The magic link of a sold assistant's client space: no account, no password.
 The link names the assistant, expires after 30 days and carries an HMAC of both (keyed by
 ``SECRET_KEY``), so it can be neither forged for another assistant nor used forever. It is short on
 purpose (``12.mfx3k2.Qs9…``, about 28 characters): it also rides in the one-segment alert SMS.
-Every alert carries a fresh one, and the page sends a new one to the business when it has expired.
+Every alert carries a fresh one, opened on its request (« #demandes/12 »); the page itself moves to a fresh
+one at each visit, and sends a new one to the business when it has expired.
 """
 
 from __future__ import annotations
@@ -57,36 +58,39 @@ class AiAssistantClientLinks:
         return f"{assistant_id}.{expiry}.{cls._sign(assistant_id, expiry)}"
 
     @classmethod
-    def url(cls, assistant_id: int, *, now: datetime | None = None) -> str:
+    def url(cls, assistant_id: int, *, request_id: int | None = None, now: datetime | None = None) -> str:
         """
         The client-space page of an assistant, with a fresh token.
 
         Args:
             assistant_id: The sold assistant.
+            request_id: A request the page opens on arrival (« #demandes/12 »), for an alert.
             now: Current time (tests); defaults to now.
 
         Returns:
             The absolute page URL on the demo host.
         """
-        return cls.page_url(cls.token(assistant_id, now=now))
+        return cls.page_url(cls.token(assistant_id, now=now), request_id=request_id)
 
     @staticmethod
-    def page_url(token: str) -> str:
+    def page_url(token: str, *, request_id: int | None = None) -> str:
         """
         The client-space page of a token already checked by :meth:`read`.
 
         Args:
             token: A canonical client-space token.
+            request_id: A request the page opens on arrival (it reads « #demandes/12 »).
 
         Returns:
             The absolute page URL on the demo host.
         """
-        return f"{settings.demo_host_base_url.rstrip('/')}/client/{token}"
+        url = f"{settings.demo_host_base_url.rstrip('/')}/client/{token}"
+        return f"{url}#demandes/{request_id}" if request_id is not None else url
 
     @classmethod
-    def sms_link(cls, assistant_id: int, *, now: datetime | None = None) -> str:
+    def sms_link(cls, assistant_id: int, *, request_id: int | None = None, now: datetime | None = None) -> str:
         """The client-space URL without its scheme (a bare link is tapped all the same in an SMS)."""
-        return re.sub(r"^https?://", "", cls.url(assistant_id, now=now))
+        return re.sub(r"^https?://", "", cls.url(assistant_id, request_id=request_id, now=now))
 
     @classmethod
     def read(cls, token: str, *, now: datetime | None = None) -> ClientLinkToken | None:

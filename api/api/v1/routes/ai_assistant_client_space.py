@@ -43,6 +43,7 @@ from services.ai_assistant.calendar_settings import DURATION_CHOICES, MIN_NOTICE
 from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
 from services.ai_assistant.client_space_example import EXAMPLE_TOKEN, ai_assistant_client_space_example
 from services.ai_assistant.client_space_service import ClientSpaceAccessError, ai_assistant_client_space_service
+from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.google_calendar_client import GoogleCalendarError
 from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
@@ -187,6 +188,9 @@ async def get_client_space(
     if token == EXAMPLE_TOKEN:
         return ai_assistant_client_space_example.build()
     assistant, link = _open_client_space(db, token, request)
+    # Each visit carries a fresh 30-day link the page moves to: a link opened monthly never expires.
+    fresh_token = AiAssistantClientLinks.token(assistant.id)
+    fresh_link = AiAssistantClientLinks.read(fresh_token) or link
     report = ai_assistant_client_space_service.latest_report(db, assistant)
     subscription = ai_assistant_client_space_service.current_subscription(db, assistant)
     records = ai_assistant_client_space_service.recent_requests(db, assistant)
@@ -196,7 +200,7 @@ async def get_client_space(
         business_name=assistant.business_name,
         assistant_name=assistant.assistant_name,
         accent_color=ai_assistant_service.accent_color(assistant),
-        link_expires_label=_business_label(link.expires_at, "%d/%m/%Y"),
+        link_expires_label=_business_label(fresh_link.expires_at, "%d/%m/%Y"),
         pending_count=ai_assistant_client_space_service.pending_count(db, assistant),
         requests=[_to_request_item(record, booked.get(record.id)) for record in records],
         report=_to_report(report) if report is not None else None,
@@ -213,6 +217,9 @@ async def get_client_space(
         ],
         faq=faq.faq,
         unanswered=faq.unanswered,
+        fresh_token=fresh_token,
+        website_url=ai_assistant_client_space_service.website_url(db, assistant),
+        embed_snippet=AiAssistantEmbedSnippet.render(assistant.slug),
     )
 
 

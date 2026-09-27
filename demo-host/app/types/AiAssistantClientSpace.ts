@@ -134,6 +134,12 @@ export type AiAssistantClientSpace = {
   appointments: AiAssistantClientAppointment[]
   faq: AiAssistantClientFaqEntry[]
   unanswered: AiAssistantClientUnansweredEntry[]
+  /** A fresh 30-day token for a valid link (null for the example): the page moves its URL to it. */
+  fresh_token: string | null
+  /** The business's own website, when known. */
+  website_url: string | null
+  /** The line to paste on the website to show the receptionist. */
+  embed_snippet: string | null
 }
 
 /** A question the receptionist could not answer, with how often visitors asked it (dates in naive UTC). */

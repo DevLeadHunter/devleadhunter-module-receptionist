@@ -25,6 +25,12 @@ const ON_STRONG: RgbColor = { r: 255, g: 255, b: 255 }
 /** How far the tint moves from the accent towards white (0 = the accent, 1 = white). */
 const TINT_WASH: number = 0.72
 
+/** The client space's dark paper (its cards), on which the accent is also used as text at night. */
+const DARK_PAPER: RgbColor = { r: 29, g: 26, b: 22 }
+
+/** How far the dark tint moves from the accent towards the dark paper. */
+const DARK_TINT_WASH: number = 0.74
+
 /**
  * The accent colour of the assistant's widget and pages, and the shades that keep it readable whatever its hue.
  */
@@ -45,6 +51,23 @@ export class AssistantAccentUtils {
       strong: AssistantAccentUtils.format(AssistantAccentUtils.darkenUntilReadable(rgb, ON_STRONG)),
       text: AssistantAccentUtils.format(AssistantAccentUtils.darkenUntilReadable(rgb, PAPER)),
       tint: AssistantAccentUtils.format(AssistantAccentUtils.mixWithWhite(rgb, TINT_WASH)),
+    }
+  }
+
+  /**
+   * The palette for a dark screen: the same accent and strong fill, a text shade lightened until it reads on
+   * the dark paper, and a tint sunk into it.
+   * @param accent - The accent as stored, or null.
+   * @returns The accent, its strong fill, its text shade and its tint, for the dark theme.
+   */
+  static darkPalette(accent: string | null | undefined): AssistantAccentPalette {
+    const rgb: RgbColor | null = AssistantAccentUtils.parse(accent ?? '')
+    if (!rgb) return AssistantAccentUtils.darkPalette(AssistantAccentUtils.FALLBACK_ACCENT)
+    return {
+      accent: AssistantAccentUtils.format(rgb),
+      strong: AssistantAccentUtils.format(AssistantAccentUtils.darkenUntilReadable(rgb, ON_STRONG)),
+      text: AssistantAccentUtils.format(AssistantAccentUtils.lightenUntilReadable(rgb, DARK_PAPER)),
+      tint: AssistantAccentUtils.format(AssistantAccentUtils.mixWith(rgb, DARK_PAPER, DARK_TINT_WASH)),
     }
   }
 
@@ -121,10 +144,35 @@ export class AssistantAccentUtils {
    * @returns The washed colour.
    */
   private static mixWithWhite(rgb: RgbColor, amount: number): RgbColor {
+    return AssistantAccentUtils.mixWith(rgb, ON_STRONG, amount)
+  }
+
+  /**
+   * Move a colour towards another.
+   * @param rgb - The colour.
+   * @param target - Where it goes.
+   * @param amount - How far to go, from 0 (unchanged) to 1 (the target).
+   * @returns The mixed colour.
+   */
+  private static mixWith(rgb: RgbColor, target: RgbColor, amount: number): RgbColor {
     return {
-      r: rgb.r + (255 - rgb.r) * amount,
-      g: rgb.g + (255 - rgb.g) * amount,
-      b: rgb.b + (255 - rgb.b) * amount,
+      r: rgb.r + (target.r - rgb.r) * amount,
+      g: rgb.g + (target.g - rgb.g) * amount,
+      b: rgb.b + (target.b - rgb.b) * amount,
     }
+  }
+
+  /**
+   * Lighten a colour, a step at a time, until it reads on the given dark colour (a light accent is kept as is).
+   * @param rgb - The accent.
+   * @param against - The dark colour the result must read on: the dark paper.
+   * @returns The readable shade.
+   */
+  private static lightenUntilReadable(rgb: RgbColor, against: RgbColor): RgbColor {
+    let shade: RgbColor = rgb
+    for (let step: number = 0; step < 24 && AssistantAccentUtils.contrast(shade, against) < MIN_TEXT_CONTRAST; step++) {
+      shade = AssistantAccentUtils.mixWithWhite(shade, 0.1)
+    }
+    return shade
   }
 }
