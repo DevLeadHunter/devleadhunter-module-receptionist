@@ -37,6 +37,20 @@ export type AssistantVideoBuildResult = {
   message?: string
 }
 
+/** Unsaved timings a calibration preview renders with, instead of the stored clip's. */
+export type AssistantPreviewTimingOverrides = {
+  presenter_intro: number
+  presenter_outro: number
+  total_seconds: number
+}
+
+/** Result of a calibration preview: the rendered mp4 when it worked, nothing published. */
+export type AssistantPreviewVideoResult = {
+  status: AssistantVideoBuildStatus
+  video?: Blob
+  message?: string
+}
+
 export class AssistantSidecarService {
   /**
    * Build the COMPLETE assistant video on the desktop (widget capture + montage), then upload it.
@@ -63,15 +77,35 @@ export class AssistantSidecarService {
   }
 
   /**
+   * Render a calibration example of the receptionist video on the desktop, with unsaved timings; nothing is uploaded.
+   * @param assistantId - The receptionist used as the example.
+   * @param overrides - The intro, outro and middle lengths to try.
+   * @returns The rendered mp4, or why it could not be made.
+   */
+  static async buildPreviewVideo(
+    assistantId: number,
+    overrides: AssistantPreviewTimingOverrides,
+  ): Promise<AssistantPreviewVideoResult> {
+    const build: { status: AssistantVideoBuildStatus; blob?: Blob; message?: string } =
+      await AssistantSidecarService.requestFullBuild(assistantId, { ...overrides, preview: true })
+    if (build.status !== 'done' || !build.blob) {
+      return { status: build.status, message: build.message }
+    }
+    return { status: 'done', video: build.blob }
+  }
+
+  /**
    * Run the sidecar's full desktop build (widget capture + montage) for an assistant.
    *
-   * The build is DETACHED sidecar-side (a single multi-minute response gets killed by the webview):
-   * start it, then follow it through the shared poll/fetch helper.
+   * Shared by the real generation and the calibration preview. The build is DETACHED sidecar-side (a single
+   * multi-minute response gets killed by the webview): start it, then follow it through the shared poll/fetch helper.
    * @param assistantId - The assistant to render.
-   * @returns The produced zip blob, or the failure status.
+   * @param payloadExtras - Fields merged over the API context (the preview's timings and flag).
+   * @returns The produced zip blob (a bare mp4 for a preview), or the failure status.
    */
   private static async requestFullBuild(
     assistantId: number,
+    payloadExtras: Record<string, unknown> = {},
   ): Promise<{ status: AssistantVideoBuildStatus; blob?: Blob; message?: string }> {
     const info: Awaited<ReturnType<typeof getScraperSidecarInfo>> = await getScraperSidecarInfo()
     if (!info) return { status: 'unavailable' }
@@ -93,7 +127,7 @@ export class AssistantSidecarService {
     }
 
     const formData: FormData = new FormData()
-    formData.append('payload', JSON.stringify(context))
+    formData.append('payload', JSON.stringify({ ...context, ...payloadExtras }))
     formData.append('presenter', presenter, 'presenter.mp4')
     if (presenterPhoto) {
       formData.append('presenter_photo', presenterPhoto, 'presenter-photo.jpg')

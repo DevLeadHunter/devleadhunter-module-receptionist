@@ -397,9 +397,15 @@ la page démo `/ia/{slug}` : l'email et le SMS mènent à `/va`, dont le bouton 
 - **Fallback serveur** (`services/assistant_video_service.py`, Playwright headless) hors desktop ou sur
   échec — l'assistant n'a **aucune** dépendance Storyblok, donc le VPS génère seul.
 - **Clip présentateur par module** (`presenter_videos.module = 'ai-assistant'`) : un discours webcam
-  « réceptionniste » distinct de celui des sites (Paramètres → Vidéo, « Enregistrer avec le prompteur »), avec
-  option de **génération auto** à la création. Le texte du prompteur (`buildAssistantScript`) dit « votre
-  réceptionniste » et jamais « il » ni « elle » : le prénom et le genre changent à chaque démo.
+  « réceptionniste » distinct de celui des sites, avec option de **génération auto** à la création. Le texte du
+  prompteur (`buildAssistantScript`) dit « votre réceptionniste » et jamais « il » ni « elle » : le prénom et le
+  genre changent à chaque démo. Ses réglages (Paramètres → Vidéo, section `#clip-receptionniste`) sont ceux du clip
+  du site : `PresenterVideoConfig` avec `module="ai-assistant"` (textes dans `constants/presenterVideoWordings.ts`).
+  Lecteur du clip, filmer au prompteur ou importer, frise Intro / Chat / Espace client / Outro (l'espace n'apparaît
+  que si le milieu tient 13 s), intro et outro enregistrés par « Enregistrer les réglages », guide avec le discours
+  à lire, et **aperçu de calibration** sur le PC : `AssistantSidecarService.buildPreviewVideo` fabrique la vidéo
+  d'une réceptionniste active avec les réglages non enregistrés (`preview` dans `/video/build-assistant-full`, le
+  sidecar rend le mp4 seul), sans rien publier.
 - **Mécanique partagée** avec le site : montage (`services/video_montage.py`), primitives communes
   (`services/video_pipeline.py`), poll/fetch sidecar (`web/app/services/sidecarVideoBuild.ts`).
 - **Suivi** comme la vidéo du site : `/va` passe `surface: 'assistant'` à `useDemoVideoTracking` et branche
@@ -891,7 +897,7 @@ pile Pinia `drawerStack`) :
 Le volet « Sources » (voir « Sources de connaissance ») et « Personnaliser » s'ouvrent depuis la page de détail.
 « Personnaliser » porte aussi les alertes au commerçant (mobile, SMS / email, types à SMS, plage de
 nuit). Le clip présentateur « assistant » s'enregistre dans **Paramètres → Vidéo**
-(`web/app/components/settings/AssistantPresenterClipCard.vue`). Le `ProspectDrawer` génère / ouvre
+(`PresenterVideoConfig` avec `module="ai-assistant"`). Le `ProspectDrawer` génère / ouvre
 l'assistant depuis un prospect selon le module actif.
 
 ### Tracking (PostHog, côté demo-host)
@@ -960,7 +966,7 @@ dashboard (non instrumenté).
 | Réponses en flux | `api/services/ai_assistant/llm_router.py` (`chat_stream`), `chat_service.py` (`answer_stream`), `api/api/v1/routes/ai_assistant_widget.py` (`/chat/stream`), `demo-host/app/utils/AssistantStreamUtils.ts` |
 | Questions sans réponse, FAQ | `api/services/ai_assistant/faq_service.py`, `missing_info_marker.py`, `api/api/v1/routes/ai_assistant_faq.py`, `web/app/components/ai-assistants/AssistantFaqCard.vue`, `demo-host/app/components/ClientSpaceFaq.vue` |
 | Guide d'installation | `web/app/components/ai-assistants/AssistantInstallGuideCard.vue`, `web/app/constants/assistantInstallGuides.ts` |
-| Clip présentateur (réglages) | `web/app/components/settings/AssistantPresenterClipCard.vue` |
+| Clip présentateur (réglages) | `web/app/components/settings/PresenterVideoConfig.vue` (`module="ai-assistant"`), `web/app/constants/presenterVideoWordings.ts` |
 
 ## Septième passage (25/09, soir) : les axes d'amélioration livrés d'un coup
 
@@ -1323,3 +1329,13 @@ scopes), L8 première référence, portrait de Sofia.
   message d'erreur.
 - **Liste des prospects, leads chauds et récap du soir** : les visites de la réceptionniste y comptent, et un slug
   n'est jamais partagé entre deux prospects.
+
+## Dix-septième passage — clip réceptionniste au niveau du site (28/09, nuit)
+
+- **Réglages enregistrés** : l'intro et l'outro d'un clip importé se modifiaient sans jamais être sauvegardés (la
+  carte n'avait pas de bouton « Enregistrer les réglages »).
+- **Même bloc que le site** dans Paramètres → Vidéo : lecteur du clip, frise du déroulé propre à la réceptionniste,
+  guide avec le discours à lire, et aperçu de calibration sur le PC. L'ancienne carte `AssistantPresenterClipCard`
+  est supprimée.
+- Les messages du contexte vidéo parlent de « réceptionniste », et le lien « Configurer mon clip webcam » de la fiche
+  mène directement à la section du clip réceptionniste.

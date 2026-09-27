@@ -326,13 +326,13 @@ async def get_assistant_video_context(
     if assistant.status != AiAssistantStatus.ACTIVE.value:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="La vidéo ne peut être générée que pour un assistant actif.",
+            detail="La vidéo ne peut être générée que pour une réceptionniste active.",
         )
     presenter = presenter_video_service.get_for_user(db, user.id, ASSISTANT_PRESENTER_MODULE)
     if presenter is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Aucun clip de présentation « assistant » enregistré.",
+            detail="Aucun clip de présentation « réceptionniste » enregistré.",
         )
     total_seconds = presenter.duration_seconds - presenter.intro_seconds - presenter.outro_seconds
     first_name: str | None = None
