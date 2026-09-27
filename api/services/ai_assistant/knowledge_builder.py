@@ -217,8 +217,10 @@ class AiAssistantKnowledgeBuilder:
             "EXACTEMENT ta réponse. Si tu viens de lui poser une question, ce sont les réponses les plus probables à "
             "cette question (« Un site vitrine », « Plutôt une application », « Je vous envoie une photo ») ; sinon, "
             "ce qu'il demanderait ensuite à l'entreprise sur ce sujet précis, ou l'action qui suit (devis, "
-            "rendez-vous, rappel). Jamais une question que l'entreprise poserait au client (son budget, ses "
-            "disponibilités, son adresse) : c'est lui qui clique. Jamais une suggestion générique sans lien avec "
+            "rendez-vous, rappel). Quand ta question demande une information personnelle (prénom, téléphone, e-mail, "
+            "adresse), pas de réponse à trou (« Mon prénom est … ») : propose plutôt les actions (« Être rappelé », "
+            "« Prendre rendez-vous ») ou d'autres questions. Jamais une question que l'entreprise poserait au client "
+            "(son budget, ses disponibilités, son adresse) : c'est lui qui clique. Jamais une suggestion générique sans lien avec "
             "l'échange, jamais une déjà proposée plus tôt dans la conversation (tu les y vois), jamais ce qu'il "
             "vient de demander. Cette ligne est retirée avant l'affichage et devient des boutons sous ta réponse : "
             "ne la mentionne jamais.",
