@@ -127,7 +127,7 @@
     <UiConfirmModal
       ref="deleteConfirmModal"
       title="Supprimer l'assistant"
-      :message="`Supprimer l'assistant de « ${assistant?.business_name ?? ''} » ? Sa démo, son widget et ses demandes ne seront plus servis.`"
+      :message="deleteConfirmMessage"
       confirm-text="Supprimer"
       cancel-text="Annuler"
       @confirm="removeAssistant"
@@ -236,6 +236,9 @@ const videoProgress: UseVideoGenerationProgressReturn = useVideoGenerationProgre
 /** How many of the assistant's requests the detail page lists. */
 const RECENT_REQUESTS_LIMIT: number = 6
 
+/** Start of the API refusal to delete an assistant still paid for, shown as it is. */
+const SUBSCRIPTION_STILL_PAID_REFUSAL: string = "Résiliez d'abord l'abonnement"
+
 /** The aside's tabs: the summary and actions, or the configuration with the demo preview beside it. */
 const asideTabs: UiTab[] = [
   { key: 'resume', label: 'Résumé', icon: 'i-lucide-clipboard-list' },
@@ -315,6 +318,11 @@ const businessRecipientLabel: ComputedRef<string> = computed((): string =>
 const clientSpaceConfirmMessage: ComputedRef<string> = computed(
   (): string =>
     `Envoyer au commerçant ${businessRecipientLabel.value} le lien de son espace (demandes, rapport, réglages, abonnement) ? Le lien est aussi copié.`,
+)
+
+const deleteConfirmMessage: ComputedRef<string> = computed(
+  (): string =>
+    `Supprimer l'assistant de « ${assistant.value?.business_name ?? ''} » ? Sa démo et son widget s'arrêtent. Sont effacés : ses documents, ses conversations, les demandes et les photos des visiteurs, les rendez-vous, les rapports, l'agenda connecté et la vidéo. Les ventes et les abonnements passés restent.`,
 )
 
 const newClientLinkConfirmMessage: ComputedRef<string> = computed(
@@ -435,8 +443,8 @@ async function revokeClientLinks(): Promise<void> {
 }
 
 /**
- * Soft-delete the assistant and go back to the list.
- * @returns A promise resolved once removed.
+ * Delete the assistant (its files and its visitors' data are erased) and go back to the list.
+ * @returns A promise resolved once removed (or refused).
  */
 async function removeAssistant(): Promise<void> {
   if (!assistant.value || isDeleting.value) return
@@ -444,10 +452,11 @@ async function removeAssistant(): Promise<void> {
   try {
     await AiAssistantService.remove(assistant.value.id)
     drawerStack.notifyAssistantDeleted(assistant.value.id)
-    toast.success('Assistant supprimé.')
+    toast.success('Assistant supprimé, ses fichiers et les données de ses visiteurs sont effacés.')
     await router.push('/dashboard/ai-assistants')
-  } catch {
-    toast.error("Suppression impossible pour l'instant.")
+  } catch (error: unknown) {
+    const detail: string = error instanceof Error ? error.message : ''
+    toast.error(detail.startsWith(SUBSCRIPTION_STILL_PAID_REFUSAL) ? detail : "Suppression impossible pour l'instant.")
   } finally {
     isDeleting.value = false
   }

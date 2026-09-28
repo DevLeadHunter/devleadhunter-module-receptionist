@@ -33,6 +33,7 @@ from schemas.ai_assistant import (
 )
 from schemas.ai_assistant_client_space import AiAssistantClientLinkRequest, AiAssistantClientLinkResponse
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_SUCCESS, activity_log_service
+from services.ai_assistant.assistant_purge import ai_assistant_purge_service
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.client_space_service import ai_assistant_client_space_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
@@ -432,15 +433,17 @@ async def delete_assistant(
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> None:
-    """Soft-delete one of the caller's assistants, and its prospection video files."""
-    assistant = (
-        db.query(AiAssistant)
-        .filter(AiAssistant.id == assistant_id, AiAssistant.user_id == user.id, AiAssistant.deleted_at.is_(None))
-        .first()
-    )
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
-    assistant_video_service.purge_video(assistant)
+    """
+    Delete one of the caller's assistants, refused while a subscription still pays for it.
+
+    It stops being served, its files and its visitors' data are erased, and its row stays for the sales history.
+    """
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
+    if ai_assistant_purge_service.has_live_subscription(db, assistant):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Résiliez d'abord l'abonnement de cette réceptionniste."
+        )
     assistant.status = AiAssistantStatus.DELETED.value
-    assistant.deleted_at = datetime.utcnow()
+    assistant.deleted_at = datetime.now(UTC).replace(tzinfo=None)
     db.commit()
+    await ai_assistant_purge_service.purge(db, assistant)

@@ -6,6 +6,7 @@ import asyncio
 import logging
 
 from core.database import SessionLocal
+from services.ai_assistant.assistant_purge import ai_assistant_purge_service
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
 from services.ai_assistant.photo_service import ai_assistant_photo_service
@@ -21,8 +22,8 @@ class AiAssistantCleanupRunner:
     @staticmethod
     async def run_loop(interval_seconds: int = 3600) -> None:
         """
-        Periodically expire the demo assistants whose countdown ended, drop stale unpaid checkouts, and
-        forget the conversations and visitor photos past their retention.
+        Periodically expire the demo assistants whose countdown ended, drop stale unpaid checkouts, forget the
+        conversations and visitor photos past their retention, and finish erasing the deleted assistants.
 
         Args:
             interval_seconds: Delay between expiry passes.
@@ -49,6 +50,13 @@ class AiAssistantCleanupRunner:
                     logger.info("Sent assistant start reminders: %s", reminded)
             except Exception:
                 logger.exception("Assistant start reminders failed")
+                db.rollback()
+            try:
+                erased: int = await ai_assistant_purge_service.purge_leftovers(db)
+                if erased:
+                    logger.info("Erased what deleted assistants had left: %s", erased)
+            except Exception:
+                logger.exception("Deleted assistants purge failed")
                 db.rollback()
             # Its own step: the 90-day deletion promise must not depend on the expiry pass succeeding.
             try:
