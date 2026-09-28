@@ -271,6 +271,16 @@ C'est le **produit** que le client colle sur son site. Il porte :
 
 ### Page de démo `/ia/{slug}` (`demo-host/app/pages/ia/[slug].vue`)
 
+**Réceptionniste vendue (`delivered`)** : la même adresse sert la page des **clients de l'entreprise**
+(`AssistantBusinessPage.vue`), celle que donnent l'écran « Votre fiche Google », la messagerie vocale et le QR :
+nom et métier, note Google, état « ouvert » ou « fermé en ce moment », la réceptionniste au centre (sans exemple
+scripté), téléphone, adresse vers Google Maps, horaires avec le jour courant, mention « réceptionniste IA » en pied
+de page ; ni prix ni signature. Titre « {Entreprise} : demande de devis et rendez-vous », description, `theme-color`
+à l'accent, page indexable. La config publique porte alors `business` (`services/ai_assistant/business_card.py`) :
+téléphone (celui du dashboard d'abord), adresse, horaires (`is_today`), `is_open_now`, note et avis ; rien de la
+fiche Google quand cette source est coupée. La page de démo (`AssistantDemoPage.vue`) est `noindex`. Au retour du
+paiement (`?subscribed=1`), un bandeau remercie, puis l'adresse perd le marqueur.
+
 Surface de **vente**, à l'**accent du prospect** (typographie Fraunces et Inter), refaite le 25/09 sur la maquette
 « deux téléphones » validée par Léo : le prospect voit **le vrai produit des deux côtés**, pas une brochure.
 
@@ -806,7 +816,7 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
 | `GET` | `/ai-assistants/{id}/video-context` | Contexte pour le build desktop (sidecar) |
 | `POST` | `/ai-assistants/{id}/video-final` | Recevoir la vidéo montée sur le PC → R2 |
 | `DELETE` | `/ai-assistants/{id}/video` | Supprimer la vidéo générée |
-| `DELETE` | `/ai-assistants/{id}` | Supprimer (soft-delete) |
+| `DELETE` | `/ai-assistants/{id}` | Supprimer : 409 tant qu'un abonnement court ; sinon soft-delete et purge des fichiers R2 et des données des visiteurs (conversations, demandes, photos, documents, rendez-vous), l'historique de vente reste |
 | `GET` | `/ai-assistants/{id}/conversations` | Les 20 dernières conversations d'un assistant (journal) |
 | `GET` | `/ai-assistants/subscriptions` | Lister ses abonnements + abonnés actifs et revenu mensuel |
 | `GET` | `/ai-assistants/{id}/subscription/link` | Lien d'abonnement permanent (`?interval=month\|year`) |
@@ -815,13 +825,14 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
 | `GET` | `/ai-assistants/public/{slug}` | Config publique du widget (+ vidéo si prête) |
 | `POST` | `/ai-assistants/public/{slug}/chat` | Réponse groundée à un message (+ `offer_booking` quand le visiteur demande un rendez-vous) |
 | `GET` | `/ai-assistants/public/{slug}/appointment-slots` | Offre de rendez-vous : créneaux libres de l'agenda (`mode: calendar`, `times` 3 par page, `after` pour la suite, `types`) ou demi-journées ouvertes (`mode: request`, `days`, `max_chosen`) |
-| `POST` | `/ai-assistants/public/{slug}/lead` | Capturer une demande (coordonnées + `session_id` + `internal` + `slots` : 2 demi-journées au plus, ou `booking` : un créneau de l'agenda ; 409 si le créneau n'est plus proposé ou vient d'être pris (le widget recharge l'offre), 422 avec une phrase pour le visiteur (type à choisir, visite de test, contact qui a déjà un rendez-vous) ; `booked_start` quand c'est réservé) |
+| `POST` | `/ai-assistants/public/{slug}/lead` | Capturer une demande (coordonnées + `session_id` + `internal` + `slots` : 2 demi-journées au plus, ou `booking` : un créneau de l'agenda ; 409 `{code: slot_taken | slot_withdrawn, message}` si le créneau vient d'être pris ou n'est plus proposé (le widget lit le code et recharge l'offre), 422 avec une phrase pour le visiteur (type à choisir, visite de test, contact qui a déjà un rendez-vous) ; `booked_start` quand c'est réservé) |
 | `POST` | `/ai-assistants/public/{slug}/photo` | Photo pour un devis (multipart : `file`, `session_id`, `language`, `internal`) |
 | `GET` | `/ai-assistants/public/requests/{id}/handled` | Lien signé de l'email de résumé : page de confirmation (ne change rien) |
 | `POST` | `/ai-assistants/public/requests/{id}/handled` | Même lien signé : marque la demande traitée (bouton de la page) |
 | `POST` | `/ai-assistants/public/{slug}/interest` | Signaler l'intérêt de l'owner (pop-up « me contacter ») |
 | `GET` | `/ai-assistants/public/{slug}/subscribe` | Lien d'abonnement : Checkout Session Stripe fraîche, puis redirection |
 | `POST` | `/ai-assistants/{id}/client-link` | Lien de l'espace client d'un assistant vendu (`send` : l'envoyer par email au commerçant) |
+| `POST` | `/ai-assistants/{id}/client-link/revoke` | Couper tous les liens d'espace client envoyés (version de signature +1 ; un ancien lien répond comme un lien invalide) |
 | `GET` | `/ai-assistants/client/{token}` | Espace client : demandes, rapport, réglages, abonnement, agenda ; renvoie aussi `fresh_token` (lien prolongé), `website_url` et `embed_snippet` |
 | `POST` | `/ai-assistants/client/{token}/requests/{id}/handled` | Marquer traitée une demande depuis l'espace client |
 | `POST` | `/ai-assistants/client/{token}/requests/{id}/dropped` | Mettre de côté une fausse demande (test, spam, doublon) depuis l'espace client |
@@ -927,26 +938,30 @@ dashboard (non instrumenté).
 | Rôle | Fichier |
 |---|---|
 | Modèle | `api/models/ai_assistant.py`, `api/models/ai_assistant_request.py`, `api/models/ai_assistant_photo.py`, `api/models/ai_assistant_report.py` (+ `ai_assistant_lead.py` historique) |
-| Demandes (capture, suivi, compteurs) | `api/services/ai_assistant/request_service.py` |
+| Demandes (capture, suivi, compteurs) | `api/services/ai_assistant/request_service.py`, `request_follow_up.py` (typage, résumé, annonce unique, reprise), `request_attachments.py` (conversation, photos, type) |
 | Typage + résumé d'une demande | `api/services/ai_assistant/request_analyzer.py` |
 | Email de résumé + lien signé | `api/services/ai_assistant/request_email.py`, `request_links.py`, `signed_token.py` (signature commune des liens) |
 | Emails au commerçant (adresse, envoi depuis l'identité de l'owner) | `api/services/ai_assistant/business_mailer.py` |
 | Reprise des annonces perdues + alertes différées (boucle) | `api/services/ai_assistant/request_runner.py` |
-| Rapport mensuel (boucle, chiffres, envoi, risque de désabonnement) + son email | `api/services/ai_assistant/report_service.py`, `api/services/ai_assistant/report_email.py` |
+| Rapport mensuel (boucle, chiffres, envoi, risque de désabonnement) + son email | `api/services/ai_assistant/report_service.py`, `report_stats.py` (chiffres), `api/services/ai_assistant/report_email.py` |
 | Espace client (lien magique, lecture, réglages, portail Stripe) + son email | `api/services/ai_assistant/client_space_service.py`, `client_links.py`, `client_space_email.py`, `api/api/v1/routes/ai_assistant_client_space.py` |
-| Page espace client | `demo-host/app/pages/client/[token].vue`, `demo-host/app/components/ClientSpace*.vue` |
-| Devis par photo (réception, vision, rattachement, purge) | `api/services/ai_assistant/photo_service.py` |
-| Routage des modèles (Mistral, secours Groq, IA hébergée en Europe, coûts) | `api/services/ai_assistant/llm_router.py`, `api/services/mistral_service.py` |
+| Page espace client | `demo-host/app/pages/client/[token].vue` (routage), `demo-host/app/components/ClientSpace*.vue`, `demo-host/app/composables/useClientSpace*.ts` (lien, demandes, réglages, agenda, copie), `demo-host/app/assets/css/client-space.css` |
+| Devis par photo (réception, vision, rattachement, purge) | `api/services/ai_assistant/photo_service.py`, `photo_vision.py` |
+| Routage des modèles (Mistral, secours Groq, IA hébergée en Europe, coûts) | `api/services/ai_assistant/llm_router.py`, `api/services/mistral_service.py`, `api/services/llm_completion.py` (protocole commun) |
+| OAuth Google commun (agenda, Gmail, Postmaster) | `api/services/google_oauth_client.py` |
 | Bench des modèles | `api/scripts/bench_assistant_llm.py` |
-| Alertes au commerçant (email, SMS, rappel, signal 48 h) | `api/services/ai_assistant/request_alerts.py` |
+| Alertes au commerçant (email, SMS, rappel, signal 48 h) | `api/services/ai_assistant/request_alerts.py`, `alert_settings.py`, `alert_sms.py` |
+| Envoi unique, SMS de service, journal d'activité (commun aux messages sortants) | `api/services/ai_assistant/message_delivery.py` |
 | Horaires d'ouverture (hors horaires) | `api/services/ai_assistant/opening_hours.py` |
 | Créneaux d'une demande de rendez-vous (sans agenda) | `api/services/ai_assistant/appointment_slots.py` |
 | Google Agenda (connexion, créneaux libres, réservation) | `api/services/ai_assistant/calendar_service.py`, `calendar_slot_grid.py`, `calendar_access.py`, `calendar_booking.py`, `calendar_settings.py`, `google_calendar_client.py`, `api/models/ai_assistant_calendar.py`, `ai_assistant_appointment.py` |
-| Confirmation et rappel J-1 au visiteur | `api/services/ai_assistant/appointment_notices.py` |
+| Confirmation et rappel J-1 au visiteur | `api/services/ai_assistant/appointment_notices.py`, `appointment_texts.py` (SMS, email, .ics), `appointment_reminder.py` (fenêtre J-1) |
 | Agenda et rendez-vous dans l'espace client | `demo-host/app/components/ClientSpaceCalendar.vue`, `ClientSpaceAppointments.vue` |
 | Service génération / edit / régé | `api/services/ai_assistant/assistant_service.py` |
 | Config (accent, langues, persona) | `api/services/ai_assistant/config_builder.py` |
-| Fiche de connaissance | `api/services/ai_assistant/knowledge_builder.py` |
+| Fiche de connaissance | `api/services/ai_assistant/knowledge_builder.py`, `knowledge_sources.py` (site, documents, interrupteurs) |
+| Tailles des champs (schémas et services) | `api/services/ai_assistant/field_limits.py` |
+| Lecture d'une adresse donnée par un utilisateur (internet public seulement, redirections comprises) | `api/services/public_url_guard.py` |
 | Budget du prompt (passages, classement) | `api/services/ai_assistant/knowledge_budget.py` |
 | Sources (interrupteurs, relecture hebdo du site, écarts) | `api/services/ai_assistant/source_service.py`, `website_sync.py`, `api/api/v1/routes/ai_assistant_sources.py` |
 | Documents (PDF → texte, R2, activation) | `api/services/ai_assistant/document_service.py`, `document_text.py`, `api/models/ai_assistant_document.py` |
@@ -956,17 +971,21 @@ dashboard (non instrumenté).
 | Rate limiter | `api/services/rate_limiter.py` |
 | Variables campagne | `api/services/email_variables.py`, `api/services/sms_variables.py` |
 | Verrou inter-modules | `api/services/contact_lock_service.py` |
+| Vidéo (base commune site + assistant, surveillance) | `api/services/prospection_video_service.py`, `api/services/video_generation_watchdog.py`, `api/services/capture_page.py` |
 | Vidéo (serveur / VPS) | `api/services/assistant_video_service.py` |
+| Vidéo (points d'accroche filmés) | `api/services/assistant_capture_contract.py` (`data-capture`, `data-capture-chip`, `data-capture-message`) |
 | Vidéo (capture desktop) | `api/services/assistant_widget_clip_service.py`, `api/scraper_sidecar.py` |
 | Vidéo (scène filmée, commune) | `api/services/assistant_widget_scene.py`, `api/services/assistant_space_chapter.py` |
 | Vidéo (commun site + assistant) | `api/services/video_pipeline.py`, `api/services/video_montage.py`, `web/app/services/sidecarVideoBuild.ts` |
 | Widget | `demo-host/app/components/AssistantChat.vue` |
-| Page de démo | `demo-host/app/pages/ia/[slug].vue` |
+| Page de démo et page de la réceptionniste vendue | `demo-host/app/pages/ia/[slug].vue`, `demo-host/app/components/AssistantDemoPage.vue`, `AssistantBusinessPage.vue`, `AssistantChatWindow.vue`, `OpeningHoursList.vue`, `api/services/ai_assistant/business_card.py` |
 | Page vidéo | `demo-host/app/pages/va/[slug].vue` |
 | Page embed | `demo-host/app/pages/embed/[slug].vue` |
 | Loader embed | `demo-host/public/ai-assistant.js` |
 | Dashboard (liste, détail, demandes) | `web/app/pages/dashboard/ai-assistants/index.vue`, `[id].vue`, `requests.vue`, `web/app/components/ai-assistants/*` (carte, cartes du détail), `web/app/components/ui/AssistantRequestDrawer.vue`, `web/app/middleware/ai-assistant-module.ts`, `web/app/utils/aiAssistantLabels.ts`, `web/app/utils/dashboardModules.ts` |
-| Widget : conversation, protocole iframe, composants | `demo-host/app/composables/useAssistantConversation.ts`, `useAssistantWidgetFrame.ts`, `demo-host/app/components/AssistantChat*.vue`, `AssistantIcon*.vue` |
+| Widget : conversation, protocole iframe, composants | `demo-host/app/composables/useAssistantConversation.ts`, `useAssistantBooking.ts`, `useAssistantPhotoUpload.ts`, `useAssistantLeadForm.ts`, `useAssistantWidgetFrame.ts`, `demo-host/app/utils/AssistantThreadUtils.ts`, `AssistantRequestUtils.ts`, `AssistantConversationStorageUtils.ts`, `AssistantLanguageUtils.ts`, `FocusTrapUtils.ts`, `demo-host/app/constants/AssistantWidgetLimits.ts`, `demo-host/app/components/AssistantChat*.vue`, `AssistantIcon*.vue` |
+| Plafond quotidien de messages, coordonnées tapées dans le chat | `api/services/ai_assistant/daily_message_cap.py`, `chat_contact_capture.py` |
+| Purge d'une réceptionniste supprimée | `api/services/ai_assistant/assistant_purge.py` (et sa passe horaire dans `cleanup_service.py`) |
 | Portrait, palette, dates des créneaux | `demo-host/app/utils/AssistantAvatarUtils.ts`, `AssistantAccentUtils.ts`, `AssistantScheduleUtils.ts` |
 | Page de démo : scénario des deux téléphones, composants | `demo-host/app/utils/AssistantDemoScenarioUtils.ts`, `demo-host/app/components/AssistantDemo*.vue` |
 | Casting (six prénoms, portraits `{slug}.webp`), sélecteur de visage | `demo-host/app/constants/AssistantCasting.ts`, `demo-host/public/avatars/`, `web/app/constants/assistantCasting.ts`, `web/app/components/ai-assistants/AssistantPersonaPicker.vue` |
@@ -1388,3 +1407,38 @@ référence, portrait de Sofia.
   figure plus, et l'envoi pose la réservation « Sites web », comme la relance automatique.
 - **Délai compté depuis le dernier message** : chaque email ou SMS de campagne envoyé repousse la réservation de son
   module, et l'envoi revérifie le verrou quand une file longue a laissé l'autre module passer entre-temps.
+
+## Vingt et unième passage — module fini côté code (28/09)
+
+- **Page de la réceptionniste vendue** : voir « Page de démo `/ia/{slug}` » ; démo en `noindex`.
+- **Widget (audit 10)** : messages distincts pour 429, 404 (réceptionniste retirée : plus de champ ni de puces) et
+  hors ligne ; le brouillon revient si l'envoi échoue et une puce ne l'efface plus ; les lignes locales (secours,
+  confirmations, exemple scripté) ne sont ni gardées ni renvoyées au modèle ; délais maximaux sur chaque appel et sur
+  le flux ; champs à 16 px ; formulaire avec libellés, `inputmode` et canal téléphone ou e-mail ; piège de focus et
+  `aria-modal` en plein écran mobile ; luxembourgeois en `lb` (`lu` accepté en entrée, migration
+  `rename_assistant_language_lu_to_lb`) ; des coordonnées tapées dans le chat deviennent une demande
+  (`captured_contact` dans la réponse, une seule demande par session) ; pas d'exemple scripté sur une réceptionniste
+  vendue.
+- **Coût (audit 7)** : plafond de messages visiteurs par réceptionniste et par jour (`ASSISTANT_DAILY_VISITOR_MESSAGE_CAP`,
+  400 par défaut, journée de Paris, visites de test à part) ; au-delà, phrase fixe sans appel au modèle, formulaire
+  ouvert, alerte à l'opérateur une fois par jour (`ai_assistants.message_cap_alerted_on`) ; limiteur à horloge
+  injectable.
+- **SMS et notifications (audit 13)** : slug de 40 caractères au plus ; un SMS de prospection de plus d'un segment est
+  refusé ; notification « Assistant IA » sur les SMS du module ; `entity_type` seulement avec un prospect ; une seule
+  recherche de la réceptionniste par e-mail et par SMS.
+- **Dashboard (audit 11)** : suivi d'une vidéo en cours espacé puis arrêté (« La vidéo prend plus de temps que
+  prévu ») ; copies de liens compatibles Safari (écriture lancée dans le clic, champ « Copier » en secours, jamais de
+  faux succès) ; langues fr, nl, en, de, lb ; en-tête de volet commun (`UiDrawerHeader`).
+- **Vidéo (audits 8 et 9)** : une base commune site + réceptionniste (`prospection_video_service.py`) ; tâches tenues,
+  échec propre à toute erreur, génération stoppée au-delà de 20 minutes par une surveillance toutes les 2 minutes ;
+  la capture refuse une vidéo dont l'exemple ne s'est pas joué ; plus de mp4 orphelin sur R2 si la vignette échoue ;
+  charges du sidecar validées (422 lisible).
+- **Options** : coupure des liens de l'espace client (`ai_assistants.client_link_version`, version 0 signée comme
+  avant) ; purge des fichiers et des données des visiteurs d'une réceptionniste supprimée ; badge « À relancer » sur
+  une réceptionniste vendue dont les étapes « Pour démarrer » manquent après la relance J+14 (`needs_follow_up`,
+  `missing_start_steps`).
+- **Dette** : fichiers longs découpés (demandes, alertes, rendez-vous, rapport, photo, connaissance, espace client,
+  conversation du widget, tests de l'agenda dans `tests/assistant_calendar/`) ; OAuth Google, appels Mistral/Groq,
+  garde-fous SMS et envoi des messages sortants mis en commun ; tailles des champs en un seul module ; énumérations
+  préfixées `AiAssistant*` ; lecture d'une adresse d'utilisateur limitée à l'internet public ; l'adresse d'un
+  événement Google Agenda est définie (le rappel J-1 d'un rendez-vous réservé dans l'agenda repart).
