@@ -4,7 +4,7 @@ export type AssistantSubscriptionCardProps = {
   assistant: AiAssistantSummary
 }
 
-export type AssistantSubscriptionLinkToCopy = {
+export type AssistantSubscriptionLinkForManualCopy = {
   interval: AssistantSubscriptionInterval
   url: string
 }

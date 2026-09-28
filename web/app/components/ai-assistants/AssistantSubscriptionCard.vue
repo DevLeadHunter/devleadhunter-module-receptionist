@@ -30,9 +30,9 @@
           Copier le lien annuel
         </button>
         <UiCopyLinkField
-          v-if="linkToCopy"
-          :url="linkToCopy.url"
-          :link-label="`Lien d'abonnement ${intervalLabel(linkToCopy.interval)}`"
+          v-if="subscriptionLinkForManualCopy"
+          :url="subscriptionLinkForManualCopy.url"
+          :link-label="`Lien d'abonnement ${intervalLabel(subscriptionLinkForManualCopy.interval)}`"
         />
       </div>
     </template>
@@ -59,7 +59,10 @@ import type {
   AiAssistantSummary,
   AssistantSubscriptionInterval,
 } from '~/types/AiAssistant'
-import type { AssistantSubscriptionCardProps, AssistantSubscriptionLinkToCopy } from '~/types/AssistantSubscriptionCard'
+import type {
+  AssistantSubscriptionCardProps,
+  AssistantSubscriptionLinkForManualCopy,
+} from '~/types/AssistantSubscriptionCard'
 import type { UseToastReturn } from '~/types/Composables'
 import { computed, ref } from 'vue'
 import { AiAssistantService } from '~/services/aiAssistantService'
@@ -76,8 +79,7 @@ const props: AssistantSubscriptionCardProps = defineProps({
 const toast: UseToastReturn = useToast()
 
 const isCopyingLink: Ref<boolean> = ref(false)
-/** The link the browser refused to copy, shown in a field with its own copy button. */
-const linkToCopy: Ref<AssistantSubscriptionLinkToCopy | null> = ref(null)
+const subscriptionLinkForManualCopy: Ref<AssistantSubscriptionLinkForManualCopy | null> = ref(null)
 
 const subscriptionLabel: ComputedRef<string> = computed((): string => {
   if (props.assistant.subscription_amount_cents == null) return ''
@@ -95,14 +97,14 @@ function intervalLabel(interval: AssistantSubscriptionInterval): string {
 }
 
 /**
- * Copy the permanent subscription link, asked for and written from the click itself so Safari allows the copy.
+ * Copy the permanent subscription link.
  * @param interval - `month` or `year`.
  * @returns A promise resolved once the link is copied, or shown to copy by hand.
  */
 async function copySubscriptionLink(interval: AssistantSubscriptionInterval): Promise<void> {
   if (isCopyingLink.value) return
   isCopyingLink.value = true
-  linkToCopy.value = null
+  subscriptionLinkForManualCopy.value = null
   const linkRequest: Promise<string> = AiAssistantService.getSubscriptionLink(props.assistant.id, interval).then(
     (link: AiAssistantSubscriptionLink): string => link.url,
   )
@@ -112,7 +114,7 @@ async function copySubscriptionLink(interval: AssistantSubscriptionInterval): Pr
     if (await copyAttempt) {
       toast.success(`Lien d'abonnement ${intervalLabel(interval)} copié.`)
     } else {
-      linkToCopy.value = { interval, url }
+      subscriptionLinkForManualCopy.value = { interval, url }
     }
   } catch {
     toast.error('Lien indisponible pour cet assistant.')
