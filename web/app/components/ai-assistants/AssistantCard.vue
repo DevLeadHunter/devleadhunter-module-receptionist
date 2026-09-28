@@ -103,8 +103,8 @@
         <NuxtLink :to="`/dashboard/ai-assistants/${props.assistant.id}`" class="btn-secondary h-9 px-4 text-xs">
           Détails
         </NuxtLink>
-        <button type="button" class="btn-secondary h-9 px-4 text-xs" @click="copyDemoUrl">
-          {{ isDemoUrlCopied ? 'Copié !' : 'Copier le lien' }}
+        <button type="button" class="btn-secondary h-9 px-4 text-xs" @click="copy(props.assistant.demo_url)">
+          {{ copied ? 'Copié !' : 'Copier le lien' }}
         </button>
       </div>
     </div>
@@ -115,11 +115,11 @@
 import type { ComputedRef, EmitFn, PropType, Ref, ShallowRef } from 'vue'
 import type { AiAssistantSummary } from '~/types/AiAssistant'
 import type { AiAssistantCardEmits, AiAssistantCardProps } from '~/types/AiAssistantCard'
-import type { UseLazyPreviewReturn, UseToastReturn } from '~/types/Composables'
+import type { UseCopyToClipboardReturn, UseLazyPreviewReturn } from '~/types/Composables'
 import { computed, ref, useTemplateRef } from 'vue'
 import AssistantPortrait from '~/components/ai-assistants/AssistantPortrait.vue'
+import { useCopyToClipboard } from '~/composables/useCopyToClipboard'
 import { useLazyPreview } from '~/composables/useLazyPreview'
-import { useToast } from '~/composables/useToast'
 import {
   assistantLanguagesLabel,
   assistantLifetimeLabel,
@@ -128,7 +128,6 @@ import {
   missingStartStepsLabel,
 } from '~/utils/aiAssistantLabels'
 import { assistantPortraitUrl } from '~/utils/assistantPortrait'
-import { ClipboardCopy } from '~/utils/clipboardCopy'
 
 const props: AiAssistantCardProps = defineProps({
   assistant: {
@@ -145,9 +144,8 @@ const { shouldRenderPreview, markPreviewLoaded }: UseLazyPreviewReturn = useLazy
   previewContainer,
   (): boolean => true,
 )
-const toast: UseToastReturn = useToast()
+const { copy, copied }: UseCopyToClipboardReturn = useCopyToClipboard()
 
-const isDemoUrlCopied: Ref<boolean> = ref(false)
 const isPreviewLoaded: Ref<boolean> = ref(false)
 
 /** The demo page with the internal marker, so the preview never counts as a prospect visit. */
@@ -178,20 +176,5 @@ const countsTitle: ComputedRef<string> = computed(
 function onPreviewLoad(): void {
   isPreviewLoaded.value = true
   markPreviewLoaded()
-}
-
-/**
- * Copy the public demo link and show « Copié ! » for a moment; say so when the browser refuses.
- * @returns A promise resolved once the copy was tried.
- */
-async function copyDemoUrl(): Promise<void> {
-  if (!(await ClipboardCopy.copyText(props.assistant.demo_url))) {
-    toast.error('Copie refusée par le navigateur : ouvrez le détail pour copier le lien.')
-    return
-  }
-  isDemoUrlCopied.value = true
-  setTimeout((): void => {
-    isDemoUrlCopied.value = false
-  }, 2000)
 }
 </script>

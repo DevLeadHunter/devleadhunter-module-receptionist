@@ -81,7 +81,7 @@ import type {
 } from '~/types/UiAssistantConversationsDrawer'
 import { computed, ref, watch } from 'vue'
 import { AiAssistantService } from '~/services/aiAssistantService'
-import { widgetLanguageCode } from '~/utils/aiAssistantLabels'
+import { languageCodeLabel } from '~/utils/aiAssistantLabels'
 import { formatNumericDateTime } from '~/utils/date'
 
 const props: UiAssistantConversationsDrawerProps = defineProps({
@@ -139,7 +139,7 @@ async function loadConversations(assistantId: number): Promise<void> {
  */
 function conversationMetaLabel(conversation: AiAssistantConversation): string {
   const count: string = `${conversation.message_count} message${conversation.message_count > 1 ? 's' : ''}`
-  return conversation.language ? `${count} · ${widgetLanguageCode(conversation.language).toUpperCase()}` : count
+  return conversation.language ? `${count} · ${languageCodeLabel(conversation.language)}` : count
 }
 
 watch(

@@ -198,7 +198,7 @@ const HOUR_OPTIONS: SelectFieldOption<number>[] = Array.from(
   (_: unknown, hour: number): SelectFieldOption<number> => ({ value: hour, label: `${hour} h` }),
 )
 
-/** The widget's five languages: the only ones an assistant can offer. */
+/** The widget's languages: the only ones an assistant can offer. */
 const LANGUAGE_OPTIONS: SelectFieldOption<string>[] = [
   { value: 'fr', label: 'Français' },
   { value: 'nl', label: 'Nederlands' },
@@ -230,7 +230,7 @@ const toneSummary: ComputedRef<string> = computed((): string => {
 })
 
 /**
- * The assistant's languages among the widget's five, a stored « lu » read as « lb », without duplicates.
+ * The assistant's languages among the widget's, a stored « lu » read as « lb », without duplicates.
  * @param languages - The codes as stored on the assistant.
  * @returns The codes the language chips can show.
  */

@@ -75,7 +75,7 @@
               :is-regenerating="isRegenerating"
               :is-sending-client-link="isSendingClientLink"
               :is-revoking-client-links="isRevokingClientLinks"
-              :client-space-link-to-copy="clientSpaceLinkToCopy"
+              :client-space-link-for-manual-copy="clientSpaceLinkForManualCopy"
               :is-marking-sold="isMarkingSold"
               :is-deleting="isDeleting"
               @regenerate="regenerateAssistant"
@@ -89,6 +89,7 @@
               :is-busy="isVideoBusy"
               :is-removing-video="isRemovingVideo"
               :is-taking-longer-than-expected="isVideoTakingLongerThanExpected"
+              :is-refreshing-video="isRefreshingVideo"
               @generate="generateVideo"
               @remove-video="videoDeleteConfirmModal?.open()"
               @refresh-video="refreshVideoStatusNow"
@@ -211,7 +212,7 @@ import type {
 } from '~/types/AiAssistant'
 import type { AiAssistantDetailStat } from '~/types/AiAssistantDetailPage'
 import type { AssistantVideoBuildResult } from '~/types/AssistantSidecar'
-import type { UseOpenExternalUrlReturn, UseToastReturn, UseVideoGenerationFollowUpReturn } from '~/types/Composables'
+import type { UseOpenExternalUrlReturn, UseToastReturn, UseVideoGenerationChecksReturn } from '~/types/Composables'
 import type { AssistantMutationNotice, AssistantRequestMutationNotice } from '~/types/DrawerStack'
 import type { UiConfirmModalHandle } from '~/types/UiConfirmModal'
 import type { UiTab } from '~/types/UiTabs'
@@ -227,7 +228,7 @@ import AssistantSubscriptionCard from '~/components/ai-assistants/AssistantSubsc
 import AssistantSummaryCard from '~/components/ai-assistants/AssistantSummaryCard.vue'
 import AssistantVideoCard from '~/components/ai-assistants/AssistantVideoCard.vue'
 import { useToast } from '~/composables/useToast'
-import { useVideoGenerationFollowUp } from '~/composables/useVideoGenerationFollowUp'
+import { useVideoGenerationChecks } from '~/composables/useVideoGenerationChecks'
 import { useVideoGenerationProgress } from '~/composables/useVideoGenerationProgress'
 import { RECEPTIONIST_VIDEO_BUILD_PHASES } from '~/constants/videoBuildPhases'
 import { AiAssistantService } from '~/services/aiAssistantService'
@@ -247,12 +248,9 @@ const { openExternalUrl }: UseOpenExternalUrlReturn = useOpenExternalUrl()
 const videoProgress: UseVideoGenerationProgressReturn = useVideoGenerationProgress(RECEPTIONIST_VIDEO_BUILD_PHASES)
 const {
   isTakingLongerThanExpected: isVideoTakingLongerThanExpected,
-  start: followVideoGeneration,
-  refreshNow: refreshVideoStatusNow,
-}: UseVideoGenerationFollowUpReturn = useVideoGenerationFollowUp(
-  refreshAssistant,
-  (): boolean => isVideoGenerating.value,
-)
+  startChecks: startVideoGenerationChecks,
+  checkNow: checkVideoGenerationNow,
+}: UseVideoGenerationChecksReturn = useVideoGenerationChecks(refreshAssistant, (): boolean => isVideoGenerating.value)
 
 /** How many of the assistant's requests the detail page lists. */
 const RECENT_REQUESTS_LIMIT: number = 6
@@ -277,11 +275,11 @@ const isRegenerating: Ref<boolean> = ref(false)
 const isDeleting: Ref<boolean> = ref(false)
 const isSendingClientLink: Ref<boolean> = ref(false)
 const isRevokingClientLinks: Ref<boolean> = ref(false)
-/** The client-space link the browser refused to copy, shown in a field with its own copy button. */
-const clientSpaceLinkToCopy: Ref<string | null> = ref(null)
+const clientSpaceLinkForManualCopy: Ref<string | null> = ref(null)
 const isMarkingSold: Ref<boolean> = ref(false)
 const isVideoBusy: Ref<boolean> = ref(false)
 const isRemovingVideo: Ref<boolean> = ref(false)
+const isRefreshingVideo: Ref<boolean> = ref(false)
 const deleteConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
 const clientSpaceConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
 const revokeLinksConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
@@ -426,13 +424,13 @@ async function markSold(): Promise<void> {
 }
 
 /**
- * Email the business its client-space link and copy it, from the confirming click so Safari allows the copy.
+ * Email the business its client-space link and copy it.
  * @returns A promise resolved once sent (or refused).
  */
 async function sendClientSpace(): Promise<void> {
   if (!assistant.value) return
   isSendingClientLink.value = true
-  clientSpaceLinkToCopy.value = null
+  clientSpaceLinkForManualCopy.value = null
   const linkRequest: Promise<AiAssistantClientLink> = AiAssistantService.issueClientLink(assistant.value.id, true)
   const copyAttempt: Promise<boolean> = ClipboardCopy.copyWhenReady(
     linkRequest.then((link: AiAssistantClientLink): string => link.url),
@@ -440,8 +438,8 @@ async function sendClientSpace(): Promise<void> {
   try {
     const link: AiAssistantClientLink = await linkRequest
     const isCopied: boolean = await copyAttempt
-    const copyNote: string = isCopied ? ' Lien copié.' : ''
-    if (!isCopied) clientSpaceLinkToCopy.value = link.url
+    const copyNote: string = isCopied ? ' Lien copié.' : ' Lien non copié : copiez-le dans Actions.'
+    if (!isCopied) clientSpaceLinkForManualCopy.value = link.url
     if (link.sent_to) {
       toast.success(`Espace client envoyé à ${link.sent_to}.${copyNote}`)
     } else {
@@ -464,7 +462,7 @@ async function revokeClientLinks(): Promise<void> {
   try {
     const updated: AiAssistantSummary = await AiAssistantService.revokeClientLinks(assistant.value.id)
     assistant.value = updated
-    clientSpaceLinkToCopy.value = null
+    clientSpaceLinkForManualCopy.value = null
     drawerStack.notifyAssistantUpdated(updated)
     newClientLinkConfirmModal.value?.open()
   } catch {
@@ -519,7 +517,7 @@ async function generateVideo(): Promise<void> {
       videoProgress.note('Bascule sur le serveur…')
     }
     assistant.value = await AiAssistantService.generateVideo(assistant.value.id)
-    followVideoGeneration()
+    startVideoGenerationChecks()
     videoProgress.note('Montage lancé sur le serveur, suivi sur la carte « Vidéo de prospection ».')
     toast.success('Génération de la vidéo lancée.')
   } catch (error: unknown) {
@@ -551,15 +549,28 @@ async function removeVideo(): Promise<void> {
 }
 
 /**
+ * Reload the video status on demand.
+ * @returns A promise resolved once reloaded (or refused).
+ */
+async function refreshVideoStatusNow(): Promise<void> {
+  if (isRefreshingVideo.value) return
+  isRefreshingVideo.value = true
+  try {
+    await checkVideoGenerationNow()
+  } catch {
+    toast.error('Actualisation impossible pour le moment.')
+  } finally {
+    isRefreshingVideo.value = false
+  }
+}
+
+/**
  * Refresh the assistant alone (video progress), leaving the page as it is.
  * @returns A promise resolved once refreshed.
+ * @throws When the assistant cannot be reloaded.
  */
 async function refreshAssistant(): Promise<void> {
-  try {
-    assistant.value = await AiAssistantService.get(assistantId.value)
-  } catch {
-    // A missed check is not worth a toast: the next one, or the refresh button, tries again.
-  }
+  assistant.value = await AiAssistantService.get(assistantId.value)
 }
 
 /**
@@ -605,6 +616,6 @@ watch(
 
 onMounted(async (): Promise<void> => {
   await loadData()
-  if (isVideoGenerating.value) followVideoGeneration()
+  if (isVideoGenerating.value) startVideoGenerationChecks()
 })
 </script>

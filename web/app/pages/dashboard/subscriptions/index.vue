@@ -67,7 +67,7 @@
 
           <BaseTableTd label="Statut" align="center">
             <span :class="['app-badge', STATUS_BADGE_CLASS[subscription.status] ?? '']">
-              {{ statusLabel(subscription.status) }}
+              {{ SUBSCRIPTION_STATUS_LABELS[subscription.status] }}
             </span>
           </BaseTableTd>
 
@@ -89,6 +89,7 @@ import type { UseToastReturn } from '~/types/Composables'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { useDrawerStackStore } from '~/stores/drawerStack'
 import { useToast } from '~/composables/useToast'
+import { SUBSCRIPTION_STATUS_LABELS } from '~/utils/aiAssistantLabels'
 import { formatShortMonthDate } from '~/utils/date'
 import { formatEuros } from '~/utils/currency'
 
@@ -106,27 +107,11 @@ const isLoading: Ref<boolean> = ref(false)
 
 const drawerStack: ReturnType<typeof useDrawerStackStore> = useDrawerStackStore()
 
-const STATUS_LABELS: Record<string, string> = {
-  incomplete: 'En attente',
-  active: 'Actif',
-  past_due: 'Paiement en retard',
-  canceled: 'Annulé',
-}
-
 const STATUS_BADGE_CLASS: Record<string, string> = {
   incomplete: '',
   active: 'app-badge--success',
   past_due: 'app-badge--progress',
   canceled: 'app-badge--danger',
-}
-
-/**
- * Human label for a subscription status.
- * @param status - Raw status value.
- * @returns The localized label.
- */
-function statusLabel(status: string): string {
-  return STATUS_LABELS[status] ?? status
 }
 
 /**

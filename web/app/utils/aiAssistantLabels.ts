@@ -3,6 +3,7 @@ import type {
   AiAssistantRequestType,
   AiAssistantStartStep,
   AiAssistantSummary,
+  AssistantSubscriptionStatus,
 } from '~/types/AiAssistant'
 import { daysUntil } from '~/utils/date'
 
@@ -31,6 +32,13 @@ export const REQUEST_STATUS_LABELS: Record<AiAssistantRequestStatus, string> = {
   new: 'À traiter',
   handled: 'Traitée',
   dropped: 'Sans suite',
+}
+
+export const SUBSCRIPTION_STATUS_LABELS: Record<AssistantSubscriptionStatus, string> = {
+  incomplete: 'En attente',
+  active: 'Actif',
+  past_due: 'Paiement en retard',
+  canceled: 'Annulé',
 }
 
 /** Each « Pour démarrer » step as the seller names it when calling the business. */
@@ -71,12 +79,21 @@ export function widgetLanguageCode(code: string): string {
 }
 
 /**
+ * A language code as the widget names it, in capitals (« DE », « LB » for a stored « lu »).
+ * @param code - The code as stored on an assistant, a request or a conversation.
+ * @returns The upper-case code.
+ */
+export function languageCodeLabel(code: string): string {
+  return widgetLanguageCode(code).toUpperCase()
+}
+
+/**
  * An assistant's languages on one line, as the widget names them (« FR · EN · LB »).
  * @param languages - The codes as stored on the assistant.
  * @returns The upper-case codes joined by a middle dot.
  */
 export function assistantLanguagesLabel(languages: string[]): string {
-  return languages.map((code: string): string => widgetLanguageCode(code).toUpperCase()).join(' · ')
+  return languages.map(languageCodeLabel).join(' · ')
 }
 
 /**

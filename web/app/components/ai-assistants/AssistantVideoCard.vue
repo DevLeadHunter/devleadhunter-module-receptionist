@@ -13,8 +13,17 @@
         <UIcon name="i-lucide-hourglass" class="h-4 w-4 shrink-0" />
         La vidéo prend plus de temps que prévu.
       </p>
-      <button type="button" class="btn-secondary w-full text-xs" @click="emit('refresh-video')">
-        <UIcon name="i-lucide-refresh-cw" class="mr-1.5 h-3.5 w-3.5" />
+      <button
+        type="button"
+        class="btn-secondary w-full text-xs disabled:cursor-not-allowed disabled:opacity-50"
+        :disabled="props.isRefreshingVideo"
+        @click="emit('refresh-video')"
+      >
+        <UIcon
+          :name="props.isRefreshingVideo ? 'i-lucide-loader-circle' : 'i-lucide-refresh-cw'"
+          class="mr-1.5 h-3.5 w-3.5"
+          :class="{ 'animate-spin': props.isRefreshingVideo }"
+        />
         Actualiser
       </button>
     </div>
@@ -101,6 +110,10 @@ const props: AssistantVideoCardProps = defineProps({
     default: false,
   },
   isTakingLongerThanExpected: {
+    type: Boolean,
+    default: false,
+  },
+  isRefreshingVideo: {
     type: Boolean,
     default: false,
   },
