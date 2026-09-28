@@ -23,13 +23,13 @@ from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequ
 from enums.ai_assistant_status import AiAssistantStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_request import AiAssistantRequest
-from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
 from services.ai_assistant.alert_settings import AlertSettings, QuietHours
 from services.ai_assistant.alert_sms import AlertSms
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
 from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
 from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
 from services.ai_assistant.client_links import AiAssistantClientLinks
+from services.ai_assistant.message_delivery import AiAssistantMessageDelivery
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_analyzer import TranscriptLine, ai_assistant_request_analyzer
 from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
@@ -38,7 +38,6 @@ from services.ai_assistant.request_links import AiAssistantRequestLinks
 from services.notification_service import notification_service
 from services.sms.gsm_segments import to_strict_gsm7
 from services.sms_config_service import sms_config_service
-from services.sms_service import sms_service
 
 logger = logging.getLogger(__name__)
 
@@ -332,18 +331,16 @@ class AiAssistantRequestAlerts:
                 assistant, "Aucun nom d'expéditeur SMS : Paramètres → Relance SMS."
             )
             return False
-        try:
-            outcome = await sms_service.send_service_message(
-                db,
-                user_id=assistant.user_id,
-                config=config,
-                to_e164=phone_e164,
-                text=text,
-                recipient_name=f"{assistant.business_name} (alertes)",
-            )
-        except Exception:
-            logger.warning("Alert SMS to assistant %s owner failed", assistant.id, exc_info=True)
-            db.rollback()
+        outcome = await AiAssistantMessageDelivery.send_service_sms(
+            db,
+            assistant,
+            config,
+            to_e164=phone_e164,
+            text=text,
+            recipient_name=f"{assistant.business_name} (alertes)",
+            log_label=f"Alert SMS to assistant {assistant.id} owner",
+        )
+        if outcome is None:
             return False
         # A provider failure is already notified by the SMS service; a refusal before it is not.
         if not outcome.sent and outcome.message is None:
@@ -354,15 +351,8 @@ class AiAssistantRequestAlerts:
     def _log_sms_refusal(assistant: AiAssistant, reason: str) -> None:
         """Record in the activity log why an owner alert SMS did not leave (it is not retried)."""
         logger.warning("Alert SMS to assistant %s owner not sent: %s", assistant.id, reason)
-        activity_log_service.record(
-            category=CATEGORY_ASSISTANT,
-            action="assistant_alert_sms_skipped",
-            status=STATUS_WARNING,
-            title=f"{assistant.business_name} · SMS d'alerte non envoyé",
-            detail=reason,
-            user_id=assistant.user_id,
-            entity_type="prospect",
-            entity_id=assistant.prospect_id,
+        AiAssistantMessageDelivery.record_warning(
+            assistant, action="assistant_alert_sms_skipped", title="SMS d'alerte non envoyé", detail=reason
         )
 
     async def _email_owner(
@@ -416,15 +406,11 @@ class AiAssistantRequestAlerts:
     @staticmethod
     def _log_email_failure(assistant: AiAssistant, request: AiAssistantRequest, reason: str) -> None:
         """Record in the activity log that a request's email did not reach the business (the reminder retries)."""
-        activity_log_service.record(
-            category=CATEGORY_ASSISTANT,
+        AiAssistantMessageDelivery.record_warning(
+            assistant,
             action="assistant_alert_email_failed",
-            status=STATUS_WARNING,
-            title=f"{assistant.business_name} · email de demande non envoyé",
+            title="email de demande non envoyé",
             detail=f"Demande {request.id} : {reason}",
-            user_id=assistant.user_id,
-            entity_type="prospect",
-            entity_id=assistant.prospect_id,
         )
 
     @staticmethod
@@ -443,18 +429,13 @@ class AiAssistantRequestAlerts:
         Returns:
             True when this call stamped it, False when someone already had or it is no longer new.
         """
-        claimed = (
-            db.query(AiAssistantRequest)
-            .filter(
-                AiAssistantRequest.id == request.id,
-                AiAssistantRequest.status == AiAssistantRequestStatus.NEW.value,
-                column.is_(None),
-            )
-            .update({column: _utc_now()}, synchronize_session=False)
+        return AiAssistantMessageDelivery.claim(
+            db,
+            request,
+            AiAssistantRequest.status == AiAssistantRequestStatus.NEW.value,
+            column.is_(None),
+            values={column: _utc_now()},
         )
-        db.commit()
-        db.refresh(request)
-        return claimed == 1
 
 
 ai_assistant_request_alerts = AiAssistantRequestAlerts()

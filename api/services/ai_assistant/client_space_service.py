@@ -29,13 +29,13 @@ from models.ai_assistant_report import AiAssistantReport
 from models.ai_assistant_request import AiAssistantRequest
 from models.ai_assistant_subscription import AiAssistantSubscription
 from models.prospect_db import ProspectDB
-from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
 from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
 from services.ai_assistant.client_space_email import AiAssistantClientSpaceEmail
 from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.limits import AiAssistantLimits, AssistantLimit
+from services.ai_assistant.message_delivery import AiAssistantMessageDelivery
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_email import RenderedEmail
 from services.ai_assistant.request_service import ai_assistant_request_service
@@ -527,15 +527,11 @@ class AiAssistantClientSpaceService:
     async def _announce_alert_phone(self, db: Session, assistant: AiAssistant, previous_phone: str | None) -> None:
         """Tell the business (by email) and the operator (activity log) that the alert mobile changed."""
         new_phone = assistant.alert_phone_e164
-        activity_log_service.record(
-            category=CATEGORY_ASSISTANT,
+        AiAssistantMessageDelivery.record_warning(
+            assistant,
             action="assistant_client_alert_phone_changed",
-            status=STATUS_WARNING,
-            title=f"{assistant.business_name} · mobile d'alerte changé depuis l'espace client",
+            title="mobile d'alerte changé depuis l'espace client",
             detail=f"{self._masked_phone(previous_phone)} → {self._masked_phone(new_phone)}",
-            user_id=assistant.user_id,
-            entity_type="prospect",
-            entity_id=assistant.prospect_id,
         )
         rendered = AiAssistantClientSpaceEmail.render_alert_phone_changed(
             assistant_name=assistant.assistant_name, new_phone=new_phone

@@ -15,22 +15,20 @@ import logging
 from datetime import UTC, datetime, time, timedelta
 from typing import ClassVar
 
-from sqlalchemy import update
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from core.database import SessionLocal
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
-from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
 from services.ai_assistant.appointment_texts import AppointmentTexts, BusinessCard
 from services.ai_assistant.calendar_access import ai_assistant_calendar_access
 from services.ai_assistant.calendar_settings import CalendarSettings
 from services.ai_assistant.google_calendar_client import GoogleCalendarError, google_calendar_client
+from services.ai_assistant.message_delivery import AiAssistantMessageDelivery
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.email_attachment import EmailAttachment
 from services.email_sending_service import EmailSendingService
 from services.sms_config_service import sms_config_service
-from services.sms_service import sms_service
 
 logger = logging.getLogger(__name__)
 
@@ -243,17 +241,11 @@ class AiAssistantAppointmentNotices:
             db.close()
 
     @staticmethod
-    def _claim(db: Session, appointment: AiAssistantAppointment, column: object) -> bool:
+    def _claim(
+        db: Session, appointment: AiAssistantAppointment, column: InstrumentedAttribute[datetime | None]
+    ) -> bool:
         """Mark a message sent before it leaves, only if nobody did (atomic)."""
-        result = db.execute(
-            update(AiAssistantAppointment)
-            .where(AiAssistantAppointment.id == appointment.id, column.is_(None))  # type: ignore[attr-defined]
-            .values({column.key: _utc_now()})  # type: ignore[attr-defined]
-            .execution_options(synchronize_session=False)
-        )
-        db.commit()
-        db.refresh(appointment)
-        return bool(result.rowcount)
+        return AiAssistantMessageDelivery.claim(db, appointment, column.is_(None), values={column: _utc_now()})
 
     @staticmethod
     async def _send_sms(db: Session, assistant: AiAssistant, appointment: AiAssistantAppointment, text: str) -> None:
@@ -261,20 +253,19 @@ class AiAssistantAppointmentNotices:
         config = sms_config_service.get(db, assistant.user_id)
         reason = "Aucune configuration SMS" if config is None else None
         if config is not None:
-            try:
-                outcome = await sms_service.send_service_message(
-                    db,
-                    user_id=assistant.user_id,
-                    config=config,
-                    to_e164=appointment.visitor_phone_e164 or "",
-                    text=text,
-                    recipient_name=f"Rendez-vous {assistant.business_name}",
-                )
-                reason = None if outcome.sent else outcome.reason
-            except Exception:
-                logger.warning("Appointment %s SMS failed", appointment.id, exc_info=True)
-                db.rollback()
+            outcome = await AiAssistantMessageDelivery.send_service_sms(
+                db,
+                assistant,
+                config,
+                to_e164=appointment.visitor_phone_e164 or "",
+                text=text,
+                recipient_name=f"Rendez-vous {assistant.business_name}",
+                log_label=f"Appointment {appointment.id} SMS",
+            )
+            if outcome is None:
                 reason = "Erreur d'envoi"
+            elif not outcome.sent:
+                reason = outcome.reason
         if reason:
             AiAssistantAppointmentNotices._log_failure(assistant, appointment, f"SMS non envoyé : {reason}")
 
@@ -324,15 +315,11 @@ class AiAssistantAppointmentNotices:
     @staticmethod
     def _log_failure(assistant: AiAssistant, appointment: AiAssistantAppointment, detail: str) -> None:
         """Tell the owner a visitor was not told (activity log)."""
-        activity_log_service.record(
-            category=CATEGORY_ASSISTANT,
+        AiAssistantMessageDelivery.record_warning(
+            assistant,
             action="assistant_appointment_notice_failed",
-            status=STATUS_WARNING,
-            title=f"{assistant.business_name} · rendez-vous {appointment.id} : visiteur non prévenu",
+            title=f"rendez-vous {appointment.id} : visiteur non prévenu",
             detail=detail,
-            user_id=assistant.user_id,
-            entity_type="prospect",
-            entity_id=assistant.prospect_id,
         )
 
     async def _confirm_in_background(self, appointment_id: int) -> None:

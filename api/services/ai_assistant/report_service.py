@@ -31,11 +31,11 @@ from models.ai_assistant_report import AiAssistantReport
 from models.ai_assistant_subscription import AiAssistantSubscription
 from models.prospect_db import ProspectDB
 from models.user import User
-from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
 from services.ai_assistant.client_links import AiAssistantClientLinks
 from services.ai_assistant.config_builder import ai_assistant_config_builder
+from services.ai_assistant.message_delivery import AiAssistantMessageDelivery
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.report_email import AiAssistantReportEmail, MonthlyStats, ReportEmailContent
 from services.ai_assistant.report_stats import AiAssistantReportStats
@@ -328,25 +328,17 @@ class AiAssistantReportService:
     @staticmethod
     def _claim_attempt(db: Session, row: AiAssistantReport, current: datetime) -> bool:
         """Atomically count one more send attempt of an unsent report, so two passes never both send it."""
-        claimed = (
-            db.query(AiAssistantReport)
-            .filter(
-                AiAssistantReport.id == row.id,
-                AiAssistantReport.sent_at.is_(None),
-                AiAssistantReport.attempts == row.attempts,
-                AiAssistantReport.attempts < MAX_SEND_ATTEMPTS,
-            )
-            .update(
-                {
-                    AiAssistantReport.attempts: AiAssistantReport.attempts + 1,
-                    AiAssistantReport.last_attempt_at: current,
-                },
-                synchronize_session=False,
-            )
+        return AiAssistantMessageDelivery.claim(
+            db,
+            row,
+            AiAssistantReport.sent_at.is_(None),
+            AiAssistantReport.attempts == row.attempts,
+            AiAssistantReport.attempts < MAX_SEND_ATTEMPTS,
+            values={
+                AiAssistantReport.attempts: AiAssistantReport.attempts + 1,
+                AiAssistantReport.last_attempt_at: current,
+            },
         )
-        db.commit()
-        db.refresh(row)
-        return claimed == 1
 
     @staticmethod
     def _unreported_subscribers(db: Session, period: ReportPeriod) -> list[AiAssistant]:
@@ -441,15 +433,11 @@ class AiAssistantReportService:
         """Record in the activity log why a monthly report did not leave, and whether it will be retried."""
         logger.warning("Monthly report %s of assistant %s not sent: %s", row.id, assistant.id, reason)
         retry = "nouvel essai prévu" if will_retry else "abandonné"
-        activity_log_service.record(
-            category=CATEGORY_ASSISTANT,
+        AiAssistantMessageDelivery.record_warning(
+            assistant,
             action="assistant_report_not_sent",
-            status=STATUS_WARNING,
-            title=f"{assistant.business_name} · rapport mensuel non envoyé",
+            title="rapport mensuel non envoyé",
             detail=f"{reason} (essai {row.attempts}/{MAX_SEND_ATTEMPTS}, {retry})",
-            user_id=assistant.user_id,
-            entity_type="prospect",
-            entity_id=assistant.prospect_id,
         )
 
 

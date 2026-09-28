@@ -20,6 +20,7 @@ import api.v1.routes.ai_assistant_client_space as routes
 import api.v1.routes.ai_assistant_widget as widget_routes
 import api.v1.routes.ai_assistants as owner_routes
 import services.ai_assistant.client_space_service as client_space_module
+import services.ai_assistant.message_delivery as delivery_module
 import services.ai_assistant.start_reminders as start_reminders_module
 import services.email_sending_service as email_sending_module
 from core.config import settings
@@ -83,7 +84,7 @@ def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     email = AsyncCallRecorder({"success": True})
     logged: list[dict[str, Any]] = []
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
-    monkeypatch.setattr(client_space_module.activity_log_service, "record", lambda **kwargs: logged.append(kwargs))
+    monkeypatch.setattr(delivery_module.activity_log_service, "record", lambda **kwargs: logged.append(kwargs))
     return {"email": email, "logged": logged}
 
 
