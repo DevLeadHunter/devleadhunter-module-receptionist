@@ -19,7 +19,8 @@ from typing import Any
 
 from core.config import settings
 from enums.assistant_llm import AssistantLlmOutage, AssistantLlmUsage, LlmProvider
-from services.llm_service import LlmCompletion, LlmStreamUsage, llm_service
+from services.llm_completion import LlmCompletion, LlmStreamUsage
+from services.llm_service import llm_service
 from services.mistral_service import MistralRequestRejectedError, mistral_service
 from services.notification_service import notification_service
 
