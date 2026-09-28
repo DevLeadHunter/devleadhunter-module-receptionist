@@ -14,6 +14,7 @@ from PIL import Image
 from sqlalchemy.orm import Session
 
 import services.ai_assistant.photo_service as photo_module
+import services.ai_assistant.photo_vision as vision_module
 import services.ai_assistant.request_service as request_module
 import services.email_sending_service as email_sending_module
 from enums.ai_assistant_photo import AiAssistantPhotoRejection, AiAssistantPhotoUrgency
@@ -24,11 +25,8 @@ from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_photo import AiAssistantPhoto
 from models.prospect_db import ProspectDB
 from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.photo_service import (
-    AiAssistantPhotoService,
-    AiAssistantPhotoVision,
-    PhotoRejectedError,
-)
+from services.ai_assistant.photo_service import AiAssistantPhotoService, PhotoRejectedError
+from services.ai_assistant.photo_vision import AiAssistantPhotoVision
 from services.ai_assistant.request_service import AiAssistantRequestService
 from tests.assistant_fakes import AsyncCallRecorder
 
@@ -82,7 +80,7 @@ def cloud(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     vision = _Model(dict(_SCRATCH))
     monkeypatch.setattr(photo_module.r2_storage, "upload_bytes_async", storage.upload)
     monkeypatch.setattr(photo_module.r2_storage, "delete_async", storage.delete)
-    monkeypatch.setattr(photo_module.assistant_llm_router, "complete_json", vision)
+    monkeypatch.setattr(vision_module.assistant_llm_router, "complete_json", vision)
     monkeypatch.setattr(
         email_sending_module.EmailSendingService,
         "send_via_user_identity",
