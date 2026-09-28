@@ -32,7 +32,8 @@ from services.ai_assistant.document_service import AiAssistantDocumentService
 from services.ai_assistant.document_text import AiAssistantDocumentText, DocumentReaderBusy, DocumentRejected
 from services.ai_assistant.knowledge_budget import AiAssistantKnowledgeBudget, KnowledgeSourceText
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
-from services.ai_assistant.source_service import AiAssistantSourceService, SourceToggles
+from services.ai_assistant.knowledge_sources import SourceToggles
+from services.ai_assistant.source_service import AiAssistantSourceService
 
 
 def _pdf(pages: list[list[str]]) -> bytes:

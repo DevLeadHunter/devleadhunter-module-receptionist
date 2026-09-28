@@ -11,7 +11,6 @@ the same cap. The operator who owns the assistant is told once a day, never the 
 from __future__ import annotations
 
 import logging
-import re
 from datetime import date, datetime, time
 from typing import ClassVar
 
@@ -23,13 +22,11 @@ from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_message import AiAssistantMessage
+from services.ai_assistant.appointment_texts import BusinessCard
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.notification_service import notification_service
 
 logger = logging.getLogger(__name__)
-
-# The spaced hyphen or dash before the descriptive part of a Maps listing (« Toitures Morel - Couvreur Rennes »).
-_LISTING_DESCRIPTION_SEPARATOR = re.compile(r"\s+[-–—]\s+")
 
 
 class AiAssistantDailyMessageCap:
@@ -126,7 +123,7 @@ class AiAssistantDailyMessageCap:
             The fixed reply, asking for a number to call back.
         """
         widget_language = AiAssistantWidgetLanguage.from_code(language) or AiAssistantWidgetLanguage.FR
-        business = _LISTING_DESCRIPTION_SEPARATOR.split(assistant.business_name)[0].strip() or assistant.business_name
+        business = BusinessCard.of(assistant).name
         return cls.CAPPED_REPLIES[widget_language].format(name=assistant.assistant_name, business=business)
 
     async def alert_operator_once(
