@@ -67,6 +67,7 @@ from services.ai_assistant.conversation_service import ai_assistant_conversation
 from services.ai_assistant.daily_message_cap import ai_assistant_daily_message_cap
 from services.ai_assistant.event_intake import ai_assistant_event_intake
 from services.ai_assistant.faq_service import ai_assistant_faq_service
+from services.ai_assistant.field_limits import SESSION_ID_MAX_CHARS
 from services.ai_assistant.follow_up_marker import MAX_FOLLOW_UP_CHARS
 from services.ai_assistant.installation_service import ai_assistant_installation_service
 from services.ai_assistant.limits import AiAssistantLimits
@@ -627,7 +628,7 @@ async def submit_assistant_photo(
         raw_session = form.get("session_id")
         raw_language = form.get("language")
         raw_internal = form.get("internal")
-        session_id = raw_session.strip()[:64] if isinstance(raw_session, str) else ""
+        session_id = raw_session.strip()[:SESSION_ID_MAX_CHARS] if isinstance(raw_session, str) else ""
         if not isinstance(upload, StarletteUploadFile) or not session_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Photo ou session manquante")
         data = await upload.read(MAX_PHOTO_BYTES + 1)

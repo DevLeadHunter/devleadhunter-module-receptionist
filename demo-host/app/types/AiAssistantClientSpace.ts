@@ -1,4 +1,4 @@
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 
 /** What a visitor asked for, as the API types a request. */
 export type AiAssistantClientRequestType = 'question' | 'quote' | 'appointment' | 'urgent' | 'other'
@@ -93,7 +93,7 @@ export type AiAssistantClientSubscription = {
 /** The settings a client may change, defaults applied. */
 export type AiAssistantClientSettings = {
   assistant_name: string
-  languages: AssistantWidgetLang[]
+  languages: AssistantWidgetLanguage[]
   alert_phone: string | null
   alert_sms_enabled: boolean
   alert_email_enabled: boolean
@@ -106,7 +106,7 @@ export type AiAssistantClientSettings = {
 
 /** A language the widget can speak, with its French name. */
 export type AiAssistantClientLanguageOption = {
-  code: AssistantWidgetLang
+  code: AssistantWidgetLanguage
   label: string
 }
 

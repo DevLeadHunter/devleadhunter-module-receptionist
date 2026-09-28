@@ -113,9 +113,6 @@ export type AssistantSlotRefusalCode = 'slot_taken' | 'slot_withdrawn'
 /** Languages the widget offers preset greetings and suggestions for. */
 export type AssistantWidgetLanguage = 'fr' | 'nl' | 'en' | 'de' | 'lb'
 
-/** @deprecated Use `AssistantWidgetLanguage`. */
-export type AssistantWidgetLang = AssistantWidgetLanguage
-
 /** The assistant's answer to a photo sent for a quote. */
 export type AssistantPhotoReply = {
   accepted: boolean

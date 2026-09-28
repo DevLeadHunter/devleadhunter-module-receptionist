@@ -128,7 +128,7 @@
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
 import { computed, ref, watch } from 'vue'
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 import type {
   AiAssistantClientLanguageOption,
   AiAssistantClientRequestType,
@@ -174,7 +174,7 @@ const props: ClientSpaceSettingsProps = defineProps({
 const emit: EmitFn<ClientSpaceSettingsEmits> = defineEmits<ClientSpaceSettingsEmits>()
 
 const assistantName: Ref<string> = ref(props.settings.assistant_name)
-const languages: Ref<AssistantWidgetLang[]> = ref([...props.settings.languages])
+const languages: Ref<AssistantWidgetLanguage[]> = ref([...props.settings.languages])
 const alertPhone: Ref<string> = ref(props.settings.alert_phone ?? '')
 const smsEnabled: Ref<boolean> = ref(props.settings.alert_sms_enabled)
 const emailEnabled: Ref<boolean> = ref(props.settings.alert_email_enabled)
@@ -234,9 +234,9 @@ const canSave: ComputedRef<boolean> = computed(
  * Add or remove a language from the offer.
  * @param code The language toggled.
  */
-function toggleLanguage(code: AssistantWidgetLang): void {
+function toggleLanguage(code: AssistantWidgetLanguage): void {
   languages.value = languages.value.includes(code)
-    ? languages.value.filter((item: AssistantWidgetLang): boolean => item !== code)
+    ? languages.value.filter((item: AssistantWidgetLanguage): boolean => item !== code)
     : [...languages.value, code]
 }
 

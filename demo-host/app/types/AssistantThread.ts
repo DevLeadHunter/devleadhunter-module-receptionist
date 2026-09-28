@@ -9,8 +9,8 @@ import type { AssistantRequestFailure } from '~/types/AssistantRequest'
 
 export type AssistantThreadPanel = 'photo' | 'slots' | 'lead-form'
 
-/** The thread state the conversation's parts share, and how they add a widget line or report a failed call. */
-export type AssistantThreadContext = {
+/** The conversation thread its parts share: its state, and how a part adds a widget line or reports a failed call. */
+export type AssistantConversationThread = {
   assistant: AiAssistantConfig
   publicEndpoint: string
   messages: Ref<AssistantThreadMessage[]>

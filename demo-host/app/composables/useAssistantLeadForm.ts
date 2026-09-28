@@ -11,7 +11,7 @@ import type {
 import type { AssistantLeadSummary } from '~/types/AssistantChat'
 import type { AssistantContactDetails } from '~/types/AssistantChatContactForm'
 import type { AssistantContactPrefill } from '~/types/AssistantContactPrefill'
-import type { AssistantThreadContext } from '~/types/AssistantThread'
+import type { AssistantConversationThread } from '~/types/AssistantThread'
 import type { UseAssistantBookingReturn } from '~/types/UseAssistantBooking'
 import type { UseAssistantLeadFormReturn } from '~/types/UseAssistantLeadForm'
 import type { UseAssistantPhotoUploadReturn } from '~/types/UseAssistantPhotoUpload'
@@ -30,36 +30,36 @@ const CHAT_NEED_MAX_CHARS: number = 140
 
 /**
  * The contact form of a conversation: the visitor's details become a request, with the appointment and the photo.
- * @param context - The state the conversation's parts share.
+ * @param thread - The conversation thread its parts share.
  * @param booking - The appointment panel (the picks go with the request).
  * @param photo - The photo upload (a request with a photo is a quote).
  * @returns The form's state and actions.
  */
 export function useAssistantLeadForm(
-  context: AssistantThreadContext,
+  thread: AssistantConversationThread,
   booking: UseAssistantBookingReturn,
   photo: UseAssistantPhotoUploadReturn,
 ): UseAssistantLeadFormReturn {
   const isSubmittingLead: Ref<boolean> = ref(false)
   const lastLeadSummary: Ref<AssistantLeadSummary | null> = ref(null)
 
-  const isLeadFormOpen: ComputedRef<boolean> = computed((): boolean => context.openPanel.value === 'lead-form')
+  const isLeadFormOpen: ComputedRef<boolean> = computed((): boolean => thread.openPanel.value === 'lead-form')
   /** What the visitor already gave in the chat (« Léo », « 06 42 19 38 12 »): the form opens filled with it. */
   const leadPrefill: ComputedRef<AssistantContactPrefill> = computed((): AssistantContactPrefill =>
-    VisitorContactUtils.extract(AssistantThreadUtils.conversationOf(context.messages.value)),
+    VisitorContactUtils.extract(AssistantThreadUtils.conversationOf(thread.messages.value)),
   )
 
   /** Show the contact form for a call back: an appointment picked before is not part of it. */
   function openLeadForm(): void {
-    if (context.isAssistantUnavailable.value) return
-    context.noteInlineOpening()
+    if (thread.isAssistantUnavailable.value) return
+    thread.noteInlineOpening()
     booking.forgetPicks()
-    context.openPanel.value = 'lead-form'
+    thread.openPanel.value = 'lead-form'
   }
 
   /** Close the contact form; an appointment's picks go with it. */
   function cancelLeadForm(): void {
-    if (context.openPanel.value === 'lead-form') context.openPanel.value = null
+    if (thread.openPanel.value === 'lead-form') thread.openPanel.value = null
     booking.forgetPicks()
   }
 
@@ -70,9 +70,9 @@ export function useAssistantLeadForm(
    * @returns The booked slot, the half-days (or the slot) the business will confirm, or the call-back promise.
    */
   function leadConfirmation(reply: AssistantLeadReply, bookedTime: AssistantAppointmentTime | null): string {
-    const labels: AssistantAppointmentLabels = APPOINTMENT_LABELS[context.language.value]
+    const labels: AssistantAppointmentLabels = APPOINTMENT_LABELS[thread.language.value]
     if (reply.booked_start) {
-      const when: string = AssistantScheduleUtils.timeLabel(reply.booked_start, context.language.value)
+      const when: string = AssistantScheduleUtils.timeLabel(reply.booked_start, thread.language.value)
       const kind: string | null = booking.chosenKind.value
       const booked: string = labels.booked.replace('{slots}', kind ? `${when} (${kind})` : when)
       if (reply.confirmation_channel === 'sms') return booked + labels.bookedSms
@@ -80,10 +80,10 @@ export function useAssistantLeadForm(
       return booked
     }
     if (bookedTime) {
-      return labels.sent.replace('{slots}', AssistantScheduleUtils.timeLabel(bookedTime.start, context.language.value))
+      return labels.sent.replace('{slots}', AssistantScheduleUtils.timeLabel(bookedTime.start, thread.language.value))
     }
     if (booking.chosenSlots.value.length > 0) return labels.sent.replace('{slots}', booking.chosenSlotsLine.value)
-    return LEAD_LABELS[context.language.value].sent
+    return LEAD_LABELS[thread.language.value].sent
   }
 
   /**
@@ -101,8 +101,8 @@ export function useAssistantLeadForm(
     const hasAppointment: boolean =
       bookedTime !== null || booking.chosenSlots.value.length > 0 || reply.booked_start !== null
     let slots: string = ''
-    if (reply.booked_start) slots = AssistantScheduleUtils.timeLabel(reply.booked_start, context.language.value)
-    else if (bookedTime) slots = AssistantScheduleUtils.timeLabel(bookedTime.start, context.language.value)
+    if (reply.booked_start) slots = AssistantScheduleUtils.timeLabel(reply.booked_start, thread.language.value)
+    else if (bookedTime) slots = AssistantScheduleUtils.timeLabel(bookedTime.start, thread.language.value)
     else if (booking.chosenSlots.value.length > 0) slots = booking.chosenSlotsLine.value
     return {
       name: details.name,
@@ -122,7 +122,7 @@ export function useAssistantLeadForm(
   function chatNeed(): string {
     if (photo.leadNeedPrefill.value) return photo.leadNeedPrefill.value
     const firstQuestion: AssistantThreadMessage | undefined = AssistantThreadUtils.conversationOf(
-      context.messages.value,
+      thread.messages.value,
     ).find((message: AssistantThreadMessage): boolean => message.role === 'user')
     const words: string = firstQuestion?.content.trim() ?? ''
     return words.length > CHAT_NEED_MAX_CHARS ? `${words.slice(0, CHAT_NEED_MAX_CHARS - 1).trimEnd()}…` : words
@@ -133,11 +133,11 @@ export function useAssistantLeadForm(
    * @param captured - The name and contact the request carries.
    */
   function confirmCapturedContact(captured: AssistantCapturedContact): void {
-    if (context.hasSentLead.value) return
-    context.hasSentLead.value = true
+    if (thread.hasSentLead.value) return
+    thread.hasSentLead.value = true
     captureDemoEvent('assistant_lead_submitted', { source: 'chat' })
-    if (context.openPanel.value === 'lead-form') context.openPanel.value = null
-    context.pushLocalLine(LEAD_LABELS[context.language.value].sent)
+    if (thread.openPanel.value === 'lead-form') thread.openPanel.value = null
+    thread.pushLocalLine(LEAD_LABELS[thread.language.value].sent)
     lastLeadSummary.value = {
       name: captured.name,
       contact: captured.contact,
@@ -167,8 +167,8 @@ export function useAssistantLeadForm(
     const code: string | null = ApiRefusalUtils.code(error)
     const detail: string | null = ApiRefusalUtils.detail(error)
     if (ApiRefusalUtils.status(error) === 409 && isSlotRefusal(code)) await booking.offerSlotsAgain(code)
-    else if (ApiRefusalUtils.status(error) === 422 && detail !== null) context.pushLocalLine(detail)
-    else context.reportFailure(AssistantRequestUtils.failureOf(error))
+    else if (ApiRefusalUtils.status(error) === 422 && detail !== null) thread.pushLocalLine(detail)
+    else thread.reportFailure(AssistantRequestUtils.failureOf(error))
   }
 
   /**
@@ -185,18 +185,18 @@ export function useAssistantLeadForm(
       booking.bookingMode.value === 'calendar' ? booking.chosenTime.value : null
     const sentDetails: AssistantContactDetails = { name, contact, need: details.need.trim() }
     try {
-      const reply: AssistantLeadReply = await AssistantRequestUtils.sendLead(context.publicEndpoint, {
+      const reply: AssistantLeadReply = await AssistantRequestUtils.sendLead(thread.publicEndpoint, {
         ...sentDetails,
-        language: context.language.value,
-        session_id: context.sessionId.value,
+        language: thread.language.value,
+        session_id: thread.sessionId.value,
         internal: DemoBeaconUtils.isInternalVisit(),
         slots: bookedTime ? [] : booking.chosenSlots.value,
         booking: bookedTime ? { start: bookedTime.start, type: booking.chosenKind.value } : null,
       })
-      context.hasSentLead.value = true
+      thread.hasSentLead.value = true
       captureDemoEvent('assistant_lead_submitted', { source: 'form' })
-      context.openPanel.value = null
-      context.pushLocalLine(leadConfirmation(reply, bookedTime))
+      thread.openPanel.value = null
+      thread.pushLocalLine(leadConfirmation(reply, bookedTime))
       lastLeadSummary.value = leadSummary(sentDetails, reply, bookedTime)
     } catch (error: unknown) {
       await reportLeadFailure(error)

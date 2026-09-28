@@ -1,4 +1,4 @@
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 import type {
   AiAssistantClientLanguageOption,
   AiAssistantClientSettings,
@@ -19,7 +19,10 @@ export class ClientSpaceLanguageUtils {
    * @param options - The languages the client space offers.
    * @returns The offered option's code, or the served code when none matches.
    */
-  static offeredCode(code: AssistantWidgetLang, options: AiAssistantClientLanguageOption[]): AssistantWidgetLang {
+  static offeredCode(
+    code: AssistantWidgetLanguage,
+    options: AiAssistantClientLanguageOption[],
+  ): AssistantWidgetLanguage {
     const servedCode: string = code
     const currentCode: string = servedCode === LEGACY_LUXEMBOURGISH_CODE ? LUXEMBOURGISH_CODE : servedCode
     const option: AiAssistantClientLanguageOption | undefined =
@@ -38,8 +41,8 @@ export class ClientSpaceLanguageUtils {
     settings: AiAssistantClientSettings,
     options: AiAssistantClientLanguageOption[],
   ): AiAssistantClientSettings {
-    const languages: AssistantWidgetLang[] = settings.languages.map((code: AssistantWidgetLang): AssistantWidgetLang =>
-      ClientSpaceLanguageUtils.offeredCode(code, options),
+    const languages: AssistantWidgetLanguage[] = settings.languages.map(
+      (code: AssistantWidgetLanguage): AssistantWidgetLanguage => ClientSpaceLanguageUtils.offeredCode(code, options),
     )
     return { ...settings, languages: [...new Set(languages)] }
   }

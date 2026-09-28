@@ -10,7 +10,11 @@ import type {
 } from '~/types/AiAssistant'
 import type { AssistantDemoScriptStep, AssistantHostPage } from '~/types/AssistantDemoScript'
 import type { AssistantReplyOutcome, AssistantRequestFailure, AssistantStreamOutcome } from '~/types/AssistantRequest'
-import type { AssistantStoredConversation, AssistantThreadContext, AssistantThreadPanel } from '~/types/AssistantThread'
+import type {
+  AssistantStoredConversation,
+  AssistantConversationThread,
+  AssistantThreadPanel,
+} from '~/types/AssistantThread'
 import type { UseAssistantBookingReturn } from '~/types/UseAssistantBooking'
 import type { UseAssistantConversationReturn } from '~/types/UseAssistantConversation'
 import type { UseAssistantLeadFormReturn } from '~/types/UseAssistantLeadForm'
@@ -87,7 +91,7 @@ export function useAssistantConversation(
   let isPlayingExample: boolean = false
   let hasCapturedInlineOpening: boolean = false
 
-  const context: AssistantThreadContext = {
+  const thread: AssistantConversationThread = {
     assistant,
     publicEndpoint,
     messages,
@@ -101,9 +105,9 @@ export function useAssistantConversation(
     pushLocalLine,
     reportFailure,
   }
-  const booking: UseAssistantBookingReturn = useAssistantBooking(context)
-  const photo: UseAssistantPhotoUploadReturn = useAssistantPhotoUpload(context)
-  const leadForm: UseAssistantLeadFormReturn = useAssistantLeadForm(context, booking, photo)
+  const booking: UseAssistantBookingReturn = useAssistantBooking(thread)
+  const photo: UseAssistantPhotoUploadReturn = useAssistantPhotoUpload(thread)
+  const leadForm: UseAssistantLeadFormReturn = useAssistantLeadForm(thread, booking, photo)
 
   const offeredLanguages: ComputedRef<AssistantWidgetLanguage[]> = computed((): AssistantWidgetLanguage[] =>
     AssistantLanguageUtils.offered(assistant.languages),

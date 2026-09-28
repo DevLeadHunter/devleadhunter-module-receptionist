@@ -1,7 +1,7 @@
 import type { ComputedRef, Ref } from 'vue'
 import { computed, ref } from 'vue'
 import type { AssistantPhotoReply } from '~/types/AiAssistant'
-import type { AssistantThreadContext } from '~/types/AssistantThread'
+import type { AssistantConversationThread } from '~/types/AssistantThread'
 import type { UseAssistantPhotoUploadReturn } from '~/types/UseAssistantPhotoUpload'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
 import { PHOTO_LABELS } from '~/constants/AssistantWidgetLabels'
@@ -14,27 +14,27 @@ import { PhotoCompressionUtils } from '~/utils/PhotoCompressionUtils'
 
 /**
  * The photo a visitor sends for a quote: the panel with its privacy note, the upload, its thumbnail in the thread.
- * @param context - The state the conversation's parts share.
+ * @param thread - The conversation thread its parts share.
  * @returns The photos' state and the panel's actions.
  */
-export function useAssistantPhotoUpload(context: AssistantThreadContext): UseAssistantPhotoUploadReturn {
+export function useAssistantPhotoUpload(thread: AssistantConversationThread): UseAssistantPhotoUploadReturn {
   const photoPreviews: Ref<Record<number, string>> = ref({})
   const photosRemaining: Ref<number> = ref(ASSISTANT_PHOTOS_PER_VISIT)
   const hasSentPhoto: Ref<boolean> = ref(false)
   const leadNeedPrefill: Ref<string> = ref('')
 
-  const isPhotoPanelOpen: ComputedRef<boolean> = computed((): boolean => context.openPanel.value === 'photo')
+  const isPhotoPanelOpen: ComputedRef<boolean> = computed((): boolean => thread.openPanel.value === 'photo')
 
   /** Show the photo panel: its privacy note comes before the file picker. */
   function openPhotoPanel(): void {
-    if (photosRemaining.value <= 0 || context.isBusy.value || context.isAssistantUnavailable.value) return
-    context.noteInlineOpening()
-    context.openPanel.value = 'photo'
+    if (photosRemaining.value <= 0 || thread.isBusy.value || thread.isAssistantUnavailable.value) return
+    thread.noteInlineOpening()
+    thread.openPanel.value = 'photo'
   }
 
   /** Hide the photo panel. */
   function closePhotoPanel(): void {
-    if (context.openPanel.value === 'photo') context.openPanel.value = null
+    if (thread.openPanel.value === 'photo') thread.openPanel.value = null
   }
 
   /**
@@ -68,13 +68,13 @@ export function useAssistantPhotoUpload(context: AssistantThreadContext): UseAss
     const status: number | undefined = ApiRefusalUtils.status(error)
     if (status === 409) {
       photosRemaining.value = 0
-      context.pushLocalLine(PHOTO_LABELS[context.language.value].quota)
+      thread.pushLocalLine(PHOTO_LABELS[thread.language.value].quota)
     } else if (status === 413) {
-      context.pushLocalLine(PHOTO_LABELS[context.language.value].tooLarge)
+      thread.pushLocalLine(PHOTO_LABELS[thread.language.value].tooLarge)
     } else if (status === 415) {
-      context.pushLocalLine(PHOTO_LABELS[context.language.value].invalid)
+      thread.pushLocalLine(PHOTO_LABELS[thread.language.value].invalid)
     } else {
-      context.reportFailure(AssistantRequestUtils.failureOf(error))
+      thread.reportFailure(AssistantRequestUtils.failureOf(error))
     }
   }
 
@@ -84,30 +84,30 @@ export function useAssistantPhotoUpload(context: AssistantThreadContext): UseAss
    * @returns A promise resolved once the assistant has answered, or the refusal is told.
    */
   async function uploadPhoto(upload: Blob): Promise<void> {
-    context.messages.value.push({ role: 'user', content: PHOTO_LABELS[context.language.value].sent })
-    const previewIndex: number = context.messages.value.length - 1
+    thread.messages.value.push({ role: 'user', content: PHOTO_LABELS[thread.language.value].sent })
+    const previewIndex: number = thread.messages.value.length - 1
     const previewUrl: string = URL.createObjectURL(upload)
     showPhotoPreview(previewIndex, previewUrl)
     captureDemoEvent('assistant_photo_sent')
     try {
       const form: FormData = new FormData()
       form.append('file', upload, 'photo.jpg')
-      form.append('session_id', context.sessionId.value)
-      form.append('language', context.language.value)
+      form.append('session_id', thread.sessionId.value)
+      form.append('language', thread.language.value)
       form.append('internal', String(DemoBeaconUtils.isInternalVisit()))
-      const answer: AssistantPhotoReply = await AssistantRequestUtils.sendPhoto(context.publicEndpoint, form)
-      context.messages.value.push({ role: 'assistant', content: answer.reply })
+      const answer: AssistantPhotoReply = await AssistantRequestUtils.sendPhoto(thread.publicEndpoint, form)
+      thread.messages.value.push({ role: 'assistant', content: answer.reply })
       photosRemaining.value = answer.remaining
-      if (answer.accepted && !context.hasSentLead.value) {
+      if (answer.accepted && !thread.hasSentLead.value) {
         hasSentPhoto.value = true
         if (answer.need) leadNeedPrefill.value = answer.need
-        context.openPanel.value = 'lead-form'
+        thread.openPanel.value = 'lead-form'
       }
     } catch (error: unknown) {
       // A refused photo is not shown as sent: its thumbnail goes, the refusal explains why.
       dropPhotoPreview(previewIndex, previewUrl)
-      context.messages.value[previewIndex] = AssistantThreadUtils.localLine(
-        PHOTO_LABELS[context.language.value].refused,
+      thread.messages.value[previewIndex] = AssistantThreadUtils.localLine(
+        PHOTO_LABELS[thread.language.value].refused,
         'user',
       )
       reportPhotoFailure(error)
@@ -121,22 +121,22 @@ export function useAssistantPhotoUpload(context: AssistantThreadContext): UseAss
    */
   async function sendPhoto(file: File): Promise<void> {
     closePhotoPanel()
-    if (context.isBusy.value || context.isAssistantUnavailable.value) return
+    if (thread.isBusy.value || thread.isAssistantUnavailable.value) return
     if (!PhotoCompressionUtils.isPhoto(file)) {
-      context.pushLocalLine(PHOTO_LABELS[context.language.value].invalid)
+      thread.pushLocalLine(PHOTO_LABELS[thread.language.value].invalid)
       return
     }
     // Busy from the start: a second photo picked while this one compresses would slip past the quota.
-    context.isBusy.value = true
+    thread.isBusy.value = true
     try {
       const upload: Blob = await PhotoCompressionUtils.prepare(file)
       if (upload.size > PhotoCompressionUtils.MAX_BYTES) {
-        context.pushLocalLine(PHOTO_LABELS[context.language.value].tooLarge)
+        thread.pushLocalLine(PHOTO_LABELS[thread.language.value].tooLarge)
         return
       }
       await uploadPhoto(upload)
     } finally {
-      context.isBusy.value = false
+      thread.isBusy.value = false
     }
   }
 

@@ -12,7 +12,7 @@ import type {
   AssistantSlotsState,
 } from '~/types/AiAssistant'
 import type { AssistantRequestFailure } from '~/types/AssistantRequest'
-import type { AssistantThreadContext } from '~/types/AssistantThread'
+import type { AssistantConversationThread } from '~/types/AssistantThread'
 import type { UseAssistantBookingReturn } from '~/types/UseAssistantBooking'
 import { APPOINTMENT_LABELS } from '~/constants/AssistantWidgetLabels'
 import { ASSISTANT_SLOTS_MAX_CHOSEN } from '~/constants/AssistantWidgetLimits'
@@ -21,10 +21,10 @@ import { AssistantScheduleUtils } from '~/utils/AssistantScheduleUtils'
 
 /**
  * The appointment panel of a conversation: the agenda's free slots or the open half-days, and the visitor's picks.
- * @param context - The state the conversation's parts share.
+ * @param thread - The conversation thread its parts share.
  * @returns The offer, the picks and the panel's actions.
  */
-export function useAssistantBooking(context: AssistantThreadContext): UseAssistantBookingReturn {
+export function useAssistantBooking(thread: AssistantConversationThread): UseAssistantBookingReturn {
   const bookingMode: Ref<AssistantBookingMode> = ref('request')
   const slotsState: Ref<AssistantSlotsState> = ref('idle')
   const slotDays: Ref<AssistantAppointmentDay[]> = ref([])
@@ -40,14 +40,14 @@ export function useAssistantBooking(context: AssistantThreadContext): UseAssista
   /** The slot panel opens by itself at most once per visit, when the visitor asks the chat for an appointment. */
   const hasOfferedBooking: Ref<boolean> = ref(false)
 
-  const isSlotPanelOpen: ComputedRef<boolean> = computed((): boolean => context.openPanel.value === 'slots')
+  const isSlotPanelOpen: ComputedRef<boolean> = computed((): boolean => thread.openPanel.value === 'slots')
   const hasPreviousSlotsPage: ComputedRef<boolean> = computed((): boolean => slotsAfter.value !== null)
   const chosenSlotsLine: ComputedRef<string> = computed((): string =>
-    AssistantScheduleUtils.slotsLine(chosenSlots.value, context.language.value),
+    AssistantScheduleUtils.slotsLine(chosenSlots.value, thread.language.value),
   )
   const chosenTimeLine: ComputedRef<string> = computed((): string => {
     if (!chosenTime.value) return ''
-    const when: string = AssistantScheduleUtils.timeLabel(chosenTime.value.start, context.language.value)
+    const when: string = AssistantScheduleUtils.timeLabel(chosenTime.value.start, thread.language.value)
     return chosenKind.value ? `${when} (${chosenKind.value})` : when
   })
   const canContinueBooking: ComputedRef<boolean> = computed((): boolean =>
@@ -56,7 +56,7 @@ export function useAssistantBooking(context: AssistantThreadContext): UseAssista
       : chosenSlots.value.length > 0,
   )
   const pickedSummary: ComputedRef<string> = computed((): string => {
-    const labels: AssistantAppointmentLabels = APPOINTMENT_LABELS[context.language.value]
+    const labels: AssistantAppointmentLabels = APPOINTMENT_LABELS[thread.language.value]
     if (chosenSlots.value.length > 0) return `${labels.chosen} : ${chosenSlotsLine.value}`
     if (chosenTime.value) return `${labels.appointment} : ${chosenTimeLine.value}`
     return ''
@@ -80,7 +80,7 @@ export function useAssistantBooking(context: AssistantThreadContext): UseAssista
     chosenTime.value = null
     try {
       const offer: AssistantAppointmentSlots = await AssistantRequestUtils.fetchAppointmentSlots(
-        context.publicEndpoint,
+        thread.publicEndpoint,
         after,
       )
       bookingMode.value = offer.mode
@@ -96,7 +96,7 @@ export function useAssistantBooking(context: AssistantThreadContext): UseAssista
       slotsState.value = 'error'
       // A gone assistant closes the panel and says so; any other failure is told inside the card.
       const failure: AssistantRequestFailure = AssistantRequestUtils.failureOf(error)
-      if (failure === 'unavailable') context.reportFailure(failure)
+      if (failure === 'unavailable') thread.reportFailure(failure)
     }
   }
 
@@ -105,17 +105,17 @@ export function useAssistantBooking(context: AssistantThreadContext): UseAssista
    * @returns A promise resolved once the offer is shown (or its failure).
    */
   async function openSlotPanel(): Promise<void> {
-    if (context.isBusy.value || context.hasSentLead.value || context.isAssistantUnavailable.value) return
-    context.noteInlineOpening()
+    if (thread.isBusy.value || thread.hasSentLead.value || thread.isAssistantUnavailable.value) return
+    thread.noteInlineOpening()
     hasOfferedBooking.value = true
-    context.openPanel.value = 'slots'
+    thread.openPanel.value = 'slots'
     // Free slots change: the agenda's are read again, from the first page, at each opening.
     if (slotsState.value !== 'ready' || bookingMode.value === 'calendar') await loadSlots()
   }
 
   /** Close the appointment panel and forget the picks. */
   function closeSlotPanel(): void {
-    if (context.openPanel.value === 'slots') context.openPanel.value = null
+    if (thread.openPanel.value === 'slots') thread.openPanel.value = null
     forgetPicks()
   }
 
@@ -174,7 +174,7 @@ export function useAssistantBooking(context: AssistantThreadContext): UseAssista
   /** Move on to the contact form with the picked appointment. */
   function confirmSlots(): void {
     if (!canContinueBooking.value) return
-    context.openPanel.value = 'lead-form'
+    thread.openPanel.value = 'lead-form'
   }
 
   /**
@@ -183,10 +183,10 @@ export function useAssistantBooking(context: AssistantThreadContext): UseAssista
    * @returns A promise resolved once the offer is read again.
    */
   async function offerSlotsAgain(code: AssistantSlotRefusalCode): Promise<void> {
-    const labels: AssistantAppointmentLabels = APPOINTMENT_LABELS[context.language.value]
-    context.pushLocalLine(code === 'slot_withdrawn' ? labels.unavailable : labels.taken)
+    const labels: AssistantAppointmentLabels = APPOINTMENT_LABELS[thread.language.value]
+    thread.pushLocalLine(code === 'slot_withdrawn' ? labels.unavailable : labels.taken)
     forgetPicks()
-    context.openPanel.value = 'slots'
+    thread.openPanel.value = 'slots'
     await loadSlots()
   }
 
