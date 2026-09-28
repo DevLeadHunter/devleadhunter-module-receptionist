@@ -74,7 +74,7 @@
               v-if="openedRequest"
               :request="openedRequest"
               :is-busy="busyRequestId === openedRequest.id"
-              :error-message="actionError"
+              :error-message="requestError"
               :read-only="isExample"
               :show-back="!isWide"
               @handled="markHandled"
@@ -88,8 +88,8 @@
               :assistant-name="space.assistant_name"
               :portrait-url="portraitUrl"
               :portrait-fallback-url="portraitFallbackUrl"
-              :is-busy="isSavingFaq"
-              :error-message="faqError"
+              :is-busy="isQuestionBusy"
+              :error-message="questionError"
               :read-only="isExample"
               :show-back="!isWide"
               @answer="answerOpenedQuestion"
@@ -375,13 +375,11 @@ import type {
   AiAssistantClientCalendar,
   AiAssistantClientCalendarConnect,
   AiAssistantClientCalendarUpdate,
-  AiAssistantClientFaqResponse,
   AiAssistantClientGoogleProfile,
   AiAssistantClientLimit,
   AiAssistantClientLimitUpdate,
   AiAssistantClientPortal,
   AiAssistantClientRequest,
-  AiAssistantClientRequestOutcome,
   AiAssistantClientSettings,
   AiAssistantClientSettingsUpdate,
   AiAssistantClientSpace,
@@ -396,8 +394,10 @@ import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
 import type { ClientSpaceSettingsScreen } from '~/types/ClientSpaceNavigation'
 import type { ClientSpaceCopyKey } from '~/types/ClientSpacePage'
 import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
+import type { UseClientSpaceRequestsReturn } from '~/types/UseClientSpaceRequests'
 import { useClientSpaceLink } from '~/composables/useClientSpaceLink'
 import { useClientSpaceNavigation } from '~/composables/useClientSpaceNavigation'
+import { useClientSpaceRequests } from '~/composables/useClientSpaceRequests'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { AssistantAvatarUtils } from '~/utils/AssistantAvatarUtils'
 
@@ -459,13 +459,21 @@ const {
   closeDetail,
 }: ReturnType<typeof useClientSpaceNavigation> = useClientSpaceNavigation()
 
+const {
+  busyRequestId,
+  requestError,
+  isQuestionBusy,
+  questionError,
+  markHandled,
+  markDropped,
+  setOutcome,
+  answerQuestion,
+  dismissQuestion,
+}: UseClientSpaceRequestsReturn = useClientSpaceRequests(link)
+
 const isWide: Ref<boolean> = ref(false)
-const busyRequestId: Ref<number | null> = ref(null)
-const actionError: Ref<string | null> = ref(null)
 const isSavingSettings: Ref<boolean> = ref(false)
 const settingsError: Ref<string | null> = ref(null)
-const isSavingFaq: Ref<boolean> = ref(false)
-const faqError: Ref<string | null> = ref(null)
 const hasSavedSettings: Ref<boolean> = ref(false)
 const isOpeningPortal: Ref<boolean> = ref(false)
 const portalError: Ref<string | null> = ref(null)
@@ -584,77 +592,6 @@ const snippetMailto: ComputedRef<string> = computed((): string => {
 })
 
 /**
- * Replace a request in the list with what the API returned, and keep the pending count right.
- * @param updated The request as the API returned it.
- */
-function replaceRequest(updated: AiAssistantClientRequest): void {
-  const current: AiAssistantClientSpace | null = space.value
-  if (!current) return
-  const wasPending: boolean = current.requests.some(
-    (item: AiAssistantClientRequest): boolean => item.id === updated.id && item.status === 'new',
-  )
-  current.requests = current.requests.map((item: AiAssistantClientRequest): AiAssistantClientRequest =>
-    item.id === updated.id ? updated : item,
-  )
-  if (wasPending && updated.status !== 'new') current.pending_count = Math.max(0, current.pending_count - 1)
-}
-
-/**
- * Change a request's status through the API and reflect it in the list.
- * @param requestId The request.
- * @param action « handled » or « dropped ».
- * @returns A promise resolved once the API answered.
- */
-async function changeRequest(
-  requestId: number,
-  action: 'handled' | 'dropped' | 'outcome',
-  body: Record<string, unknown> | undefined = undefined,
-): Promise<void> {
-  if (!space.value || busyRequestId.value !== null) return
-  busyRequestId.value = requestId
-  actionError.value = null
-  try {
-    const updated: AiAssistantClientRequest = await $fetch<AiAssistantClientRequest>(
-      `${endpoint.value}/requests/${requestId}/${action}`,
-      { method: 'POST', body },
-    )
-    replaceRequest(updated)
-  } catch (error: unknown) {
-    actionError.value = failureMessage(error, 'La demande n’a pas pu être mise à jour, réessayez dans un instant.')
-  } finally {
-    busyRequestId.value = null
-  }
-}
-
-/**
- * Mark a request called back.
- * @param requestId The request.
- * @returns A promise resolved once the API answered.
- */
-async function markHandled(requestId: number): Promise<void> {
-  await changeRequest(requestId, 'handled')
-}
-
-/**
- * Set a request aside: a test, spam, a duplicate.
- * @param requestId The request.
- * @returns A promise resolved once the API answered.
- */
-async function markDropped(requestId: number): Promise<void> {
-  await changeRequest(requestId, 'dropped')
-}
-
-/**
- * Say what became of a request called back: a client won, lost, or nothing yet.
- * @param requestId The request.
- * @param outcome The outcome, or null to clear it.
- * @returns A promise resolved once the API answered.
- */
-async function setOutcome(requestId: number, outcome: AiAssistantClientRequestOutcome | null): Promise<void> {
-  await changeRequest(requestId, 'outcome', { outcome })
-}
-
-/**
  * Text the saved alert mobile once, so the client sees the alerts arrive.
  * @returns A promise resolved once the API answered.
  */
@@ -678,35 +615,6 @@ async function sendTestSms(): Promise<void> {
 }
 
 /**
- * Record the business's answer to a question the receptionist could not answer; both lists come back updated.
- * @param question The question as it was asked.
- * @param answer The answer to give from now on.
- * @returns A promise resolved once the API answered.
- */
-async function answerQuestion(question: string, answer: string): Promise<boolean> {
-  const current: AiAssistantClientSpace | null = space.value
-  if (!current || isSavingFaq.value) return false
-  isSavingFaq.value = true
-  faqError.value = null
-  try {
-    const lists: AiAssistantClientFaqResponse = await $fetch<AiAssistantClientFaqResponse>(`${endpoint.value}/faq`, {
-      method: 'POST',
-      body: { question, answer },
-    })
-    current.faq = lists.faq
-    current.unanswered = lists.unanswered
-    return true
-  } catch (error: unknown) {
-    if (!showExpiredOnUnauthorized(error)) {
-      faqError.value = 'La réponse n’a pas pu être enregistrée, réessayez dans un instant.'
-    }
-    return false
-  } finally {
-    isSavingFaq.value = false
-  }
-}
-
-/**
  * Answer the question that is open, then go back to the list.
  * @param answer The answer to give from now on.
  * @returns A promise resolved once the API answered.
@@ -722,22 +630,9 @@ async function answerOpenedQuestion(answer: string): Promise<void> {
  * @returns A promise resolved once the API answered.
  */
 async function dismissOpenedQuestion(): Promise<void> {
-  const current: AiAssistantClientSpace | null = space.value
   const index: number | null = location.value.questionIndex
-  if (!current || index === null || isSavingFaq.value) return
-  isSavingFaq.value = true
-  faqError.value = null
-  try {
-    await $fetch(`${endpoint.value}/unanswered/${index}`, { method: 'DELETE' })
-    current.unanswered = current.unanswered.filter((_: unknown, position: number): boolean => position !== index)
-    closeDetail()
-  } catch (error: unknown) {
-    if (!showExpiredOnUnauthorized(error)) {
-      faqError.value = 'La question n’a pas pu être retirée, réessayez dans un instant.'
-    }
-  } finally {
-    isSavingFaq.value = false
-  }
+  if (index === null) return
+  if (await dismissQuestion(index)) closeDetail()
 }
 
 /**

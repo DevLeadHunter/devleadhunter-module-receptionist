@@ -9,6 +9,10 @@ export type AiAssistantClientRequestStatus = 'new' | 'handled' | 'dropped'
 /** What became of a request once called back: a client won, or not. */
 export type AiAssistantClientRequestOutcome = 'won' | 'lost'
 
+export type AiAssistantClientRequestOutcomeUpdate = {
+  outcome: AiAssistantClientRequestOutcome | null
+}
+
 /**
  * One request as its client sees it; `received_label` is already in business time (« 14/09 à 10:05 »),
  * `appointment_slots` are the wished half-days of an appointment request (« lun. 28/09, matin »), to confirm,
