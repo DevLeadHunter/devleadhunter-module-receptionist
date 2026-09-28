@@ -223,7 +223,7 @@ import type {
   AiAssistantClientUnansweredEntry,
 } from '~/types/AiAssistantClientSpace'
 import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
-import type { ClientSpaceSettingsScreen } from '~/types/ClientSpaceNavigation'
+import type { ClientSpaceSection, ClientSpaceSettingsScreen } from '~/types/ClientSpaceNavigation'
 import type { UseClientSpaceCalendarReturn } from '~/types/UseClientSpaceCalendar'
 import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
 import type { UseClientSpaceRequestsReturn } from '~/types/UseClientSpaceRequests'
@@ -298,6 +298,7 @@ const {
   connectCalendar,
   saveCalendar,
   disconnectCalendar,
+  clearCalendarFeedback,
 }: UseClientSpaceCalendarReturn = useClientSpaceCalendar(link)
 
 useHead({
@@ -430,6 +431,8 @@ watch(
 )
 
 watch((): ClientSpaceSettingsScreen | null => location.value.settingsScreen, clearScreenFeedback)
+
+watch((): ClientSpaceSection => location.value.section, clearCalendarFeedback)
 
 onMounted((): void => {
   wideQuery = window.matchMedia(WIDE_QUERY)

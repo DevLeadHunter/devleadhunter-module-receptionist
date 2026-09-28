@@ -2,10 +2,10 @@
   <div class="cs-agenda">
     <div v-if="props.calendar.status === 'unavailable'" class="cs-block cs-agenda__connect">
       <span class="cs-todo__icon cs-todo__icon--accent"><ClientSpaceIcon name="calendar" /></span>
-      <p class="cs-agenda__title">Google Agenda, bientôt</p>
+      <p class="cs-agenda__title">Vous confirmez vos rendez-vous</p>
       <p class="cs-text cs-text--dim">
-        La connexion n’est pas encore ouverte. Vos rendez-vous arrivent en demandes, avec les créneaux souhaités par le
-        visiteur.
+        Vos rendez-vous arrivent en demandes, avec les créneaux souhaités par le visiteur : vous les confirmez
+        vous-même, par téléphone ou par message.
       </p>
     </div>
 
@@ -106,13 +106,20 @@
               rows="3"
               placeholder="Révision&#10;Contrôle technique"
             />
-            <span class="cs-hint">Le visiteur choisit l’un d’eux avant son créneau. 6 au plus.</span>
+            <span class="cs-hint">Le visiteur choisit l’un d’eux avant son créneau. {{ MAX_TYPES }} au plus.</span>
           </label>
           <label class="cs-field">
             <span class="cs-label">Agenda utilisé</span>
-            <input v-model="calendarId" class="cs-input" type="text" maxlength="255" autocomplete="off" />
+            <input
+              v-model="calendarId"
+              class="cs-input"
+              type="text"
+              maxlength="255"
+              autocomplete="off"
+              placeholder="Votre agenda principal"
+            />
             <span class="cs-hint">
-              « primary » : votre agenda principal. Pour un autre agenda, collez son identifiant (paramètres de
+              Laissez vide pour votre agenda principal. Pour un autre agenda, collez son identifiant (paramètres de
               l’agenda, « Intégrer l’agenda »).
             </span>
           </label>
@@ -150,9 +157,12 @@ import type { ClientSpaceAgendaEmits, ClientSpaceAgendaProps } from '~/types/Cli
 /** How many appointment types a client may offer. */
 const MAX_TYPES: number = 6
 
+/** Google's id of the account's main agenda; the field shows it empty, its placeholder names it. */
+const PRIMARY_CALENDAR_ID: string = 'primary'
+
 /**
- * The agenda section: connect the client's Google agenda (or explain why it is not there yet), the appointment
- * requests still to confirm, the appointments booked, and the booking settings once connected.
+ * The agenda section: connect the client's Google agenda, the appointment requests still to confirm, the
+ * appointments booked, and the booking settings once connected.
  * @param calendar The agenda's connection and settings, defaults applied.
  * @param appointments The upcoming appointments the receptionist booked.
  * @param requests The latest requests; the appointment ones still waiting are listed as to confirm.
@@ -178,7 +188,7 @@ const emit: EmitFn<ClientSpaceAgendaEmits> = defineEmits<ClientSpaceAgendaEmits>
 const duration: Ref<number> = ref(props.calendar.duration_minutes)
 const notice: Ref<number> = ref(props.calendar.min_notice_hours)
 const typesText: Ref<string> = ref(props.calendar.appointment_types.join('\n'))
-const calendarId: Ref<string> = ref(props.calendar.calendar_id)
+const calendarId: Ref<string> = ref(editableCalendarId(props.calendar.calendar_id))
 
 /** The appointment requests still waiting, with wished half-days and no booking yet. */
 const toConfirm: ComputedRef<AiAssistantClientRequest[]> = computed((): AiAssistantClientRequest[] =>
@@ -202,7 +212,7 @@ const changes: ComputedRef<AiAssistantClientCalendarUpdate> = computed((): AiAss
   if (duration.value !== props.calendar.duration_minutes) update.duration_minutes = duration.value
   if (notice.value !== props.calendar.min_notice_hours) update.min_notice_hours = notice.value
   if (types.value.join('\n') !== props.calendar.appointment_types.join('\n')) update.appointment_types = types.value
-  const id: string = calendarId.value.trim() || 'primary'
+  const id: string = calendarId.value.trim() || PRIMARY_CALENDAR_ID
   if (id !== props.calendar.calendar_id) update.calendar_id = id
   return update
 })
@@ -221,6 +231,15 @@ function durationLabel(minutes: number): string {
   return rest === 0 ? `${hours} h` : `${hours} h ${rest}`
 }
 
+/**
+ * The agenda id as its field shows it: empty for the main agenda.
+ * @param id - The agenda id the API keeps.
+ * @returns The field's value.
+ */
+function editableCalendarId(id: string): string {
+  return id === PRIMARY_CALENDAR_ID ? '' : id
+}
+
 /** Send only the settings that changed. */
 function submit(): void {
   if (!hasChanges.value) return
@@ -233,7 +252,7 @@ watch(
     duration.value = saved.duration_minutes
     notice.value = saved.min_notice_hours
     typesText.value = saved.appointment_types.join('\n')
-    calendarId.value = saved.calendar_id
+    calendarId.value = editableCalendarId(saved.calendar_id)
   },
 )
 </script>
