@@ -3,11 +3,7 @@ prospecting video.
 """
 
 import logging
-import shutil
-import tempfile
-import zipfile
-from datetime import UTC, datetime
-from pathlib import Path
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -20,7 +16,6 @@ from api.v1.routes.ai_assistant_common import (
 from core.database import get_db
 from enums.ai_assistant_request import AiAssistantRequestType
 from enums.ai_assistant_status import AiAssistantStatus
-from enums.demo_video_status import DemoVideoStatus
 from models.ai_assistant import AiAssistant
 from models.prospect_db import ProspectDB
 from models.user import User
@@ -48,15 +43,12 @@ from services.assistant_video_service import (
     assistant_video_service,
     has_ready_video,
     public_thumbnail_url,
-    thumbnail_object_key,
-    video_object_key,
     video_page_url,
 )
 from services.auth_service import get_current_active_user
-from services.demo_video_service import reenqueue_campaigns_after_video_ready
 from services.email_variables import EmailVariables
 from services.presenter_video_service import presenter_video_service
-from services.r2_storage_service import r2_storage
+from services.video_pipeline import VideoGenerationError
 
 logger = logging.getLogger(__name__)
 
@@ -367,34 +359,12 @@ async def upload_assistant_video_final(
     here we push both to R2 and flip the status — the VPS never touches ffmpeg for a desktop build.
     """
     assistant = owned_assistant_or_404(db, assistant_id, user.id)
-
-    work_dir = Path(tempfile.mkdtemp(prefix=f"assistant-video-final-{assistant.slug}-"))
     try:
-        zip_path = work_dir / "bundle.zip"
-        with zip_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        video_path = work_dir / "video.mp4"
-        thumbnail_path = work_dir / "thumbnail.jpg"
-        try:
-            with zipfile.ZipFile(zip_path) as archive:
-                video_path.write_bytes(archive.read("video.mp4"))
-                thumbnail_path.write_bytes(archive.read("thumbnail.jpg"))
-        except (zipfile.BadZipFile, KeyError) as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Archive vidéo invalide (video.mp4 + thumbnail.jpg attendus).",
-            ) from exc
-
-        await r2_storage.upload_file_async(video_path, video_object_key(assistant.slug), "video/mp4")
-        await r2_storage.upload_file_async(thumbnail_path, thumbnail_object_key(assistant.slug), "image/jpeg")
-        assistant.video_status = DemoVideoStatus.READY.value
-        assistant.video_error = None
-        assistant.video_generated_at = datetime.now(UTC)
-        db.commit()
-        db.refresh(assistant)
-        reenqueue_campaigns_after_video_ready(db, assistant.prospect_id, user.id)
-    finally:
-        shutil.rmtree(work_dir, ignore_errors=True)
+        await assistant_video_service.store_desktop_video(db, assistant, file.file)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except VideoGenerationError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     return _to_full_owner_response(db, assistant)
 
 

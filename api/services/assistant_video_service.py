@@ -5,10 +5,9 @@ brief): the user's assistant-module presenter clip full-screen for the intro/out
 a screen capture of the demo page's chat **answering** — the scripted example plays (a customer writes,
 the receptionist asks for a photo and hands the request over), then the appointment slots open
 (:mod:`services.assistant_widget_scene`); when the clip leaves enough time, the last seconds switch to the
-example client space, where the requests land (:mod:`services.assistant_space_chapter`). It reuses the shared
-primitives both modules build on: the picture-in-picture ffmpeg montage (:mod:`services.video_montage`, the
-webcam bubble bottom-right so it never covers the chat) and the presenter/memory/semaphore helpers
-(:mod:`services.video_pipeline`). Only the *capture* and the *storage namespace* change.
+example client space, where the requests land (:mod:`services.assistant_space_chapter`). The webcam bubble sits
+bottom-right so it never covers the chat. Everything but the capture, the storage namespace and the wording is
+shared with the site video in :class:`services.prospection_video_service.ProspectionVideoService`.
 
 Rendering happens in a temp dir, then the mp4 + jpg go to Cloudflare R2
 (``videos/assistant/{slug}.mp4`` / ``images/assistant/{slug}.jpg``); the player page is the demo host's
@@ -19,32 +18,21 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import shutil
-import tempfile
 import time
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
-
-from sqlalchemy.orm import Session
 
 from core.config import settings
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.demo_video_status import DemoVideoStatus
 from models.ai_assistant import AiAssistant
-from models.presenter_video import PresenterVideo
-from services import video_montage, video_pipeline
+from services import video_montage
 from services.assistant_space_chapter import AssistantSpaceChapter
-from services.assistant_widget_scene import AssistantWidgetScene
-from services.demo_video_service import reenqueue_campaigns_after_video_ready
+from services.assistant_widget_scene import EXAMPLE_NOT_PLAYED_MESSAGE, AssistantWidgetScene
+from services.capture_page import CapturePage
+from services.prospection_video_service import CapturedSegment, ProspectionVideoService
 from services.r2_storage_service import r2_storage
-from services.video_pipeline import (
-    MIN_FREE_MEMORY_MB_FOR_CAPTURE,
-    MIN_FREE_MEMORY_MB_FOR_MONTAGE,
-    MIN_SCROLL_SECONDS,
-    VideoGenerationError,
-    generation_semaphore,
-    guard_memory,
-)
+from services.video_pipeline import VideoGenerationError
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +53,11 @@ def thumbnail_object_key(slug: str) -> str:
 def video_page_url(slug: str) -> str:
     """Public player page for the assistant's video."""
     return f"{settings.demo_host_base_url.rstrip('/')}/va/{slug}"
+
+
+def demo_page_url(slug: str) -> str:
+    """The assistant's demo page, the one its video films."""
+    return f"{settings.demo_host_base_url.rstrip('/')}/ia/{slug}"
 
 
 def public_video_file_url(slug: str) -> str:
@@ -93,212 +86,90 @@ def delete_files_for_slug(slug: str) -> None:
         logger.warning("[AssistantVideo] R2 cleanup failed for slug=%s", slug, exc_info=True)
 
 
-class AssistantVideoService:
-    """Generates and serves the AI assistant's prospection video."""
+class AssistantVideoService(ProspectionVideoService[AiAssistant]):
+    """The prospection video of a receptionist: its capture (the chat answering, then the client space) and its files."""
 
-    def request_generation(self, db: Session, assistant: AiAssistant, user_id: int) -> AiAssistant:
-        """Validate and start a background generation for an assistant.
+    subject_model = AiAssistant
+    kind = "assistant"
+    presenter_module = ASSISTANT_PRESENTER_MODULE
+    shown_subject = "la réceptionniste"
+    already_running_message = "Une génération est déjà en cours pour cette réceptionniste."
+    missing_presenter_message = (
+        "Aucun clip de présentation pour la réceptionniste. Enregistrez d'abord votre vidéo webcam "
+        "« réceptionniste » dans les paramètres."
+    )
+    thumbnail_label = video_montage.THUMBNAIL_LABEL_ASSISTANT
+    pip_corner = video_montage.PIP_CORNER_RIGHT
+
+    def _check_can_generate(self, assistant: AiAssistant) -> None:
+        """
+        Refuse a receptionist that is not active.
 
         Args:
-            db: Active database session.
-            assistant: The assistant to make a video for.
-            user_id: Owner (used to fetch the assistant-module presenter clip).
-
-        Returns:
-            The assistant with ``video_status`` set to ``pending``.
+            assistant: The receptionist.
 
         Raises:
-            ValueError: when the assistant or presenter clip is not ready.
+            ValueError: with the reason the dashboard shows.
         """
-        from services.presenter_video_service import presenter_video_service
-
         if assistant.status != AiAssistantStatus.ACTIVE.value:
             raise ValueError("La vidéo ne peut être générée que pour une réceptionniste active.")
-        if assistant.video_status in (DemoVideoStatus.PENDING.value, DemoVideoStatus.GENERATING.value):
-            raise ValueError("Une génération est déjà en cours pour cet assistant.")
 
-        presenter = presenter_video_service.get_for_user(db, user_id, ASSISTANT_PRESENTER_MODULE)
-        if presenter is None:
-            raise ValueError(
-                "Aucun clip de présentation pour la réceptionniste. Enregistrez d'abord votre vidéo webcam "
-                "« réceptionniste » dans les paramètres."
-            )
-        middle_seconds = presenter.duration_seconds - presenter.intro_seconds - presenter.outro_seconds
-        if middle_seconds < MIN_SCROLL_SECONDS:
-            raise ValueError(
-                "Intro + outro trop longues : il reste "
-                f"{middle_seconds:.0f}s pour montrer la réceptionniste (minimum {MIN_SCROLL_SECONDS:.0f}s)."
-            )
-
-        assistant.video_status = DemoVideoStatus.PENDING.value
-        assistant.video_error = None
-        db.commit()
-        db.refresh(assistant)
-
-        asyncio.create_task(self._run_generation(assistant.id, user_id))
-        return assistant
-
-    def maybe_start_auto_generation(self, db: Session, assistant: AiAssistant, user_id: int) -> bool:
+    def _video_key(self, slug: str) -> str:
         """
-        Best-effort auto-generation hook, called right after an assistant is created.
-
-        Fires only when the user has an assistant-module presenter clip with ``auto_generate``
-        enabled; never raises (a video failure must not fail assistant creation).
+        The R2 key of the receptionist video.
 
         Args:
-            db: Active database session.
-            assistant: The freshly created assistant.
-            user_id: Owner (used to fetch the assistant-module presenter clip).
+            slug: The receptionist's slug.
 
         Returns:
-            True when a generation was started.
+            The object key.
         """
-        from services.presenter_video_service import presenter_video_service
+        return video_object_key(slug)
 
-        try:
-            presenter = presenter_video_service.get_for_user(db, user_id, ASSISTANT_PRESENTER_MODULE)
-            if presenter is None or not presenter.auto_generate:
-                return False
-            self.request_generation(db, assistant, user_id)
-            logger.info("Auto assistant video generation started for slug=%s", assistant.slug)
-            return True
-        except ValueError as exc:
-            logger.info("Auto assistant video generation skipped for slug=%s: %s", assistant.slug, exc)
-            return False
-        except Exception:
-            logger.exception("Auto assistant video generation hook failed for slug=%s", assistant.slug)
-            return False
+    def _thumbnail_key(self, slug: str) -> str:
+        """
+        The R2 key of the receptionist video's email thumbnail.
 
-    def reconcile_orphaned(self, db: Session) -> int:
-        """Mark assistants left mid-generation as failed (called once at startup)."""
-        orphaned = (
-            db.query(AiAssistant)
-            .filter(AiAssistant.video_status.in_([DemoVideoStatus.PENDING.value, DemoVideoStatus.GENERATING.value]))
-            .all()
+        Args:
+            slug: The receptionist's slug.
+
+        Returns:
+            The object key.
+        """
+        return thumbnail_object_key(slug)
+
+    def _delete_files(self, slug: str) -> None:
+        """
+        Delete the receptionist video's files.
+
+        Args:
+            slug: The receptionist's slug.
+        """
+        delete_files_for_slug(slug)
+
+    async def _capture_middle(self, assistant: AiAssistant, middle_seconds: float, work_dir: Path) -> CapturedSegment:
+        """
+        Record the receptionist's demo page in a headless browser (the VPS path: nothing needs the owner's session).
+
+        Args:
+            assistant: The receptionist.
+            middle_seconds: How long the middle lasts.
+            work_dir: The generation's temporary folder.
+
+        Returns:
+            The recording and the chat still.
+
+        Raises:
+            VideoGenerationError: when the box is low on memory, the page cannot be captured or the example did
+                not play.
+        """
+        self._guard_capture_memory()
+        return await asyncio.to_thread(
+            self._capture_assistant_sync, demo_page_url(assistant.slug), middle_seconds, work_dir
         )
-        for assistant in orphaned:
-            assistant.video_status = DemoVideoStatus.FAILED.value
-            assistant.video_error = "Génération interrompue (redémarrage du serveur) — relancez-la."
-        if orphaned:
-            db.commit()
-        return len(orphaned)
 
     @staticmethod
-    def purge_video(assistant: AiAssistant) -> None:
-        """Delete the generated video files and reset the assistant's video state, left for the caller to commit."""
-        delete_files_for_slug(assistant.slug)
-        assistant.video_status = None
-        assistant.video_error = None
-        assistant.video_generated_at = None
-
-    def clear_video(self, db: Session, assistant: AiAssistant) -> AiAssistant:
-        """Delete the generated video files and reset the assistant's video state."""
-        self.purge_video(assistant)
-        db.commit()
-        db.refresh(assistant)
-        return assistant
-
-    async def _run_generation(self, assistant_id: int, user_id: int) -> None:
-        """Background task: own DB session, serialized by the shared generation semaphore."""
-        from core.database import SessionLocal
-        from services.presenter_video_service import presenter_video_service
-
-        async with generation_semaphore:
-            db: Session = SessionLocal()
-            try:
-                assistant = db.query(AiAssistant).filter(AiAssistant.id == assistant_id).first()
-                if assistant is None:
-                    return
-                presenter = presenter_video_service.get_for_user(db, user_id, ASSISTANT_PRESENTER_MODULE)
-                if presenter is None:
-                    assistant.video_status = DemoVideoStatus.FAILED.value
-                    assistant.video_error = "Aucun clip de présentation « réceptionniste » configuré."
-                    db.commit()
-                    return
-
-                assistant.video_status = DemoVideoStatus.GENERATING.value
-                db.commit()
-
-                first_name = video_pipeline.resolve_first_name(db, assistant.prospect_id)
-                source_dir = Path(tempfile.mkdtemp(prefix=f"assistant-presenter-src-{user_id}-"))
-                try:
-                    presenter_path = await video_pipeline.resolve_presenter_file(presenter, source_dir)
-                    photo_path = await video_pipeline.resolve_presenter_photo(db, user_id, source_dir)
-                    await self._generate(assistant, presenter, presenter_path, first_name, photo_path)
-                except VideoGenerationError as exc:
-                    assistant.video_status = DemoVideoStatus.FAILED.value
-                    assistant.video_error = str(exc)[:1000]
-                    db.commit()
-                    logger.warning("Assistant video generation failed for slug=%s: %s", assistant.slug, exc)
-                    return
-                except Exception as exc:
-                    assistant.video_status = DemoVideoStatus.FAILED.value
-                    assistant.video_error = f"Erreur inattendue : {exc}"[:1000]
-                    db.commit()
-                    logger.exception("Assistant video generation crashed for slug=%s", assistant.slug)
-                    return
-                finally:
-                    shutil.rmtree(source_dir, ignore_errors=True)
-
-                assistant.video_status = DemoVideoStatus.READY.value
-                assistant.video_error = None
-                assistant.video_generated_at = datetime.now(UTC)
-                db.commit()
-                logger.info("Assistant prospection video ready for slug=%s", assistant.slug)
-                # A video-only campaign skipped this prospect at launch: the finished video lets it in now.
-                reenqueue_campaigns_after_video_ready(db, assistant.prospect_id, user_id)
-            finally:
-                db.close()
-
-    async def _generate(
-        self,
-        assistant: AiAssistant,
-        presenter: PresenterVideo,
-        presenter_path: Path,
-        first_name: str | None,
-        presenter_photo_path: Path | None,
-    ) -> None:
-        """Capture the widget answering, compose the video, build the thumbnail, publish to R2."""
-        middle_seconds = presenter.duration_seconds - presenter.intro_seconds - presenter.outro_seconds
-        work_dir = Path(tempfile.mkdtemp(prefix=f"assistant-video-{assistant.slug}-"))
-        try:
-            guard_memory(MIN_FREE_MEMORY_MB_FOR_CAPTURE, "générer")
-            demo_url = f"{settings.demo_host_base_url.rstrip('/')}/ia/{assistant.slug}"
-            capture_path, scroll_offset, screenshot_path = await asyncio.to_thread(
-                self._capture_assistant_sync, demo_url, middle_seconds, work_dir
-            )
-
-            output_path = work_dir / "output.mp4"
-            thumbnail_path = work_dir / "thumbnail.jpg"
-            guard_memory(MIN_FREE_MEMORY_MB_FOR_MONTAGE, "assembler")
-            try:
-                await asyncio.to_thread(
-                    video_montage.compose_final,
-                    ffmpeg_path=settings.ffmpeg_path,
-                    presenter_duration=presenter.duration_seconds,
-                    presenter_intro=presenter.intro_seconds,
-                    presenter_outro=presenter.outro_seconds,
-                    presenter_path=presenter_path,
-                    capture_path=capture_path,
-                    scroll_offset=scroll_offset,
-                    scroll_seconds=middle_seconds,
-                    first_name=first_name,
-                    screenshot_path=screenshot_path,
-                    output_video=output_path,
-                    output_thumbnail=thumbnail_path,
-                    presenter_photo_path=presenter_photo_path,
-                    thumbnail_label=video_montage.THUMBNAIL_LABEL_ASSISTANT,
-                    pip_corner=video_montage.PIP_CORNER_RIGHT,
-                )
-            except video_montage.VideoMontageError as exc:
-                raise VideoGenerationError(str(exc)) from exc
-
-            await r2_storage.upload_file_async(output_path, video_object_key(assistant.slug), "video/mp4")
-            await r2_storage.upload_file_async(thumbnail_path, thumbnail_object_key(assistant.slug), "image/jpeg")
-        finally:
-            shutil.rmtree(work_dir, ignore_errors=True)
-
-    def _capture_assistant_sync(self, url: str, seconds: float, work_dir: Path) -> tuple[Path, float, Path]:
+    def _capture_assistant_sync(url: str, seconds: float, work_dir: Path) -> CapturedSegment:
         """Blocking Playwright capture: the chat framed, the scripted example, the appointment slots, then the space.
 
         Uses Playwright's SYNC API in a worker thread (a plain thread has no event loop, so spawning
@@ -311,10 +182,10 @@ class AssistantVideoService:
             work_dir: Temp directory receiving the recording + screenshot.
 
         Returns:
-            (capture webm path, offset of the interaction start inside the recording, screenshot path).
+            The recording, the offset of the interaction start inside it, and the chat screenshot.
 
         Raises:
-            VideoGenerationError: when the page cannot be captured.
+            VideoGenerationError: when the page cannot be captured or the example did not play.
         """
         try:
             from playwright.sync_api import sync_playwright
@@ -324,7 +195,6 @@ class AssistantVideoService:
             ) from exc
 
         screenshot_path = work_dir / "top.png"
-        internal_url = url + ("&" if "?" in url else "?") + "internal=1"
         try:
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(headless=True)
@@ -338,10 +208,7 @@ class AssistantVideoService:
                 page = context.new_page()
                 recording_start = time.monotonic()
 
-                try:
-                    page.goto(internal_url, wait_until="networkidle", timeout=45000)
-                except Exception:
-                    page.goto(internal_url, wait_until="load", timeout=45000)
+                CapturePage.open(page, CapturePage.internal_url(url))
                 page.wait_for_timeout(1200)
 
                 # Frame the chat whole, then screenshot it before the scene (the product, for the thumbnail).
@@ -362,6 +229,8 @@ class AssistantVideoService:
                 AssistantWidgetScene.play_in_real_time(
                     page, AssistantWidgetScene.plan(seconds, widget_seconds), scene_start, widget_seconds
                 )
+                if not AssistantWidgetScene.has_played_example(page):
+                    raise VideoGenerationError(EXAMPLE_NOT_PLAYED_MESSAGE)
 
                 # The last chapter: the example space, scrolled to the requests. Never fails the video.
                 if chapter_seconds > 0:
@@ -379,7 +248,7 @@ class AssistantVideoService:
                 browser.close()
                 if video is None:
                     raise VideoGenerationError("Playwright n'a pas produit d'enregistrement vidéo.")
-                capture_path = Path(video.path())
+                recording_path = Path(video.path())
         except VideoGenerationError:
             raise
         except Exception as exc:
@@ -387,7 +256,9 @@ class AssistantVideoService:
 
         if not screenshot_path.is_file():
             raise VideoGenerationError("La capture d'écran de la réceptionniste est introuvable.")
-        return capture_path, scroll_offset, screenshot_path
+        return CapturedSegment(
+            recording_path=recording_path, start_seconds=scroll_offset, screenshot_path=screenshot_path
+        )
 
 
 assistant_video_service = AssistantVideoService()

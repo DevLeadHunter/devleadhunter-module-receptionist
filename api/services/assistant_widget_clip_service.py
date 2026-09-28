@@ -19,17 +19,16 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-import subprocess
 import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from services import video_montage
 from services.assistant_space_chapter import AssistantSpaceChapter
-from services.assistant_widget_scene import AssistantSceneProgress, AssistantWidgetScene
+from services.assistant_widget_scene import EXAMPLE_NOT_PLAYED_MESSAGE, AssistantSceneProgress, AssistantWidgetScene
+from services.capture_page import CapturePage
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +86,8 @@ class AssistantWidgetClipService:
             ``(output_path, screenshot_path)``.
 
         Raises:
-            AssistantWidgetClipError: when Playwright is missing or the widget cannot be captured.
+            AssistantWidgetClipError: when Playwright is missing, the widget cannot be captured, the example did not
+                play or ffmpeg fails.
         """
         try:
             from playwright.sync_api import sync_playwright  # noqa: F401
@@ -151,7 +151,12 @@ class AssistantWidgetClipService:
         out_height: int,
         fps: int,
     ) -> CapturedFrames:
-        """Screenshot the widget scene against the clock, then the space chapter frame by frame."""
+        """
+        Screenshot the widget scene against the clock, then the space chapter frame by frame.
+
+        Raises:
+            AssistantWidgetClipError: when the page, the chat or the example cannot be filmed.
+        """
         from playwright.sync_api import sync_playwright
 
         chapter_seconds = AssistantSpaceChapter.seconds_for(total_seconds)
@@ -159,17 +164,13 @@ class AssistantWidgetClipService:
         chapter_frame_count = round(fps * chapter_seconds)
         plan = AssistantWidgetScene.plan(total_seconds, widget_seconds)
         frames = CapturedFrames(widget_seconds=widget_seconds)
-        internal_url = self._as_internal_url(demo_url)
         try:
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(headless=True, executable_path=executable_path)
                 # Open the widget in French — the sales video speaks the prospection language.
                 context = browser.new_context(viewport={"width": out_width, "height": out_height}, locale="fr-FR")
                 page = context.new_page()
-                try:
-                    page.goto(internal_url, wait_until="networkidle", timeout=45000)
-                except Exception:
-                    page.goto(internal_url, wait_until="load", timeout=45000)
+                CapturePage.open(page, CapturePage.internal_url(demo_url))
                 page.wait_for_timeout(1000)
 
                 try:
@@ -191,6 +192,8 @@ class AssistantWidgetClipService:
                     ahead_seconds = started + len(frames.widget) / fps - time.monotonic()
                     if ahead_seconds > 0:
                         page.wait_for_timeout(ahead_seconds * 1000)
+                if not AssistantWidgetScene.has_played_example(page):
+                    raise AssistantWidgetClipError(EXAMPLE_NOT_PLAYED_MESSAGE)
 
                 # The last chapter: the example space, scrolled to the requests (the widget holds when it fails).
                 target: int | None = None
@@ -223,41 +226,38 @@ class AssistantWidgetClipService:
     def _assemble(
         self, frames_dir: Path, output_path: Path, out_width: int, out_height: int, fps: int, total_seconds: float
     ) -> None:
-        """Assemble the timed screenshots into a constant-rate mp4 with the system ffmpeg (idle cores, low priority)."""
-        args = [
-            self._ffmpeg,
-            "-y",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            str(frames_dir / _LISTING_NAME),
-            "-vf",
-            f"fps={fps},scale={out_width}:{out_height}",
-            "-t",
-            f"{total_seconds:.3f}",
-            *video_montage.x264_encode_flags(fps),
-            # Desktop: every idle core, below-normal priority — keeps the user's PC responsive.
-            "-threads",
-            video_montage.FFMPEG_THREADS_AUTO,
-            str(output_path),
-        ]
-        command, run_kwargs = video_montage.as_background_priority_process(args)
-        result = subprocess.run(command, capture_output=True, text=True, **run_kwargs)
-        if result.returncode != 0:
-            raise AssistantWidgetClipError(f"ffmpeg a échoué : {result.stderr[-400:]}")
+        """
+        Assemble the timed screenshots into a constant-rate mp4 with the system ffmpeg (idle cores, low priority).
 
-    @staticmethod
-    def _as_internal_url(url: str) -> str:
-        """Add ``internal=1`` so a capture visit is excluded from tracking/notifications."""
-        parts = urlparse(url)
-        query = dict(parse_qsl(parts.query))
-        query["internal"] = "1"
-        return urlunparse(parts._replace(query=urlencode(query)))
+        Raises:
+            AssistantWidgetClipError: when ffmpeg fails.
+        """
+        try:
+            video_montage.run_ffmpeg(
+                self._ffmpeg,
+                [
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "concat",
+                    "-safe",
+                    "0",
+                    "-i",
+                    str(frames_dir / _LISTING_NAME),
+                    "-vf",
+                    f"fps={fps},scale={out_width}:{out_height}",
+                    "-t",
+                    f"{total_seconds:.3f}",
+                    *video_montage.x264_encode_flags(fps),
+                    # Desktop: every idle core, below-normal priority — keeps the user's PC responsive.
+                    "-threads",
+                    video_montage.FFMPEG_THREADS_AUTO,
+                    str(output_path),
+                ],
+            )
+        except video_montage.VideoMontageError as exc:
+            raise AssistantWidgetClipError(str(exc)) from exc
 
 
 assistant_widget_clip_service = AssistantWidgetClipService()

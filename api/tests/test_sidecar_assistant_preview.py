@@ -23,9 +23,17 @@ def _run_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, slug: str, is
     monkeypatch.setattr(assistant_widget_clip_service, "build_widget_clip", fake_capture)
     monkeypatch.setattr(sidecar, "_compose_desktop_montage", fake_montage)
     monkeypatch.setattr(sidecar, "_chrome_path", "chrome.exe")
-    data = {"demo_url": f"https://demo.dibodev.fr/ia/{slug}", "total_seconds": 30, "preview": is_preview}
+    request = sidecar.DesktopVideoBuildRequest(
+        slug=slug,
+        demo_url=f"https://demo.dibodev.fr/ia/{slug}",
+        total_seconds=30,
+        presenter_duration=45,
+        presenter_intro=5,
+        presenter_outro=10,
+        preview=is_preview,
+    )
 
-    asyncio.run(sidecar._run_assistant_video_build(data, slug, tmp_path))
+    asyncio.run(sidecar._run_assistant_video_build(request, tmp_path))
 
     assert sidecar._VIDEO_BUILD_PROGRESS[slug]["step"] == "done"
     return sidecar._VIDEO_BUILD_RESULTS.pop(slug)

@@ -12,6 +12,8 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
+from services.assistant_capture_contract import CLIENT_HOME_SELECTOR, EXAMPLE_BANNER_SELECTOR, REQUEST_ROW_SELECTOR
+from services.capture_page import CapturePage
 from services.video_pipeline import MIN_SCROLL_SECONDS
 
 # How long the chapter lasts, and the shortest widget scene it may follow.
@@ -21,11 +23,9 @@ _HOLD_BEFORE_SCROLL = 0.17
 _SCROLL_UNTIL = 0.6
 # Where the latest requests land under the top of the viewport: their « Dernières demandes » title stays in view.
 _CARD_TOP_MARGIN_PX = 100
+_OPENING_TIMEOUT_MS = 30000
 # The example banner is for the visitor, not for the video.
-_HIDE_BANNER_CSS = ".cs-example{display:none !important}"
-# The space's home screen, and one row of its latest requests (the block the chapter scrolls to).
-_HOME_SELECTOR = ".cs-home"
-_REQUEST_ROW_SELECTOR = ".cs-home .cs-row"
+_HIDE_BANNER_CSS = f"{EXAMPLE_BANNER_SELECTOR} {{ display: none !important; }}"
 
 
 class AssistantSpaceChapter:
@@ -91,11 +91,8 @@ class AssistantSpaceChapter:
         Returns:
             The scroll that puts the latest requests under the top of the viewport.
         """
-        try:
-            page.goto(url, wait_until="networkidle", timeout=30000)
-        except Exception:
-            page.goto(url, wait_until="load", timeout=30000)
-        page.wait_for_selector(_HOME_SELECTOR, timeout=15000)
+        CapturePage.open(page, url, _OPENING_TIMEOUT_MS)
+        page.wait_for_selector(CLIENT_HOME_SELECTOR, timeout=15000)
         page.add_style_tag(content=_HIDE_BANNER_CSS)
         page.evaluate("window.scrollTo(0, 0)")
         page.wait_for_timeout(300)
@@ -103,7 +100,7 @@ class AssistantSpaceChapter:
             "([selector, margin]) => { const row = document.querySelector(selector);"
             " const block = row && row.parentElement;"
             " return block ? Math.max(0, Math.round(block.getBoundingClientRect().top + window.scrollY - margin)) : 0; }",
-            [_REQUEST_ROW_SELECTOR, _CARD_TOP_MARGIN_PX],
+            [REQUEST_ROW_SELECTOR, _CARD_TOP_MARGIN_PX],
         )
         return int(target or 0)
 
