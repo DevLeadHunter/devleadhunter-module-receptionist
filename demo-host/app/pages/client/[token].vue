@@ -97,11 +97,7 @@
               @back="closeDetail"
             />
             <div v-else-if="isDetailOpen" class="cs-split__placeholder">
-              <header class="cs-bar">
-                <button type="button" class="cs-bar__back" @click="closeDetail">
-                  <ClientSpaceIcon name="chevron-left" />Demandes
-                </button>
-              </header>
+              <ClientSpaceBackBar back-label="Demandes" @back="closeDetail" />
               <p class="cs-muted cs-split__hint">Cette demande n’est plus dans la liste.</p>
             </div>
             <p v-else class="cs-muted cs-split__hint">Ouvrez une demande pour la lire et rappeler.</p>
@@ -133,12 +129,7 @@
             @open-questions="openSection('requests')"
           />
           <div v-else class="cs-screen">
-            <header class="cs-bar">
-              <button type="button" class="cs-bar__back" @click="closeDetail">
-                <ClientSpaceIcon name="chevron-left" />Réglages
-              </button>
-              <span class="cs-bar__title cs-bar__title--center">{{ settingsTitle }}</span>
-            </header>
+            <ClientSpaceBackBar back-label="Réglages" :title="settingsTitle" @back="closeDetail" />
 
             <ClientSpaceSettings
               v-if="location.settingsScreen === 'assistant' || location.settingsScreen === 'alerts'"
@@ -179,180 +170,35 @@
               :assistant-name="space.assistant_name"
             />
 
-            <div v-else-if="location.settingsScreen === 'subscription'" class="cs-screen__body">
-              <p class="cs-sec">Votre abonnement</p>
-              <div class="cs-block">
-                <p v-if="!space.subscription" class="cs-text cs-text--dim">Aucun abonnement enregistré.</p>
-                <template v-else>
-                  <p class="cs-text">
-                    <b>{{ space.subscription.price_label }}</b> · {{ subscriptionLabel }}
-                    <template v-if="periodLine"><br />{{ periodLine }}</template>
-                  </p>
-                  <div v-if="space.subscription.can_manage && !isExample" class="cs-screen__actions">
-                    <button type="button" class="cs-btn" :disabled="isOpeningBillingPortal" @click="openBillingPortal">
-                      <ClientSpaceIcon name="external-link" />
-                      {{ isOpeningBillingPortal ? 'Ouverture…' : 'Factures, carte bancaire, résiliation' }}
-                    </button>
-                    <p v-if="billingPortalError" class="cs-notice cs-notice--error">{{ billingPortalError }}</p>
-                  </div>
-                </template>
-              </div>
-              <p class="cs-sec">Bon à savoir</p>
-              <div class="cs-block">
-                <p class="cs-text cs-text--dim">
-                  Sans engagement : la résiliation prend effet à la fin du mois en cours. Le premier mois est satisfait
-                  ou remboursé.
-                </p>
-              </div>
-            </div>
+            <ClientSpaceSubscription
+              v-else-if="location.settingsScreen === 'subscription'"
+              :subscription="space.subscription"
+              :is-opening-billing-portal="isOpeningBillingPortal"
+              :billing-portal-error="billingPortalError"
+              :read-only="isExample"
+              @open-billing-portal="openBillingPortal"
+            />
 
-            <div v-else-if="location.settingsScreen === 'google' && space.google_profile" class="cs-screen__body">
-              <p class="cs-sec">L’adresse de {{ space.assistant_name }}</p>
-              <div class="cs-block">
-                <p class="cs-text">
-                  Sur votre fiche Google, deux boutons peuvent mener à {{ space.assistant_name }} : « Site web » et «
-                  Prendre rendez-vous ». Collez-y cette adresse : vos clients y arrivent en un geste, même sans site.
-                </p>
-                <pre class="cs-code">{{ space.google_profile.page_url }}</pre>
-                <div class="cs-screen__actions">
-                  <button type="button" class="cs-btn" @click="copyText(space.google_profile.page_url, 'link')">
-                    <ClientSpaceIcon :name="copiedKey === 'link' ? 'check' : 'code'" />
-                    {{ copiedKey === 'link' ? 'Copiée' : 'Copier l’adresse' }}
-                  </button>
-                </div>
-              </div>
-              <p class="cs-sec">Où la coller</p>
-              <div class="cs-block">
-                <ol class="cs-steps">
-                  <li>
-                    Cherchez votre entreprise sur Google, connecté au compte qui gère la fiche, puis « Modifier le
-                    profil ».
-                  </li>
-                  <li>Dans « Coordonnées », champ « Site web » : collez l’adresse.</li>
-                  <li>
-                    Dans « Réservations » (ou « Lien de rendez-vous »), collez la même adresse, puis enregistrez. Google
-                    l’affiche en quelques minutes.
-                  </li>
-                </ol>
-                <label class="cs-check">
-                  <input
-                    type="checkbox"
-                    :checked="space.google_profile.is_linked"
-                    :disabled="isSavingGoogleProfile || isExample"
-                    @change="setGoogleProfileLinked(($event.target as HTMLInputElement).checked)"
-                  />
-                  <span>
-                    <b>C’est fait, l’adresse est sur ma fiche</b>
-                    <span>{{
-                      space.google_profile.is_linked && space.google_profile.linked_at_label
-                        ? `Posée le ${space.google_profile.linked_at_label}.`
-                        : 'Cochez quand c’est fait : l’étape passe en vert sur votre accueil.'
-                    }}</span>
-                  </span>
-                </label>
-                <p v-if="googleProfileError" class="cs-notice cs-notice--error">{{ googleProfileError }}</p>
-              </div>
-              <p class="cs-sec">Votre messagerie vocale</p>
-              <div class="cs-block">
-                <p class="cs-text cs-text--dim">
-                  Un appel manqué peut encore aboutir : enregistrez ce message, il renvoie vers
-                  {{ space.assistant_name }}.
-                </p>
-                <pre class="cs-code cs-code--prose">{{ space.google_profile.voicemail_text }}</pre>
-                <div class="cs-screen__actions">
-                  <button
-                    type="button"
-                    class="cs-btn"
-                    @click="copyText(space.google_profile.voicemail_text, 'voicemail')"
-                  >
-                    <ClientSpaceIcon :name="copiedKey === 'voicemail' ? 'check' : 'message-square'" />
-                    {{ copiedKey === 'voicemail' ? 'Copié' : 'Copier le message' }}
-                  </button>
-                </div>
-              </div>
-              <p class="cs-sec">QR à imprimer</p>
-              <div class="cs-block">
-                <p class="cs-text cs-text--dim">Carte de visite, camionnette, devis : la même adresse, à scanner.</p>
-                <!-- eslint-disable-next-line vue/no-v-html -->
-                <div class="cs-qr" v-html="space.google_profile.qr_svg"></div>
-                <div class="cs-screen__actions">
-                  <a class="cs-btn" :href="qrDownloadHref" :download="`qr-${space.assistant_name}.svg`">
-                    <ClientSpaceIcon name="image" />Télécharger le QR
-                  </a>
-                </div>
-              </div>
-            </div>
+            <ClientSpaceGoogleProfile
+              v-else-if="location.settingsScreen === 'google' && space.google_profile"
+              :google-profile="space.google_profile"
+              :assistant-name="space.assistant_name"
+              :is-saving="isSavingGoogleProfile"
+              :error-message="googleProfileError"
+              :read-only="isExample"
+              @linked="setGoogleProfileLinked"
+            />
 
-            <div v-else-if="location.settingsScreen === 'install'" class="cs-screen__body">
-              <p v-if="space.installed" class="cs-notice cs-notice--ok">
-                Installée sur {{ space.installed.host }}, vue le {{ space.installed.seen_label }}.
-              </p>
-              <p class="cs-sec">La ligne à coller</p>
-              <div class="cs-block">
-                <p class="cs-text">
-                  Collez cette ligne sur votre site, juste avant la fin de chaque page (la balise
-                  <code>{{ BODY_END_TAG }}</code
-                  >) : {{ space.assistant_name }} apparaît en bas à droite.
-                </p>
-                <pre class="cs-code">{{ space.embed_snippet }}</pre>
-                <div class="cs-screen__actions">
-                  <button type="button" class="cs-btn" @click="copyText(space.embed_snippet ?? '', 'snippet')">
-                    <ClientSpaceIcon :name="copiedKey === 'snippet' ? 'check' : 'code'" />
-                    {{ copiedKey === 'snippet' ? 'Copiée' : 'Copier la ligne' }}
-                  </button>
-                </div>
-              </div>
-              <p class="cs-sec">Ou à envoyer</p>
-              <div class="cs-block">
-                <p class="cs-text cs-text--dim">
-                  Quelqu’un s’occupe de votre site (une agence, un proche, votre prestataire) ? Envoyez-lui la ligne.
-                  Vous pouvez aussi répondre à l’un de nos emails : on l’installe avec vous.
-                </p>
-                <div class="cs-screen__actions">
-                  <a class="cs-btn" :href="snippetMailto"><ClientSpaceIcon name="mail" />Envoyer par email</a>
-                </div>
-              </div>
-              <p class="cs-sec">Vérifier</p>
-              <div class="cs-block">
-                <p class="cs-text cs-text--dim">
-                  Ouvrez votre site : la bulle de {{ space.assistant_name }} doit apparaître en bas à droite de chaque
-                  page. Testez-la comme un client et laissez votre numéro : la demande arrive ici, et par SMS.
-                </p>
-                <div v-if="space.website_url" class="cs-screen__actions">
-                  <a class="cs-btn" :href="space.website_url" target="_blank" rel="noopener">
-                    <ClientSpaceIcon name="external-link" />Ouvrir votre site
-                  </a>
-                </div>
-              </div>
-            </div>
+            <ClientSpaceInstallGuide
+              v-else-if="location.settingsScreen === 'install'"
+              :installed="space.installed"
+              :embed-snippet="space.embed_snippet"
+              :website-url="space.website_url"
+              :assistant-name="space.assistant_name"
+              :business-name="space.business_name"
+            />
 
-            <div v-else class="cs-screen__body">
-              <p class="cs-sec">Une question ?</p>
-              <div class="cs-block">
-                <p class="cs-text">
-                  Répondez à l’un des emails que vous avez reçus de nous, ou écrivez-nous depuis l’adresse de votre
-                  entreprise : on vous répond en personne, généralement dans la journée.
-                </p>
-              </div>
-              <p class="cs-sec">Votre lien</p>
-              <div class="cs-block">
-                <p class="cs-text cs-text--dim">
-                  <template v-if="isExample">Cet exemple n’a pas de lien personnel.</template>
-                  <template v-else>
-                    Ce lien personnel se prolonge à chaque ouverture : tant que vous l’ouvrez au moins une fois par
-                    mois, il reste valable (pour l’instant jusqu’au {{ space.link_expires_label }}). Il donne accès à
-                    vos demandes : ne le transférez pas. S’il expire, vous en recevez un nouveau par email.
-                  </template>
-                </p>
-              </div>
-              <p class="cs-sec">Sur votre téléphone</p>
-              <div class="cs-block">
-                <p class="cs-text cs-text--dim">
-                  Ajoutez cette page à l’écran d’accueil de votre téléphone (bouton Partager, puis « Sur l’écran
-                  d’accueil ») : vous retrouvez vos demandes d’un geste, comme une application.
-                </p>
-              </div>
-            </div>
+            <ClientSpaceHelp v-else :is-example="isExample" :link-expires-label="space.link_expires_label" />
           </div>
         </template>
       </div>
@@ -374,19 +220,15 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type {
   AiAssistantClientRequest,
   AiAssistantClientSpaceLoad,
-  AiAssistantClientSubscription,
-  AiAssistantClientSubscriptionStatus,
   AiAssistantClientUnansweredEntry,
 } from '~/types/AiAssistantClientSpace'
 import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
 import type { ClientSpaceSettingsScreen } from '~/types/ClientSpaceNavigation'
 import type { UseClientSpaceCalendarReturn } from '~/types/UseClientSpaceCalendar'
-import type { UseClientSpaceClipboardReturn } from '~/types/UseClientSpaceClipboard'
 import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
 import type { UseClientSpaceRequestsReturn } from '~/types/UseClientSpaceRequests'
 import type { UseClientSpaceSettingsReturn } from '~/types/UseClientSpaceSettings'
 import { useClientSpaceCalendar } from '~/composables/useClientSpaceCalendar'
-import { useClientSpaceClipboard } from '~/composables/useClientSpaceClipboard'
 import { useClientSpaceLink } from '~/composables/useClientSpaceLink'
 import { useClientSpaceNavigation } from '~/composables/useClientSpaceNavigation'
 import { useClientSpaceRequests } from '~/composables/useClientSpaceRequests'
@@ -458,8 +300,6 @@ const {
   disconnectCalendar,
 }: UseClientSpaceCalendarReturn = useClientSpaceCalendar(link)
 
-const { copiedKey, copyText }: UseClientSpaceClipboardReturn = useClientSpaceClipboard()
-
 useHead({
   title: computed((): string => (space.value ? `Espace client · ${space.value.business_name}` : 'Espace client')),
   meta: [
@@ -467,13 +307,6 @@ useHead({
     { name: 'referrer', content: 'no-referrer' },
   ],
 })
-
-const SUBSCRIPTION_LABELS: Record<AiAssistantClientSubscriptionStatus, string> = {
-  incomplete: 'en attente',
-  active: 'actif',
-  past_due: 'paiement en attente',
-  canceled: 'résilié',
-}
 
 const SETTINGS_TITLES: Record<ClientSpaceSettingsScreen, string> = {
   assistant: 'Votre réceptionniste',
@@ -489,9 +322,6 @@ const SETTINGS_TITLES: Record<ClientSpaceSettingsScreen, string> = {
 
 /** From this width, the sidebar replaces the tab bar and a request opens beside the list. */
 const WIDE_QUERY: string = '(min-width: 1024px)'
-
-/** The tag the line to paste goes before, shown as text (a template cannot carry it as markup). */
-const BODY_END_TAG: string = '</body>'
 
 let wideQuery: MediaQueryList | null = null
 
@@ -564,37 +394,6 @@ const topTitle: ComputedRef<string> = computed((): string => {
 const settingsTitle: ComputedRef<string> = computed((): string =>
   location.value.settingsScreen ? SETTINGS_TITLES[location.value.settingsScreen] : '',
 )
-
-const subscriptionLabel: ComputedRef<string> = computed((): string =>
-  space.value?.subscription ? SUBSCRIPTION_LABELS[space.value.subscription.status] : '',
-)
-
-const periodLine: ComputedRef<string> = computed((): string => {
-  const subscription: AiAssistantClientSubscription | null = space.value?.subscription ?? null
-  if (!subscription?.period_end_label) return ''
-  if (subscription.status === 'canceled' || subscription.cancel_scheduled) {
-    return `Résiliation prévue, accès jusqu’au ${subscription.period_end_label}.`
-  }
-  if (subscription.status === 'past_due') return `Échéance du ${subscription.period_end_label}.`
-  return `Prochain renouvellement le ${subscription.period_end_label}.`
-})
-
-/** The QR code as a file the client saves: the API's SVG in a data URL. */
-const qrDownloadHref: ComputedRef<string> = computed((): string => {
-  const svg: string = space.value?.google_profile?.qr_svg ?? ''
-  return svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : ''
-})
-
-/** An email carrying the line to paste, for whoever looks after the website. */
-const snippetMailto: ComputedRef<string> = computed((): string => {
-  const name: string = space.value?.assistant_name ?? ''
-  const business: string = space.value?.business_name ?? ''
-  const subject: string = `${name}, la réceptionniste du site ${business}`
-  const body: string =
-    `Bonjour,\n\nPouvez-vous coller cette ligne sur le site ${business}, juste avant la balise ${BODY_END_TAG} de ` +
-    `chaque page ?\n\n${space.value?.embed_snippet ?? ''}\n\nMerci !`
-  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-})
 
 /**
  * Answer the question that is open, then go back to the list.

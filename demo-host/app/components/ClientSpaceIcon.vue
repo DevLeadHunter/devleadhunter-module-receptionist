@@ -1,5 +1,4 @@
 <template>
-  <!-- eslint-disable-next-line vue/no-v-html -- the markup is this component's own constant, never user content -->
   <svg class="cs-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" v-html="body" />
 </template>
 
