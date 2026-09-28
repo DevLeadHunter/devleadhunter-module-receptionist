@@ -15,6 +15,7 @@ from enums.ai_assistant_request import AiAssistantRequestType
 from models.ai_assistant_appointment import AiAssistantAppointment
 from services.ai_assistant.alert_sms import AlertSms
 from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
+from services.ai_assistant.appointment_reminder import AppointmentReminderWindow
 from services.ai_assistant.appointment_texts import AppointmentTexts, BusinessCard
 from services.ai_assistant.calendar_booking import AiAssistantCalendarBooking
 from services.ai_assistant.google_calendar_client import CalendarEventState
@@ -37,6 +38,16 @@ def test_the_reminder_leaves_the_day_before_within_the_day_or_not_at_all() -> No
     assert AiAssistantCalendarBooking.reminder_due_at(utc(paris(24, 8)), booked_at=booked_monday) == utc(paris(23, 9))
     assert AiAssistantCalendarBooking.reminder_due_at(utc(paris(24, 21)), booked_at=booked_monday) == utc(paris(23, 19))
     assert AiAssistantCalendarBooking.reminder_due_at(utc(paris(22, 11)), booked_at=booked_monday) is None
+
+
+def test_the_reminder_is_planned_until_19h_and_still_sent_until_20h() -> None:
+    evening_appointment = utc(paris(24, 21))
+
+    assert AppointmentReminderWindow.due_at(evening_appointment, booked_at=utc(MONDAY_10H)) == utc(paris(23, 19))
+    assert not AppointmentReminderWindow.is_sending_time(paris(23, 8, 59))
+    assert AppointmentReminderWindow.is_sending_time(paris(23, 9))
+    assert AppointmentReminderWindow.is_sending_time(paris(23, 19, 30))
+    assert not AppointmentReminderWindow.is_sending_time(paris(23, 20))
 
 
 def test_the_confirmation_and_the_reminder_fit_one_sms_in_every_language() -> None:

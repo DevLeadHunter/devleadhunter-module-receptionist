@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import ClassVar
 
 from sqlalchemy.orm import InstrumentedAttribute, Session
@@ -20,6 +20,7 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 from core.database import SessionLocal
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
+from services.ai_assistant.appointment_reminder import AppointmentReminderWindow
 from services.ai_assistant.appointment_texts import AppointmentTexts, BusinessCard
 from services.ai_assistant.calendar_access import ai_assistant_calendar_access
 from services.ai_assistant.calendar_settings import CalendarSettings
@@ -45,9 +46,6 @@ class AiAssistantAppointmentNotices:
     CONFIRMATION_GRACE: ClassVar[timedelta] = timedelta(minutes=2)
     CONFIRMATION_MAX_AGE: ClassVar[timedelta] = timedelta(days=1)
     REMINDER_CUTOFF: ClassVar[timedelta] = timedelta(hours=1)
-    # A reminder leaves the day before, between 9:00 and 20:00 (business time), never at night.
-    REMINDER_FROM: ClassVar[time] = time(9, 0)
-    REMINDER_UNTIL: ClassVar[time] = time(20, 0)
 
     def __init__(self) -> None:
         self._background_tasks: set[asyncio.Task[None]] = set()
@@ -224,7 +222,7 @@ class AiAssistantAppointmentNotices:
                 appointment.reminder_due_at = None
                 db.commit()
                 continue
-            if not self.REMINDER_FROM <= local_now.time().replace(tzinfo=None) < self.REMINDER_UNTIL:
+            if not AppointmentReminderWindow.is_sending_time(local_now):
                 continue
             claimed += int(await self.send_reminder(db, appointment, now=current))
         return claimed
