@@ -64,7 +64,7 @@
         </div>
       </header>
 
-      <div class="grid items-start gap-6 @4xl:grid-cols-[360px_1fr]">
+      <div class="grid items-start gap-6 @4xl:grid-cols-[360px_minmax(0,1fr)]">
         <aside class="card space-y-5 p-5 @4xl:sticky @4xl:top-6 @4xl:max-h-[calc(100vh-3rem)] @4xl:overflow-y-auto">
           <UiTabs v-model="activeTab" :tabs="asideTabs" />
 
