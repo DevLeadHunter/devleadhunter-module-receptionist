@@ -3,9 +3,9 @@ The business as its customers see it on a sold receptionist's page (``/ia/{slug}
 
 A business without a website pastes the receptionist's address on its Google profile (« Site web », « Prendre
 rendez-vous »), in its voicemail and on a QR code: its customers land on a page that must read as the business's
-own. Besides the receptionist, it carries what they came for: the phone, the address, the hours. The card holds only
-what the receptionist itself may say: with the Google listing switched off as a source, it keeps the phone set in
-the dashboard and nothing from the listing.
+own. Besides the receptionist, it carries what they came for: the phone, the address, the hours, whether it is open
+right now, its Google rating. The card holds only what the receptionist itself may say: with the Google listing
+switched off as a source, it keeps the phone set in the dashboard and nothing from the listing.
 """
 
 from __future__ import annotations
@@ -20,15 +20,24 @@ from services.ai_assistant.opening_hours import OpeningHoursCalendar
 
 
 class AiAssistantBusinessCard:
-    """Builds the public card of a sold receptionist's business: phone, address, hours."""
+    """Builds the public card of a sold receptionist's business: phone, address, hours, rating."""
 
     @classmethod
-    def of(cls, assistant: AiAssistant, *, now: datetime | None = None) -> AiAssistantPublicBusiness:
+    def of(
+        cls,
+        assistant: AiAssistant,
+        *,
+        google_rating: float | None = None,
+        google_reviews_count: int | None = None,
+        now: datetime | None = None,
+    ) -> AiAssistantPublicBusiness:
         """
         The card of an assistant's business, from its dashboard phone and its Google listing.
 
         Args:
             assistant: A sold assistant.
+            google_rating: The listing's rating, when known.
+            google_reviews_count: How many reviews the rating counts, when known.
             now: The business's current local time (tests); defaults to its clock.
 
         Returns:
@@ -40,11 +49,14 @@ class AiAssistantBusinessCard:
             return AiAssistantPublicBusiness(phone=dashboard_phone)
         identity = knowledge.get("identity") if isinstance(knowledge.get("identity"), dict) else {}
         rows = [row for row in knowledge.get("opening_hours") or [] if isinstance(row, dict)]
-        today = (now or OpeningHoursCalendar.business_now()).weekday()
+        moment = now or OpeningHoursCalendar.business_now()
         return AiAssistantPublicBusiness(
             phone=dashboard_phone or cls._text(identity.get("phone")),
             address=cls._text(identity.get("address")),
-            opening_hours=cls._hours(rows, today=today),
+            opening_hours=cls._hours(rows, today=moment.weekday()),
+            is_open_now=OpeningHoursCalendar.is_open_at(rows, moment) if rows else None,
+            google_rating=google_rating,
+            google_reviews_count=google_reviews_count if google_rating is not None else None,
         )
 
     @staticmethod

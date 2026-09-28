@@ -185,6 +185,10 @@ class AiAssistantPublicBusiness(BaseModel):
     phone: str | None = None
     address: str | None = None
     opening_hours: list[AiAssistantOpeningHoursRow] = Field(default_factory=list)
+    # Open right now in the business's time; None when its hours cannot tell.
+    is_open_now: bool | None = None
+    google_rating: float | None = None
+    google_reviews_count: int | None = None
 
 
 class AiAssistantPublicResponse(BaseModel):

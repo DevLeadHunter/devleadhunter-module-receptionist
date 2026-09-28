@@ -134,6 +134,7 @@ import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 
 const props: AssistantDemoPageProps = defineProps({
   assistant: { type: Object as PropType<AiAssistantConfig>, required: true },
+  isJustSubscribed: { type: Boolean, default: false },
 })
 
 const route: ReturnType<typeof useRoute> = useRoute()
@@ -190,7 +191,7 @@ const feedHintText: ComputedRef<string> = computed((): string => {
  */
 const priceLabel: ComputedRef<string> = computed((): string => {
   const label: string | null | undefined = props.assistant.monthly_price_label
-  if (!label || route.query.subscribed === '1') return ''
+  if (!label || props.isJustSubscribed) return ''
   return label
 })
 

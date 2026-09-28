@@ -3,9 +3,13 @@
     <header class="business-page__header">
       <p v-if="tradeLine" class="business-page__trade">{{ tradeLine }}</p>
       <h1 class="business-page__name">{{ businessName }}</h1>
+      <p v-if="ratingLabel" class="business-page__rating">{{ ratingLabel }}</p>
       <p class="business-page__intro">
         Une question, une photo, un rendez-vous : écrivez à {{ assistantName }}, {{ pronoun }} vous répond à toute
         heure.
+      </p>
+      <p v-if="openStatusLabel" class="business-page__status" :class="{ 'business-page__status--open': isOpenNow }">
+        <span class="business-page__status-dot" aria-hidden="true" />{{ openStatusLabel }}
       </p>
     </header>
 
@@ -90,6 +94,27 @@ const openingHours: ComputedRef<AiAssistantOpeningHoursRow[]> = computed(
 const hasContactDetails: ComputedRef<boolean> = computed(
   (): boolean => Boolean(phoneNumber.value || address.value) || openingHours.value.length > 0,
 )
+
+const ratingLabel: ComputedRef<string> = computed((): string => {
+  const rating: number | null = props.assistant.business?.google_rating ?? null
+  if (rating === null) return ''
+  const score: string = rating.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  const reviewsCount: number | null = props.assistant.business?.google_reviews_count ?? null
+  return reviewsCount
+    ? `Noté ${score} sur 5 · ${reviewsCount.toLocaleString('fr-FR')} avis Google`
+    : `Noté ${score} sur 5 sur Google`
+})
+
+const isOpenNow: ComputedRef<boolean | null> = computed(
+  (): boolean | null => props.assistant.business?.is_open_now ?? null,
+)
+
+const openStatusLabel: ComputedRef<string> = computed((): string => {
+  if (isOpenNow.value === null) return ''
+  return isOpenNow.value
+    ? 'Ouvert en ce moment.'
+    : `Fermé en ce moment : ${assistantName.value} note votre demande, ${businessName.value} vous rappelle.`
+})
 </script>
 
 <style scoped>
@@ -132,12 +157,40 @@ const hasContactDetails: ComputedRef<boolean> = computed(
   letter-spacing: -0.015em;
   text-wrap: balance;
 }
+.business-page__rating {
+  margin: -4px 0 0;
+  font-size: 13.5px;
+  color: var(--ia-ink-dim);
+  font-variant-numeric: tabular-nums;
+}
 .business-page__intro {
   margin: 0;
   max-width: 56ch;
   font-size: clamp(15px, 2.2vw, 17px);
   line-height: 1.6;
   color: var(--ia-ink-dim);
+}
+.business-page__status {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  max-width: 56ch;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ia-ink);
+}
+.business-page__status-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--ia-ink-dim);
+}
+.business-page__status--open .business-page__status-dot {
+  background: #3fb950;
+  box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.2);
 }
 .business-page__layout {
   margin-top: clamp(26px, 4.5vh, 40px);

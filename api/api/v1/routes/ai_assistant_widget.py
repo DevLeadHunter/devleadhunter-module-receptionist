@@ -39,6 +39,7 @@ from schemas.ai_assistant import (
     AiAssistantLeadRequest,
     AiAssistantLeadResponse,
     AiAssistantPhotoResponse,
+    AiAssistantPublicBusiness,
     AiAssistantPublicResponse,
 )
 from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
@@ -146,12 +147,24 @@ def _owner_public_fields(assistant: AiAssistant) -> dict[str, str | None]:
     return fields
 
 
+def _business_card(assistant: AiAssistant, listing: dict[str, str | float | int | None]) -> AiAssistantPublicBusiness:
+    """The card of a sold receptionist's business, with the rating its Google listing shows."""
+    rating = listing.get("google_rating")
+    reviews_count = listing.get("google_reviews_count")
+    return AiAssistantBusinessCard.of(
+        assistant,
+        google_rating=float(rating) if isinstance(rating, int | float) else None,
+        google_reviews_count=reviews_count if isinstance(reviews_count, int) else None,
+    )
+
+
 @router.get("/public/{slug}", response_model=AiAssistantPublicResponse)
 async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAssistantPublicResponse:
     """Public config consumed by the embedded chat widget."""
     assistant = public_assistant_or_404(db, slug)
     video_ready = has_ready_video(assistant)
     is_sold = assistant.status == AiAssistantStatus.DELIVERED.value
+    listing = _listing_public_fields(db, assistant)
     return AiAssistantPublicResponse(
         slug=assistant.slug,
         business_name=assistant.business_name,
@@ -160,9 +173,9 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
         languages=assistant.languages or [],
         accent_color=ai_assistant_service.accent_color(assistant),
         status=assistant.status,
-        **_listing_public_fields(db, assistant),
+        **listing,
         **_owner_public_fields(assistant),
-        business=AiAssistantBusinessCard.of(assistant) if is_sold else None,
+        business=_business_card(assistant, listing) if is_sold else None,
         video_available=video_ready,
         video_url=public_video_file_url(assistant.slug) if video_ready else None,
         video_thumbnail_url=public_thumbnail_url(assistant.slug, assistant.video_generated_at) if video_ready else None,

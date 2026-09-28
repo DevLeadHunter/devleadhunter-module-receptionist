@@ -29,6 +29,7 @@ _HOURS: list[dict[str, str]] = [
     {"day": "dimanche", "hours": "Fermé"},
 ]
 _A_MONDAY = datetime(2026, 9, 28, 10, 0)
+_A_MONDAY_LUNCH = datetime(2026, 9, 28, 12, 30)
 _A_SUNDAY = datetime(2026, 9, 27, 10, 0)
 
 
@@ -48,6 +49,7 @@ def _sold_assistant(phone: str | None = None, **knowledge_changes: Any) -> Simpl
 
 def test_the_fixed_days_are_the_weekdays_they_claim() -> None:
     assert _A_MONDAY.weekday() == 0
+    assert _A_MONDAY_LUNCH.weekday() == 0
     assert _A_SUNDAY.weekday() == 6
 
 
@@ -67,6 +69,24 @@ def test_today_is_pointed_out_in_the_hours() -> None:
     assert [row.is_today for row in sunday.opening_hours] == [False, False, False, True]
 
 
+def test_the_card_says_whether_the_business_is_open_right_now() -> None:
+    open_card = AiAssistantBusinessCard.of(_sold_assistant(), now=_A_MONDAY)
+    closed_card = AiAssistantBusinessCard.of(_sold_assistant(), now=_A_MONDAY_LUNCH)
+    unknown_card = AiAssistantBusinessCard.of(_sold_assistant(opening_hours=[]), now=_A_MONDAY)
+
+    assert open_card.is_open_now is True
+    assert closed_card.is_open_now is False
+    assert unknown_card.is_open_now is None
+
+
+def test_the_card_carries_the_listing_rating_and_drops_a_count_without_rating() -> None:
+    rated = AiAssistantBusinessCard.of(_sold_assistant(), google_rating=4.8, google_reviews_count=57, now=_A_MONDAY)
+    unrated = AiAssistantBusinessCard.of(_sold_assistant(), google_rating=None, google_reviews_count=57, now=_A_MONDAY)
+
+    assert (rated.google_rating, rated.google_reviews_count) == (4.8, 57)
+    assert (unrated.google_rating, unrated.google_reviews_count) == (None, None)
+
+
 def test_the_phone_set_in_the_dashboard_wins_over_the_listing() -> None:
     card = AiAssistantBusinessCard.of(_sold_assistant(phone=" 06 11 22 33 44 "), now=_A_MONDAY)
 
@@ -76,11 +96,13 @@ def test_the_phone_set_in_the_dashboard_wins_over_the_listing() -> None:
 def test_a_listing_switched_off_leaves_only_the_dashboard_phone() -> None:
     assistant = _sold_assistant(phone="06 11 22 33 44", sources={"listing": False})
 
-    card = AiAssistantBusinessCard.of(assistant, now=_A_MONDAY)
+    card = AiAssistantBusinessCard.of(assistant, google_rating=4.8, google_reviews_count=57, now=_A_MONDAY)
 
     assert card.phone == "06 11 22 33 44"
     assert card.address is None
     assert card.opening_hours == []
+    assert card.is_open_now is None
+    assert card.google_rating is None
 
 
 def test_unreadable_rows_stay_out_of_the_hours() -> None:
@@ -105,7 +127,15 @@ def test_the_public_config_carries_the_card_only_once_sold() -> None:
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     db: Session = sessionmaker(bind=engine)()
-    prospect = ProspectDB(name="Toitures Morel", category="Couvreur", source="google", confidence=2, user_id=7)
+    prospect = ProspectDB(
+        name="Toitures Morel",
+        category="Couvreur",
+        source="google",
+        confidence=2,
+        user_id=7,
+        google_rating=4.8,
+        google_reviews_count=57,
+    )
     db.add(prospect)
     db.commit()
     assistant = ai_assistant_service.create(
@@ -127,3 +157,4 @@ def test_the_public_config_carries_the_card_only_once_sold() -> None:
     assert sold.business.phone == "02 99 12 34 56"
     assert sold.business.address == "12 rue des Lilas"
     assert len(sold.business.opening_hours) == len(_HOURS)
+    assert (sold.business.google_rating, sold.business.google_reviews_count) == (4.8, 57)

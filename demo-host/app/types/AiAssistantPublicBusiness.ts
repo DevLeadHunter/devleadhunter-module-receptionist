@@ -5,9 +5,12 @@ export type AiAssistantOpeningHoursRow = {
   is_today: boolean
 }
 
-/** The business on a sold receptionist's page: how its customers reach it, and when. */
+/** The business on a sold receptionist's page: how its customers reach it, when, and how Google rates it. */
 export type AiAssistantPublicBusiness = {
   phone: string | null
   address: string | null
   opening_hours: AiAssistantOpeningHoursRow[]
+  is_open_now: boolean | null
+  google_rating: number | null
+  google_reviews_count: number | null
 }
