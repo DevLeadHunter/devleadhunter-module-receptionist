@@ -4,16 +4,16 @@
     type="button"
     class="ai-launcher"
     :class="{ 'ai-launcher--mobile': props.isMobileLayout }"
-    :aria-label="UI_LABELS[props.lang].open.replace('{name}', props.assistantName)"
+    :aria-label="UI_LABELS[props.language].open.replace('{name}', props.assistantName)"
     @click="emit('open')"
   >
     <span class="ai-launcher__say">
-      {{ UI_LABELS[props.lang].launcherBefore }}<strong>{{ props.assistantName }}</strong
-      >{{ UI_LABELS[props.lang].launcherAfter }}
+      {{ UI_LABELS[props.language].launcherBefore }}<strong class="ai-launcher__name">{{ props.assistantName }}</strong
+      >{{ UI_LABELS[props.language].launcherAfter }}
     </span>
     <span class="ai-launcher__portrait" aria-hidden="true">
       <AssistantAvatar :url="props.avatarUrl" :fallback-url="props.avatarFallbackUrl" :alt="props.assistantName" />
-      <i class="ai-launcher__dot" />
+      <span class="ai-launcher__online-dot" />
     </span>
   </button>
 </template>
@@ -21,13 +21,13 @@
 <script lang="ts" setup>
 import type { EmitFn, PropType, Ref } from 'vue'
 import { ref } from 'vue'
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 import type { AssistantChatLauncherEmits, AssistantChatLauncherProps } from '~/types/AssistantChatLauncher'
 import { UI_LABELS } from '~/constants/AssistantWidgetLabels'
 
 const props: AssistantChatLauncherProps = defineProps({
-  lang: {
-    type: String as PropType<AssistantWidgetLang>,
+  language: {
+    type: String as PropType<AssistantWidgetLanguage>,
     required: true,
   },
   assistantName: {
@@ -74,7 +74,7 @@ defineExpose({ rootElement, focus })
   background: transparent;
   padding: 0;
   cursor: pointer;
-  font-family: var(--ai-font-b);
+  font-family: var(--ai-font-body);
 }
 .ai-launcher__say {
   background: var(--ai-card);
@@ -88,8 +88,8 @@ defineExpose({ rootElement, focus })
   text-align: left;
   box-shadow: 0 18px 44px -24px rgba(23, 19, 13, 0.45);
 }
-.ai-launcher__say strong {
-  font-family: var(--ai-font-d);
+.ai-launcher__name {
+  font-family: var(--ai-font-display);
   font-weight: 600;
 }
 .ai-launcher__portrait {
@@ -106,7 +106,7 @@ defineExpose({ rootElement, focus })
 .ai-launcher:hover .ai-launcher__portrait {
   transform: translateY(-2px);
 }
-.ai-launcher__dot {
+.ai-launcher__online-dot {
   position: absolute;
   right: 2px;
   bottom: 2px;

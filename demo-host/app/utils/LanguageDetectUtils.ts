@@ -1,10 +1,11 @@
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
+import type { LanguageMarkerHits } from '~/types/LanguageDetect'
 
 /**
  * Words that give a language away, each list free of the others' words (« de » is French and Dutch, so it is in
  * neither). Short messages carry few of them: the guess only lands when it is clear.
  */
-const MARKERS: Record<AssistantWidgetLang, string[]> = {
+const MARKERS: Record<AssistantWidgetLanguage, string[]> = {
   fr: [
     'je',
     'vous',
@@ -187,21 +188,21 @@ export class LanguageDetectUtils {
    * @param offered - The languages the widget offers.
    * @returns The clear winner, or null when the text is too short or ambiguous (the widget then keeps its language).
    */
-  static detect(text: string, offered: AssistantWidgetLang[]): AssistantWidgetLang | null {
+  static detect(text: string, offered: AssistantWidgetLanguage[]): AssistantWidgetLanguage | null {
     const words: string[] = text
       .toLowerCase()
       .split(/[^\p{L}]+/u)
       .filter((word: string): boolean => word.length > 0)
     if (words.length < MIN_WORDS) return null
-    const ranking: { code: AssistantWidgetLang; hits: number }[] = offered
-      .map((code: AssistantWidgetLang): { code: AssistantWidgetLang; hits: number } => {
-        const markers: Set<string> = new Set(MARKERS[code])
-        return { code, hits: words.filter((word: string): boolean => markers.has(word)).length }
+    const ranking: LanguageMarkerHits[] = offered
+      .map((language: AssistantWidgetLanguage): LanguageMarkerHits => {
+        const markers: Set<string> = new Set(MARKERS[language])
+        return { language, hits: words.filter((word: string): boolean => markers.has(word)).length }
       })
-      .sort((a: { hits: number }, b: { hits: number }): number => b.hits - a.hits)
-    const best: { code: AssistantWidgetLang; hits: number } | undefined = ranking[0]
-    const next: number = ranking[1]?.hits ?? 0
-    if (!best || best.hits < MIN_HITS || best.hits <= next) return null
-    return best.code
+      .sort((first: LanguageMarkerHits, second: LanguageMarkerHits): number => second.hits - first.hits)
+    const best: LanguageMarkerHits | undefined = ranking[0]
+    const runnerUpHits: number = ranking[1]?.hits ?? 0
+    if (!best || best.hits < MIN_HITS || best.hits <= runnerUpHits) return null
+    return best.language
   }
 }

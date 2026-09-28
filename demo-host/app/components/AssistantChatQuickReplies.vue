@@ -1,11 +1,11 @@
 <template>
   <div class="ai-chips">
     <button v-if="props.canPlayExample" type="button" class="ai-chip ai-chip--example" @click="emit('example')">
-      {{ EXAMPLE_LABELS[props.lang].chip }}
+      {{ EXAMPLE_LABELS[props.language].chip }}
     </button>
     <button v-if="props.canSendPhoto" type="button" class="ai-chip ai-chip--photo" @click="emit('photo')">
       <AssistantIcon name="camera" class="ai-chip__icon" />
-      {{ PHOTO_LABELS[props.lang].chip }}
+      {{ PHOTO_LABELS[props.language].chip }}
     </button>
     <button
       v-if="props.canBookAppointment"
@@ -14,7 +14,7 @@
       @click="emit('appointment')"
     >
       <AssistantIcon name="calendar" class="ai-chip__icon" />
-      {{ APPOINTMENT_LABELS[props.lang].chip }}
+      {{ APPOINTMENT_LABELS[props.language].chip }}
     </button>
     <button
       v-for="suggestion in props.suggestions"
@@ -30,13 +30,13 @@
 
 <script lang="ts" setup>
 import type { EmitFn, PropType } from 'vue'
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 import type { AssistantChatQuickRepliesEmits, AssistantChatQuickRepliesProps } from '~/types/AssistantChatQuickReplies'
 import { APPOINTMENT_LABELS, EXAMPLE_LABELS, PHOTO_LABELS } from '~/constants/AssistantWidgetLabels'
 
 const props: AssistantChatQuickRepliesProps = defineProps({
-  lang: {
-    type: String as PropType<AssistantWidgetLang>,
+  language: {
+    type: String as PropType<AssistantWidgetLanguage>,
     required: true,
   },
   suggestions: {

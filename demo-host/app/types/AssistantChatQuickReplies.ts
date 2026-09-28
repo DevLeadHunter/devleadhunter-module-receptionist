@@ -1,11 +1,11 @@
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 
 /**
  * `canPlayExample`: the demo page offers to play a conversation by itself before the visitor writes;
  * `canBookAppointment` false shows the suggestions alone (the questions a reply offers next).
  */
 export type AssistantChatQuickRepliesProps = {
-  lang: AssistantWidgetLang
+  language: AssistantWidgetLanguage
   suggestions: string[]
   canSendPhoto: boolean
   canPlayExample: boolean

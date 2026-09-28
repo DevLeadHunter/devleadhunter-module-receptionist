@@ -39,7 +39,7 @@ export class MessageFormatUtils {
         blocks.push({
           kind: 'list',
           ordered: list.ordered,
-          items: list.items.map((item: string): AssistantMessagePart[] => MessageFormatUtils.inline(item)),
+          items: list.items.map((itemText: string): AssistantMessagePart[] => MessageFormatUtils.inline(itemText)),
         })
       }
       list = null
@@ -47,15 +47,15 @@ export class MessageFormatUtils {
 
     for (const rawLine of message.replace(/\r/g, '').split('\n')) {
       const line: string = rawLine.trimEnd()
-      const item: RegExpExecArray | null = LIST_ITEM.exec(line)
-      if (item !== null) {
+      const listItemMatch: RegExpExecArray | null = LIST_ITEM.exec(line)
+      if (listItemMatch !== null) {
         closeParagraph()
         const ordered: boolean = ORDERED_ITEM.test(line)
         if (list === null || list.ordered !== ordered) {
           closeList()
           list = { ordered, items: [] }
         }
-        list.items.push(item[1] ?? '')
+        list.items.push(listItemMatch[1] ?? '')
       } else if (line.trim() === '') {
         closeParagraph()
         closeList()

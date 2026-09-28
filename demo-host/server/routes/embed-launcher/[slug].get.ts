@@ -1,13 +1,11 @@
 import type { H3Event } from 'h3'
-import type { AiAssistantConfig, AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AiAssistantConfig, AssistantWidgetLanguage } from '~/types/AiAssistant'
 import type { AssistantLauncherConfig } from '~/types/AssistantLauncher'
-import { LANGUAGE_LABELS, UI_LABELS } from '~/constants/AssistantWidgetLabels'
+import { UI_LABELS } from '~/constants/AssistantWidgetLabels'
 import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { AssistantAvatarUtils } from '~/utils/AssistantAvatarUtils'
-
-/** The language of the launcher wording when the visitor's browser offers none of the assistant's. */
-const DEFAULT_LANG: AssistantWidgetLang = 'fr'
+import { AssistantLanguageUtils } from '~/utils/AssistantLanguageUtils'
 
 /** How long the loader may keep a launcher configuration (a renamed persona shows within this delay). */
 const CACHE_CONTROL: string = 'public, max-age=300, s-maxage=300'
@@ -18,19 +16,10 @@ const CACHE_CONTROL: string = 'public, max-age=300, s-maxage=300'
  * @param configured - The assistant's language codes.
  * @returns An offered widget language, the assistant's first one, or French.
  */
-function preferredLang(acceptLanguage: string | undefined, configured: string[]): AssistantWidgetLang {
-  const offered: AssistantWidgetLang[] = configured.filter(
-    (code: string): code is AssistantWidgetLang => code in LANGUAGE_LABELS,
-  )
-  const wanted: string[] = (acceptLanguage ?? '')
-    .split(',')
-    .map((part: string): string => part.trim().slice(0, 2).toLowerCase())
-    .filter((code: string): boolean => code.length === 2)
-  for (const code of wanted) {
-    const match: AssistantWidgetLang | undefined = offered.find((offer: AssistantWidgetLang): boolean => offer === code)
-    if (match) return match
-  }
-  return offered[0] ?? DEFAULT_LANG
+function launcherLanguage(acceptLanguage: string | undefined, configured: string[]): AssistantWidgetLanguage {
+  const offered: AssistantWidgetLanguage[] = AssistantLanguageUtils.offered(configured)
+  const wanted: string[] = (acceptLanguage ?? '').split(',')
+  return AssistantLanguageUtils.firstOffered(wanted, offered) ?? offered[0] ?? AssistantLanguageUtils.DEFAULT_LANGUAGE
 }
 
 /**
@@ -42,22 +31,22 @@ function preferredLang(acceptLanguage: string | undefined, configured: string[])
 export default defineEventHandler(async (event: H3Event): Promise<AssistantLauncherConfig> => {
   const slug: string = getRouterParam(event, 'slug') ?? ''
   const apiBase: string = useRuntimeConfig(event).public.apiBase
-  let config: AiAssistantConfig
+  let assistant: AiAssistantConfig
   try {
-    config = await $fetch<AiAssistantConfig>(`${apiBase}/api/v1/ai-assistants/public/${encodeURIComponent(slug)}`)
+    assistant = await $fetch<AiAssistantConfig>(`${apiBase}/api/v1/ai-assistants/public/${encodeURIComponent(slug)}`)
   } catch {
     throw createError({ statusCode: 404, statusMessage: 'Assistant unavailable' })
   }
-  const lang: AssistantWidgetLang = preferredLang(getHeader(event, 'accept-language'), config.languages)
-  const palette: AssistantAccentPalette = AssistantAccentUtils.palette(config.accent_color)
+  const language: AssistantWidgetLanguage = launcherLanguage(getHeader(event, 'accept-language'), assistant.languages)
+  const palette: AssistantAccentPalette = AssistantAccentUtils.palette(assistant.accent_color)
   setResponseHeader(event, 'Cache-Control', CACHE_CONTROL)
   return {
-    assistant_name: config.assistant_name,
-    portrait_path: AssistantAvatarUtils.portraitUrl(config.assistant_name, config.assistant_gender ?? null),
+    assistant_name: assistant.assistant_name,
+    portrait_path: AssistantAvatarUtils.portraitUrl(assistant.assistant_name, assistant.assistant_gender ?? null),
     accent_strong: palette.strong,
     accent_tint: palette.tint,
-    say_before: UI_LABELS[lang].launcherBefore,
-    say_after: UI_LABELS[lang].launcherAfter,
-    open_label: UI_LABELS[lang].open.replace('{name}', config.assistant_name),
+    say_before: UI_LABELS[language].launcherBefore,
+    say_after: UI_LABELS[language].launcherAfter,
+    open_label: UI_LABELS[language].open.replace('{name}', assistant.assistant_name),
   }
 })

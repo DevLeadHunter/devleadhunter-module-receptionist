@@ -6,7 +6,7 @@ import type { AssistantHostPage } from '~/types/AssistantDemoScript'
  * is the client's page the loader embedded it on (the greeting adapts to it).
  */
 export type AssistantChatProps = {
-  config: AiAssistantConfig
+  assistant: AiAssistantConfig
   inline: boolean
   hostPage: AssistantHostPage | null
 }

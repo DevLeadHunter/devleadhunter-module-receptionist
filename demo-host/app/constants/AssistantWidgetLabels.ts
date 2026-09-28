@@ -5,12 +5,18 @@ import type {
   AssistantLeadLabels,
   AssistantPhotoLabels,
   AssistantUiLabels,
-  AssistantWidgetLang,
+  AssistantWidgetLanguage,
 } from '~/types/AiAssistant'
 import type { AssistantGreetingContext } from '~/types/AssistantDemoScript'
+import {
+  ASSISTANT_PHOTO_MAX_MEGABYTES,
+  ASSISTANT_PHOTO_RETENTION_DAYS,
+  ASSISTANT_PHOTOS_PER_VISIT,
+  ASSISTANT_SLOTS_MAX_CHOSEN,
+} from '~/constants/AssistantWidgetLimits'
 
 /** Each language's own name, on the widget's language buttons. */
-export const LANGUAGE_LABELS: Record<AssistantWidgetLang, string> = {
+export const LANGUAGE_LABELS: Record<AssistantWidgetLanguage, string> = {
   fr: 'Français',
   nl: 'Nederlands',
   en: 'English',
@@ -19,7 +25,7 @@ export const LANGUAGE_LABELS: Record<AssistantWidgetLang, string> = {
 }
 
 /** Each language as the « Répond en … » line under the header names it. */
-export const LANGUAGE_NAMES: Record<AssistantWidgetLang, string> = {
+export const LANGUAGE_NAMES: Record<AssistantWidgetLanguage, string> = {
   fr: 'français',
   nl: 'Nederlands',
   en: 'English',
@@ -28,7 +34,7 @@ export const LANGUAGE_NAMES: Record<AssistantWidgetLang, string> = {
 }
 
 /** The persona's role under its name in the header, by language and gender (« Réceptionniste IA »). */
-export const ROLE_LABELS: Record<AssistantWidgetLang, Record<AiAssistantPersonaGender, string>> = {
+export const ROLE_LABELS: Record<AssistantWidgetLanguage, Record<AiAssistantPersonaGender, string>> = {
   fr: { feminine: 'Réceptionniste IA', masculine: 'Réceptionniste IA' },
   nl: { feminine: 'AI-receptioniste', masculine: 'AI-receptionist' },
   en: { feminine: 'AI receptionist', masculine: 'AI receptionist' },
@@ -37,7 +43,7 @@ export const ROLE_LABELS: Record<AssistantWidgetLang, Record<AiAssistantPersonaG
 }
 
 /** The « en ligne » pill of the header. */
-export const ONLINE_LABELS: Record<AssistantWidgetLang, string> = {
+export const ONLINE_LABELS: Record<AssistantWidgetLanguage, string> = {
   fr: 'en ligne',
   nl: 'online',
   en: 'online',
@@ -49,7 +55,7 @@ export const ONLINE_LABELS: Record<AssistantWidgetLang, string> = {
  * The first sentence of the assistant's first message: it introduces itself as the business's AI receptionist.
  * `{name}` is its first name, `{business}` the business, `{of_business}` the French « de X » / « d'X ».
  */
-export const GREETING_INTROS: Record<AssistantWidgetLang, Record<AiAssistantPersonaGender, string>> = {
+export const GREETING_INTROS: Record<AssistantWidgetLanguage, Record<AiAssistantPersonaGender, string>> = {
   fr: {
     feminine: 'Bonjour, je suis {name}, la réceptionniste IA {of_business}.',
     masculine: 'Bonjour, je suis {name}, le réceptionniste IA {of_business}.',
@@ -76,7 +82,7 @@ export const GREETING_INTROS: Record<AssistantWidgetLang, Record<AiAssistantPers
  * The second sentence of the first message, by what the page the widget sits on is about: the plain question, or
  * an opening suited to a contact, quote or appointment page.
  */
-export const GREETING_FOLLOW_UPS: Record<AssistantWidgetLang, Record<AssistantGreetingContext, string>> = {
+export const GREETING_FOLLOW_UPS: Record<AssistantWidgetLanguage, Record<AssistantGreetingContext, string>> = {
   fr: {
     default: 'Comment puis-je vous aider ?',
     contact: 'Vous cherchez à nous joindre ? Dites-moi ce dont vous avez besoin, je transmets.',
@@ -110,7 +116,7 @@ export const GREETING_FOLLOW_UPS: Record<AssistantWidgetLang, Record<AssistantGr
 }
 
 /** The widget's chrome: close button, launcher, typing indicator, language selector, composer. */
-export const UI_LABELS: Record<AssistantWidgetLang, AssistantUiLabels> = {
+export const UI_LABELS: Record<AssistantWidgetLanguage, AssistantUiLabels> = {
   fr: {
     close: 'Fermer',
     open: 'Ouvrir la conversation avec {name}',
@@ -169,7 +175,7 @@ export const UI_LABELS: Record<AssistantWidgetLang, AssistantUiLabels> = {
 }
 
 /** The conversation the demo page plays by itself; in French the visitor's opening follows the trade instead. */
-export const EXAMPLE_LABELS: Record<AssistantWidgetLang, AssistantExampleLabels> = {
+export const EXAMPLE_LABELS: Record<AssistantWidgetLanguage, AssistantExampleLabels> = {
   fr: {
     chip: 'Voir un exemple',
     visitor: "Bonjour, j'aurais besoin d'un devis. Vous pouvez me rappeler dans la journée ?",
@@ -208,7 +214,7 @@ export const EXAMPLE_LABELS: Record<AssistantWidgetLang, AssistantExampleLabels>
 }
 
 /** The question offered as a chip before the visitor's first message, beside the photo and appointment ones. */
-export const SUGGESTIONS: Record<AssistantWidgetLang, string[]> = {
+export const SUGGESTIONS: Record<AssistantWidgetLanguage, string[]> = {
   fr: ['Quels services proposez-vous ?'],
   nl: ['Welke diensten bieden jullie aan?'],
   en: ['What services do you offer?'],
@@ -217,7 +223,7 @@ export const SUGGESTIONS: Record<AssistantWidgetLang, string[]> = {
 }
 
 /** Placeholder of the message field. */
-export const UI_PLACEHOLDER: Record<AssistantWidgetLang, string> = {
+export const UI_PLACEHOLDER: Record<AssistantWidgetLanguage, string> = {
   fr: 'Votre message…',
   nl: 'Typ uw bericht…',
   en: 'Type your message…',
@@ -226,7 +232,7 @@ export const UI_PLACEHOLDER: Record<AssistantWidgetLang, string> = {
 }
 
 /** The assistant's reply when the API cannot answer. */
-export const FALLBACK_REPLY: Record<AssistantWidgetLang, string> = {
+export const FALLBACK_REPLY: Record<AssistantWidgetLanguage, string> = {
   fr: 'Je rencontre un souci technique. Réessayez dans un instant.',
   nl: 'Sorry, er is een technisch probleem. Probeer het zo meteen opnieuw.',
   en: 'Sorry, I hit a technical issue. Please try again in a moment.',
@@ -235,7 +241,7 @@ export const FALLBACK_REPLY: Record<AssistantWidgetLang, string> = {
 }
 
 /** Texts of the contact form. */
-export const LEAD_LABELS: Record<AssistantWidgetLang, AssistantLeadLabels> = {
+export const LEAD_LABELS: Record<AssistantWidgetLanguage, AssistantLeadLabels> = {
   fr: {
     open: 'Être rappelé',
     title: 'Laissez vos coordonnées',
@@ -294,7 +300,7 @@ export const LEAD_LABELS: Record<AssistantWidgetLang, AssistantLeadLabels> = {
 }
 
 /** Locales of the slot dates (Luxembourgish is « lb » in the browsers' date formats). */
-export const DATE_LOCALES: Record<AssistantWidgetLang, string> = {
+export const DATE_LOCALES: Record<AssistantWidgetLanguage, string> = {
   fr: 'fr-FR',
   nl: 'nl-BE',
   en: 'en-GB',
@@ -303,11 +309,11 @@ export const DATE_LOCALES: Record<AssistantWidgetLang, string> = {
 }
 
 /** Texts of the appointment chip, button and slot panel. */
-export const APPOINTMENT_LABELS: Record<AssistantWidgetLang, AssistantAppointmentLabels> = {
+export const APPOINTMENT_LABELS: Record<AssistantWidgetLanguage, AssistantAppointmentLabels> = {
   fr: {
     chip: 'Prendre rendez-vous',
     button: 'Prendre rendez-vous',
-    title: 'Choisissez 1 ou 2 créneaux qui vous arrangent : on vous confirme l’un des deux.',
+    title: `Choisissez 1 ou ${ASSISTANT_SLOTS_MAX_CHOSEN} créneaux qui vous arrangent : on vous confirme l’un des deux.`,
     titleCalendar: 'Choisissez un créneau libre : il est réservé tout de suite.',
     kind: 'Pour quoi ?',
     more: 'Autres créneaux',
@@ -330,7 +336,7 @@ export const APPOINTMENT_LABELS: Record<AssistantWidgetLang, AssistantAppointmen
   nl: {
     chip: 'Afspraak maken',
     button: 'Afspraak maken',
-    title: 'Kies 1 of 2 momenten die u passen: we bevestigen er één.',
+    title: `Kies 1 of ${ASSISTANT_SLOTS_MAX_CHOSEN} momenten die u passen: we bevestigen er één.`,
     titleCalendar: 'Kies een vrij moment: het wordt meteen gereserveerd.',
     kind: 'Waarvoor?',
     more: 'Andere momenten',
@@ -353,7 +359,7 @@ export const APPOINTMENT_LABELS: Record<AssistantWidgetLang, AssistantAppointmen
   en: {
     chip: 'Book an appointment',
     button: 'Book an appointment',
-    title: 'Pick 1 or 2 times that suit you: we will confirm one of them.',
+    title: `Pick 1 or ${ASSISTANT_SLOTS_MAX_CHOSEN} times that suit you: we will confirm one of them.`,
     titleCalendar: 'Pick a free slot: it is booked right away.',
     kind: 'What for?',
     more: 'Other times',
@@ -376,7 +382,7 @@ export const APPOINTMENT_LABELS: Record<AssistantWidgetLang, AssistantAppointmen
   de: {
     chip: 'Termin vereinbaren',
     button: 'Termin vereinbaren',
-    title: 'Wählen Sie 1 oder 2 passende Zeitfenster: Wir bestätigen eines davon.',
+    title: `Wählen Sie 1 oder ${ASSISTANT_SLOTS_MAX_CHOSEN} passende Zeitfenster: Wir bestätigen eines davon.`,
     titleCalendar: 'Wählen Sie einen freien Termin: Er wird sofort gebucht.',
     kind: 'Wofür?',
     more: 'Weitere Termine',
@@ -399,7 +405,7 @@ export const APPOINTMENT_LABELS: Record<AssistantWidgetLang, AssistantAppointmen
   lu: {
     chip: 'Rendez-vous huelen',
     button: 'Rendez-vous huelen',
-    title: 'Wielt 1 oder 2 Zäitfënsteren, déi Iech passen: mir confirméieren eng dovun.',
+    title: `Wielt 1 oder ${ASSISTANT_SLOTS_MAX_CHOSEN} Zäitfënsteren, déi Iech passen: mir confirméieren eng dovun.`,
     titleCalendar: 'Wielt eng fräi Zäit: si gëtt direkt reservéiert.',
     kind: 'Fir wat?',
     more: 'Aner Zäiten',
@@ -422,60 +428,60 @@ export const APPOINTMENT_LABELS: Record<AssistantWidgetLang, AssistantAppointmen
 }
 
 /** Texts of the photo chip, button and panel, and of its errors. */
-export const PHOTO_LABELS: Record<AssistantWidgetLang, AssistantPhotoLabels> = {
+export const PHOTO_LABELS: Record<AssistantWidgetLanguage, AssistantPhotoLabels> = {
   fr: {
     chip: 'Envoyer une photo pour un devis',
     button: 'Envoyer une photo',
-    note: "Votre photo sert uniquement à préparer votre devis et elle est supprimée au bout de 90 jours. Évitez d'y montrer des personnes.",
+    note: `Votre photo sert uniquement à préparer votre devis et elle est supprimée au bout de ${ASSISTANT_PHOTO_RETENTION_DAYS} jours. Évitez d'y montrer des personnes.`,
     pick: 'Choisir une photo',
     sent: 'Photo envoyée',
     refused: 'Photo non envoyée',
     invalid: 'Je ne peux pas lire ce fichier. Envoyez une photo au format JPEG, PNG ou WEBP.',
-    tooLarge: 'Cette photo est trop lourde (8 Mo maximum).',
-    quota: "Vous avez déjà envoyé 3 photos : c'est suffisant pour préparer le devis.",
+    tooLarge: `Cette photo est trop lourde (${ASSISTANT_PHOTO_MAX_MEGABYTES} Mo maximum).`,
+    quota: `Vous avez déjà envoyé ${ASSISTANT_PHOTOS_PER_VISIT} photos : c'est suffisant pour préparer le devis.`,
   },
   nl: {
     chip: 'Stuur een foto voor een offerte',
     button: 'Foto sturen',
-    note: 'Uw foto dient alleen om uw offerte voor te bereiden en wordt na 90 dagen verwijderd. Zet er liefst geen personen op.',
+    note: `Uw foto dient alleen om uw offerte voor te bereiden en wordt na ${ASSISTANT_PHOTO_RETENTION_DAYS} dagen verwijderd. Zet er liefst geen personen op.`,
     pick: 'Foto kiezen',
     sent: 'Foto verzonden',
     refused: 'Foto niet verzonden',
     invalid: 'Ik kan dit bestand niet lezen. Stuur een foto in JPEG-, PNG- of WEBP-formaat.',
-    tooLarge: 'Deze foto is te groot (max. 8 MB).',
-    quota: "U hebt al 3 foto's gestuurd: dat volstaat voor de offerte.",
+    tooLarge: `Deze foto is te groot (max. ${ASSISTANT_PHOTO_MAX_MEGABYTES} MB).`,
+    quota: `U hebt al ${ASSISTANT_PHOTOS_PER_VISIT} foto's gestuurd: dat volstaat voor de offerte.`,
   },
   en: {
     chip: 'Send a photo for a quote',
     button: 'Send a photo',
-    note: 'Your photo is only used to prepare your quote and is deleted after 90 days. Please avoid showing people.',
+    note: `Your photo is only used to prepare your quote and is deleted after ${ASSISTANT_PHOTO_RETENTION_DAYS} days. Please avoid showing people.`,
     pick: 'Choose a photo',
     sent: 'Photo sent',
     refused: 'Photo not sent',
     invalid: "I can't read this file. Please send a JPEG, PNG or WEBP photo.",
-    tooLarge: 'This photo is too large (8 MB max).',
-    quota: "You've already sent 3 photos, that's enough to prepare the quote.",
+    tooLarge: `This photo is too large (${ASSISTANT_PHOTO_MAX_MEGABYTES} MB max).`,
+    quota: `You've already sent ${ASSISTANT_PHOTOS_PER_VISIT} photos, that's enough to prepare the quote.`,
   },
   de: {
     chip: 'Foto für ein Angebot senden',
     button: 'Foto senden',
-    note: 'Ihr Foto dient nur zur Vorbereitung Ihres Angebots und wird nach 90 Tagen gelöscht. Bitte keine Personen zeigen.',
+    note: `Ihr Foto dient nur zur Vorbereitung Ihres Angebots und wird nach ${ASSISTANT_PHOTO_RETENTION_DAYS} Tagen gelöscht. Bitte keine Personen zeigen.`,
     pick: 'Foto auswählen',
     sent: 'Foto gesendet',
     refused: 'Foto nicht gesendet',
     invalid: 'Diese Datei kann ich nicht lesen. Bitte senden Sie ein JPEG-, PNG- oder WEBP-Foto.',
-    tooLarge: 'Dieses Foto ist zu groß (max. 8 MB).',
-    quota: 'Sie haben bereits 3 Fotos gesendet, das reicht für das Angebot.',
+    tooLarge: `Dieses Foto ist zu groß (max. ${ASSISTANT_PHOTO_MAX_MEGABYTES} MB).`,
+    quota: `Sie haben bereits ${ASSISTANT_PHOTOS_PER_VISIT} Fotos gesendet, das reicht für das Angebot.`,
   },
   lu: {
     chip: 'Eng Foto fir en Devis schécken',
     button: 'Foto schécken',
-    note: 'Är Foto déngt nëmme fir Ären Devis virzebereeden a gëtt no 90 Deeg geläscht. Weist w.e.g. keng Persounen drop.',
+    note: `Är Foto déngt nëmme fir Ären Devis virzebereeden a gëtt no ${ASSISTANT_PHOTO_RETENTION_DAYS} Deeg geläscht. Weist w.e.g. keng Persounen drop.`,
     pick: 'Foto auswielen',
     sent: 'Foto geschéckt',
     refused: 'Foto net geschéckt',
     invalid: 'Ech kann dëse Fichier net liesen. Schéckt w.e.g. eng JPEG-, PNG- oder WEBP-Foto.',
-    tooLarge: 'Dës Foto ass ze grouss (max. 8 MB).',
-    quota: 'Dir hutt schonn 3 Fotoe geschéckt, dat geet duer fir den Devis.',
+    tooLarge: `Dës Foto ass ze grouss (max. ${ASSISTANT_PHOTO_MAX_MEGABYTES} MB).`,
+    quota: `Dir hutt schonn ${ASSISTANT_PHOTOS_PER_VISIT} Fotoe geschéckt, dat geet duer fir den Devis.`,
   },
 }

@@ -56,7 +56,6 @@ onMounted((): void => {
 </script>
 
 <style scoped>
-/* The photo is a cut-out: the disc behind it is the business's colour, lit from the top left. */
 .assistant-avatar {
   display: block;
   width: 100%;

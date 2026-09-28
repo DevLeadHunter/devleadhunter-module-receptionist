@@ -1,28 +1,31 @@
 <template>
-  <div class="ai-m" :class="[`ai-m--${props.message.role}`, { 'ai-m--with-portrait': props.avatarUrl !== null }]">
-    <span v-if="props.avatarUrl !== null" class="ai-m__portrait" aria-hidden="true">
+  <div
+    class="ai-message"
+    :class="[`ai-message--${props.message.role}`, { 'ai-message--with-portrait': props.avatarUrl !== null }]"
+  >
+    <span v-if="props.avatarUrl !== null" class="ai-message__portrait" aria-hidden="true">
       <AssistantAvatar :url="props.avatarUrl" :fallback-url="props.avatarFallbackUrl" :alt="props.assistantName" />
     </span>
-    <div class="ai-m__bubble" :class="{ 'ai-m__bubble--photo': props.photoPreviewUrl !== null }">
+    <div class="ai-message__bubble" :class="{ 'ai-message__bubble--photo': props.photoPreviewUrl !== null }">
       <img
         v-if="props.photoPreviewUrl !== null"
         :src="props.photoPreviewUrl"
         :alt="props.message.content"
-        class="ai-m__photo"
+        class="ai-message__photo"
       />
       <template v-else-if="props.message.role === 'assistant'">
         <template v-for="(block, blockIndex) in blocks" :key="blockIndex">
-          <p v-if="block.kind === 'paragraph'" class="ai-m__p">
+          <p v-if="block.kind === 'paragraph'" class="ai-message__paragraph">
             <AssistantChatMessageInline :parts="block.parts" />
           </p>
-          <ol v-else-if="block.ordered" class="ai-m__list">
-            <li v-for="(item, itemIndex) in block.items" :key="itemIndex">
-              <AssistantChatMessageInline :parts="item" />
+          <ol v-else-if="block.ordered" class="ai-message__list">
+            <li v-for="(listItem, listItemIndex) in block.items" :key="listItemIndex" class="ai-message__list-item">
+              <AssistantChatMessageInline :parts="listItem" />
             </li>
           </ol>
-          <ul v-else class="ai-m__list">
-            <li v-for="(item, itemIndex) in block.items" :key="itemIndex">
-              <AssistantChatMessageInline :parts="item" />
+          <ul v-else class="ai-message__list">
+            <li v-for="(listItem, listItemIndex) in block.items" :key="listItemIndex" class="ai-message__list-item">
+              <AssistantChatMessageInline :parts="listItem" />
             </li>
           </ul>
         </template>
@@ -71,7 +74,7 @@ const blocks: ComputedRef<AssistantMessageBlock[]> = computed((): AssistantMessa
 </script>
 
 <style scoped>
-.ai-m {
+.ai-message {
   display: flex;
   align-items: flex-end;
   gap: 8px;
@@ -89,28 +92,28 @@ const blocks: ComputedRef<AssistantMessageBlock[]> = computed((): AssistantMessa
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ai-m {
+  .ai-message {
     animation: none;
   }
 }
-.ai-m--assistant {
+.ai-message--assistant {
   align-self: flex-start;
   /* Room for the portrait beside the last bubble of a run, so every bubble of the run lines up. */
   padding-left: 30px;
 }
-.ai-m--with-portrait {
+.ai-message--with-portrait {
   padding-left: 0;
 }
-.ai-m--user {
+.ai-message--user {
   align-self: flex-end;
 }
-.ai-m__portrait {
+.ai-message__portrait {
   width: 22px;
   height: 22px;
   flex: none;
   margin-bottom: 2px;
 }
-.ai-m__bubble {
+.ai-message__bubble {
   min-width: 0;
   padding: 10px 14px;
   font-size: 0.9rem;
@@ -118,47 +121,46 @@ const blocks: ComputedRef<AssistantMessageBlock[]> = computed((): AssistantMessa
   word-wrap: break-word;
   border-radius: 16px;
 }
-.ai-m--assistant .ai-m__bubble {
+.ai-message--assistant .ai-message__bubble {
   background: var(--ai-card);
   color: var(--ai-ink);
   border: 1px solid var(--ai-line-soft);
   border-bottom-left-radius: 5px;
 }
-.ai-m--user .ai-m__bubble {
+.ai-message--user .ai-message__bubble {
   background: var(--ai-accent-strong);
   color: var(--ai-on-strong);
   border-bottom-right-radius: 5px;
   /* The visitor's own line breaks are kept as typed. */
   white-space: pre-wrap;
 }
-.ai-m__bubble--photo {
+.ai-message__bubble--photo {
   padding: 4px;
 }
-.ai-m__photo {
+.ai-message__photo {
   display: block;
   max-width: 180px;
   max-height: 180px;
   border-radius: 12px;
   object-fit: cover;
 }
-/* Blocks of a laid-out reply: a beat between two paragraphs or a paragraph and its list. */
-.ai-m__p,
-.ai-m__list {
+.ai-message__paragraph,
+.ai-message__list {
   margin: 0;
 }
-.ai-m__p + .ai-m__p,
-.ai-m__p + .ai-m__list,
-.ai-m__list + .ai-m__p,
-.ai-m__list + .ai-m__list {
+.ai-message__paragraph + .ai-message__paragraph,
+.ai-message__paragraph + .ai-message__list,
+.ai-message__list + .ai-message__paragraph,
+.ai-message__list + .ai-message__list {
   margin-top: 8px;
 }
-.ai-m__list {
+.ai-message__list {
   padding-left: 1.2em;
 }
-.ai-m__list li + li {
+.ai-message__list-item + .ai-message__list-item {
   margin-top: 4px;
 }
-.ai-m__list li::marker {
+.ai-message__list-item::marker {
   color: var(--ai-accent-text);
 }
 </style>

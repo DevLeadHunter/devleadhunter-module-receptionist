@@ -6,10 +6,10 @@
   >
     <Transition name="ai-open" :css="shouldAnimateOpening" @after-enter="onAfterEnter" @after-leave="onAfterLeave">
       <AssistantChatLauncher
-        v-if="!isOpen"
+        v-if="!isPanelOpen"
         ref="launcherComponent"
-        :lang="lang"
-        :assistant-name="props.config.assistant_name"
+        :language="language"
+        :assistant-name="props.assistant.assistant_name"
         :avatar-url="avatarUrl"
         :avatar-fallback-url="avatarFallbackUrl"
         :is-mobile-layout="isMobileLayout"
@@ -18,25 +18,26 @@
 
       <section
         v-else
+        ref="panelElement"
         class="ai-panel"
         :class="{ 'ai-panel--mobile': isMobileLayout && !props.inline, 'ai-panel--inline': props.inline }"
         role="dialog"
-        :aria-label="props.config.assistant_name"
+        :aria-label="props.assistant.assistant_name"
         @keydown.esc="close"
       >
         <AssistantChatHeader
           ref="headerComponent"
-          :assistant-name="props.config.assistant_name"
-          :business-name="props.config.business_name"
+          :assistant-name="props.assistant.assistant_name"
+          :business-name="props.assistant.business_name"
           :role-label="roleLabel"
           :online-label="onlineLabel"
           :avatar-url="avatarUrl"
           :avatar-fallback-url="avatarFallbackUrl"
           :can-close="!props.inline"
-          :lang="lang"
+          :language="language"
           :languages="offeredLanguages"
           @close="close"
-          @change-lang="setLang"
+          @change-language="setLanguage"
         />
 
         <div ref="threadElement" class="ai-thread">
@@ -48,14 +49,14 @@
               :photo-preview-url="photoPreviews[index] ?? null"
               :avatar-url="closesAssistantRun(index) ? avatarUrl : null"
               :avatar-fallback-url="avatarFallbackUrl"
-              :assistant-name="props.config.assistant_name"
+              :assistant-name="props.assistant.assistant_name"
             />
-            <AssistantChatTypingIndicator v-if="isBusy" :lang="lang" />
+            <AssistantChatTypingIndicator v-if="isBusy" :language="language" />
           </div>
 
           <AssistantChatQuickReplies
-            v-if="showChips"
-            :lang="lang"
+            v-if="shouldShowOpeningChips"
+            :language="language"
             :suggestions="suggestions"
             :can-send-photo="photosRemaining > 0"
             :can-play-example="props.inline && !hasPlayedExample"
@@ -65,11 +66,11 @@
             @example="playScriptedExample"
           />
           <AssistantChatQuickReplies
-            v-else-if="followUps.length > 0 || showActionChips"
-            :lang="lang"
+            v-else-if="followUps.length > 0 || shouldShowActionChips"
+            :language="language"
             :suggestions="followUps"
-            :can-send-photo="showActionChips && photosRemaining > 0"
-            :can-book-appointment="showActionChips && !leadSent"
+            :can-send-photo="shouldShowActionChips && photosRemaining > 0"
+            :can-book-appointment="shouldShowActionChips && !hasSentLead"
             @photo="openPhotoPanel"
             @appointment="openSlotPanel"
             @suggest="sendText"
@@ -77,7 +78,7 @@
 
           <AssistantChatPhotoCard
             v-if="isPhotoPanelOpen"
-            :lang="lang"
+            :language="language"
             :is-busy="isBusy"
             @pick="sendPhoto"
             @cancel="closePhotoPanel"
@@ -86,7 +87,7 @@
           <AssistantChatSlotsCard
             v-if="isSlotPanelOpen"
             ref="slotsCard"
-            :lang="lang"
+            :language="language"
             :booking-mode="bookingMode"
             :slots-state="slotsState"
             :days="slotDays"
@@ -108,9 +109,9 @@
           />
 
           <AssistantChatContactForm
-            v-if="showLeadForm && !leadSent"
+            v-if="isLeadFormOpen && !hasSentLead"
             ref="contactForm"
-            :lang="lang"
+            :language="language"
             :picked-summary="pickedSummary"
             :initial-name="leadPrefill.name"
             :initial-contact="leadPrefill.contact"
@@ -121,14 +122,14 @@
           />
         </div>
 
-        <AssistantChatCallbackBar v-if="showCallbackBar" :lang="lang" @open="openLeadForm" />
+        <AssistantChatCallbackBar v-if="shouldShowCallbackBar" :language="language" @open="openLeadForm" />
 
         <AssistantChatComposer
           v-model="draft"
-          :lang="lang"
+          :language="language"
           :is-busy="isBusy || isStreaming"
           :can-send-photo="photosRemaining > 0"
-          :can-book="!leadSent"
+          :can-book="!hasSentLead"
           :is-compact="isMobileLayout"
           @send="sendDraft"
           @photo="openPhotoPanel"
@@ -140,13 +141,14 @@
 </template>
 
 <script lang="ts" setup>
-import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { ComputedRef, EmitFn, PropType, Ref, ShallowRef } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import type { AiAssistantConfig } from '~/types/AiAssistant'
 import type { AssistantChatEmits, AssistantChatProps, AssistantLeadSummary } from '~/types/AssistantChat'
 import type { AssistantDemoScriptStep, AssistantHostPage } from '~/types/AssistantDemoScript'
 import type { UseAssistantConversationReturn } from '~/types/UseAssistantConversation'
 import type { UseAssistantWidgetFrameReturn } from '~/types/UseAssistantWidgetFrame'
+import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
 import AssistantChatContactForm from '~/components/AssistantChatContactForm.vue'
 import AssistantChatHeader from '~/components/AssistantChatHeader.vue'
 import AssistantChatLauncher from '~/components/AssistantChatLauncher.vue'
@@ -155,14 +157,13 @@ import { useAssistantConversation } from '~/composables/useAssistantConversation
 import { useAssistantWidgetFrame } from '~/composables/useAssistantWidgetFrame'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
 import { ONLINE_LABELS, ROLE_LABELS } from '~/constants/AssistantWidgetLabels'
-import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { AssistantAvatarUtils } from '~/utils/AssistantAvatarUtils'
 import { AssistantDemoScenarioUtils } from '~/utils/AssistantDemoScenarioUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 
 const props: AssistantChatProps = defineProps({
-  config: {
+  assistant: {
     type: Object as PropType<AiAssistantConfig>,
     required: true,
   },
@@ -178,20 +179,30 @@ const props: AssistantChatProps = defineProps({
 
 const emit: EmitFn<AssistantChatEmits> = defineEmits<AssistantChatEmits>()
 
+const launcherComponent: Readonly<ShallowRef<InstanceType<typeof AssistantChatLauncher> | null>> =
+  useTemplateRef('launcherComponent')
+const headerComponent: Readonly<ShallowRef<InstanceType<typeof AssistantChatHeader> | null>> =
+  useTemplateRef('headerComponent')
+const slotsCard: Readonly<ShallowRef<InstanceType<typeof AssistantChatSlotsCard> | null>> = useTemplateRef('slotsCard')
+const contactForm: Readonly<ShallowRef<InstanceType<typeof AssistantChatContactForm> | null>> =
+  useTemplateRef('contactForm')
+const threadElement: Readonly<ShallowRef<HTMLElement | null>> = useTemplateRef('threadElement')
+const panelElement: Readonly<ShallowRef<HTMLElement | null>> = useTemplateRef('panelElement')
+
 const {
   messages,
-  lang,
+  language,
   offeredLanguages,
   suggestions,
   draft,
   isBusy,
   isStreaming,
+  hasSentLead,
   photoPreviews,
   photosRemaining,
   isPhotoPanelOpen,
   isSlotPanelOpen,
-  showLeadForm,
-  leadSent,
+  isLeadFormOpen,
   isSubmittingLead,
   leadNeedPrefill,
   bookingMode,
@@ -207,17 +218,17 @@ const {
   canContinueBooking,
   pickedSummary,
   leadPrefill,
-  showChips,
+  shouldShowOpeningChips,
   followUps,
-  showActionChips,
-  showCallbackBar,
+  shouldShowActionChips,
+  shouldShowCallbackBar,
   lastLeadSummary,
   hasPlayedExample,
   restore,
   restoreFromHost,
   greet,
   playExample,
-  setLang,
+  setLanguage,
   sendText,
   sendDraft,
   openPhotoPanel,
@@ -235,34 +246,26 @@ const {
   cancelLeadForm,
   submitLead,
   releasePhotoPreviews,
-}: UseAssistantConversationReturn = useAssistantConversation(props.config, props.inline, props.hostPage)
+}: UseAssistantConversationReturn = useAssistantConversation(props.assistant, props.inline, props.hostPage)
 
-const isOpen: Ref<boolean> = ref(props.inline)
-/** True while the panel plays its closing sheet: the loader keeps the frame large until it is gone. */
-const isPanelLeaving: Ref<boolean> = ref(false)
-/** False for one opening only: the loader's placeholder sheet already travelled, the panel takes its place at once. */
-const shouldAnimateOpening: Ref<boolean> = ref(true)
-/** What the loader must frame: the panel while it is open or still closing, the launcher otherwise. */
-const isFrameOpen: ComputedRef<boolean> = computed((): boolean => isOpen.value || isPanelLeaving.value)
-const launcherComponent: Ref<InstanceType<typeof AssistantChatLauncher> | null> = ref(null)
-const headerComponent: Ref<InstanceType<typeof AssistantChatHeader> | null> = ref(null)
-const slotsCard: Ref<InstanceType<typeof AssistantChatSlotsCard> | null> = ref(null)
-const contactForm: Ref<InstanceType<typeof AssistantChatContactForm> | null> = ref(null)
-const threadElement: Ref<HTMLElement | null> = ref(null)
-
-const launcherElement: ComputedRef<HTMLElement | null> = computed(
-  (): HTMLElement | null => launcherComponent.value?.rootElement ?? null,
-)
-
-const { isEmbedded, isMobileLayout, hostState }: UseAssistantWidgetFrameReturn = useAssistantWidgetFrame({
+const {
+  isEmbedded,
+  isMobileLayout,
+  hostState,
+  isPanelOpen,
+  isPanelLeaving,
+  isFrameOpen,
+}: UseAssistantWidgetFrameReturn = useAssistantWidgetFrame({
   inline: props.inline,
-  isOpen: isFrameOpen,
-  launcherElement,
+  launcherElement: (): HTMLElement | null => launcherComponent.value?.rootElement ?? null,
   onOpenRequest: open,
 })
 
+/** False for one opening only: the loader's placeholder sheet already travelled, the panel takes its place at once. */
+const shouldAnimateOpening: Ref<boolean> = ref(true)
+
 const palette: ComputedRef<AssistantAccentPalette> = computed((): AssistantAccentPalette =>
-  AssistantAccentUtils.palette(props.config.accent_color),
+  AssistantAccentUtils.palette(props.assistant.accent_color),
 )
 const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<string, string> => ({
   '--ai-accent': palette.value.accent,
@@ -271,15 +274,19 @@ const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<str
   '--ai-accent-tint': palette.value.tint,
 }))
 const avatarUrl: ComputedRef<string> = computed((): string =>
-  AssistantAvatarUtils.portraitUrl(props.config.assistant_name, props.config.assistant_gender ?? null),
+  AssistantAvatarUtils.portraitUrl(props.assistant.assistant_name, props.assistant.assistant_gender ?? null),
 )
 const avatarFallbackUrl: ComputedRef<string> = computed((): string =>
-  AssistantAvatarUtils.dataUri(props.config.assistant_name, props.config.assistant_gender ?? null, palette.value.tint),
+  AssistantAvatarUtils.dataUri(
+    props.assistant.assistant_name,
+    props.assistant.assistant_gender ?? null,
+    palette.value.tint,
+  ),
 )
 const roleLabel: ComputedRef<string> = computed(
-  (): string => ROLE_LABELS[lang.value][props.config.assistant_gender ?? 'feminine'],
+  (): string => ROLE_LABELS[language.value][props.assistant.assistant_gender ?? 'feminine'],
 )
-const onlineLabel: ComputedRef<string> = computed((): string => ONLINE_LABELS[lang.value])
+const onlineLabel: ComputedRef<string> = computed((): string => ONLINE_LABELS[language.value])
 
 /**
  * Whether the message ends a run of assistant replies: the portrait sits beside that one only.
@@ -297,7 +304,7 @@ function closesAssistantRun(index: number): boolean {
  */
 function open(instant: boolean = false): void {
   if (instant) shouldAnimateOpening.value = false
-  isOpen.value = true
+  isPanelOpen.value = true
   if (messages.value.length === 0) {
     if (!props.inline) captureDemoEvent('assistant_opened')
     greet()
@@ -308,9 +315,9 @@ function open(instant: boolean = false): void {
 /** Play the demo page's scripted conversation for this trade, in the widget's language. */
 function playScriptedExample(): void {
   const steps: AssistantDemoScriptStep[] = AssistantDemoScenarioUtils.script(
-    lang.value,
-    props.config.trade_label ?? null,
-    BusinessNameUtils.short(props.config.business_name),
+    language.value,
+    props.assistant.trade_label ?? null,
+    BusinessNameUtils.short(props.assistant.business_name),
   )
   playExample(steps)
 }
@@ -319,7 +326,7 @@ function playScriptedExample(): void {
 function close(): void {
   if (props.inline) return
   isPanelLeaving.value = true
-  isOpen.value = false
+  isPanelOpen.value = false
   nextTick((): void => launcherComponent.value?.focus())
 }
 
@@ -354,7 +361,7 @@ watch(
     isStreaming,
     isPhotoPanelOpen,
     isSlotPanelOpen,
-    showLeadForm,
+    isLeadFormOpen,
     slotsState,
   ],
   (): void => {
@@ -374,8 +381,8 @@ watch(
       return
     }
     await nextTick()
-    const panel: HTMLElement | null = document.querySelector<HTMLElement>('.ai-panel')
-    if (panel) root.style.setProperty('background', getComputedStyle(panel).backgroundColor, 'important')
+    if (panelElement.value)
+      root.style.setProperty('background', getComputedStyle(panelElement.value).backgroundColor, 'important')
   },
   { immediate: true },
 )
@@ -387,7 +394,7 @@ watch(isSlotPanelOpen, async (isShown: boolean): Promise<void> => {
   slotsCard.value?.focus()
 })
 
-watch(showLeadForm, async (isShown: boolean): Promise<void> => {
+watch(isLeadFormOpen, async (isShown: boolean): Promise<void> => {
   if (!isShown) return
   await nextTick()
   contactForm.value?.focusFirstEmptyField()
@@ -427,9 +434,9 @@ onBeforeUnmount((): void => {
   --ai-line-soft: rgba(23, 19, 13, 0.07);
   --ai-on-strong: #ffffff;
   --ai-online: #2f9e5b;
-  --ai-font-d: 'Fraunces', Georgia, serif;
-  --ai-font-b: 'Inter', system-ui, sans-serif;
-  font-family: var(--ai-font-b);
+  --ai-font-display: 'Fraunces', Georgia, serif;
+  --ai-font-body: 'Inter', system-ui, sans-serif;
+  font-family: var(--ai-font-body);
   color: var(--ai-ink);
 }
 .ai-widget--inline {

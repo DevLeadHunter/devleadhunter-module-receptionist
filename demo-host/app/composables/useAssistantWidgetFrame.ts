@@ -23,16 +23,20 @@ export function postHostPersist(state: string): void {
 }
 
 /**
- * The widget's dialogue with the loader framing it on a client's site: iframe size to give, host viewport to follow,
- * open requests from the loader's own launcher to honour.
- * @param options - Whether the widget is laid out in a page, its open state, its launcher element, what to do on open.
- * @returns Whether it runs in the loader's iframe, and whether the host screen calls for the mobile layout.
+ * The widget's dialogue with the loader framing it on a client's site: whether its panel is open, the iframe size to
+ * give, the host viewport to follow, open requests from the loader's own launcher to honour.
+ * @param options - Whether the widget is laid out in a page, its launcher element, what to do on open.
+ * @returns The panel's visibility, whether it runs in the loader's iframe and whether the host calls for the mobile
+ * layout.
  */
 export function useAssistantWidgetFrame(options: UseAssistantWidgetFrameOptions): UseAssistantWidgetFrameReturn {
   const isEmbedded: Ref<boolean> = ref(false)
   const hostState: Ref<string | null | undefined> = ref(undefined)
   const viewportWidth: Ref<number | null> = ref(null)
   const viewportHeight: Ref<number | null> = ref(null)
+  const isPanelOpen: Ref<boolean> = ref(options.inline)
+  /** True while the panel plays its closing sheet: the loader keeps the frame large until it is gone. */
+  const isPanelLeaving: Ref<boolean> = ref(false)
   let launcherObserver: ResizeObserver | null = null
 
   const isMobileLayout: ComputedRef<boolean> = computed(
@@ -40,13 +44,15 @@ export function useAssistantWidgetFrame(options: UseAssistantWidgetFrameOptions)
       (viewportWidth.value !== null && viewportWidth.value < MOBILE_MAX_WIDTH) ||
       (viewportHeight.value !== null && viewportHeight.value < MOBILE_MAX_HEIGHT),
   )
+  /** What the loader must frame: the panel while it is open or still closing, the launcher otherwise. */
+  const isFrameOpen: ComputedRef<boolean> = computed((): boolean => isPanelOpen.value || isPanelLeaving.value)
 
   /** Tell the loader how big the iframe must be: the launcher's footprint when closed, the panel when open. */
   function postFrameSize(): void {
     if (!isEmbedded.value) return
-    const launcher: HTMLElement | null = options.launcherElement.value
-    if (options.isOpen.value || !launcher) {
-      window.parent.postMessage({ type: 'dlh-assistant-resize', open: options.isOpen.value }, '*')
+    const launcher: HTMLElement | null = options.launcherElement()
+    if (isFrameOpen.value || !launcher) {
+      window.parent.postMessage({ type: 'dlh-assistant-resize', open: isFrameOpen.value }, '*')
       return
     }
     const footprint: DOMRect = launcher.getBoundingClientRect()
@@ -89,7 +95,7 @@ export function useAssistantWidgetFrame(options: UseAssistantWidgetFrameOptions)
     viewportHeight.value = window.innerHeight
   }
 
-  watch([options.isOpen, isMobileLayout], (): void => {
+  watch([isFrameOpen, isMobileLayout], (): void => {
     nextTick(postFrameSize)
   })
 
@@ -105,7 +111,8 @@ export function useAssistantWidgetFrame(options: UseAssistantWidgetFrameOptions)
       window.addEventListener('message', onHostMessage)
       if (typeof ResizeObserver !== 'undefined') {
         launcherObserver = new ResizeObserver((): void => postFrameSize())
-        if (options.launcherElement.value) launcherObserver.observe(options.launcherElement.value)
+        const launcher: HTMLElement | null = options.launcherElement()
+        if (launcher) launcherObserver.observe(launcher)
       }
       window.parent.postMessage({ type: 'dlh-assistant-ready' }, '*')
       nextTick(postFrameSize)
@@ -121,5 +128,5 @@ export function useAssistantWidgetFrame(options: UseAssistantWidgetFrameOptions)
     launcherObserver?.disconnect()
   })
 
-  return { isEmbedded, isMobileLayout, hostState }
+  return { isEmbedded, isMobileLayout, hostState, isPanelOpen, isPanelLeaving, isFrameOpen }
 }

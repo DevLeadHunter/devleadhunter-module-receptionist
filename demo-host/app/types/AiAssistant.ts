@@ -82,7 +82,10 @@ export type AssistantLeadLabels = {
 }
 
 /** Languages the widget offers preset greetings and suggestions for. */
-export type AssistantWidgetLang = 'fr' | 'nl' | 'en' | 'de' | 'lu'
+export type AssistantWidgetLanguage = 'fr' | 'nl' | 'en' | 'de' | 'lu'
+
+/** @deprecated Use `AssistantWidgetLanguage`: kept while the client space still imports this name. */
+export type AssistantWidgetLang = AssistantWidgetLanguage
 
 /** The assistant's answer to a photo sent for a quote. */
 export type AssistantPhotoReply = {
@@ -215,7 +218,7 @@ export type AssistantExampleLabels = {
 export type AssistantChatRequestBody = {
   messages: AssistantChatMessage[]
   session_id: string
-  language: AssistantWidgetLang
+  language: AssistantWidgetLanguage
   internal: boolean
 }
 

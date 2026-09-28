@@ -1,29 +1,29 @@
 <template>
-  <header class="ai-head">
-    <span class="ai-head__portrait">
+  <header class="ai-header">
+    <span class="ai-header__portrait">
       <AssistantAvatar :url="props.avatarUrl" :fallback-url="props.avatarFallbackUrl" :alt="props.assistantName" />
-      <i class="ai-head__dot" aria-hidden="true" />
+      <span class="ai-header__online-dot" aria-hidden="true" />
     </span>
-    <span class="ai-head__who">
-      <b class="ai-head__name">{{ props.assistantName }}</b>
-      <span class="ai-head__role">{{ props.roleLabel }} · {{ props.businessName }}</span>
+    <span class="ai-header__identity">
+      <b class="ai-header__name">{{ props.assistantName }}</b>
+      <span class="ai-header__role">{{ props.roleLabel }} · {{ props.businessName }}</span>
     </span>
     <select
       v-if="props.languages.length > 1"
-      class="ai-head__lang"
-      :aria-label="UI_LABELS[props.lang].language"
-      :value="props.lang"
-      @change="onLangChange"
+      class="ai-header__language"
+      :aria-label="UI_LABELS[props.language].language"
+      :value="props.language"
+      @change="onLanguageChange"
     >
       <option v-for="code in props.languages" :key="code" :value="code">{{ LANGUAGE_LABELS[code] }}</option>
     </select>
-    <span v-else class="ai-head__online">{{ props.onlineLabel }}</span>
+    <span v-else class="ai-header__online">{{ props.onlineLabel }}</span>
     <button
       v-if="props.canClose"
       ref="closeButton"
       type="button"
-      class="ai-head__close"
-      :aria-label="UI_LABELS[props.lang].close"
+      class="ai-header__close"
+      :aria-label="UI_LABELS[props.language].close"
       @click="emit('close')"
     >
       <AssistantIcon name="close" />
@@ -34,7 +34,7 @@
 <script lang="ts" setup>
 import type { EmitFn, PropType, Ref } from 'vue'
 import { ref } from 'vue'
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 import type { AssistantChatHeaderEmits, AssistantChatHeaderProps } from '~/types/AssistantChatHeader'
 import { LANGUAGE_LABELS, UI_LABELS } from '~/constants/AssistantWidgetLabels'
 
@@ -67,12 +67,12 @@ const props: AssistantChatHeaderProps = defineProps({
     type: Boolean,
     default: true,
   },
-  lang: {
-    type: String as PropType<AssistantWidgetLang>,
+  language: {
+    type: String as PropType<AssistantWidgetLanguage>,
     required: true,
   },
   languages: {
-    type: Array as PropType<AssistantWidgetLang[]>,
+    type: Array as PropType<AssistantWidgetLanguage[]>,
     required: true,
   },
 })
@@ -85,12 +85,12 @@ const closeButton: Ref<HTMLButtonElement | null> = ref(null)
  * Switch the widget's language to the one picked in the selector.
  * @param event - The change event of the selector.
  */
-function onLangChange(event: Event): void {
+function onLanguageChange(event: Event): void {
   const select: HTMLSelectElement | null = event.target instanceof HTMLSelectElement ? event.target : null
-  const code: AssistantWidgetLang | undefined = props.languages.find(
-    (offered: AssistantWidgetLang): boolean => offered === select?.value,
+  const picked: AssistantWidgetLanguage | undefined = props.languages.find(
+    (offered: AssistantWidgetLanguage): boolean => offered === select?.value,
   )
-  if (code) emit('change-lang', code)
+  if (picked) emit('change-language', picked)
 }
 
 /** Give the keyboard focus to the close button, the first control of an opened panel. */
@@ -102,7 +102,7 @@ defineExpose({ focusClose })
 </script>
 
 <style scoped>
-.ai-head {
+.ai-header {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -110,7 +110,7 @@ defineExpose({ focusClose })
   background: var(--ai-card);
   border-bottom: 1px solid var(--ai-line-soft);
 }
-.ai-head__portrait {
+.ai-header__portrait {
   position: relative;
   width: 44px;
   height: 44px;
@@ -118,7 +118,7 @@ defineExpose({ focusClose })
   border-radius: 50%;
   box-shadow: 0 0 0 2px var(--ai-accent);
 }
-.ai-head__dot {
+.ai-header__online-dot {
   position: absolute;
   right: 0;
   bottom: 0;
@@ -128,20 +128,20 @@ defineExpose({ focusClose })
   background: var(--ai-online);
   box-shadow: 0 0 0 2px var(--ai-card);
 }
-.ai-head__who {
+.ai-header__identity {
   display: grid;
   gap: 2px;
   min-width: 0;
   flex: 1;
 }
-.ai-head__name {
-  font-family: var(--ai-font-d);
+.ai-header__name {
+  font-family: var(--ai-font-display);
   font-size: 1.1rem;
   font-weight: 600;
   line-height: 1.1;
   color: var(--ai-ink);
 }
-.ai-head__role {
+.ai-header__role {
   font-size: 0.74rem;
   line-height: 1.3;
   color: var(--ai-ink-dim);
@@ -151,7 +151,7 @@ defineExpose({ focusClose })
   overflow: hidden;
   overflow-wrap: anywhere;
 }
-.ai-head__online {
+.ai-header__online {
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -161,7 +161,7 @@ defineExpose({ focusClose })
   border-radius: 999px;
   padding: 4px 9px;
 }
-.ai-head__lang {
+.ai-header__language {
   flex: none;
   max-width: 120px;
   appearance: none;
@@ -177,18 +177,18 @@ defineExpose({ focusClose })
   padding: 4px 24px 4px 10px;
   cursor: pointer;
 }
-.ai-head__lang:hover {
+.ai-header__language:hover {
   border-color: var(--ai-ink);
   color: var(--ai-ink);
 }
 /* A native select keeps the focus after a click: the widget shows it with its own border, not the browser's ring. */
-.ai-head__lang:focus,
-.ai-head__lang:focus-visible {
+.ai-header__language:focus,
+.ai-header__language:focus-visible {
   outline: none;
   border-color: var(--ai-accent-strong);
   color: var(--ai-ink);
 }
-.ai-head__close {
+.ai-header__close {
   flex: none;
   width: 32px;
   height: 32px;
@@ -202,14 +202,14 @@ defineExpose({ focusClose })
   cursor: pointer;
   transition: background 0.12s ease;
 }
-.ai-head__close:hover {
+.ai-header__close:hover {
   background: var(--ai-paper);
   color: var(--ai-ink);
 }
-.ai-head__close:focus {
+.ai-header__close:focus {
   outline: none;
 }
-.ai-head__close:focus-visible {
+.ai-header__close:focus-visible {
   outline: 2px solid var(--ai-accent-strong);
   outline-offset: 2px;
 }

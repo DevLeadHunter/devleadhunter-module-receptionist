@@ -4,7 +4,7 @@
     :title="props.bookingMode === 'calendar' ? labels.titleCalendar : labels.title"
     :primary-label="labels.next"
     :primary-disabled="!props.canContinue"
-    :secondary-label="LEAD_LABELS[props.lang].cancel"
+    :secondary-label="LEAD_LABELS[props.language].cancel"
     tabindex="-1"
     @primary="emit('confirm')"
     @secondary="emit('cancel')"
@@ -34,7 +34,7 @@
             :aria-pressed="props.chosenTime?.start === time.start"
             @click="emit('choose-time', time)"
           >
-            {{ AssistantScheduleUtils.timeLabel(time.start, props.lang) }}
+            {{ AssistantScheduleUtils.timeLabel(time.start, props.language) }}
           </button>
         </li>
       </ul>
@@ -50,7 +50,7 @@
     <p v-else-if="props.days.length === 0" class="ai-slots__note">{{ labels.none }}</p>
     <ul v-else class="ai-slots__days">
       <li v-for="day in props.days" :key="day.date" class="ai-slots__day">
-        <span class="ai-slots__date">{{ AssistantScheduleUtils.dayLabel(day.date, props.lang) }}</span>
+        <span class="ai-slots__date">{{ AssistantScheduleUtils.dayLabel(day.date, props.language) }}</span>
         <button
           v-for="period in DAY_PERIODS"
           :key="period"
@@ -58,7 +58,7 @@
           class="ai-slots__slot"
           :disabled="!day.periods.includes(period)"
           :aria-pressed="isChosen(day.date, period)"
-          :aria-label="AssistantScheduleUtils.slotLabel({ date: day.date, period }, props.lang)"
+          :aria-label="AssistantScheduleUtils.slotLabel({ date: day.date, period }, props.language)"
           @click="emit('toggle-slot', day.date, period)"
         >
           {{ labels.periods[period] }}
@@ -79,7 +79,7 @@ import type {
   AssistantDayPeriod,
   AssistantSlotChoice,
   AssistantSlotsState,
-  AssistantWidgetLang,
+  AssistantWidgetLanguage,
 } from '~/types/AiAssistant'
 import type { AssistantChatSlotsCardEmits, AssistantChatSlotsCardProps } from '~/types/AssistantChatSlotsCard'
 import { APPOINTMENT_LABELS, LEAD_LABELS } from '~/constants/AssistantWidgetLabels'
@@ -88,8 +88,8 @@ import { AssistantScheduleUtils } from '~/utils/AssistantScheduleUtils'
 const DAY_PERIODS: AssistantDayPeriod[] = ['morning', 'afternoon']
 
 const props: AssistantChatSlotsCardProps = defineProps({
-  lang: {
-    type: String as PropType<AssistantWidgetLang>,
+  language: {
+    type: String as PropType<AssistantWidgetLanguage>,
     required: true,
   },
   bookingMode: {
@@ -143,7 +143,7 @@ const emit: EmitFn<AssistantChatSlotsCardEmits> = defineEmits<AssistantChatSlots
 const card: Ref<ComponentPublicInstance | null> = ref(null)
 
 const labels: ComputedRef<AssistantAppointmentLabels> = computed(
-  (): AssistantAppointmentLabels => APPOINTMENT_LABELS[props.lang],
+  (): AssistantAppointmentLabels => APPOINTMENT_LABELS[props.language],
 )
 
 /**

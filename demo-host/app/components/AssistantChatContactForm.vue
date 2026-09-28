@@ -12,7 +12,7 @@
     <input
       ref="nameInput"
       v-model="name"
-      class="ai-field"
+      class="ai-contact-form__field"
       maxlength="255"
       autocomplete="name"
       :placeholder="labels.name"
@@ -21,8 +21,8 @@
     <input
       ref="contactInput"
       v-model="contact"
-      class="ai-field"
-      :class="{ 'ai-field--invalid': showContactHint }"
+      class="ai-contact-form__field"
+      :class="{ 'ai-contact-form__field--invalid': showContactHint }"
       maxlength="255"
       autocomplete="tel"
       :placeholder="labels.contact"
@@ -30,11 +30,11 @@
       :aria-invalid="showContactHint"
       @blur="hasLeftContactField = true"
     />
-    <p v-if="showContactHint" class="ai-field__hint" aria-live="polite">{{ labels.contactHint }}</p>
+    <p v-if="showContactHint" class="ai-contact-form__hint" aria-live="polite">{{ labels.contactHint }}</p>
     <input
       ref="needInput"
       v-model="need"
-      class="ai-field"
+      class="ai-contact-form__field"
       maxlength="2000"
       autocomplete="off"
       :placeholder="labels.need"
@@ -46,14 +46,14 @@
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
 import { computed, ref, watch } from 'vue'
-import type { AssistantLeadLabels, AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantLeadLabels, AssistantWidgetLanguage } from '~/types/AiAssistant'
 import type { AssistantChatContactFormEmits, AssistantChatContactFormProps } from '~/types/AssistantChatContactForm'
 import { LEAD_LABELS } from '~/constants/AssistantWidgetLabels'
 import { VisitorContactUtils } from '~/utils/VisitorContactUtils'
 
 const props: AssistantChatContactFormProps = defineProps({
-  lang: {
-    type: String as PropType<AssistantWidgetLang>,
+  language: {
+    type: String as PropType<AssistantWidgetLanguage>,
     required: true,
   },
   pickedSummary: {
@@ -88,7 +88,7 @@ const contact: Ref<string> = ref(props.initialContact)
 const need: Ref<string> = ref(props.initialNeed)
 const hasLeftContactField: Ref<boolean> = ref(false)
 
-const labels: ComputedRef<AssistantLeadLabels> = computed((): AssistantLeadLabels => LEAD_LABELS[props.lang])
+const labels: ComputedRef<AssistantLeadLabels> = computed((): AssistantLeadLabels => LEAD_LABELS[props.language])
 /** The business can dial or write to what the visitor typed: a phone number or an email address. */
 const isContactReachable: ComputedRef<boolean> = computed((): boolean => VisitorContactUtils.isReachable(contact.value))
 const canSubmit: ComputedRef<boolean> = computed(
@@ -130,7 +130,7 @@ defineExpose({ focusFirstEmptyField })
 </script>
 
 <style scoped>
-.ai-field {
+.ai-contact-form__field {
   border: 1px solid var(--ai-line);
   border-radius: 12px;
   padding: 10px 12px;
@@ -140,14 +140,14 @@ defineExpose({ focusFirstEmptyField })
   background: var(--ai-paper-2);
   color: var(--ai-ink);
 }
-.ai-field:focus {
+.ai-contact-form__field:focus {
   outline: 2px solid var(--ai-accent-strong);
   outline-offset: 1px;
 }
-.ai-field--invalid {
+.ai-contact-form__field--invalid {
   border-color: var(--ai-ink-dim);
 }
-.ai-field__hint {
+.ai-contact-form__hint {
   margin: -2px 0 0 4px;
   font-size: 0.82rem;
   line-height: 1.35;

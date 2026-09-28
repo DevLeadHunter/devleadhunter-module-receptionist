@@ -1,16 +1,20 @@
 <template>
-  <div class="ai-typing" :aria-label="UI_LABELS[props.lang].typing"><i /><i /><i /></div>
+  <div class="ai-typing" :aria-label="UI_LABELS[props.language].typing">
+    <span class="ai-typing__dot" />
+    <span class="ai-typing__dot" />
+    <span class="ai-typing__dot" />
+  </div>
 </template>
 
 <script lang="ts" setup>
 import type { PropType } from 'vue'
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 import type { AssistantChatTypingIndicatorProps } from '~/types/AssistantChatTypingIndicator'
 import { UI_LABELS } from '~/constants/AssistantWidgetLabels'
 
 const props: AssistantChatTypingIndicatorProps = defineProps({
-  lang: {
-    type: String as PropType<AssistantWidgetLang>,
+  language: {
+    type: String as PropType<AssistantWidgetLanguage>,
     required: true,
   },
 })
@@ -44,17 +48,17 @@ const props: AssistantChatTypingIndicatorProps = defineProps({
     animation: none;
   }
 }
-.ai-typing i {
+.ai-typing__dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--ai-ink-dim);
   animation: ai-blink 1.1s infinite;
 }
-.ai-typing i:nth-child(2) {
+.ai-typing__dot:nth-child(2) {
   animation-delay: 0.18s;
 }
-.ai-typing i:nth-child(3) {
+.ai-typing__dot:nth-child(3) {
   animation-delay: 0.36s;
 }
 @keyframes ai-blink {
@@ -70,7 +74,7 @@ const props: AssistantChatTypingIndicatorProps = defineProps({
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ai-typing i {
+  .ai-typing__dot {
     animation: none;
   }
 }

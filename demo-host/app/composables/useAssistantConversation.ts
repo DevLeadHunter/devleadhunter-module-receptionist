@@ -2,49 +2,32 @@ import type { ComputedRef, Ref } from 'vue'
 import { computed, ref, watch } from 'vue'
 import type {
   AiAssistantConfig,
-  AssistantAppointmentDay,
-  AssistantAppointmentLabels,
-  AssistantAppointmentSlots,
-  AssistantAppointmentTime,
-  AssistantBookingMode,
   AssistantChatMessage,
   AssistantChatReply,
   AssistantChatRequestBody,
-  AssistantDayPeriod,
-  AssistantLeadReply,
-  AssistantPhotoReply,
-  AssistantSlotChoice,
-  AssistantSlotsState,
-  AssistantWidgetLang,
+  AssistantWidgetLanguage,
 } from '~/types/AiAssistant'
-import type { AssistantLeadSummary } from '~/types/AssistantChat'
-import type { AssistantContactDetails } from '~/types/AssistantChatContactForm'
-import type { AssistantContactPrefill } from '~/types/AssistantContactPrefill'
 import type { AssistantDemoScriptStep, AssistantHostPage } from '~/types/AssistantDemoScript'
+import type { AssistantStoredConversation, AssistantThreadContext, AssistantThreadPanel } from '~/types/AssistantThread'
+import type { UseAssistantBookingReturn } from '~/types/UseAssistantBooking'
 import type { UseAssistantConversationReturn } from '~/types/UseAssistantConversation'
-import { captureDemoEvent } from '~/composables/useDemoTracking'
+import type { UseAssistantLeadFormReturn } from '~/types/UseAssistantLeadForm'
+import type { UseAssistantPhotoUploadReturn } from '~/types/UseAssistantPhotoUpload'
+import { useAssistantBooking } from '~/composables/useAssistantBooking'
+import { useAssistantLeadForm } from '~/composables/useAssistantLeadForm'
+import { useAssistantPhotoUpload } from '~/composables/useAssistantPhotoUpload'
 import { postHostPersist } from '~/composables/useAssistantWidgetFrame'
-import {
-  APPOINTMENT_LABELS,
-  FALLBACK_REPLY,
-  GREETING_FOLLOW_UPS,
-  GREETING_INTROS,
-  LANGUAGE_LABELS,
-  LEAD_LABELS,
-  PHOTO_LABELS,
-  SUGGESTIONS,
-} from '~/constants/AssistantWidgetLabels'
-import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
+import { captureDemoEvent } from '~/composables/useDemoTracking'
+import { FALLBACK_REPLY, GREETING_FOLLOW_UPS, GREETING_INTROS, SUGGESTIONS } from '~/constants/AssistantWidgetLabels'
+import { ASSISTANT_STORED_MESSAGES_MAX } from '~/constants/AssistantWidgetLimits'
+import { AssistantConversationStorageUtils } from '~/utils/AssistantConversationStorageUtils'
 import { AssistantHostPageUtils } from '~/utils/AssistantHostPageUtils'
-import { AssistantScheduleUtils } from '~/utils/AssistantScheduleUtils'
+import { AssistantLanguageUtils } from '~/utils/AssistantLanguageUtils'
 import { AssistantStreamUtils } from '~/utils/AssistantStreamUtils'
+import { AssistantThreadUtils } from '~/utils/AssistantThreadUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 import { LanguageDetectUtils } from '~/utils/LanguageDetectUtils'
-import { PhotoCompressionUtils } from '~/utils/PhotoCompressionUtils'
-import { VisitorContactUtils } from '~/utils/VisitorContactUtils'
-
-const DEFAULT_LANG: AssistantWidgetLang = 'fr'
 
 /** Laid out in a page, the greeting is typed before it appears, like a first reply; the panel is on screen already. */
 const INLINE_GREETING_DELAY_MS: number = 900
@@ -56,18 +39,6 @@ const EXAMPLE_REPLY_DELAY_MS: number = 1500
 /** A French word starting with a vowel or a mute h takes « d' » (« d'Atelier ») rather than « de ». */
 const FRENCH_ELISION_START: RegExp = /^[aeiouyàâäéèêëîïôöùûüh]/i
 
-/** A returning visitor keeps their conversation across page loads, bounded so storage never grows unchecked. */
-const MAX_STORED_MESSAGES: number = 40
-
-/** Photos a visitor may send for one quote request (the API enforces the same quota per session). */
-const MAX_PHOTOS: number = 3
-
-/**
- * One visitor's conversation with an assistant: thread, language, photo, appointment, contact details and replies.
- * @param config - The assistant's public configuration.
- * @param inline - True when the widget is laid out in a page: its opening then counts at the first interaction.
- * @returns The conversation's state and the actions the widget offers.
- */
 /**
  * A pause, for the typed greeting and the played example.
  * @param milliseconds - How long.
@@ -81,93 +52,57 @@ function wait(milliseconds: number): Promise<void> {
 
 /**
  * The visitor's conversation with an assistant: the thread, its language, the photo, the slots and the contact form.
- * @param config - The assistant's public configuration.
+ * @param assistant - The assistant's public configuration.
  * @param inline - Whether the panel is laid out in a page (the demo phone) rather than floating.
  * @param hostPage - The client's page the loader embedded the widget on, or null.
  * @returns The state and the actions the widget binds.
  */
 export function useAssistantConversation(
-  config: AiAssistantConfig,
+  assistant: AiAssistantConfig,
   inline: boolean,
   hostPage: AssistantHostPage | null,
 ): UseAssistantConversationReturn {
   const runtimeConfig: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
-  const publicEndpoint: string = `${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${config.slug}`
-  const storageKey: string = `dlh-assistant-${config.slug}`
+  const publicEndpoint: string = `${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${assistant.slug}`
+  const storageKey: string = AssistantConversationStorageUtils.key(assistant.slug)
 
   const messages: Ref<AssistantChatMessage[]> = ref([])
-  const lang: Ref<AssistantWidgetLang> = ref(DEFAULT_LANG)
+  const language: Ref<AssistantWidgetLanguage> = ref(AssistantLanguageUtils.DEFAULT_LANGUAGE)
   const draft: Ref<string> = ref('')
   const isBusy: Ref<boolean> = ref(false)
   /** True while a reply is still arriving piece by piece in its bubble. */
   const isStreaming: Ref<boolean> = ref(false)
   const hasPlayedExample: Ref<boolean> = ref(false)
-  let isPlayingExample: boolean = false
   /** Random id sent with every turn so the server journal groups this visitor's conversation. */
   const sessionId: Ref<string> = ref('')
-  const photoPreviews: Ref<Record<number, string>> = ref({})
-  const photosRemaining: Ref<number> = ref(MAX_PHOTOS)
-  const hasSentPhoto: Ref<boolean> = ref(false)
-  const isPhotoPanelOpen: Ref<boolean> = ref(false)
-  const isSlotPanelOpen: Ref<boolean> = ref(false)
-  const showLeadForm: Ref<boolean> = ref(false)
-  const leadSent: Ref<boolean> = ref(false)
-  const isSubmittingLead: Ref<boolean> = ref(false)
-  const leadNeedPrefill: Ref<string> = ref('')
-  const bookingMode: Ref<AssistantBookingMode> = ref('request')
-  const slotsState: Ref<AssistantSlotsState> = ref('idle')
-  const slotDays: Ref<AssistantAppointmentDay[]> = ref([])
-  const slotTimes: Ref<AssistantAppointmentTime[]> = ref([])
-  const hasMoreTimes: Ref<boolean> = ref(false)
-  /** The last slot of the page before (null on the first page of free slots). */
-  const slotsAfter: Ref<string | null> = ref(null)
-  const maxChosenSlots: Ref<number> = ref(2)
-  const appointmentKinds: Ref<string[]> = ref([])
-  const chosenSlots: Ref<AssistantSlotChoice[]> = ref([])
-  const chosenTime: Ref<AssistantAppointmentTime | null> = ref(null)
-  const chosenKind: Ref<string | null> = ref(null)
-  /** The slot panel opens by itself at most once per visit, when the visitor asks the chat for an appointment. */
-  const hasOfferedBooking: Ref<boolean> = ref(false)
-  const hasCapturedInlineOpening: Ref<boolean> = ref(false)
-  const lastLeadSummary: Ref<AssistantLeadSummary | null> = ref(null)
+  const openPanel: Ref<AssistantThreadPanel | null> = ref(null)
+  const hasSentLead: Ref<boolean> = ref(false)
+  let isPlayingExample: boolean = false
+  let hasCapturedInlineOpening: boolean = false
 
-  const offeredLanguages: ComputedRef<AssistantWidgetLang[]> = computed((): AssistantWidgetLang[] => {
-    const codes: AssistantWidgetLang[] = config.languages.filter(
-      (code: string): code is AssistantWidgetLang => code in LANGUAGE_LABELS,
-    )
-    return codes.length ? codes : [DEFAULT_LANG]
-  })
-  const suggestions: ComputedRef<string[]> = computed((): string[] => SUGGESTIONS[lang.value])
-  const hasPreviousSlotsPage: ComputedRef<boolean> = computed((): boolean => slotsAfter.value !== null)
-  const chosenSlotsLine: ComputedRef<string> = computed((): string =>
-    AssistantScheduleUtils.slotsLine(chosenSlots.value, lang.value),
+  const context: AssistantThreadContext = {
+    assistant,
+    publicEndpoint,
+    messages,
+    language,
+    sessionId,
+    isBusy,
+    openPanel,
+    hasSentLead,
+    noteInlineOpening,
+  }
+  const booking: UseAssistantBookingReturn = useAssistantBooking(context)
+  const photo: UseAssistantPhotoUploadReturn = useAssistantPhotoUpload(context)
+  const leadForm: UseAssistantLeadFormReturn = useAssistantLeadForm(context, booking, photo)
+
+  const offeredLanguages: ComputedRef<AssistantWidgetLanguage[]> = computed((): AssistantWidgetLanguage[] =>
+    AssistantLanguageUtils.offered(assistant.languages),
   )
-  const chosenTimeLine: ComputedRef<string> = computed((): string => {
-    if (!chosenTime.value) return ''
-    const when: string = AssistantScheduleUtils.timeLabel(chosenTime.value.start, lang.value)
-    return chosenKind.value ? `${when} (${chosenKind.value})` : when
-  })
-  const canContinueBooking: ComputedRef<boolean> = computed((): boolean =>
-    bookingMode.value === 'calendar'
-      ? chosenTime.value !== null && (appointmentKinds.value.length === 0 || chosenKind.value !== null)
-      : chosenSlots.value.length > 0,
-  )
-  const pickedSummary: ComputedRef<string> = computed((): string => {
-    const labels: AssistantAppointmentLabels = APPOINTMENT_LABELS[lang.value]
-    if (chosenSlots.value.length > 0) return `${labels.chosen} : ${chosenSlotsLine.value}`
-    if (chosenTime.value) return `${labels.appointment} : ${chosenTimeLine.value}`
-    return ''
-  })
-  /** What the visitor already gave in the chat (« Léo », « 06 42 19 38 12 »): the form opens filled with it. */
-  const leadPrefill: ComputedRef<AssistantContactPrefill> = computed((): AssistantContactPrefill =>
-    VisitorContactUtils.extract(messages.value),
-  )
-  /** No panel or form in the thread: the chips may sit under the last message. */
-  const isThreadClear: ComputedRef<boolean> = computed(
-    (): boolean => !isSlotPanelOpen.value && !isPhotoPanelOpen.value && !showLeadForm.value,
-  )
+  const suggestions: ComputedRef<string[]> = computed((): string[] => SUGGESTIONS[language.value])
   /** The opening chips show under the greeting only, until the visitor writes or opens a panel. */
-  const showChips: ComputedRef<boolean> = computed((): boolean => messages.value.length <= 1 && isThreadClear.value)
+  const shouldShowOpeningChips: ComputedRef<boolean> = computed(
+    (): boolean => messages.value.length <= 1 && openPanel.value === null,
+  )
   /** The thread ends on a reply the visitor may act on: nothing typing, no panel open. */
   const endsOnReply: ComputedRef<boolean> = computed((): boolean => {
     const last: AssistantChatMessage | undefined = messages.value[messages.value.length - 1]
@@ -176,7 +111,7 @@ export function useAssistantConversation(
       last?.role === 'assistant' &&
       !isBusy.value &&
       !isStreaming.value &&
-      isThreadClear.value
+      openPanel.value === null
     )
   })
   /** The questions the last reply offers next, as chips under it, until the visitor goes on. */
@@ -185,65 +120,30 @@ export function useAssistantConversation(
     return endsOnReply.value && last?.follow_ups?.length ? last.follow_ups : []
   })
   /** A reply without questions still offers the two actions (photo, appointment), so the visitor can click on. */
-  const showActionChips: ComputedRef<boolean> = computed(
-    (): boolean => endsOnReply.value && followUps.value.length === 0 && (photosRemaining.value > 0 || !leadSent.value),
+  const shouldShowActionChips: ComputedRef<boolean> = computed(
+    (): boolean =>
+      endsOnReply.value && followUps.value.length === 0 && (photo.photosRemaining.value > 0 || !hasSentLead.value),
   )
   /** A slim way to leave one's details stays above the composer, from the greeting until the request is sent. */
-  const showCallbackBar: ComputedRef<boolean> = computed(
-    (): boolean => !leadSent.value && !showLeadForm.value && !isSlotPanelOpen.value && !isPhotoPanelOpen.value,
+  const shouldShowCallbackBar: ComputedRef<boolean> = computed(
+    (): boolean => !hasSentLead.value && openPanel.value === null,
   )
 
   /**
-   * Whether a value is a well-formed chat message (guards against corrupted stored data).
-   * @param value - A parsed entry from storage.
-   * @returns True when it is a usable message.
+   * Take a stored conversation: its session, its language when still offered, and its thread when it has one.
+   * @param stored - The conversation read back, or null.
+   * @returns True when a thread was restored (so the widget skips the fresh greeting).
    */
-  function isChatMessage(value: unknown): value is AssistantChatMessage {
-    if (typeof value !== 'object' || value === null) return false
-    const entry: Record<string, unknown> = value as Record<string, unknown>
-    const hasFollowUps: boolean =
-      entry.follow_ups === undefined ||
-      (Array.isArray(entry.follow_ups) &&
-        entry.follow_ups.every((question: unknown): boolean => typeof question === 'string'))
-    return (entry.role === 'user' || entry.role === 'assistant') && typeof entry.content === 'string' && hasFollowUps
-  }
-
-  /**
-   * Restore this visitor's saved conversation and language for the assistant, when any.
-   * @returns True when a previous conversation was restored (so the widget skips the fresh greeting).
-   */
-  function restoreConversation(): boolean {
-    // Inside the try: a browser that refuses storage to a third-party iframe throws on the mere access.
-    try {
-      return restoreFromRaw(localStorage.getItem(storageKey))
-    } catch {
-      return false
-    }
-  }
-
-  /**
-   * Restore a serialised conversation, as this widget or the host page saved it.
-   * @param raw - The serialised conversation, or null when there is none.
-   * @returns True when a conversation was restored.
-   */
-  function restoreFromRaw(raw: string | null): boolean {
-    try {
-      if (!raw) return false
-      const saved: { lang?: unknown; messages?: unknown; sessionId?: unknown } = JSON.parse(raw)
-      if (typeof saved.sessionId === 'string' && saved.sessionId) sessionId.value = saved.sessionId
-      if (
-        typeof saved.lang === 'string' &&
-        offeredLanguages.value.some((code: AssistantWidgetLang): boolean => code === saved.lang)
-      ) {
-        lang.value = saved.lang as AssistantWidgetLang
-      }
-      const restored: AssistantChatMessage[] = Array.isArray(saved.messages) ? saved.messages.filter(isChatMessage) : []
-      if (!restored.length) return false
-      messages.value = restored.slice(-MAX_STORED_MESSAGES)
-      return true
-    } catch {
-      return false
-    }
+  function applyStoredConversation(stored: AssistantStoredConversation | null): boolean {
+    if (!stored) return false
+    if (stored.sessionId) sessionId.value = stored.sessionId
+    const storedLanguage: AssistantWidgetLanguage | undefined = offeredLanguages.value.find(
+      (code: AssistantWidgetLanguage): boolean => code === stored.language,
+    )
+    if (storedLanguage) language.value = storedLanguage
+    if (!stored.messages.length) return false
+    messages.value = stored.messages.slice(-ASSISTANT_STORED_MESSAGES_MAX)
+    return true
   }
 
   /**
@@ -254,23 +154,15 @@ export function useAssistantConversation(
   function restoreFromHost(raw: string | null): void {
     const hasSpoken: boolean = messages.value.some((message: AssistantChatMessage): boolean => message.role === 'user')
     if (hasSpoken || !raw) return
-    restoreFromRaw(raw)
+    applyStoredConversation(AssistantConversationStorageUtils.parse(raw))
   }
 
   /** Persist this visitor's conversation and language, bounded to the most recent messages. */
   function persistConversation(): void {
     // An empty thread has nothing to save, and saving it would wipe the copy the host page keeps from an earlier page.
     if (messages.value.length === 0) return
-    const raw: string = JSON.stringify({
-      lang: lang.value,
-      sessionId: sessionId.value,
-      messages: messages.value.slice(-MAX_STORED_MESSAGES),
-    })
-    try {
-      localStorage.setItem(storageKey, raw)
-    } catch {
-      // Storage unavailable (private mode, third-party iframe) or full: the widget keeps working from memory.
-    }
+    const raw: string = AssistantConversationStorageUtils.serialize(language.value, sessionId.value, messages.value)
+    AssistantConversationStorageUtils.write(storageKey, raw)
     if (!inline) postHostPersist(raw)
   }
 
@@ -278,52 +170,39 @@ export function useAssistantConversation(
    * The visitor's browser language, when the assistant offers it.
    * @returns The matching offered language, or null when none of the visitor's languages is offered.
    */
-  function detectPreferredLang(): AssistantWidgetLang | null {
+  function browserLanguage(): AssistantWidgetLanguage | null {
     if (typeof navigator === 'undefined') return null
-    const offered: AssistantWidgetLang[] = offeredLanguages.value
-    const wanted: string[] = [navigator.language, ...(navigator.languages ?? [])]
-    for (const raw of wanted) {
-      const code: string = raw.slice(0, 2).toLowerCase()
-      const match: AssistantWidgetLang | undefined = offered.find(
-        (offer: AssistantWidgetLang): boolean => offer === code,
-      )
-      if (match) return match
-    }
-    return null
-  }
-
-  /**
-   * A random id for this visitor's conversation (the browser's UUID when available).
-   * @returns The new session id.
-   */
-  function newSessionId(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
-    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+    return AssistantLanguageUtils.firstOffered(
+      [navigator.language, ...(navigator.languages ?? [])],
+      offeredLanguages.value,
+    )
   }
 
   /** Restore a returning visitor's conversation, else open in their browser language when offered. */
   function restore(): void {
-    const restored: boolean = restoreConversation()
-    if (!restored) {
-      const preferred: AssistantWidgetLang | null = detectPreferredLang()
-      if (preferred) lang.value = preferred
+    const stored: AssistantStoredConversation | null = AssistantConversationStorageUtils.parse(
+      AssistantConversationStorageUtils.read(storageKey),
+    )
+    if (!applyStoredConversation(stored)) {
+      const preferred: AssistantWidgetLanguage | null = browserLanguage()
+      if (preferred) language.value = preferred
     }
-    if (!sessionId.value) sessionId.value = newSessionId()
+    if (!sessionId.value) sessionId.value = AssistantConversationStorageUtils.newSessionId()
   }
 
   /**
    * The greeting in a language: the persona introduces itself as the business's AI receptionist, then asks.
-   * @param code - The language of the greeting.
+   * @param greetingLanguage - The language of the greeting.
    * @returns The greeting text.
    */
-  function greetingText(code: AssistantWidgetLang): string {
-    const business: string = BusinessNameUtils.short(config.business_name)
+  function greetingText(greetingLanguage: AssistantWidgetLanguage): string {
+    const business: string = BusinessNameUtils.short(assistant.business_name)
     const ofBusiness: string = FRENCH_ELISION_START.test(business) ? `d'${business}` : `de ${business}`
-    const intro: string = GREETING_INTROS[code][config.assistant_gender ?? 'feminine']
-      .replace('{name}', config.assistant_name)
+    const intro: string = GREETING_INTROS[greetingLanguage][assistant.assistant_gender ?? 'feminine']
+      .replace('{name}', assistant.assistant_name)
       .replace('{business}', business)
       .replace('{of_business}', ofBusiness)
-    return `${intro} ${GREETING_FOLLOW_UPS[code][AssistantHostPageUtils.context(hostPage)]}`
+    return `${intro} ${GREETING_FOLLOW_UPS[greetingLanguage][AssistantHostPageUtils.context(hostPage)]}`
   }
 
   /**
@@ -338,7 +217,7 @@ export function useAssistantConversation(
       isBusy.value = false
       if (messages.value.length !== 0) return
     }
-    messages.value.push({ role: 'assistant', content: greetingText(lang.value) })
+    messages.value.push({ role: 'assistant', content: greetingText(language.value) })
   }
 
   /**
@@ -361,7 +240,7 @@ export function useAssistantConversation(
         await wait(EXAMPLE_VISITOR_DELAY_MS)
       }
       // The scripted customer's photo shows in its bubble, like a real upload would.
-      if (step.photoUrl) photoPreviews.value = { ...photoPreviews.value, [messages.value.length]: step.photoUrl }
+      if (step.photoUrl) photo.showPhotoPreview(messages.value.length, step.photoUrl)
       messages.value.push({ role: step.role, content: step.content })
     }
     isPlayingExample = false
@@ -370,163 +249,19 @@ export function useAssistantConversation(
 
   /** Laid out in a page, the panel is open on arrival: the opening counts at the visitor's first interaction. */
   function noteInlineOpening(): void {
-    if (!inline || hasCapturedInlineOpening.value) return
-    hasCapturedInlineOpening.value = true
+    if (!inline || hasCapturedInlineOpening) return
+    hasCapturedInlineOpening = true
     captureDemoEvent('assistant_opened')
   }
 
   /**
    * Switch the widget's preset language (the assistant still replies in the visitor's own language).
-   * @param code - The language code to switch to.
+   * @param nextLanguage - The language to switch to.
    */
-  function setLang(code: AssistantWidgetLang): void {
-    lang.value = code
+  function setLanguage(nextLanguage: AssistantWidgetLanguage): void {
+    language.value = nextLanguage
     const greeting: AssistantChatMessage | undefined = messages.value[0]
-    if (messages.value.length === 1 && greeting?.role === 'assistant') greeting.content = greetingText(code)
-  }
-
-  /** Forget the half-days, the free slot and the kind picked. */
-  function forgetPicks(): void {
-    chosenSlots.value = []
-    chosenTime.value = null
-    chosenKind.value = null
-  }
-
-  /**
-   * Fetch what the appointment panel offers.
-   * @param after - The last free slot shown, to get the next ones (agenda only).
-   * @returns A promise resolved once loaded or failed.
-   */
-  async function loadSlots(after: string | null = null): Promise<void> {
-    slotsState.value = 'loading'
-    // A new page of slots: a time picked on the page before would stay chosen while out of sight.
-    chosenTime.value = null
-    try {
-      const offer: AssistantAppointmentSlots = await $fetch<AssistantAppointmentSlots>(
-        `${publicEndpoint}/appointment-slots`,
-        { query: after ? { after } : {} },
-      )
-      bookingMode.value = offer.mode
-      slotsAfter.value = after
-      slotDays.value = offer.days
-      maxChosenSlots.value = offer.max_chosen
-      slotTimes.value = offer.times
-      hasMoreTimes.value = offer.has_more
-      appointmentKinds.value = offer.types
-      if (chosenKind.value !== null && !offer.types.includes(chosenKind.value)) chosenKind.value = null
-      slotsState.value = 'ready'
-    } catch {
-      slotsState.value = 'error'
-    }
-  }
-
-  /**
-   * Show the appointment panel and load what it offers: the agenda's free slots, or open half-days.
-   * @returns A promise resolved once the offer is shown (or its failure).
-   */
-  async function openSlotPanel(): Promise<void> {
-    if (isBusy.value || leadSent.value) return
-    noteInlineOpening()
-    hasOfferedBooking.value = true
-    isPhotoPanelOpen.value = false
-    showLeadForm.value = false
-    isSlotPanelOpen.value = true
-    // Free slots change: the agenda's are read again, from the first page, at each opening.
-    if (slotsState.value !== 'ready' || bookingMode.value === 'calendar') await loadSlots()
-  }
-
-  /** Close the appointment panel and forget the picks. */
-  function closeSlotPanel(): void {
-    isSlotPanelOpen.value = false
-    forgetPicks()
-  }
-
-  /**
-   * Show the first page of free slots again.
-   * @returns A promise resolved once loaded.
-   */
-  async function loadFirstSlotsPage(): Promise<void> {
-    await loadSlots(null)
-  }
-
-  /**
-   * Replace the free slots shown by the next ones.
-   * @returns A promise resolved once they are loaded.
-   */
-  async function showMoreTimes(): Promise<void> {
-    const last: AssistantAppointmentTime | undefined = slotTimes.value[slotTimes.value.length - 1]
-    if (!last) return
-    await loadSlots(last.start)
-  }
-
-  /**
-   * Pick or drop a half-day; past the maximum, the oldest pick makes room.
-   * @param date - The ISO day.
-   * @param period - The half-day.
-   */
-  function toggleSlot(date: string, period: AssistantDayPeriod): void {
-    const isPicked: boolean = chosenSlots.value.some(
-      (slot: AssistantSlotChoice): boolean => slot.date === date && slot.period === period,
-    )
-    if (isPicked) {
-      chosenSlots.value = chosenSlots.value.filter(
-        (slot: AssistantSlotChoice): boolean => slot.date !== date || slot.period !== period,
-      )
-      return
-    }
-    chosenSlots.value = [...chosenSlots.value, { date, period }].slice(-maxChosenSlots.value)
-  }
-
-  /**
-   * Pick a free slot of the agenda.
-   * @param time - The slot.
-   */
-  function chooseTime(time: AssistantAppointmentTime): void {
-    chosenTime.value = time
-  }
-
-  /**
-   * Pick the kind of appointment the agenda offers.
-   * @param kind - The kind.
-   */
-  function chooseKind(kind: string): void {
-    chosenKind.value = kind
-  }
-
-  /** Move on to the contact form with the picked appointment. */
-  function confirmSlots(): void {
-    if (!canContinueBooking.value) return
-    isSlotPanelOpen.value = false
-    showLeadForm.value = true
-  }
-
-  /** Show the photo panel: its privacy note comes before the file picker. */
-  function openPhotoPanel(): void {
-    if (photosRemaining.value <= 0 || isBusy.value) return
-    noteInlineOpening()
-    isSlotPanelOpen.value = false
-    showLeadForm.value = false
-    isPhotoPanelOpen.value = true
-  }
-
-  /** Hide the photo panel. */
-  function closePhotoPanel(): void {
-    isPhotoPanelOpen.value = false
-  }
-
-  /** Show the contact form for a call back: an appointment picked before is not part of it. */
-  function openLeadForm(): void {
-    noteInlineOpening()
-    forgetPicks()
-    isPhotoPanelOpen.value = false
-    isSlotPanelOpen.value = false
-    showLeadForm.value = true
-  }
-
-  /** Close the contact form; an appointment's picks go with it. */
-  function cancelLeadForm(): void {
-    showLeadForm.value = false
-    forgetPicks()
+    if (messages.value.length === 1 && greeting?.role === 'assistant') greeting.content = greetingText(nextLanguage)
   }
 
   /**
@@ -536,9 +271,9 @@ export function useAssistantConversation(
    * @returns True when the language changed.
    */
   function followLanguage(text: string): boolean {
-    const detected: AssistantWidgetLang | null = LanguageDetectUtils.detect(text, offeredLanguages.value)
-    if (detected === null || detected === lang.value) return false
-    lang.value = detected
+    const detected: AssistantWidgetLanguage | null = LanguageDetectUtils.detect(text, offeredLanguages.value)
+    if (detected === null || detected === language.value) return false
+    language.value = detected
     return true
   }
 
@@ -559,32 +294,29 @@ export function useAssistantConversation(
     isBusy.value = true
     let offerBooking: boolean = false
     const body: AssistantChatRequestBody = {
-      // The turns, with the suggestions shown under each reply: the model sees what it already proposed.
-      messages: messages.value
-        .slice(-MAX_STORED_MESSAGES)
-        .map(({ role, content, follow_ups }: AssistantChatMessage): AssistantChatMessage =>
-          follow_ups?.length ? { role, content, follow_ups } : { role, content },
-        ),
+      messages: AssistantThreadUtils.conversationTurns(messages.value),
       session_id: sessionId.value,
-      language: lang.value,
+      language: language.value,
       internal: DemoBeaconUtils.isInternalVisit(),
     }
     try {
       let answer: AssistantChatReply | null = await streamReply(body)
       if (!answer) {
         answer = await $fetch<AssistantChatReply>(`${publicEndpoint}/chat`, { method: 'POST', body })
-        messages.value.push(replyMessage(answer.reply, answer.follow_ups))
+        messages.value.push(AssistantThreadUtils.replyMessage(answer.reply, answer.follow_ups))
       }
       offerBooking = answer.offer_booking
       // The reply is longer than the question: when the question was too short to tell, the reply decides.
       if (!hasFollowedVisitor) followLanguage(answer.reply)
     } catch {
-      messages.value.push({ role: 'assistant', content: FALLBACK_REPLY[lang.value] })
+      messages.value.push({ role: 'assistant', content: FALLBACK_REPLY[language.value] })
     } finally {
       isBusy.value = false
       isStreaming.value = false
     }
-    if (offerBooking && !hasOfferedBooking.value && !showLeadForm.value) await openSlotPanel()
+    if (offerBooking && !booking.hasOfferedBooking.value && !leadForm.isLeadFormOpen.value) {
+      await booking.openSlotPanel()
+    }
   }
 
   /**
@@ -623,21 +355,11 @@ export function useAssistantConversation(
     }
     const bubble: AssistantChatMessage | undefined = messages.value[bubbleIndex]
     if (bubble && closing.reply) bubble.content = closing.reply
-    else if (!bubble && closing.reply) messages.value.push(replyMessage(closing.reply, closing.follow_ups))
+    else if (!bubble && closing.reply) {
+      messages.value.push(AssistantThreadUtils.replyMessage(closing.reply, closing.follow_ups))
+    }
     if (bubble && closing.follow_ups.length > 0) bubble.follow_ups = closing.follow_ups
     return closing
-  }
-
-  /**
-   * A reply as a message of the thread, with the questions it offers next when there are any.
-   * @param reply - The reply text.
-   * @param followUps - The questions offered next (possibly missing from an older API).
-   * @returns The message to push.
-   */
-  function replyMessage(reply: string, followUps: string[] | undefined): AssistantChatMessage {
-    return followUps && followUps.length > 0
-      ? { role: 'assistant', content: reply, follow_ups: followUps }
-      : { role: 'assistant', content: reply }
   }
 
   /**
@@ -648,244 +370,31 @@ export function useAssistantConversation(
     await sendText(draft.value)
   }
 
-  /**
-   * The visitor-facing message for a photo the API refused (quota, size, format) or could not take.
-   * @param error - What the upload threw.
-   * @returns A message in the widget language.
-   */
-  function photoErrorMessage(error: unknown): string {
-    const status: number | undefined = ApiRefusalUtils.status(error)
-    if (status === 409) {
-      photosRemaining.value = 0
-      return PHOTO_LABELS[lang.value].quota
-    }
-    if (status === 413) return PHOTO_LABELS[lang.value].tooLarge
-    if (status === 415) return PHOTO_LABELS[lang.value].invalid
-    return FALLBACK_REPLY[lang.value]
-  }
-
-  /**
-   * Send a photo for a quote: thumbnail at once, the assistant's description, then the contact form prefilled.
-   * @param file - The picked file.
-   * @returns A promise resolved once the assistant has answered.
-   */
-  async function sendPhoto(file: File): Promise<void> {
-    isPhotoPanelOpen.value = false
-    if (isBusy.value) return
-    if (!PhotoCompressionUtils.isPhoto(file)) {
-      messages.value.push({ role: 'assistant', content: PHOTO_LABELS[lang.value].invalid })
-      return
-    }
-    // Busy from the start: a second photo picked while this one compresses would slip past the quota.
-    isBusy.value = true
-    const upload: Blob = await PhotoCompressionUtils.prepare(file)
-    if (upload.size > PhotoCompressionUtils.MAX_BYTES) {
-      isBusy.value = false
-      messages.value.push({ role: 'assistant', content: PHOTO_LABELS[lang.value].tooLarge })
-      return
-    }
-    messages.value.push({ role: 'user', content: PHOTO_LABELS[lang.value].sent })
-    const previewIndex: number = messages.value.length - 1
-    const previewUrl: string = URL.createObjectURL(upload)
-    photoPreviews.value = { ...photoPreviews.value, [previewIndex]: previewUrl }
-    captureDemoEvent('assistant_photo_sent')
-    try {
-      const form: FormData = new FormData()
-      form.append('file', upload, 'photo.jpg')
-      form.append('session_id', sessionId.value)
-      form.append('language', lang.value)
-      form.append('internal', String(DemoBeaconUtils.isInternalVisit()))
-      const answer: AssistantPhotoReply = await $fetch<AssistantPhotoReply>(`${publicEndpoint}/photo`, {
-        method: 'POST',
-        body: form,
-      })
-      messages.value.push({ role: 'assistant', content: answer.reply })
-      photosRemaining.value = answer.remaining
-      if (answer.accepted && !leadSent.value) {
-        hasSentPhoto.value = true
-        if (answer.need) leadNeedPrefill.value = answer.need
-        showLeadForm.value = true
-      }
-    } catch (error: unknown) {
-      // A refused photo is not shown as sent: its thumbnail goes, the refusal explains why.
-      URL.revokeObjectURL(previewUrl)
-      photoPreviews.value = Object.fromEntries(
-        Object.entries(photoPreviews.value).filter(
-          ([index]: [string, string]): boolean => Number(index) !== previewIndex,
-        ),
-      )
-      messages.value[previewIndex] = { role: 'user', content: PHOTO_LABELS[lang.value].refused }
-      messages.value.push({ role: 'assistant', content: photoErrorMessage(error) })
-    } finally {
-      isBusy.value = false
-    }
-  }
-
-  /**
-   * What the visitor reads once their details are sent.
-   * @param reply - The API's answer.
-   * @param booking - The free slot they picked, if any.
-   * @returns The booked slot, the half-days (or the slot) the business will confirm, or the call-back promise.
-   */
-  function leadConfirmation(reply: AssistantLeadReply, booking: AssistantAppointmentTime | null): string {
-    const labels: AssistantAppointmentLabels = APPOINTMENT_LABELS[lang.value]
-    if (reply.booked_start) {
-      const when: string = AssistantScheduleUtils.timeLabel(reply.booked_start, lang.value)
-      const booked: string = labels.booked.replace('{slots}', chosenKind.value ? `${when} (${chosenKind.value})` : when)
-      if (reply.confirmation_channel === 'sms') return booked + labels.bookedSms
-      if (reply.confirmation_channel === 'email') return booked + labels.bookedEmail
-      return booked
-    }
-    if (booking) return labels.sent.replace('{slots}', AssistantScheduleUtils.timeLabel(booking.start, lang.value))
-    if (chosenSlots.value.length > 0) return labels.sent.replace('{slots}', chosenSlotsLine.value)
-    return LEAD_LABELS[lang.value].sent
-  }
-
-  /**
-   * What the request just sent holds, for the page showing what the business receives.
-   * @param details - The details the visitor typed.
-   * @param reply - The API's answer.
-   * @param booking - The free slot picked, if any.
-   * @returns The summary the page can turn into the business's alert.
-   */
-  function leadSummary(
-    details: AssistantContactDetails,
-    reply: AssistantLeadReply,
-    booking: AssistantAppointmentTime | null,
-  ): AssistantLeadSummary {
-    const hasAppointment: boolean = booking !== null || chosenSlots.value.length > 0 || reply.booked_start !== null
-    let slots: string = ''
-    if (reply.booked_start) slots = AssistantScheduleUtils.timeLabel(reply.booked_start, lang.value)
-    else if (booking) slots = AssistantScheduleUtils.timeLabel(booking.start, lang.value)
-    else if (chosenSlots.value.length > 0) slots = chosenSlotsLine.value
-    return {
-      name: details.name.trim(),
-      contact: details.contact.trim(),
-      need: details.need.trim(),
-      kind: hasAppointment ? 'appointment' : hasSentPhoto.value ? 'quote' : 'question',
-      slots,
-      booked: reply.booked_start !== null,
-      hasPhoto: hasSentPhoto.value,
-    }
-  }
-
-  /**
-   * Send the visitor's details: the API turns them into a request tied to this conversation.
-   * @param details - The name, contact and need typed.
-   * @returns A promise resolved once the request is sent.
-   */
-  async function submitLead(details: AssistantContactDetails): Promise<void> {
-    if (isSubmittingLead.value || !details.name.trim() || !VisitorContactUtils.isReachable(details.contact)) return
-    isSubmittingLead.value = true
-    const booking: AssistantAppointmentTime | null = bookingMode.value === 'calendar' ? chosenTime.value : null
-    try {
-      const reply: AssistantLeadReply = await $fetch<AssistantLeadReply>(`${publicEndpoint}/lead`, {
-        method: 'POST',
-        body: {
-          name: details.name,
-          contact: details.contact,
-          need: details.need,
-          language: lang.value,
-          session_id: sessionId.value,
-          internal: DemoBeaconUtils.isInternalVisit(),
-          slots: booking ? [] : chosenSlots.value,
-          booking: booking ? { start: booking.start, type: chosenKind.value } : null,
-        },
-      })
-      leadSent.value = true
-      captureDemoEvent('assistant_lead_submitted')
-      showLeadForm.value = false
-      messages.value.push({ role: 'assistant', content: leadConfirmation(reply, booking) })
-      lastLeadSummary.value = leadSummary(details, reply, booking)
-    } catch (error: unknown) {
-      // A slot taken or withdrawn meanwhile answers 409: the offer is read again. A 422 carries a sentence
-      // written for the visitor (a kind to choose, a test visit); anything else is a technical failure.
-      const status: number | undefined = ApiRefusalUtils.status(error)
-      const detail: string | null = ApiRefusalUtils.detail(error)
-      const hasPick: boolean = booking !== null || chosenSlots.value.length > 0
-      if (hasPick && status === 409) {
-        const isWithdrawn: boolean = detail !== null && detail.includes('proposé')
-        const notice: string = isWithdrawn
-          ? APPOINTMENT_LABELS[lang.value].unavailable
-          : APPOINTMENT_LABELS[lang.value].taken
-        messages.value.push({ role: 'assistant', content: notice })
-        forgetPicks()
-        showLeadForm.value = false
-        isSlotPanelOpen.value = true
-        await loadSlots()
-      } else if (status === 422 && detail !== null) {
-        messages.value.push({ role: 'assistant', content: detail })
-      } else {
-        messages.value.push({ role: 'assistant', content: FALLBACK_REPLY[lang.value] })
-      }
-    } finally {
-      isSubmittingLead.value = false
-    }
-  }
-
-  /** Free the thumbnails' object URLs when the widget leaves the page. */
-  function releasePhotoPreviews(): void {
-    Object.values(photoPreviews.value).forEach((url: string): void => URL.revokeObjectURL(url))
-  }
-
-  watch([messages, lang], (): void => persistConversation(), { deep: true })
+  watch([messages, language], (): void => persistConversation(), { deep: true })
 
   return {
     messages,
-    lang,
+    language,
     offeredLanguages,
     suggestions,
     draft,
     isBusy,
     isStreaming,
-    photoPreviews,
-    photosRemaining,
-    isPhotoPanelOpen,
-    isSlotPanelOpen,
-    showLeadForm,
-    leadSent,
-    isSubmittingLead,
-    leadNeedPrefill,
-    bookingMode,
-    slotsState,
-    slotDays,
-    slotTimes,
-    hasMoreTimes,
-    hasPreviousSlotsPage,
-    appointmentKinds,
-    chosenSlots,
-    chosenTime,
-    chosenKind,
-    canContinueBooking,
-    pickedSummary,
-    leadPrefill,
-    showChips,
+    hasSentLead,
+    shouldShowOpeningChips,
     followUps,
-    showActionChips,
-    showCallbackBar,
-    lastLeadSummary,
+    shouldShowActionChips,
+    shouldShowCallbackBar,
     hasPlayedExample,
     restore,
     restoreFromHost,
     greet,
     playExample,
-    setLang,
+    setLanguage,
     sendText,
     sendDraft,
-    openPhotoPanel,
-    closePhotoPanel,
-    sendPhoto,
-    openSlotPanel,
-    closeSlotPanel,
-    loadFirstSlotsPage,
-    showMoreTimes,
-    toggleSlot,
-    chooseTime,
-    chooseKind,
-    confirmSlots,
-    openLeadForm,
-    cancelLeadForm,
-    submitLead,
-    releasePhotoPreviews,
+    ...booking,
+    ...photo,
+    ...leadForm,
   }
 }
