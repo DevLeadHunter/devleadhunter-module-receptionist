@@ -17,8 +17,6 @@ from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_message import AiAssistantMessage
 from services.ai_assistant.field_limits import LONG_TEXT_MAX_CHARS, SESSION_ID_MAX_CHARS
 
-# A stored turn is bounded like the chat input (services.ai_assistant.chat_service.MAX_MESSAGE_CHARS).
-MAX_STORED_MESSAGE_CHARS = LONG_TEXT_MAX_CHARS
 RETENTION_DAYS = 90
 RECENT_CONVERSATIONS_LIMIT = 20
 
@@ -68,7 +66,7 @@ class AiAssistantConversationService:
         for role, content, photo_url in (("user", visitor_message, visitor_photo_url), ("assistant", reply, None)):
             conversation.messages.append(
                 AiAssistantMessage(
-                    role=role, content=content.strip()[:MAX_STORED_MESSAGE_CHARS], photo_url=photo_url, created_at=now
+                    role=role, content=content.strip()[:LONG_TEXT_MAX_CHARS], photo_url=photo_url, created_at=now
                 )
             )
         conversation.message_count += 2

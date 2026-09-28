@@ -23,9 +23,9 @@ from services.ai_assistant.google_calendar_client import (
     CalendarEventDraft,
     CalendarEventState,
     GoogleCalendarError,
-    GoogleTokens,
 )
 from services.encryption_service import encryption_service
+from services.google_oauth_client import GoogleTokens
 
 PARIS = ZoneInfo("Europe/Paris")
 # Monday 21 September 2026, 10:00 in Paris (08:00 UTC).

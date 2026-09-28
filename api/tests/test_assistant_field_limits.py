@@ -12,7 +12,6 @@ from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_request import AiAssistantRequest
 from schemas.ai_assistant import AiAssistantChatRequest, AiAssistantLeadRequest, AiAssistantUpdateRequest
 from schemas.ai_assistant_client_space import AiAssistantClientCalendarUpdate
-from services.ai_assistant.conversation_service import MAX_STORED_MESSAGE_CHARS
 from services.ai_assistant.field_limits import (
     LABEL_MAX_CHARS,
     LONG_TEXT_MAX_CHARS,
@@ -48,6 +47,7 @@ def test_every_bounded_field_fits_its_column(column: InstrumentedAttribute[str],
         (AiAssistantLeadRequest, "name", SHORT_TEXT_MAX_CHARS, {"contact": "06 11 22 33 44"}),
         (AiAssistantLeadRequest, "need", LONG_TEXT_MAX_CHARS, {"name": "Julie", "contact": "06 11 22 33 44"}),
         (AiAssistantChatRequest, "session_id", SESSION_ID_MAX_CHARS, {}),
+        (AiAssistantChatRequest, "visitor_name", LABEL_MAX_CHARS, {}),
         (AiAssistantUpdateRequest, "assistant_name", LABEL_MAX_CHARS, {}),
         (AiAssistantClientCalendarUpdate, "calendar_id", SHORT_TEXT_MAX_CHARS, {}),
     ],
@@ -58,7 +58,3 @@ def test_the_api_accepts_a_field_up_to_its_limit_and_no_further(
     schema(**other_fields, **{field: "a" * limit})
     with pytest.raises(ValidationError):
         schema(**other_fields, **{field: "a" * (limit + 1)})
-
-
-def test_a_stored_chat_turn_keeps_what_a_visitor_may_write() -> None:
-    assert MAX_STORED_MESSAGE_CHARS == LONG_TEXT_MAX_CHARS

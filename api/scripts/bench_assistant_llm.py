@@ -32,8 +32,9 @@ from enums.ai_assistant_status import AiAssistantStatus
 from models.ai_assistant import AiAssistant
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.llm_router import estimate_cost_eur
-from services.ai_assistant.photo_service import AiAssistantPhotoVision
-from services.llm_service import LlmCompletion, llm_service
+from services.ai_assistant.photo_vision import AiAssistantPhotoVision
+from services.llm_completion import LlmCompletion
+from services.llm_service import llm_service
 from services.mistral_service import mistral_service
 
 QUESTIONS: dict[str, tuple[str, ...]] = {

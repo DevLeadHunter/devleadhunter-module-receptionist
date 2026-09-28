@@ -12,11 +12,11 @@ from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_message import AiAssistantMessage
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.conversation_service import (
-    MAX_STORED_MESSAGE_CHARS,
     RECENT_CONVERSATIONS_LIMIT,
     RETENTION_DAYS,
     ai_assistant_conversation_service,
 )
+from services.ai_assistant.field_limits import LONG_TEXT_MAX_CHARS
 
 
 @pytest.fixture
@@ -65,7 +65,7 @@ def test_record_turn_bounds_the_stored_content_and_survives_a_missing_session(db
     conversation = ai_assistant_conversation_service.record_turn(
         db, assistant=assistant, session_id=None, language=None, visitor_message="x" * 5000, reply="ok"
     )
-    assert len(conversation.messages[0].content) == MAX_STORED_MESSAGE_CHARS
+    assert len(conversation.messages[0].content) == LONG_TEXT_MAX_CHARS
     assert conversation.session_id
 
 

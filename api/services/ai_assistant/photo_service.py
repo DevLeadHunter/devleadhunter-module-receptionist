@@ -30,7 +30,6 @@ from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
 from services.ai_assistant.field_limits import SESSION_ID_MAX_CHARS
 from services.ai_assistant.photo_vision import AiAssistantPhotoVision
-from services.ai_assistant.photo_vision import PhotoAnalysis as PhotoAnalysis
 from services.r2_storage_service import r2_storage
 
 logger = logging.getLogger(__name__)

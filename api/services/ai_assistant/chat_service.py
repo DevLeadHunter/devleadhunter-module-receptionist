@@ -17,6 +17,7 @@ from typing import Any
 
 from enums.ai_assistant_llm import AiAssistantLlmUsage
 from services.ai_assistant.event_intake import EventIntakeContext
+from services.ai_assistant.field_limits import LONG_TEXT_MAX_CHARS
 from services.ai_assistant.follow_up_marker import FollowUpMarker, FollowUpMarkerStream
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.limits import AssistantLimit
@@ -32,7 +33,6 @@ from services.text_normalizer import TextNormalizer
 logger = logging.getLogger(__name__)
 
 MAX_HISTORY_MESSAGES = 12
-MAX_MESSAGE_CHARS = 2000
 # The visitor messages that pick the site and document passages when they exceed the prompt's budget: a follow-up
 # (« Et combien ça coûte ? ») keeps the subject of the ones before.
 QUESTION_MESSAGES = 3
@@ -264,7 +264,7 @@ class AiAssistantChatService:
             content = turn.get("content")
             if role not in ("user", "assistant") or not isinstance(content, str) or not content.strip():
                 continue
-            text = clean_model_text(content).strip()[:MAX_MESSAGE_CHARS]
+            text = clean_model_text(content).strip()[:LONG_TEXT_MAX_CHARS]
             follow_ups = turn.get("follow_ups")
             if role == "assistant" and isinstance(follow_ups, list):
                 # The suggestions offered under that reply, back in the form the model wrote them: it sees what

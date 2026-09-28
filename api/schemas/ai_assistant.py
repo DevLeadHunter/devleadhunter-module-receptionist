@@ -285,7 +285,7 @@ class AiAssistantChatRequest(BaseModel):
     # Set by the widget on a « ?internal=1 » visit (the operator testing): journaled, out of the counts.
     internal: bool = False
     # The name the widget read in the conversation: it names the request a phone number typed in the chat opens.
-    visitor_name: str | None = Field(default=None, max_length=64)
+    visitor_name: str | None = Field(default=None, max_length=LABEL_MAX_CHARS)
 
 
 class AiAssistantCapturedContact(BaseModel):

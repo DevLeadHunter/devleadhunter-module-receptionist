@@ -49,7 +49,6 @@ class AiAssistantChatContactCapture:
     """Reads a visitor's phone number or email in their chat message and files it as the session's request."""
 
     FALLBACK_NAME: ClassVar[str] = "Visiteur"
-    NAME_MAX_CHARS: ClassVar[int] = 64
 
     @classmethod
     def contact_in(cls, text: str, *, business_contacts: tuple[str, ...] = ()) -> str | None:
@@ -132,7 +131,7 @@ class AiAssistantChatContactCapture:
     @classmethod
     def _name(cls, db: Session, *, assistant_id: int, session_id: str, visitor_name: str | None) -> str:
         """The name the visitor gave in the chat, else the one their session's last request carries."""
-        given = " ".join((visitor_name or "").split())[: cls.NAME_MAX_CHARS]
+        given = " ".join((visitor_name or "").split())
         if given:
             return given
         previous: str | None = (
@@ -147,7 +146,8 @@ class AiAssistantChatContactCapture:
     @staticmethod
     def _business_contacts(assistant: AiAssistant) -> tuple[str, ...]:
         """The business's own phone numbers and emails: its listing's, and the ones set on the assistant."""
-        identity = (assistant.knowledge_json or {}).get("identity") or {}
+        identity = (assistant.knowledge_json or {}).get("identity")
+        identity = identity if isinstance(identity, dict) else {}
         candidates = (assistant.phone, assistant.email, identity.get("phone"), identity.get("email"))
         return tuple(value for value in candidates if isinstance(value, str) and value.strip())
 
