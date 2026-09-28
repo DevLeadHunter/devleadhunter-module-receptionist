@@ -1,5 +1,8 @@
 """Public routes of an assistant's widget, by slug: its config, the chat (whole or streamed), the appointment offer,
 the visitor's request, the photo for a quote, and the owner's « me contacter » on the demo page.
+
+A chat turn past the assistant's daily cap is answered with a fixed sentence, without the model; a turn whose message
+holds the visitor's phone number or email files it as their request, like the contact form.
 """
 
 import json
@@ -23,6 +26,8 @@ from core.database import SessionLocal, get_db
 from enums.ai_assistant_photo import AiAssistantPhotoRejection
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.assistant_visitor_channel import AssistantVisitorChannel
+from enums.assistant_widget_language import AssistantWidgetLanguage
+from enums.assistant_widget_refusal import AssistantWidgetRefusalCode
 from models.ai_assistant import AiAssistant
 from models.prospect_db import ProspectDB
 from schemas.ai_assistant import (
@@ -31,6 +36,7 @@ from schemas.ai_assistant import (
     AiAssistantAppointmentDay,
     AiAssistantAppointmentSlotsResponse,
     AiAssistantAppointmentTime,
+    AiAssistantCapturedContact,
     AiAssistantChatRequest,
     AiAssistantChatResponse,
     AiAssistantClosedHours,
@@ -40,6 +46,7 @@ from schemas.ai_assistant import (
     AiAssistantLeadResponse,
     AiAssistantPhotoResponse,
     AiAssistantPublicResponse,
+    AiAssistantRefusal,
 )
 from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
 from services.ai_assistant.appointment_slots import (
@@ -51,9 +58,11 @@ from services.ai_assistant.appointment_slots import (
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.calendar_booking import SlotTakenError, ai_assistant_calendar_booking
 from services.ai_assistant.calendar_service import ai_assistant_calendar_service
+from services.ai_assistant.chat_contact_capture import ai_assistant_chat_contact_capture
 from services.ai_assistant.chat_service import ChatAnswer, ai_assistant_chat_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
+from services.ai_assistant.daily_message_cap import ai_assistant_daily_message_cap
 from services.ai_assistant.event_intake import ai_assistant_event_intake
 from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.follow_up_marker import MAX_FOLLOW_UP_CHARS
@@ -95,12 +104,12 @@ _MAX_INCOMING_MESSAGES = 40
 # Shown to a visitor for a refusal whose reason is not written for them.
 _INVALID_REQUEST = "Demande invalide : vérifiez vos informations et réessayez."
 # A contact the business cannot dial nor write to (a made-up number, a word): refused in the visitor's language.
-_UNREACHABLE_CONTACT: dict[str, str] = {
-    "fr": "Indiquez un numéro de téléphone ou une adresse e-mail où l'on peut vous joindre.",
-    "nl": "Geef een telefoonnummer of e-mailadres op waarop we u kunnen bereiken.",
-    "en": "Please give a phone number or an email address where you can be reached.",
-    "de": "Bitte geben Sie eine Telefonnummer oder E-Mail-Adresse an, unter der wir Sie erreichen.",
-    "lu": "Gitt w.e.g. eng Telefonsnummer oder E-Mail-Adress un, wou mir Iech erreechen.",
+_UNREACHABLE_CONTACT: dict[AssistantWidgetLanguage, str] = {
+    AssistantWidgetLanguage.FR: "Indiquez un numéro de téléphone ou une adresse e-mail où l'on peut vous joindre.",
+    AssistantWidgetLanguage.NL: "Geef een telefoonnummer of e-mailadres op waarop we u kunnen bereiken.",
+    AssistantWidgetLanguage.EN: "Please give a phone number or an email address where you can be reached.",
+    AssistantWidgetLanguage.DE: "Bitte geben Sie eine Telefonnummer oder E-Mail-Adresse an, unter der wir Sie erreichen.",
+    AssistantWidgetLanguage.LB: "Gitt w.e.g. eng Telefonsnummer oder E-Mail-Adress un, wou mir Iech erreechen.",
 }
 # Shown to the operator when a « ?internal=1 » visit tries to book in a client's agenda.
 _TEST_BOOKING_REFUSED = (
@@ -242,22 +251,80 @@ def _journal_turn(
             db.rollback()
 
 
-def _journal_streamed_turn(
+def _capture_contact(
+    db: Session, assistant: AiAssistant, *, slug: str, payload: AiAssistantChatRequest
+) -> AiAssistantCapturedContact | None:
+    """File the phone number or email the visitor's message holds as their request; never costs them the reply."""
+    try:
+        captured = ai_assistant_chat_contact_capture.capture(
+            db,
+            assistant=assistant,
+            session_id=payload.session_id,
+            language=payload.language,
+            visitor_message=payload.messages[-1].content,
+            visitor_name=payload.visitor_name,
+            is_test=payload.internal,
+        )
+    except Exception as exc:
+        # No traceback: a database error would quote the visitor's details in the log.
+        logger.warning("Assistant chat contact not filed for slug %s (%s)", slug, type(exc).__name__)
+        db.rollback()
+        return None
+    if captured is None:
+        return None
+    return AiAssistantCapturedContact(name=captured.name, contact=captured.contact)
+
+
+def _record_streamed_turn(
     assistant_id: int, *, slug: str, payload: AiAssistantChatRequest, answer: ChatAnswer
-) -> None:
-    """Journal a streamed turn on a session of its own: the request's one is closed once the body streams."""
+) -> AiAssistantCapturedContact | None:
+    """Journal a streamed turn and file its contact on a session of its own: the request's one is closed by now."""
     try:
         with SessionLocal() as journal_db:
             assistant = journal_db.get(AiAssistant, assistant_id)
-            if assistant is not None:
-                _journal_turn(journal_db, assistant, slug=slug, payload=payload, answer=answer)
+            if assistant is None:
+                return None
+            _journal_turn(journal_db, assistant, slug=slug, payload=payload, answer=answer)
+            return _capture_contact(journal_db, assistant, slug=slug, payload=payload)
     except Exception as exc:
         logger.warning("Assistant conversation journal failed for slug %s (%s)", slug, type(exc).__name__)
+        return None
+
+
+async def _capped_turn(
+    db: Session, assistant: AiAssistant, *, slug: str, payload: AiAssistantChatRequest
+) -> AiAssistantChatResponse:
+    """
+    Answer a turn past the assistant's daily cap with a fixed reply, without the model.
+
+    The turn is journaled like any other and the visitor's contact filed; the operator is told once a day, never
+    for their own test visit.
+    """
+    answer = ChatAnswer(reply=ai_assistant_daily_message_cap.capped_reply(assistant, payload.language))
+    _journal_turn(db, assistant, slug=slug, payload=payload, answer=answer)
+    captured = _capture_contact(db, assistant, slug=slug, payload=payload)
+    if not payload.internal:
+        await ai_assistant_daily_message_cap.alert_operator_once(db, assistant)
+    return AiAssistantChatResponse(reply=answer.reply, daily_limit_reached=True, captured_contact=captured)
 
 
 def _sse_event(payload: dict[str, Any]) -> str:
     """One server-sent event of the chat stream: a JSON object on its ``data:`` line."""
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _done_event(response: AiAssistantChatResponse) -> str:
+    """The closing event of the chat stream: the whole reply and what the widget does next."""
+    return _sse_event({"done": True, **response.model_dump(mode="json")})
+
+
+def _event_stream_response(events: AsyncIterator[str]) -> StreamingResponse:
+    """The chat stream, unbuffered by nginx and never cached."""
+    return StreamingResponse(
+        events,
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/public/{slug}/chat", response_model=AiAssistantChatResponse)
@@ -269,6 +336,8 @@ async def chat_with_assistant(
 ) -> AiAssistantChatResponse:
     """Answer a visitor's message as the prospect's grounded assistant."""
     assistant, history = _open_chat(slug, payload, request, db)
+    if ai_assistant_daily_message_cap.is_reached(db, assistant, is_test=payload.internal):
+        return await _capped_turn(db, assistant, slug=slug, payload=payload)
     knowledge = assistant.knowledge_json or {}
     assistant_name = assistant.assistant_name
     languages = assistant.languages
@@ -293,6 +362,7 @@ async def chat_with_assistant(
         reply=answer.reply,
         offer_booking=ai_assistant_chat_service.asks_for_appointment(history[-1]["content"]),
         follow_ups=list(answer.follow_ups),
+        captured_contact=_capture_contact(db, assistant, slug=slug, payload=payload),
     )
 
 
@@ -303,10 +373,18 @@ async def stream_chat_with_assistant(
     request: Request,
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
-    """Answer a visitor's message as it is written: ``data: {"delta"}`` events, then ``data: {"done", "reply",
-    "offer_booking", "follow_ups"}`` with the whole reply. The turn is journaled once the reply is complete.
+    """Answer a visitor's message as it is written: ``data: {"delta"}`` events, then ``data: {"done", …}`` with the
+    whole reply and the chat response's other fields. The turn is journaled once the reply is complete; past the
+    daily cap, the fixed reply comes in the closing event alone.
     """
     assistant, history = _open_chat(slug, payload, request, db)
+    if ai_assistant_daily_message_cap.is_reached(db, assistant, is_test=payload.internal):
+        capped = await _capped_turn(db, assistant, slug=slug, payload=payload)
+
+        async def capped_events() -> AsyncIterator[str]:
+            yield _done_event(capped)
+
+        return _event_stream_response(capped_events())
     assistant_id = assistant.id
     knowledge = assistant.knowledge_json or {}
     assistant_name = assistant.assistant_name
@@ -335,16 +413,17 @@ async def stream_chat_with_assistant(
                 answer = delta.final
             elif delta.text:
                 yield _sse_event({"delta": delta.text})
-        _journal_streamed_turn(assistant_id, slug=slug, payload=payload, answer=answer)
-        yield _sse_event(
-            {"done": True, "reply": answer.reply, "offer_booking": offer_booking, "follow_ups": list(answer.follow_ups)}
+        captured = _record_streamed_turn(assistant_id, slug=slug, payload=payload, answer=answer)
+        yield _done_event(
+            AiAssistantChatResponse(
+                reply=answer.reply,
+                offer_booking=offer_booking,
+                follow_ups=list(answer.follow_ups),
+                captured_contact=captured,
+            )
         )
 
-    return StreamingResponse(
-        events(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
+    return _event_stream_response(events())
 
 
 @router.get("/public/{slug}/appointment-slots", response_model=AiAssistantAppointmentSlotsResponse)
@@ -379,6 +458,14 @@ async def get_assistant_appointment_slots(
     )
 
 
+def _slot_refusal(code: AssistantWidgetRefusalCode, error: Exception) -> HTTPException:
+    """A 409 the widget reads by its code: it tells the visitor in their language and offers the slots again."""
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=AiAssistantRefusal(code=code, message=str(error)).model_dump(mode="json"),
+    )
+
+
 @router.post("/public/{slug}/lead", response_model=AiAssistantLeadResponse, status_code=status.HTTP_201_CREATED)
 async def submit_assistant_lead(
     slug: str,
@@ -395,11 +482,8 @@ async def submit_assistant_lead(
     if not payload.name.strip() or not payload.contact.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name and contact are required")
     if not VisitorContact.is_reachable(payload.contact):
-        language = (payload.language or "fr")[:2].lower()
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=_UNREACHABLE_CONTACT.get(language, _UNREACHABLE_CONTACT["fr"]),
-        )
+        language = AssistantWidgetLanguage.from_code(payload.language) or AssistantWidgetLanguage.FR
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_UNREACHABLE_CONTACT[language])
     if payload.booking is not None and payload.internal:
         # A test visit is never announced: booking silently in a client's agenda (and texting the visitor) would be
         # an abuse path. The operator tests a real booking on their own test assistant, without « ?internal=1 ».
@@ -419,7 +503,7 @@ async def submit_assistant_lead(
         )
     except SlotNoLongerOffered as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise _slot_refusal(AssistantWidgetRefusalCode.SLOT_WITHDRAWN, exc) from exc
     except AppointmentRefused as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
@@ -450,8 +534,10 @@ async def submit_assistant_lead(
             outcome = await ai_assistant_calendar_booking.book_request(
                 db, assistant, captured, start=payload.booking.start, type_label=payload.booking.type
             )
-        except (SlotTakenError, SlotNoLongerOffered) as exc:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        except SlotTakenError as exc:
+            raise _slot_refusal(AssistantWidgetRefusalCode.SLOT_TAKEN, exc) from exc
+        except SlotNoLongerOffered as exc:
+            raise _slot_refusal(AssistantWidgetRefusalCode.SLOT_WITHDRAWN, exc) from exc
         except AppointmentRefused as exc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
         except (ValueError, OverflowError) as exc:
@@ -471,6 +557,15 @@ async def submit_assistant_lead(
 
 # Room for the multipart envelope and the three text fields around the photo itself.
 _PHOTO_REQUEST_MAX_BYTES = MAX_PHOTO_BYTES + 64 * 1024
+_PHOTO_MAX_MEGABYTES = MAX_PHOTO_BYTES // (1024 * 1024)
+
+
+def _photo_language(raw_language: object) -> str | None:
+    """The widget language of a photo's form field (« lu » read as « lb »), any other code as sent, bounded."""
+    if not isinstance(raw_language, str) or not raw_language.strip():
+        return None
+    language = AssistantWidgetLanguage.from_code(raw_language)
+    return language.value if language is not None else raw_language.strip()[:8]
 
 
 def _photo_rejection_status(reason: AiAssistantPhotoRejection) -> int:
@@ -502,7 +597,7 @@ async def submit_assistant_photo(
         request,
         max_bytes=_PHOTO_REQUEST_MAX_BYTES,
         unknown_detail="Taille de la photo inconnue",
-        too_large_detail="Photo trop lourde (8 Mo maximum).",
+        too_large_detail=f"Photo trop lourde ({_PHOTO_MAX_MEGABYTES} Mo maximum).",
     )
     assistant = public_assistant_or_404(db, slug)
     if not r2_storage.is_configured():
@@ -527,7 +622,7 @@ async def submit_assistant_photo(
             assistant=assistant,
             data=data,
             session_id=session_id,
-            language=raw_language.strip()[:8] if isinstance(raw_language, str) else None,
+            language=_photo_language(raw_language),
             is_test=isinstance(raw_internal, str) and raw_internal.strip().lower() in {"true", "1"},
         )
     except PhotoRejectedError as exc:

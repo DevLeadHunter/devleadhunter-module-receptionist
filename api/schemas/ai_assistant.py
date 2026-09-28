@@ -1,9 +1,9 @@
 """Schemas for the AI assistant endpoints (owner management, public widget config and chat)."""
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AfterValidator, BaseModel, Field, field_validator
 
 from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from enums.ai_assistant_request import (
@@ -14,10 +14,22 @@ from enums.ai_assistant_request import (
 )
 from enums.assistant_booking_mode import AssistantBookingMode
 from enums.assistant_visitor_channel import AssistantVisitorChannel
+from enums.assistant_widget_language import AssistantWidgetLanguage
+from enums.assistant_widget_refusal import AssistantWidgetRefusalCode
 
 # The years an appointment or an offer page may name: anything else overflows the timezone arithmetic.
 BOOKABLE_YEAR_MIN = 2020
 BOOKABLE_YEAR_MAX = 2100
+
+
+def _current_language_code(code: str | None) -> str | None:
+    """A widget language in its current spelling (a widget still open on « lu » sends « lb »), any other as sent."""
+    language = AssistantWidgetLanguage.from_code(code)
+    return language.value if language is not None else code
+
+
+# The language a widget sends with a turn or a request: « lu » arrives as « lb ».
+WidgetLanguageCode = Annotated[str | None, AfterValidator(_current_language_code)]
 
 
 class AiAssistantCreateRequest(BaseModel):
@@ -46,6 +58,12 @@ class AiAssistantUpdateRequest(BaseModel):
     alert_quiet_end_hour: int | None = Field(default=None, ge=0, le=23)
     # The client requires its visitors' data to stay with Mistral: no Groq fallback.
     eu_only: bool | None = None
+
+    @field_validator("languages")
+    @classmethod
+    def _widget_languages_only(cls, value: list[str] | None) -> list[str] | None:
+        """Keep the widget's languages (``AssistantWidgetLanguage``), « lu » read as « lb », each once."""
+        return AssistantWidgetLanguage.normalize_codes(value) if value is not None else None
 
 
 class AiAssistantAlertSettings(BaseModel):
@@ -225,9 +243,18 @@ class AiAssistantChatRequest(BaseModel):
     messages: list[AiAssistantChatMessage] = Field(default_factory=list, max_length=100)
     # Random id the widget keeps with the visitor's conversation, so the journal groups its turns.
     session_id: str | None = Field(default=None, max_length=64)
-    language: str | None = Field(default=None, max_length=8)
+    language: WidgetLanguageCode = Field(default=None, max_length=8)
     # Set by the widget on a « ?internal=1 » visit (the operator testing): journaled, out of the counts.
     internal: bool = False
+    # The name the widget read in the conversation: it names the request a phone number typed in the chat opens.
+    visitor_name: str | None = Field(default=None, max_length=64)
+
+
+class AiAssistantCapturedContact(BaseModel):
+    """The contact details a visitor typed in the chat, filed as their request like the contact form does."""
+
+    name: str
+    contact: str
 
 
 class AiAssistantChatResponse(BaseModel):
@@ -238,6 +265,17 @@ class AiAssistantChatResponse(BaseModel):
     offer_booking: bool = False
     # Questions the visitor may want to ask next, offered as chips under the reply.
     follow_ups: list[str] = Field(default_factory=list)
+    # The assistant answered its visitor messages of the day: a fixed reply, and the widget offers the contact form.
+    daily_limit_reached: bool = False
+    # The visitor's message held their phone number or email: the widget confirms the request like the form does.
+    captured_contact: AiAssistantCapturedContact | None = None
+
+
+class AiAssistantRefusal(BaseModel):
+    """A refusal the widget recognises by its code (it words it for the visitor); the message is for a reader."""
+
+    code: AssistantWidgetRefusalCode
+    message: str
 
 
 class AiAssistantSlotChoice(BaseModel):
@@ -295,7 +333,7 @@ class AiAssistantLeadRequest(BaseModel):
     name: str = Field(..., max_length=255)
     contact: str = Field(..., max_length=255)
     need: str | None = Field(default=None, max_length=2000)
-    language: str | None = Field(default=None, max_length=8)
+    language: WidgetLanguageCode = Field(default=None, max_length=8)
     # The widget session, so the request links the conversation and a resubmission updates it.
     session_id: str | None = Field(default=None, max_length=64)
     # Set by the widget on a « ?internal=1 » visit (the operator testing): recorded, never announced.

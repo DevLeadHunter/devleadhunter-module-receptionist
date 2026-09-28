@@ -1,9 +1,9 @@
 """AI assistant model for prospect-generated conversational receptionists."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, Boolean, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Date, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
@@ -89,6 +89,8 @@ class AiAssistant(Base):
     # The « Pour démarrer » reminders emailed 3 and 14 days after the sale (set even when nothing was left).
     start_reminder_j3_sent_at: Mapped[datetime | None] = mapped_column(nullable=True)
     start_reminder_j14_sent_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # The business day (Paris) its operator was told the daily cap of visitor messages was reached: once a day.
+    message_cap_alerted_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(onupdate=datetime.utcnow, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)

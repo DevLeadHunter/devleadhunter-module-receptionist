@@ -11,7 +11,7 @@ from services.ai_assistant.config_builder import (
 
 def test_languages_follow_the_country() -> None:
     """Each targeted country offers its own language mix; an unknown country falls back to FR/EN."""
-    assert ai_assistant_config_builder.build_config(country="LU")["languages"] == ["fr", "de", "en", "lu"]
+    assert ai_assistant_config_builder.build_config(country="LU")["languages"] == ["fr", "de", "en", "lb"]
     assert ai_assistant_config_builder.build_config(country="be")["languages"] == ["fr", "nl", "en"]
     assert ai_assistant_config_builder.build_config(country="CH")["languages"] == ["fr", "de", "en"]
     assert ai_assistant_config_builder.build_config(country="US")["languages"] == ["fr", "en"]

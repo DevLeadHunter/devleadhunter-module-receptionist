@@ -87,7 +87,7 @@ LANGUAGE_NAMES: dict[str, str] = {
     "fr": "français",
     "en": "anglais",
     "de": "allemand",
-    "lu": "luxembourgeois",
+    "lb": "luxembourgeois",
     "nl": "néerlandais",
     "it": "italien",
     "es": "espagnol",

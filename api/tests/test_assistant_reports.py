@@ -225,7 +225,7 @@ def test_the_figures_cover_the_month_exactly_without_tests_or_other_assistants(
     # 23:30 in Paris on 30 September: still September.
     _conversation(db, assistant, started_at=datetime(2026, 9, 30, 21, 30), language="de-DE", first_message="Preis?")
     # A visitor from August writes again in September: their conversation counts, with its September message.
-    august = _conversation(db, assistant, started_at=datetime(2026, 8, 20, 9, 0), language="lu", first_message="Août")
+    august = _conversation(db, assistant, started_at=datetime(2026, 8, 20, 9, 0), language="lb", first_message="Août")
     _return(db, august, at=datetime(2026, 9, 18, 9, 0), message="Toujours dispo en septembre ?")
     # 23:30 in Paris on 31 August, 0:30 on 1 October, the operator testing, another assistant: left out.
     _conversation(db, assistant, started_at=datetime(2026, 8, 31, 21, 30), first_message="Fin août")
@@ -273,7 +273,7 @@ def test_the_figures_cover_the_month_exactly_without_tests_or_other_assistants(
             LanguageShare("fr", 40),
             LanguageShare("de", 20),
             LanguageShare("en", 20),
-            LanguageShare("lu", 20),
+            LanguageShare("lb", 20),
         ),
         average_handling_hours=4.0,
         # The question carrying a link is dropped, the duplicate too, three at most.
@@ -539,7 +539,7 @@ def test_the_email_wears_a_valid_accent_escapes_texts_and_agrees_with_the_person
         stats=_stats(
             languages=(
                 LanguageShare("fr", 70),
-                LanguageShare("lu", 20),
+                LanguageShare("lb", 20),
                 LanguageShare("de", 5),
                 LanguageShare("xx", 5),
             ),

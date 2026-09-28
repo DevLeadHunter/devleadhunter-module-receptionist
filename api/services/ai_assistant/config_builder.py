@@ -23,7 +23,7 @@ _FALLBACK_LANGUAGES = ["fr", "en"]
 # language; this only bounds the offer shown up front. Luxembourg is included ahead of the sourcing
 # pipeline supporting it (see country enum), because it is the module's primary target.
 _LANGUAGES_BY_COUNTRY: dict[str, list[str]] = {
-    "LU": ["fr", "de", "en", "lu"],
+    "LU": ["fr", "de", "en", "lb"],
     "BE": ["fr", "nl", "en"],
     "CH": ["fr", "de", "en"],
     "FR": ["fr", "en"],
