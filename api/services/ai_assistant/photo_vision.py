@@ -169,7 +169,8 @@ class AiAssistantPhotoVision:
         )
         raw_questions = answer.get("missing_questions")
         questions = (
-            cls._text(item, SHORT_TEXT_MAX_CHARS) for item in (raw_questions if isinstance(raw_questions, list) else [])
+            cls._text(raw_question, SHORT_TEXT_MAX_CHARS)
+            for raw_question in (raw_questions if isinstance(raw_questions, list) else [])
         )
         missing = tuple(question for question in questions if question and not cls.PRICE_PATTERN.search(question))[:2]
         reply = cls._text(answer.get("reply"), _MAX_REPLY_CHARS)
