@@ -82,10 +82,10 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType } from 'vue'
-import { computed } from 'vue'
 import type { AiAssistantSummary } from '~/types/AiAssistant'
 import type { AssistantVideoCardEmits, AssistantVideoCardProps } from '~/types/AssistantVideoCard'
 import type { UseCopyToClipboardReturn, UseOpenExternalUrlReturn } from '~/types/Composables'
+import { computed } from 'vue'
 
 const props: AssistantVideoCardProps = defineProps({
   assistant: {

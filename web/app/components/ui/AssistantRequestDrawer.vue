@@ -8,43 +8,15 @@
         aria-modal="true"
         aria-labelledby="assistant-request-title"
       >
-        <div class="flex items-start gap-3 border-b border-[var(--app-line)] px-5 py-4">
-          <button
-            v-if="showBack"
-            type="button"
-            class="flex h-10 w-7 shrink-0 items-center justify-center rounded text-[var(--app-ink-soft)] transition-colors hover:bg-[var(--app-surface-2)] hover:text-[var(--app-ink)]"
-            title="Revenir au volet précédent"
-            aria-label="Revenir au volet précédent"
-            @click="emit('back')"
-          >
-            <UIcon name="i-lucide-chevron-left" class="h-4 w-4" />
-          </button>
-          <div
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--app-line)] bg-[var(--app-surface)]"
-          >
-            <UIcon :name="typeIcon" class="h-4 w-4 text-[var(--app-ink-soft)]" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <h2
-              id="assistant-request-title"
-              class="truncate text-base leading-tight font-semibold text-[var(--app-ink)]"
-            >
-              {{ request.name }}
-            </h2>
-            <p class="text-muted mt-0.5 truncate text-sm">
-              {{ REQUEST_TYPE_LABELS[request.type] }} · {{ request.business_name }} ·
-              {{ formatShortMonthDayTime(request.created_at) }}
-            </p>
-          </div>
-          <button
-            type="button"
-            class="flex h-7 w-7 items-center justify-center rounded text-[var(--app-ink-soft)] transition-colors hover:bg-[var(--app-surface-2)] hover:text-[var(--app-ink)]"
-            aria-label="Fermer"
-            @click="emit('close')"
-          >
-            <UIcon name="i-lucide-x" class="h-4 w-4" />
-          </button>
-        </div>
+        <UiDrawerHeader
+          :title="request.name"
+          :subtitle="`${REQUEST_TYPE_LABELS[request.type]} · ${request.business_name} · ${formatShortMonthDayTime(request.created_at)}`"
+          :icon="typeIcon"
+          :show-back="showBack"
+          title-id="assistant-request-title"
+          @back="emit('back')"
+          @close="emit('close')"
+        />
 
         <div class="flex-1 space-y-5 overflow-y-auto px-5 py-4">
           <div class="flex flex-wrap items-center gap-1.5">
@@ -73,7 +45,7 @@
             </a>
             <p v-else class="text-sm break-all text-[var(--app-ink)]">{{ request.contact }}</p>
             <p v-if="request.language" class="text-muted text-xs">
-              Langue du visiteur : {{ request.language.toUpperCase() }}
+              Langue du visiteur : {{ widgetLanguageCode(request.language).toUpperCase() }}
             </p>
           </section>
 
@@ -227,7 +199,6 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
-import { computed, ref, watch } from 'vue'
 import type {
   AiAssistantRequestDetail,
   AiAssistantRequestItem,
@@ -237,13 +208,14 @@ import type {
 import type { Prospect } from '~/types'
 import type { UseToastReturn } from '~/types/Composables'
 import type { UiAssistantRequestDrawerEmits, UiAssistantRequestDrawerProps } from '~/types/UiAssistantRequestDrawer'
+import { computed, ref, watch } from 'vue'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { ProspectsService } from '~/services/prospectsService'
 import { useToast } from '~/composables/useToast'
 import { useDrawerStackStore } from '~/stores/drawerStack'
 import { contactHref } from '~/utils/contactLink'
 import { formatShortMonthDayTime } from '~/utils/date'
-import { REQUEST_STATUS_LABELS, REQUEST_TYPE_LABELS } from '~/utils/aiAssistantLabels'
+import { REQUEST_STATUS_LABELS, REQUEST_TYPE_LABELS, widgetLanguageCode } from '~/utils/aiAssistantLabels'
 
 const props: UiAssistantRequestDrawerProps = defineProps({
   open: {
@@ -394,7 +366,7 @@ watch(
     lightboxIndex.value = null
     isSaving.value = false
     note.value = props.request?.owner_note ?? ''
-    if (requestId !== null) void loadTranscript(requestId)
+    if (requestId !== null) loadTranscript(requestId)
   },
   { immediate: true },
 )

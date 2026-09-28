@@ -62,6 +62,24 @@ export function assistantLifetimeLabel(assistant: AiAssistantSummary): string {
 }
 
 /**
+ * A language code as the widget knows it: Luxembourgish, first stored as « lu », is « lb ».
+ * @param code - The code as stored on an assistant, a request or a conversation.
+ * @returns The code, « lb » for a stored « lu ».
+ */
+export function widgetLanguageCode(code: string): string {
+  return code === 'lu' ? 'lb' : code
+}
+
+/**
+ * An assistant's languages on one line, as the widget names them (« FR · EN · LB »).
+ * @param languages - The codes as stored on the assistant.
+ * @returns The upper-case codes joined by a middle dot.
+ */
+export function assistantLanguagesLabel(languages: string[]): string {
+  return languages.map((code: string): string => widgetLanguageCode(code).toUpperCase()).join(' · ')
+}
+
+/**
  * The « Pour démarrer » steps a sold assistant still misses, joined for one line (« Mobile d'alerte · Agenda Google »).
  * @param steps - The missing steps, as the API returns them.
  * @returns The labels joined by a middle dot.

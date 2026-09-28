@@ -98,7 +98,6 @@
           v-for="assistant in filteredAssistants"
           :key="assistant.id"
           :assistant="assistant"
-          @copy="copyDemoUrl"
           @open="openDemoUrl"
         />
       </div>
@@ -122,21 +121,19 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, Ref } from 'vue'
-import { computed, onMounted, ref, watch } from 'vue'
-import type { UseCopyToClipboardReturn, UseOpenExternalUrlReturn } from '~/types/Composables'
 import type { AiAssistantListResponse, AiAssistantRequestsResponse, AiAssistantSummary } from '~/types/AiAssistant'
+import type { UseOpenExternalUrlReturn } from '~/types/Composables'
 import type { AssistantMutationNotice } from '~/types/DrawerStack'
 import type { SelectFieldOption } from '~/types/SelectField'
+import { computed, onMounted, ref, watch } from 'vue'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { useDrawerStackStore } from '~/stores/drawerStack'
 
-/** The assistants generated for the user's prospects, as cards previewing their demo page; each opens its detail page. */
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'ai-assistant-module'] })
 
 useSeoMeta({ title: 'Réceptionnistes IA — DevLeadHunter' })
 
 const drawerStack: ReturnType<typeof useDrawerStackStore> = useDrawerStackStore()
-const { copy }: UseCopyToClipboardReturn = useCopyToClipboard()
 const { openExternalUrl }: UseOpenExternalUrlReturn = useOpenExternalUrl()
 
 const assistants: Ref<AiAssistantSummary[]> = ref([])
@@ -156,24 +153,26 @@ const STATUS_FILTER_OPTIONS: SelectFieldOption[] = [
 ]
 
 const activeCount: ComputedRef<number> = computed(
-  (): number => assistants.value.filter((item: AiAssistantSummary): boolean => item.status === 'active').length,
+  (): number =>
+    assistants.value.filter((assistant: AiAssistantSummary): boolean => assistant.status === 'active').length,
 )
 
 const deliveredCount: ComputedRef<number> = computed(
-  (): number => assistants.value.filter((item: AiAssistantSummary): boolean => item.status === 'delivered').length,
+  (): number =>
+    assistants.value.filter((assistant: AiAssistantSummary): boolean => assistant.status === 'delivered').length,
 )
 
 /** Assistants matching both the search query and the status filter. */
 const filteredAssistants: ComputedRef<AiAssistantSummary[]> = computed((): AiAssistantSummary[] => {
   let result: AiAssistantSummary[] = assistants.value
   if (statusFilter.value !== 'all') {
-    result = result.filter((item: AiAssistantSummary): boolean => item.status === statusFilter.value)
+    result = result.filter((assistant: AiAssistantSummary): boolean => assistant.status === statusFilter.value)
   }
   const query: string = searchQuery.value.trim().toLowerCase()
   if (query) {
     result = result.filter(
-      (item: AiAssistantSummary): boolean =>
-        item.business_name.toLowerCase().includes(query) || item.assistant_name.toLowerCase().includes(query),
+      (assistant: AiAssistantSummary): boolean =>
+        assistant.business_name.toLowerCase().includes(query) || assistant.assistant_name.toLowerCase().includes(query),
     )
   }
   return result
@@ -190,15 +189,6 @@ const hasActiveFilters: ComputedRef<boolean> = computed(
  */
 async function openDemoUrl(url: string): Promise<void> {
   await openExternalUrl(url)
-}
-
-/**
- * Copy a demo URL to the clipboard.
- * @param url - The public demo URL.
- * @returns A promise resolved once copied.
- */
-async function copyDemoUrl(url: string): Promise<void> {
-  await copy(url)
 }
 
 /**
@@ -247,10 +237,13 @@ watch(
     const notice: AssistantMutationNotice | null = drawerStack.lastAssistantMutation
     if (notice?.type === 'updated') {
       assistants.value = assistants.value.map(
-        (item: AiAssistantSummary): AiAssistantSummary => (item.id === notice.assistant.id ? notice.assistant : item),
+        (assistant: AiAssistantSummary): AiAssistantSummary =>
+          assistant.id === notice.assistant.id ? notice.assistant : assistant,
       )
     } else if (notice?.type === 'deleted') {
-      assistants.value = assistants.value.filter((item: AiAssistantSummary): boolean => item.id !== notice.assistantId)
+      assistants.value = assistants.value.filter(
+        (assistant: AiAssistantSummary): boolean => assistant.id !== notice.assistantId,
+      )
     }
   },
 )
