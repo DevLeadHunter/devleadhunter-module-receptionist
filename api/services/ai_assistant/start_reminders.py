@@ -70,7 +70,7 @@ class AiAssistantStartReminders:
             .filter(
                 AiAssistant.status == AiAssistantStatus.DELIVERED.value,
                 AiAssistant.deleted_at.is_(None),
-                AiAssistant.delivered_at.isnot(None),
+                AiAssistant.delivered_at.is_not(None),
             )
             .all()
         )

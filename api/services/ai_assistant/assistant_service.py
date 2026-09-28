@@ -389,7 +389,7 @@ class AiAssistantService:
                 DemoSite.user_id == user_id,
                 DemoSite.prospect_id == prospect_id,
                 DemoSite.status != DemoSiteStatus.DELETED.value,
-                DemoSite.content_json.isnot(None),
+                DemoSite.content_json.is_not(None),
             )
             .order_by(DemoSite.created_at.desc())
             .first()
@@ -457,7 +457,7 @@ class AiAssistantService:
             .filter(
                 AiAssistant.status == AiAssistantStatus.ACTIVE.value,
                 AiAssistant.deleted_at.is_(None),
-                AiAssistant.demo_link_sent_at.isnot(None),
+                AiAssistant.demo_link_sent_at.is_not(None),
                 AiAssistant.expires_at <= datetime.now(UTC),
             )
             .all()

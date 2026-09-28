@@ -127,7 +127,7 @@ class AiAssistantSourceService:
             .filter(
                 AiAssistant.status == AiAssistantStatus.DELIVERED.value,
                 AiAssistant.deleted_at.is_(None),
-                ProspectDB.website.isnot(None),
+                ProspectDB.website.is_not(None),
                 ProspectDB.website != "",
             )
             .order_by(AiAssistant.id.asc())
