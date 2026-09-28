@@ -15,10 +15,10 @@ from sqlalchemy.orm import Session, selectinload
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_message import AiAssistantMessage
+from services.ai_assistant.field_limits import LONG_TEXT_MAX_CHARS, SESSION_ID_MAX_CHARS
 
 # A stored turn is bounded like the chat input (services.ai_assistant.chat_service.MAX_MESSAGE_CHARS).
-MAX_STORED_MESSAGE_CHARS = 2000
-SESSION_ID_MAX_CHARS = 64
+MAX_STORED_MESSAGE_CHARS = LONG_TEXT_MAX_CHARS
 RETENTION_DAYS = 90
 RECENT_CONVERSATIONS_LIMIT = 20
 

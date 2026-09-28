@@ -21,6 +21,7 @@ from models.ai_assistant import AiAssistant
 from models.demo_site import DemoSite
 from models.prospect_db import ProspectDB
 from services.ai_assistant.config_builder import ai_assistant_config_builder
+from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.website_crawler import ai_assistant_website_crawler
 from services.ai_assistant.website_sync import AiAssistantWebsiteSync
@@ -158,7 +159,7 @@ class AiAssistantService:
             raw_email = " ".join((fields["email"] or "").split()).lower()
             if raw_email and not _EMAIL_PATTERN.match(raw_email):
                 raise ValueError("Adresse email des alertes invalide")
-            assistant.email = raw_email[:255] or None
+            assistant.email = raw_email[:SHORT_TEXT_MAX_CHARS] or None
         if "assistant_name" in fields:
             assistant.assistant_name = (fields["assistant_name"] or "").strip() or assistant.assistant_name
         if "business_name" in fields:

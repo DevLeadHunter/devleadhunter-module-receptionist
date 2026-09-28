@@ -10,6 +10,7 @@ from enums.assistant_calendar_status import AssistantCalendarConnection
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
 from enums.assistant_widget_language import AssistantWidgetLanguage
 from schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantUnansweredEntry
+from services.ai_assistant.field_limits import LABEL_MAX_CHARS, SHORT_TEXT_MAX_CHARS
 
 
 class AiAssistantClientEvent(BaseModel):
@@ -235,7 +236,7 @@ class AiAssistantClientSpaceResponse(BaseModel):
 class AiAssistantClientSettingsUpdate(BaseModel):
     """A client's settings edit (partial; the alert mobile is read like in the dashboard)."""
 
-    assistant_name: str | None = Field(default=None, min_length=1, max_length=64)
+    assistant_name: str | None = Field(default=None, min_length=1, max_length=LABEL_MAX_CHARS)
     languages: list[AssistantWidgetLanguage] | None = Field(
         default=None, min_length=1, max_length=len(AssistantWidgetLanguage)
     )
@@ -251,7 +252,7 @@ class AiAssistantClientSettingsUpdate(BaseModel):
 class AiAssistantClientCalendarUpdate(BaseModel):
     """A client's booking settings edit (partial; choices checked by the service)."""
 
-    calendar_id: str | None = Field(default=None, max_length=255)
+    calendar_id: str | None = Field(default=None, max_length=SHORT_TEXT_MAX_CHARS)
     duration_minutes: int | None = None
     min_notice_hours: int | None = None
     # Longer kinds are cut to 40 characters by the service.

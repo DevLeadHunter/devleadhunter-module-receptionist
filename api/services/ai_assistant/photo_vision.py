@@ -13,12 +13,12 @@ from typing import Any, ClassVar
 
 from enums.ai_assistant_photo import AiAssistantPhotoUrgency
 from enums.assistant_llm import AssistantLlmUsage
+from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
 from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
 from services.ai_assistant.llm_router import assistant_llm_router
 
 logger = logging.getLogger(__name__)
 
-_MAX_FIELD_CHARS = 255
 _MAX_REPLY_CHARS = 600
 
 
@@ -169,7 +169,7 @@ class AiAssistantPhotoVision:
         )
         raw_questions = answer.get("missing_questions")
         questions = (
-            cls._text(item, _MAX_FIELD_CHARS) for item in (raw_questions if isinstance(raw_questions, list) else [])
+            cls._text(item, SHORT_TEXT_MAX_CHARS) for item in (raw_questions if isinstance(raw_questions, list) else [])
         )
         missing = tuple(question for question in questions if question and not cls.PRICE_PATTERN.search(question))[:2]
         reply = cls._text(answer.get("reply"), _MAX_REPLY_CHARS)
@@ -177,8 +177,8 @@ class AiAssistantPhotoVision:
             reply = cls.FALLBACK_REPLIES[lang]
         return PhotoAnalysis(
             relevant=relevant,
-            object_label=cls._without_price(cls._text(answer.get("object"), _MAX_FIELD_CHARS)),
-            damage=cls._without_price(cls._text(answer.get("damage"), _MAX_FIELD_CHARS)),
+            object_label=cls._without_price(cls._text(answer.get("object"), SHORT_TEXT_MAX_CHARS)),
+            damage=cls._without_price(cls._text(answer.get("damage"), SHORT_TEXT_MAX_CHARS)),
             urgency=urgency,
             missing_questions=missing,
             reply=reply,

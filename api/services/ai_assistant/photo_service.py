@@ -27,6 +27,7 @@ from models.ai_assistant_photo import AiAssistantPhoto
 from models.ai_assistant_request import AiAssistantRequest
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
+from services.ai_assistant.field_limits import SESSION_ID_MAX_CHARS
 from services.ai_assistant.photo_vision import AiAssistantPhotoVision
 from services.ai_assistant.photo_vision import PhotoAnalysis as PhotoAnalysis
 from services.r2_storage_service import r2_storage
@@ -96,7 +97,7 @@ class AiAssistantPhotoService:
         Raises:
             PhotoRejectedError: Too large, not a readable image, over the quota, or storage unavailable.
         """
-        normalized_session = session_id.strip()[:64]
+        normalized_session = session_id.strip()[:SESSION_ID_MAX_CHARS]
         if self.kept_count(db, assistant.id, normalized_session) >= MAX_PHOTOS_PER_SESSION:
             raise PhotoRejectedError(
                 AiAssistantPhotoRejection.QUOTA, f"{MAX_PHOTOS_PER_SESSION} photos maximum par demande."
