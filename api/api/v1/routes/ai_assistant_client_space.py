@@ -42,6 +42,7 @@ from schemas.ai_assistant_client_space import (
     AiAssistantClientTestSms,
 )
 from schemas.ai_assistant_faq import AiAssistantFaqEntryRequest, AiAssistantFaqResponse
+from services.ai_assistant.alert_settings import AlertSettings
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.calendar_access import ai_assistant_calendar_access
@@ -59,7 +60,7 @@ from services.ai_assistant.limits import AiAssistantLimits, AssistantLimit
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.report_email import AiAssistantReportEmail, MonthlyStats
 from services.ai_assistant.report_service import ReportPeriod
-from services.ai_assistant.request_alerts import AlertSettings, ai_assistant_request_alerts
+from services.ai_assistant.request_alerts import ai_assistant_request_alerts
 from services.ai_assistant.request_analyzer import AiAssistantRequestAnalyzer
 from services.ai_assistant.request_service import ai_assistant_request_service
 from services.assistant_pricing_service import AssistantPricingService

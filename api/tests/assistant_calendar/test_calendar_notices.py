@@ -13,11 +13,11 @@ from sqlalchemy.orm import Session
 
 from enums.ai_assistant_request import AiAssistantRequestType
 from models.ai_assistant_appointment import AiAssistantAppointment
+from services.ai_assistant.alert_sms import AlertSms
 from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
 from services.ai_assistant.appointment_texts import AppointmentTexts, BusinessCard
 from services.ai_assistant.calendar_booking import AiAssistantCalendarBooking
 from services.ai_assistant.google_calendar_client import CalendarEventState
-from services.ai_assistant.request_alerts import AlertSms
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
 from services.sms.gsm_segments import segment_count, to_gsm7
 from tests.assistant_calendar.calendar_fakes import (

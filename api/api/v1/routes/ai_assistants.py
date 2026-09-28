@@ -33,6 +33,7 @@ from schemas.ai_assistant import (
 )
 from schemas.ai_assistant_client_space import AiAssistantClientLinkRequest, AiAssistantClientLinkResponse
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_SUCCESS, activity_log_service
+from services.ai_assistant.alert_settings import AlertSettings
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.client_space_service import ai_assistant_client_space_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
@@ -40,7 +41,6 @@ from services.ai_assistant.conversation_service import ConversationCounts, ai_as
 from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.report_service import ai_assistant_report_service
-from services.ai_assistant.request_alerts import AlertSettings
 from services.ai_assistant.request_service import RequestCounts, ai_assistant_request_service
 from services.assistant_subscription_service import assistant_subscription_service
 from services.assistant_video_service import (

@@ -40,6 +40,7 @@ from schemas.ai_assistant_client_space import (
     AiAssistantClientRequestOutcomeUpdate,
     AiAssistantClientSettingsUpdate,
 )
+from services.ai_assistant.alert_sms import AlertSms
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.client_links import AiAssistantClientLinks
 from services.ai_assistant.event_intake import AiAssistantEventIntake, EventIntakeContext
@@ -47,7 +48,6 @@ from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_build
 from services.ai_assistant.limits import AiAssistantLimits
 from services.ai_assistant.report_email import AiAssistantReportEmail
 from services.ai_assistant.report_service import ai_assistant_report_service
-from services.ai_assistant.request_alerts import AlertSms
 from services.ai_assistant.request_analyzer import ai_assistant_request_analyzer
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
 from services.rate_limiter import SlidingWindowRateLimiter

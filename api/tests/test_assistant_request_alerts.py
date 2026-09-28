@@ -27,8 +27,10 @@ from models.prospect_db import ProspectDB
 from models.sms_config import SmsConfig
 from models.sms_message import SmsMessage
 from models.sms_suppression import SmsSuppression
+from services.ai_assistant.alert_settings import AlertSettings, QuietHours
+from services.ai_assistant.alert_sms import AlertSms
 from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.request_alerts import AiAssistantRequestAlerts, AlertSettings, AlertSms, QuietHours
+from services.ai_assistant.request_alerts import AiAssistantRequestAlerts
 from services.ai_assistant.request_service import AiAssistantRequestService
 from services.sms.gsm_segments import segment_count
 from services.sms.phone_normalizer import to_e164_mobile

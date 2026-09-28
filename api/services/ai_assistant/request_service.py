@@ -34,11 +34,12 @@ from models.ai_assistant_appointment import AiAssistantAppointment
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_message import AiAssistantMessage
 from models.ai_assistant_request import AiAssistantRequest
+from services.ai_assistant.alert_settings import AlertSettings, QuietHours
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentSlot
 from services.ai_assistant.conversation_service import SESSION_ID_MAX_CHARS
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.photo_service import ai_assistant_photo_service
-from services.ai_assistant.request_alerts import AlertSettings, QuietHours, ai_assistant_request_alerts
+from services.ai_assistant.request_alerts import ai_assistant_request_alerts
 from services.ai_assistant.request_analyzer import RequestAnalysis, TranscriptLine, ai_assistant_request_analyzer
 from services.ai_assistant.request_email import AiAssistantRequestEmail
 from services.notification_service import notification_service
