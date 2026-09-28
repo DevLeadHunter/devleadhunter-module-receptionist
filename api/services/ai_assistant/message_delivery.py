@@ -113,6 +113,6 @@ class AiAssistantMessageDelivery:
             title=f"{assistant.business_name} · {title}",
             detail=detail,
             user_id=assistant.user_id,
-            entity_type="prospect",
+            entity_type="prospect" if assistant.prospect_id else None,
             entity_id=assistant.prospect_id,
         )

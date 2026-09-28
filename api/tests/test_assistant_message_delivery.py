@@ -170,3 +170,19 @@ def test_a_warning_is_journaled_under_the_business_name(db: Session, monkeypatch
             "entity_id": assistant.prospect_id,
         }
     ]
+
+
+def test_a_warning_about_an_assistant_without_a_prospect_points_to_no_prospect(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    logged: list[dict[str, Any]] = []
+    monkeypatch.setattr(delivery_module.activity_log_service, "record", lambda **kwargs: logged.append(kwargs))
+    assistant = _assistant(db)
+    assistant.prospect_id = None
+
+    AiAssistantMessageDelivery.record_warning(
+        assistant, action="assistant_alert_sms_skipped", title="SMS d'alerte non envoyé", detail="Numéro désinscrit"
+    )
+
+    [entry] = logged
+    assert (entry["entity_type"], entry["entity_id"]) == (None, None)

@@ -23,6 +23,7 @@ _ASSISTANT_NOTIFICATIONS: list[tuple[str, dict[str, Any]]] = [
     ("notify_assistant_requests_waiting", {"waiting_count": 2}),
     ("notify_assistant_inactive", {"month_label": "septembre 2026"}),
     ("notify_assistant_interest", {"message": "Rappelez-moi"}),
+    ("notify_assistant_daily_cap_reached", {"cap": 50}),
 ]
 
 

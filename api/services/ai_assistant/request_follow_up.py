@@ -86,7 +86,7 @@ class AiAssistantRequestFollowUp:
             db.query(AiAssistantAppointment.id)
             .filter(
                 AiAssistantAppointment.request_id == request.id,
-                AiAssistantAppointment.google_event_id.isnot(None),
+                AiAssistantAppointment.google_event_id.is_not(None),
             )
             .first()
         )
