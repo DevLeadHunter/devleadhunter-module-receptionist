@@ -10,10 +10,12 @@ import type {
   AiAssistantRequestsResponse,
   AiAssistantRequestStatus,
   AiAssistantRequestUpdatePayload,
+  AiAssistantSubscriptionLink,
   AiAssistantSummary,
   AiAssistantUpdatePayload,
   AiAssistantVideoContext,
   AssistantSubscription,
+  AssistantSubscriptionInterval,
   AssistantSubscriptionListResponse,
 } from '~/types/AiAssistant'
 import type { AiAssistantDocumentItem, AiAssistantSources, AiAssistantSourcesUpdate } from '~/types/AiAssistantSources'
@@ -356,8 +358,13 @@ export class AiAssistantService {
    * @param interval - `month` (mensuel) or `year` (annuel).
    * @returns The link to send.
    */
-  static getSubscriptionLink(assistantId: number, interval: 'month' | 'year'): Promise<{ url: string }> {
-    return ApiClient.get<{ url: string }>(`${BASE_URL}/${assistantId}/subscription/link?interval=${interval}`)
+  static getSubscriptionLink(
+    assistantId: number,
+    interval: AssistantSubscriptionInterval,
+  ): Promise<AiAssistantSubscriptionLink> {
+    return ApiClient.get<AiAssistantSubscriptionLink>(
+      `${BASE_URL}/${assistantId}/subscription/link?interval=${interval}`,
+    )
   }
 
   /**

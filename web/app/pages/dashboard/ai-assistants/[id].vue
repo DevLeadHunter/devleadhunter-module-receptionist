@@ -75,6 +75,7 @@
               :is-regenerating="isRegenerating"
               :is-sending-client-link="isSendingClientLink"
               :is-revoking-client-links="isRevokingClientLinks"
+              :client-space-link-to-copy="clientSpaceLinkToCopy"
               :is-marking-sold="isMarkingSold"
               :is-deleting="isDeleting"
               @regenerate="regenerateAssistant"
@@ -87,8 +88,10 @@
               :assistant="assistant"
               :is-busy="isVideoBusy"
               :is-removing-video="isRemovingVideo"
+              :is-taking-longer-than-expected="isVideoTakingLongerThanExpected"
               @generate="generateVideo"
               @remove-video="videoDeleteConfirmModal?.open()"
+              @refresh-video="refreshVideoStatusNow"
             />
             <AssistantSubscriptionCard :assistant="assistant" />
           </template>
@@ -199,8 +202,6 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, Ref } from 'vue'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import type { UseOpenExternalUrlReturn, UseToastReturn, UseCopyToClipboardReturn } from '~/types/Composables'
 import type { UseVideoGenerationProgressReturn } from '~/composables/useVideoGenerationProgress'
 import type {
   AiAssistantClientLink,
@@ -208,10 +209,13 @@ import type {
   AiAssistantRequestsResponse,
   AiAssistantSummary,
 } from '~/types/AiAssistant'
-import type { AssistantMutationNotice, AssistantRequestMutationNotice } from '~/types/DrawerStack'
 import type { AiAssistantDetailStat } from '~/types/AiAssistantDetailPage'
+import type { AssistantVideoBuildResult } from '~/types/AssistantSidecar'
+import type { UseOpenExternalUrlReturn, UseToastReturn, UseVideoGenerationFollowUpReturn } from '~/types/Composables'
+import type { AssistantMutationNotice, AssistantRequestMutationNotice } from '~/types/DrawerStack'
 import type { UiConfirmModalHandle } from '~/types/UiConfirmModal'
 import type { UiTab } from '~/types/UiTabs'
+import { computed, onMounted, ref, watch } from 'vue'
 import AssistantActionsCard from '~/components/ai-assistants/AssistantActionsCard.vue'
 import AssistantDemoPreviewCard from '~/components/ai-assistants/AssistantDemoPreviewCard.vue'
 import AssistantFaqCard from '~/components/ai-assistants/AssistantFaqCard.vue'
@@ -222,14 +226,16 @@ import AssistantSettingsForm from '~/components/ai-assistants/AssistantSettingsF
 import AssistantSubscriptionCard from '~/components/ai-assistants/AssistantSubscriptionCard.vue'
 import AssistantSummaryCard from '~/components/ai-assistants/AssistantSummaryCard.vue'
 import AssistantVideoCard from '~/components/ai-assistants/AssistantVideoCard.vue'
+import { useToast } from '~/composables/useToast'
+import { useVideoGenerationFollowUp } from '~/composables/useVideoGenerationFollowUp'
+import { useVideoGenerationProgress } from '~/composables/useVideoGenerationProgress'
+import { RECEPTIONIST_VIDEO_BUILD_PHASES } from '~/constants/videoBuildPhases'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { AssistantSidecarService } from '~/services/assistantSidecarService'
-import { RECEPTIONIST_VIDEO_BUILD_PHASES } from '~/constants/videoBuildPhases'
-import { useToast } from '~/composables/useToast'
-import { useVideoGenerationProgress } from '~/composables/useVideoGenerationProgress'
 import { useDrawerStackStore } from '~/stores/drawerStack'
 import { assistantStatusLabel, demoUrlWithInternal, missingStartStepsLabel } from '~/utils/aiAssistantLabels'
 import { assistantPortraitUrl } from '~/utils/assistantPortrait'
+import { ClipboardCopy } from '~/utils/clipboardCopy'
 
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'ai-assistant-module'] })
 
@@ -237,9 +243,16 @@ const route: ReturnType<typeof useRoute> = useRoute()
 const router: ReturnType<typeof useRouter> = useRouter()
 const toast: UseToastReturn = useToast()
 const drawerStack: ReturnType<typeof useDrawerStackStore> = useDrawerStackStore()
-const { copy }: UseCopyToClipboardReturn = useCopyToClipboard()
 const { openExternalUrl }: UseOpenExternalUrlReturn = useOpenExternalUrl()
 const videoProgress: UseVideoGenerationProgressReturn = useVideoGenerationProgress(RECEPTIONIST_VIDEO_BUILD_PHASES)
+const {
+  isTakingLongerThanExpected: isVideoTakingLongerThanExpected,
+  start: followVideoGeneration,
+  refreshNow: refreshVideoStatusNow,
+}: UseVideoGenerationFollowUpReturn = useVideoGenerationFollowUp(
+  refreshAssistant,
+  (): boolean => isVideoGenerating.value,
+)
 
 /** How many of the assistant's requests the detail page lists. */
 const RECENT_REQUESTS_LIMIT: number = 6
@@ -253,7 +266,6 @@ const asideTabs: UiTab[] = [
   { key: 'config', label: 'Configuration', icon: 'i-lucide-sliders-horizontal' },
 ]
 
-const assistantId: ComputedRef<number> = computed((): number => Number(route.params.id))
 const assistant: Ref<AiAssistantSummary | null> = ref(null)
 const activeTab: Ref<string> = ref('resume')
 /** Bumped after each save so the demo preview shows the new persona, colour or name at once. */
@@ -265,10 +277,11 @@ const isRegenerating: Ref<boolean> = ref(false)
 const isDeleting: Ref<boolean> = ref(false)
 const isSendingClientLink: Ref<boolean> = ref(false)
 const isRevokingClientLinks: Ref<boolean> = ref(false)
+/** The client-space link the browser refused to copy, shown in a field with its own copy button. */
+const clientSpaceLinkToCopy: Ref<string | null> = ref(null)
 const isMarkingSold: Ref<boolean> = ref(false)
 const isVideoBusy: Ref<boolean> = ref(false)
 const isRemovingVideo: Ref<boolean> = ref(false)
-const videoPollTimer: Ref<ReturnType<typeof setInterval> | null> = ref(null)
 const deleteConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
 const clientSpaceConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
 const revokeLinksConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
@@ -276,9 +289,11 @@ const newClientLinkConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
 const soldConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
 const videoDeleteConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
 
-useSeoMeta({
-  title: computed((): string => `${assistant.value?.business_name ?? 'Réceptionniste IA'} — DevLeadHunter`),
-})
+const assistantId: ComputedRef<number> = computed((): number => Number(route.params.id))
+
+const pageTitle: ComputedRef<string> = computed(
+  (): string => `${assistant.value?.business_name ?? 'Réceptionniste IA'} — DevLeadHunter`,
+)
 
 const portraitUrl: ComputedRef<string> = computed((): string =>
   assistant.value
@@ -342,6 +357,8 @@ const soldConfirmMessage: ComputedRef<string> = computed(
   (): string =>
     `Marquer l'assistant de « ${assistant.value?.business_name ?? ''} » comme vendu hors Stripe (virement, votre propre entreprise) ? Il n'expire plus, chaque demande alerte le commerçant par e-mail et SMS, et l'entreprise reçoit son e-mail de bienvenue avec l'espace client.`,
 )
+
+useSeoMeta({ title: pageTitle })
 
 /** Open the journal of what the visitors asked. */
 function openConversations(): void {
@@ -410,19 +427,26 @@ async function markSold(): Promise<void> {
 }
 
 /**
- * Email the business its client-space link and copy it.
+ * Email the business its client-space link and copy it, from the confirming click so Safari allows the copy.
  * @returns A promise resolved once sent (or refused).
  */
 async function sendClientSpace(): Promise<void> {
   if (!assistant.value) return
   isSendingClientLink.value = true
+  clientSpaceLinkToCopy.value = null
+  const linkRequest: Promise<AiAssistantClientLink> = AiAssistantService.issueClientLink(assistant.value.id, true)
+  const copyAttempt: Promise<boolean> = ClipboardCopy.copyWhenReady(
+    linkRequest.then((link: AiAssistantClientLink): string => link.url),
+  )
   try {
-    const link: AiAssistantClientLink = await AiAssistantService.issueClientLink(assistant.value.id, true)
-    await copy(link.url)
+    const link: AiAssistantClientLink = await linkRequest
+    const isCopied: boolean = await copyAttempt
+    const copyNote: string = isCopied ? ' Lien copié.' : ''
+    if (!isCopied) clientSpaceLinkToCopy.value = link.url
     if (link.sent_to) {
-      toast.success(`Espace client envoyé à ${link.sent_to}. Lien copié.`)
+      toast.success(`Espace client envoyé à ${link.sent_to}.${copyNote}`)
     } else {
-      toast.error(`Email non envoyé : ${(link.send_error ?? 'raison inconnue').replace(/\.+$/, '')}. Lien copié.`)
+      toast.error(`Email non envoyé : ${(link.send_error ?? 'raison inconnue').replace(/\.+$/, '')}.${copyNote}`)
     }
   } catch {
     toast.error("Lien de l'espace client indisponible pour l'instant.")
@@ -441,6 +465,7 @@ async function revokeClientLinks(): Promise<void> {
   try {
     const updated: AiAssistantSummary = await AiAssistantService.revokeClientLinks(assistant.value.id)
     assistant.value = updated
+    clientSpaceLinkToCopy.value = null
     drawerStack.notifyAssistantUpdated(updated)
     newClientLinkConfirmModal.value?.open()
   } catch {
@@ -479,8 +504,7 @@ async function generateVideo(): Promise<void> {
   isVideoBusy.value = true
   videoProgress.start(assistant.value.slug, 'Publication de la vidéo')
   try {
-    const build: Awaited<ReturnType<typeof AssistantSidecarService.buildFullVideo>> =
-      await AssistantSidecarService.buildFullVideo(assistant.value.id)
+    const build: AssistantVideoBuildResult = await AssistantSidecarService.buildFullVideo(assistant.value.id)
     if (build.status === 'done' && build.assistant) {
       videoProgress.finish()
       assistant.value = build.assistant
@@ -496,10 +520,10 @@ async function generateVideo(): Promise<void> {
       videoProgress.note('Bascule sur le serveur…')
     }
     assistant.value = await AiAssistantService.generateVideo(assistant.value.id)
-    startVideoPolling()
+    followVideoGeneration()
     videoProgress.note('Montage lancé sur le serveur, suivi sur la carte « Vidéo de prospection ».')
     toast.success('Génération de la vidéo lancée.')
-  } catch (error) {
+  } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : 'Échec du lancement de la génération.'
     videoProgress.fail(message)
     toast.error(message)
@@ -520,30 +544,10 @@ async function removeVideo(): Promise<void> {
     assistant.value = updated
     drawerStack.notifyAssistantUpdated(updated)
     toast.success('Vidéo supprimée.')
-  } catch (error) {
+  } catch (error: unknown) {
     toast.error(error instanceof Error ? error.message : 'Suppression de la vidéo impossible.')
   } finally {
     isRemovingVideo.value = false
-  }
-}
-
-/** Poll the assistant every few seconds while its video is generating, then stop. */
-function startVideoPolling(): void {
-  if (videoPollTimer.value !== null) return
-  videoPollTimer.value = setInterval((): void => {
-    if (!isVideoGenerating.value) {
-      stopVideoPolling()
-      return
-    }
-    refreshAssistant()
-  }, 5000)
-}
-
-/** Stop the video-generation poll. */
-function stopVideoPolling(): void {
-  if (videoPollTimer.value !== null) {
-    clearInterval(videoPollTimer.value)
-    videoPollTimer.value = null
   }
 }
 
@@ -555,7 +559,7 @@ async function refreshAssistant(): Promise<void> {
   try {
     assistant.value = await AiAssistantService.get(assistantId.value)
   } catch {
-    // A missed poll is not worth a toast every five seconds.
+    // A missed check is not worth a toast: the next one, or the refresh button, tries again.
   }
 }
 
@@ -594,17 +598,14 @@ watch(
     const notice: AssistantRequestMutationNotice | null = drawerStack.lastRequestMutation
     if (notice?.type !== 'updated') return
     requests.value = requests.value.map(
-      (item: AiAssistantRequestItem): AiAssistantRequestItem => (item.id === notice.request.id ? notice.request : item),
+      (listedRequest: AiAssistantRequestItem): AiAssistantRequestItem =>
+        listedRequest.id === notice.request.id ? notice.request : listedRequest,
     )
   },
 )
 
 onMounted(async (): Promise<void> => {
   await loadData()
-  if (isVideoGenerating.value) startVideoPolling()
-})
-
-onUnmounted((): void => {
-  stopVideoPolling()
+  if (isVideoGenerating.value) followVideoGeneration()
 })
 </script>

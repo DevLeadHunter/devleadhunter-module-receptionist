@@ -4,9 +4,11 @@ export type AssistantVideoCardProps = {
   assistant: AiAssistantSummary
   isBusy: boolean
   isRemovingVideo: boolean
+  isTakingLongerThanExpected: boolean
 }
 
 export type AssistantVideoCardEmits = {
   generate: []
   'remove-video': []
+  'refresh-video': []
 }

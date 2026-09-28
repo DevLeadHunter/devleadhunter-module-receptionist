@@ -88,6 +88,12 @@ export type AssistantSubscription = {
   created_at: string
 }
 
+export type AssistantSubscriptionInterval = 'month' | 'year'
+
+export type AiAssistantSubscriptionLink = {
+  url: string
+}
+
 /** The user's subscriptions plus the headline KPIs (active count + MRR). */
 export type AssistantSubscriptionListResponse = {
   subscriptions: AssistantSubscription[]

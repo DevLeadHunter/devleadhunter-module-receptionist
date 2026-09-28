@@ -8,7 +8,17 @@
       Votre webcam, puis la réceptionniste qui répond à l'écran. Le lien et la vignette vont dans les emails via
       {lien_video_assistant} et {vignette_video_assistant}.
     </p>
-    <div v-if="isGenerating" class="mt-3 flex items-center gap-2 text-xs text-[var(--app-ink-soft)]">
+    <div v-if="isGenerating && props.isTakingLongerThanExpected" class="mt-3 space-y-2">
+      <p class="flex items-center gap-2 text-xs text-[var(--app-ink)]">
+        <UIcon name="i-lucide-hourglass" class="h-4 w-4 shrink-0" />
+        La vidéo prend plus de temps que prévu.
+      </p>
+      <button type="button" class="btn-secondary w-full text-xs" @click="emit('refresh-video')">
+        <UIcon name="i-lucide-refresh-cw" class="mr-1.5 h-3.5 w-3.5" />
+        Actualiser
+      </button>
+    </div>
+    <div v-else-if="isGenerating" class="mt-3 flex items-center gap-2 text-xs text-[var(--app-ink-soft)]">
       <UIcon name="i-lucide-loader-circle" class="h-4 w-4 animate-spin" />
       Génération en cours…
     </div>
@@ -87,6 +97,10 @@ const props: AssistantVideoCardProps = defineProps({
     default: false,
   },
   isRemovingVideo: {
+    type: Boolean,
+    default: false,
+  },
+  isTakingLongerThanExpected: {
     type: Boolean,
     default: false,
   },

@@ -1,70 +1,29 @@
-/**
- * Desktop-first generation of an assistant's prospection video.
- *
- * Like the site video, the assistant video is built entirely on the user's machine — the sidecar
- * records the widget answering and montages it with its bundled ffmpeg, so the shared VPS is spared.
- * Unlike the site, there is **no Storyblok session** to reach, so a build never needs a login: it is
- * either produced locally or (off the desktop, or on a local failure) left to the server-side path.
- *
- * Every call is a no-op (`unavailable`) outside the desktop shell, so the web build falls back to the
- * VPS generation transparently.
- *
- * @module services/assistantSidecarService
- */
+import type { AiAssistantSummary } from '~/types/AiAssistant'
+import type {
+  AssistantPreviewTimingOverrides,
+  AssistantPreviewVideoResult,
+  AssistantSidecarBuildResult,
+  AssistantVideoBuildResult,
+} from '~/types/AssistantSidecar'
+import type { SidecarBuildOutcome } from '~/services/sidecarVideoBuild'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { DemoSiteService } from '~/services/demoSiteService'
 import { ProfilePhotoService } from '~/services/profilePhotoService'
 import { getScraperSidecarInfo } from '~/services/scraperSidecarService'
-import type { SidecarBuildOutcome } from '~/services/sidecarVideoBuild'
 import { pollAndFetchBuild, readSidecarError } from '~/services/sidecarVideoBuild'
-import type { AiAssistantSummary } from '~/types/AiAssistant'
 
 /** The presenter clip the assistant video uses (a speech about the assistant, not the site). */
 const ASSISTANT_PRESENTER_MODULE: string = 'ai-assistant'
 
-/**
- * Outcome of a full desktop assistant-video build.
- * - `done`: the whole video was rendered locally and stored.
- * - `unavailable`: not the desktop shell — the caller uses the server-side path.
- * - `failed`: something went wrong locally — the caller falls back to the server.
- */
-export type AssistantVideoBuildStatus = 'done' | 'unavailable' | 'failed'
-
-/** Result of a full desktop assistant-video build, with the updated assistant on success. */
-export type AssistantVideoBuildResult = {
-  status: AssistantVideoBuildStatus
-  assistant?: AiAssistantSummary
-  message?: string
-}
-
-/** Unsaved timings a calibration preview renders with, instead of the stored clip's. */
-export type AssistantPreviewTimingOverrides = {
-  presenter_intro: number
-  presenter_outro: number
-  total_seconds: number
-}
-
-/** Result of a calibration preview: the rendered mp4 when it worked, nothing published. */
-export type AssistantPreviewVideoResult = {
-  status: AssistantVideoBuildStatus
-  video?: Blob
-  message?: string
-}
-
+/** Builds a receptionist's prospecting video on the desktop app; off the desktop it answers `unavailable`. */
 export class AssistantSidecarService {
   /**
-   * Build the COMPLETE assistant video on the desktop (widget capture + montage), then upload it.
-   *
-   * Fetches the context + assistant presenter clip, has the sidecar render everything with its
-   * bundled ffmpeg, then posts the finished video to the API — the VPS is never involved. Returns
-   * `unavailable` off the desktop and `failed` (with a message) on any local error so the caller
-   * can fall back to the server-side generation.
+   * Build the whole assistant video on the desktop (widget capture and montage), then upload it to the API.
    * @param assistantId - The assistant to generate.
-   * @returns The build outcome.
+   * @returns `done` with the updated assistant, `unavailable` off the desktop, `failed` with a message otherwise.
    */
   static async buildFullVideo(assistantId: number): Promise<AssistantVideoBuildResult> {
-    const build: { status: AssistantVideoBuildStatus; blob?: Blob; message?: string } =
-      await AssistantSidecarService.requestFullBuild(assistantId)
+    const build: AssistantSidecarBuildResult = await AssistantSidecarService.requestFullBuild(assistantId)
     if (build.status !== 'done' || !build.blob) {
       return { status: build.status, message: build.message }
     }
@@ -86,8 +45,10 @@ export class AssistantSidecarService {
     assistantId: number,
     overrides: AssistantPreviewTimingOverrides,
   ): Promise<AssistantPreviewVideoResult> {
-    const build: { status: AssistantVideoBuildStatus; blob?: Blob; message?: string } =
-      await AssistantSidecarService.requestFullBuild(assistantId, { ...overrides, preview: true })
+    const build: AssistantSidecarBuildResult = await AssistantSidecarService.requestFullBuild(assistantId, {
+      ...overrides,
+      preview: true,
+    })
     if (build.status !== 'done' || !build.blob) {
       return { status: build.status, message: build.message }
     }
@@ -95,18 +56,15 @@ export class AssistantSidecarService {
   }
 
   /**
-   * Run the sidecar's full desktop build (widget capture + montage) for an assistant.
-   *
-   * Shared by the real generation and the calibration preview. The build is DETACHED sidecar-side (a single
-   * multi-minute response gets killed by the webview): start it, then follow it through the shared poll/fetch helper.
+   * Run the sidecar's full desktop build of an assistant, shared by the real generation and the calibration preview.
    * @param assistantId - The assistant to render.
    * @param payloadExtras - Fields merged over the API context (the preview's timings and flag).
-   * @returns The produced zip blob (a bare mp4 for a preview), or the failure status.
+   * @returns The produced zip (a bare mp4 for a preview), or the failure status.
    */
   private static async requestFullBuild(
     assistantId: number,
     payloadExtras: Record<string, unknown> = {},
-  ): Promise<{ status: AssistantVideoBuildStatus; blob?: Blob; message?: string }> {
+  ): Promise<AssistantSidecarBuildResult> {
     const info: Awaited<ReturnType<typeof getScraperSidecarInfo>> = await getScraperSidecarInfo()
     if (!info) return { status: 'unavailable' }
 
@@ -118,7 +76,7 @@ export class AssistantSidecarService {
     } catch (error) {
       return { status: 'failed', message: error instanceof Error ? error.message : 'Contexte vidéo indisponible.' }
     }
-    // La photo est optionnelle : son absence (ou une erreur) ne bloque jamais le build.
+    // The photo is optional: a missing one (or an error) never stops the build.
     let presenterPhoto: Blob | null = null
     try {
       presenterPhoto = await ProfilePhotoService.fetchProfilePhotoBlob()
@@ -133,6 +91,7 @@ export class AssistantSidecarService {
       formData.append('presenter_photo', presenterPhoto, 'presenter-photo.jpg')
     }
 
+    // The build runs detached on the sidecar (the webview kills a response of several minutes): start it, then follow it.
     let startResponse: Response
     try {
       startResponse = await fetch(`http://127.0.0.1:${info.port}/video/build-assistant-full`, {
@@ -149,7 +108,7 @@ export class AssistantSidecarService {
 
     const outcome: SidecarBuildOutcome = await pollAndFetchBuild(info.port, info.token, context.slug, Date.now())
     if (outcome.kind === 'done') return { status: 'done', blob: outcome.blob }
-    if (outcome.kind === 'timeout') return { status: 'failed', message: 'Génération trop longue — réessayez.' }
+    if (outcome.kind === 'timeout') return { status: 'failed', message: 'Génération trop longue, réessayez.' }
     return { status: 'failed', message: outcome.message }
   }
 }
