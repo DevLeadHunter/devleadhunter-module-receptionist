@@ -1,4 +1,8 @@
-"""Background expiry for AI assistant demos past their countdown."""
+"""
+The hourly upkeep of the receptionist module: the demos past their countdown expire, the stale unpaid checkouts go,
+the conversations and the visitors' photos past their retention are forgotten, and the « Pour démarrer » reminders
+leave.
+"""
 
 from __future__ import annotations
 
@@ -16,16 +20,16 @@ logger = logging.getLogger(__name__)
 
 
 class AiAssistantCleanupRunner:
-    """Runs periodic expiry passes for assistant demos past their TTL (sold assistants never expire)."""
+    """Runs the receptionist module's hourly upkeep (a sold assistant never expires)."""
 
     @staticmethod
     async def run_loop(interval_seconds: int = 3600) -> None:
         """
-        Periodically expire the demo assistants whose countdown ended, drop stale unpaid checkouts, and
-        forget the conversations and visitor photos past their retention.
+        Periodically expire the demo assistants whose countdown ended, drop stale unpaid checkouts, forget the
+        conversations and visitor photos past their retention, and send the « Pour démarrer » reminders due.
 
         Args:
-            interval_seconds: Delay between expiry passes.
+            interval_seconds: Delay between two passes.
         """
         while True:
             db = SessionLocal()
