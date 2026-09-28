@@ -188,7 +188,7 @@ class AiAssistantAppointmentNotices:
             How many messages were claimed.
         """
         current = now or _utc_now()
-        booked = AiAssistantAppointment.google_event_id.isnot(None)
+        booked = AiAssistantAppointment.google_event_id.is_not(None)
         lost = (
             db.query(AiAssistantAppointment)
             .filter(
@@ -205,7 +205,7 @@ class AiAssistantAppointmentNotices:
             .filter(
                 booked,
                 AiAssistantAppointment.reminder_sent_at.is_(None),
-                AiAssistantAppointment.reminder_due_at.isnot(None),
+                AiAssistantAppointment.reminder_due_at.is_not(None),
                 AiAssistantAppointment.reminder_due_at <= current,
                 AiAssistantAppointment.starts_at > current + self.REMINDER_CUTOFF,
             )
@@ -287,7 +287,7 @@ class AiAssistantAppointmentNotices:
             is_reminder=is_reminder,
         )
         try:
-            result = await EmailSendingService(db).send_via_user_identity(
+            email_outcome = await EmailSendingService(db).send_via_user_identity(
                 user_id=assistant.user_id,
                 recipient_email=appointment.visitor_email or "",
                 subject=rendered.subject,
@@ -304,10 +304,10 @@ class AiAssistantAppointmentNotices:
         except Exception:
             logger.warning("Appointment %s email failed", appointment.id, exc_info=True)
             db.rollback()
-            result = {"success": False, "error": "Erreur d'envoi"}
-        if not (result or {}).get("success"):
+            email_outcome = {"success": False, "error": "Erreur d'envoi"}
+        if not (email_outcome or {}).get("success"):
             AiAssistantAppointmentNotices._log_failure(
-                assistant, appointment, f"Email non envoyé : {(result or {}).get('error') or 'refusé'}"
+                assistant, appointment, f"Email non envoyé : {(email_outcome or {}).get('error') or 'refusé'}"
             )
 
     @staticmethod

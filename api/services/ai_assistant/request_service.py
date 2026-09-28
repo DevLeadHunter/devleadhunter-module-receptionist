@@ -28,16 +28,13 @@ from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_request import AiAssistantRequest
 from services.ai_assistant.alert_settings import AlertSettings, QuietHours
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentSlot
-from services.ai_assistant.conversation_service import SESSION_ID_MAX_CHARS
+from services.ai_assistant.field_limits import LONG_TEXT_MAX_CHARS, SESSION_ID_MAX_CHARS, SHORT_TEXT_MAX_CHARS
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.photo_service import ai_assistant_photo_service
 from services.ai_assistant.request_analyzer import TranscriptLine
 from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
 from services.ai_assistant.request_follow_up import ai_assistant_request_follow_up
 
-NAME_MAX_CHARS = 255
-NEED_MAX_CHARS = 2000
-OWNER_NOTE_MAX_CHARS = 2000
 OWNER_LIST_LIMIT = 300
 # A resubmission within the same visit updates its request; after this, or once the request was
 # handled or dropped, the same browser leaves a new one (the widget keeps its session for good).
@@ -105,13 +102,13 @@ class AiAssistantRequestService:
         )
         normalized_session = (session_id or "").strip()[:SESSION_ID_MAX_CHARS] or None
         conversation_id = self._conversation_id(db, assistant.id, normalized_session)
-        clean_need = (need or "").strip()[:NEED_MAX_CHARS] or None
+        clean_need = (need or "").strip()[:LONG_TEXT_MAX_CHARS] or None
         clean_language = (language or "").strip()[:8] or None
 
         existing = self._open_request_for_session(db, assistant.id, normalized_session)
         if existing is not None:
-            existing.name = name.strip()[:NAME_MAX_CHARS]
-            existing.contact = contact.strip()[:NAME_MAX_CHARS]
+            existing.name = name.strip()[:SHORT_TEXT_MAX_CHARS]
+            existing.contact = contact.strip()[:SHORT_TEXT_MAX_CHARS]
             existing.need = clean_need or existing.need
             existing.language = clean_language or existing.language
             existing.conversation_id = conversation_id or existing.conversation_id
@@ -134,8 +131,8 @@ class AiAssistantRequestService:
             type=(AiAssistantRequestType.APPOINTMENT if slots_json else AiAssistantRequestType.OTHER).value,
             status=AiAssistantRequestStatus.NEW.value,
             channel=channel.value,
-            name=name.strip()[:NAME_MAX_CHARS],
-            contact=contact.strip()[:NAME_MAX_CHARS],
+            name=name.strip()[:SHORT_TEXT_MAX_CHARS],
+            contact=contact.strip()[:SHORT_TEXT_MAX_CHARS],
             need=clean_need,
             language=clean_language,
             received_outside_hours=OpeningHoursCalendar.received_outside_hours(hours, local_now),
@@ -277,7 +274,7 @@ class AiAssistantRequestService:
         if status is not None:
             self._set_status(request, status)
         if owner_note is not None:
-            request.owner_note = owner_note.strip()[:OWNER_NOTE_MAX_CHARS] or None
+            request.owner_note = owner_note.strip()[:LONG_TEXT_MAX_CHARS] or None
         db.commit()
         db.refresh(request)
         return request

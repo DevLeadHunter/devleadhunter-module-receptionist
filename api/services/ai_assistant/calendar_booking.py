@@ -30,6 +30,7 @@ from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.calendar_access import ai_assistant_calendar_access
 from services.ai_assistant.calendar_settings import CalendarSettings
 from services.ai_assistant.calendar_slot_grid import AiAssistantCalendarSlotGrid
+from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
 from services.ai_assistant.google_calendar_client import (
     CalendarEventDraft,
     CalendarEventState,
@@ -186,7 +187,7 @@ class AiAssistantCalendarBooking:
         """
         cleaned = " ".join((contact or "").split())
         if AiAssistantRequestEmail.is_email(cleaned):
-            return None, cleaned.lower()[:255]
+            return None, cleaned.lower()[:SHORT_TEXT_MAX_CHARS]
         return to_served_mobile(cleaned, country=ai_assistant_service.business_country(db, assistant)), None
 
     async def book(
@@ -248,7 +249,7 @@ class AiAssistantCalendarBooking:
                 db.query(AiAssistantAppointment)
                 .filter(
                     AiAssistantAppointment.request_id == request.id,
-                    AiAssistantAppointment.google_event_id.isnot(None),
+                    AiAssistantAppointment.google_event_id.is_not(None),
                 )
                 .first()
             )
@@ -258,7 +259,7 @@ class AiAssistantCalendarBooking:
                 db.query(AiAssistantAppointment.id)
                 .filter(
                     AiAssistantAppointment.assistant_id == assistant.id,
-                    AiAssistantAppointment.google_event_id.isnot(None),
+                    AiAssistantAppointment.google_event_id.is_not(None),
                     AiAssistantAppointment.starts_at < end_utc,
                     AiAssistantAppointment.ends_at > start_utc,
                 )
@@ -359,7 +360,7 @@ class AiAssistantCalendarBooking:
             db.query(AiAssistantAppointment)
             .filter(
                 AiAssistantAppointment.request_id.in_(request_ids),
-                AiAssistantAppointment.google_event_id.isnot(None),
+                AiAssistantAppointment.google_event_id.is_not(None),
             )
             .order_by(AiAssistantAppointment.id.asc())
             .all()
@@ -387,7 +388,7 @@ class AiAssistantCalendarBooking:
             .join(AiAssistantRequest, AiAssistantRequest.id == AiAssistantAppointment.request_id)
             .filter(
                 AiAssistantAppointment.assistant_id == assistant.id,
-                AiAssistantAppointment.google_event_id.isnot(None),
+                AiAssistantAppointment.google_event_id.is_not(None),
                 AiAssistantAppointment.is_test.is_(False),
                 AiAssistantAppointment.ends_at > now_utc,
             )
