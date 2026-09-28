@@ -138,6 +138,23 @@ def test_a_capped_turn_still_files_the_contact_the_visitor_leaves(
     assert db.query(AiAssistantRequest).one().name == "Julie"
 
 
+def test_a_contact_filed_past_the_cap_schedules_no_follow_up(
+    db: Session, capped_routes: dict[str, AsyncCallRecorder], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Past the cap the request is filed, and its follow-up (a model call) is not scheduled."""
+    follow_ups: list[int] = []
+    monkeypatch.setattr(routes.ai_assistant_request_follow_up, "schedule_follow_up", follow_ups.append)
+    assistant = _assistant(db)
+    for _ in range(2):
+        _chat(db, assistant)
+
+    capped = _chat(db, assistant, "Rappelez-moi au 06 12 34 56 78")
+
+    assert capped.daily_limit_reached is True
+    assert db.query(AiAssistantRequest).one().contact == "06 12 34 56 78"
+    assert follow_ups == []
+
+
 def test_the_operator_tests_use_their_own_budget_and_never_raise_the_alert(
     db: Session, capped_routes: dict[str, AsyncCallRecorder]
 ) -> None:

@@ -89,9 +89,12 @@ class AiAssistantChatContactCapture:
         visitor_message: str,
         visitor_name: str | None,
         is_test: bool,
+        is_past_daily_cap: bool,
     ) -> CapturedChatContact | None:
         """
         File the contact a visitor typed in the chat as the session's request (created, or updated like the form).
+
+        The background follow-up (typing, summary, announcement) is scheduled only for a request this call created.
 
         Args:
             db: Active database session (committed).
@@ -101,6 +104,7 @@ class AiAssistantChatContactCapture:
             visitor_message: The visitor's latest message.
             visitor_name: The name the widget read in the conversation, when it read one.
             is_test: The operator testing (``?internal=1``): recorded, never announced.
+            is_past_daily_cap: The turn is past the assistant's daily cap: the request is filed without its follow-up.
 
         Returns:
             The filed request, or None when the message holds no contact of the visitor.
@@ -111,7 +115,7 @@ class AiAssistantChatContactCapture:
         contact = self.contact_in(visitor_message, business_contacts=self._business_contacts(assistant))
         if contact is None:
             return None
-        request, _created = ai_assistant_request_service.capture(
+        request, created = ai_assistant_request_service.capture(
             db,
             assistant=assistant,
             name=self._name(db, assistant_id=assistant.id, session_id=session, visitor_name=visitor_name),
@@ -121,7 +125,8 @@ class AiAssistantChatContactCapture:
             session_id=session,
             is_test=is_test,
         )
-        ai_assistant_request_follow_up.schedule_follow_up(request.id)
+        if created and not is_past_daily_cap:
+            ai_assistant_request_follow_up.schedule_follow_up(request.id)
         return CapturedChatContact(request=request, name=request.name, contact=request.contact)
 
     @classmethod

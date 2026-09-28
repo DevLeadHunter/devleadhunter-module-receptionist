@@ -153,6 +153,18 @@ def test_a_visitor_without_a_name_is_filed_as_a_visitor_until_they_give_one(db: 
     assert (request.name, request.contact) == ("Marc", "06 12 34 56 79")
 
 
+def test_a_contact_repeated_in_the_session_is_followed_up_once(db: Session, scheduled: list[int]) -> None:
+    assistant = _assistant(db)
+
+    _chat(db, assistant, "Rappelez-moi au 06 12 34 56 78")
+    _chat(db, assistant, "Je répète : 06 12 34 56 78")
+    _chat(db, assistant, "Ou plutôt au 06 12 34 56 79", visitor_name="Marc")
+
+    [request] = db.query(AiAssistantRequest).all()
+    assert request.contact == "06 12 34 56 79"
+    assert scheduled == [request.id]
+
+
 def test_a_test_visit_files_a_test_request_and_a_turn_without_session_files_none(
     db: Session, scheduled: list[int]
 ) -> None:
