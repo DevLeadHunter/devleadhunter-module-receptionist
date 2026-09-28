@@ -124,7 +124,7 @@ def _request(db: Session, assistant: AiAssistant, **fields: Any) -> AiAssistantR
 
 
 def _token(assistant: AiAssistant, *, now: datetime | None = None) -> str:
-    return AiAssistantClientLinks.token(assistant.id, now=now)
+    return AiAssistantClientLinks.token(assistant, now=now)
 
 
 def _status_of(call: Any) -> tuple[int, str]:
@@ -135,22 +135,27 @@ def _status_of(call: Any) -> tuple[int, str]:
 
 def test_the_link_is_short_signed_canonical_bound_to_its_assistant_and_expires() -> None:
     now = datetime(2026, 9, 24, 12, 0)
-    token = AiAssistantClientLinks.token(42, now=now)
+    assistant = AiAssistant(id=42)
+    token = AiAssistantClientLinks.token(assistant, now=now)
     _assistant_id, expiry, signature = token.split(".")
     longer = f"42.{AiAssistantClientLinks._base36(int(expiry, 36) + 86400)}.{signature}"
 
     assert len(token) <= 30
-    assert AiAssistantClientLinks.read(token, now=now + timedelta(days=29)).is_expired is False
-    assert AiAssistantClientLinks.read(token, now=now + timedelta(days=31)).is_expired is True
+    assert AiAssistantClientLinks.named_assistant_id(token) == 42
+    assert AiAssistantClientLinks.read(token, assistant, now=now + timedelta(days=29)).is_expired is False
+    assert AiAssistantClientLinks.read(token, assistant, now=now + timedelta(days=31)).is_expired is True
     for forged in (f"43.{expiry}.{signature}", longer, f"042.{expiry}.{signature}", token + "\n", "../../etc"):
-        assert AiAssistantClientLinks.read(forged, now=now) is None
-    assert AiAssistantClientLinks.read(token.replace("42", "٤٢", 1), now=now) is None
-    assert AiAssistantClientLinks.sms_link(42, now=now) == AiAssistantClientLinks.page_url(token).split("://")[1]
+        assert AiAssistantClientLinks.read(forged, assistant, now=now) is None
+    assert AiAssistantClientLinks.read(f"43.{expiry}.{signature}", AiAssistant(id=43), now=now) is None
+    assert AiAssistantClientLinks.read(token.replace("42", "٤٢", 1), assistant, now=now) is None
+    assert AiAssistantClientLinks.named_assistant_id("../../etc") is None
+    bare_page_url = AiAssistantClientLinks.page_url(token).split("://")[1]
+    assert AiAssistantClientLinks.sms_link(assistant, now=now) == bare_page_url
     # An alert opens the space on its request.
-    assert AiAssistantClientLinks.url(42, request_id=7, now=now) == (
+    assert AiAssistantClientLinks.url(assistant, request_id=7, now=now) == (
         f"{AiAssistantClientLinks.page_url(token)}#demandes/7"
     )
-    assert AiAssistantClientLinks.sms_link(42, request_id=7, now=now).endswith(f"/client/{token}#demandes/7")
+    assert AiAssistantClientLinks.sms_link(assistant, request_id=7, now=now).endswith(f"/client/{token}#demandes/7")
 
 
 def test_the_page_shows_the_assistant_requests_report_settings_and_subscription(db: Session) -> None:
@@ -426,7 +431,7 @@ def test_a_recently_expired_link_emails_a_fresh_one_within_the_limits(db: Sessio
     email = outbox["email"].calls[0]
     assert (email["recipient_email"], email["is_transactional"]) == ("patron@toitures-morel.fr", True)
     fresh = email["body_html"].split("/client/")[1].split('"')[0]
-    assert AiAssistantClientLinks.read(fresh).is_expired is False
+    assert AiAssistantClientLinks.read(fresh, assistant).is_expired is False
 
 
 def test_the_operator_issues_the_link_of_a_sold_assistant_only(db: Session, outbox: dict[str, Any]) -> None:
@@ -544,7 +549,7 @@ def test_each_visit_carries_a_fresh_link_the_site_and_the_line_to_paste(db: Sess
     other = asyncio.run(routes.get_client_space(_token(unnamed), VISITOR_REQUEST, db))
     example = asyncio.run(routes.get_client_space("exemple", VISITOR_REQUEST, db))
 
-    fresh = AiAssistantClientLinks.read(page.fresh_token or "")
+    fresh = AiAssistantClientLinks.read(page.fresh_token or "", assistant)
     assert fresh is not None and fresh.assistant_id == assistant.id and fresh.is_expired is False
     assert page.link_expires_label == routes._business_label(fresh.expires_at, "%d/%m/%Y")
     assert page.website_url == "https://toitures-morel.fr"

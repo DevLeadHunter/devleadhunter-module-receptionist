@@ -1,4 +1,3 @@
-import { ApiClient } from '~/services/api'
 import type {
   AiAssistantClientLink,
   AiAssistantConversationsResponse,
@@ -10,14 +9,17 @@ import type {
   AiAssistantRequestsResponse,
   AiAssistantRequestStatus,
   AiAssistantRequestUpdatePayload,
+  AiAssistantSubscriptionLink,
   AiAssistantSummary,
   AiAssistantUpdatePayload,
   AiAssistantVideoContext,
   AssistantSubscription,
+  AssistantSubscriptionInterval,
   AssistantSubscriptionListResponse,
 } from '~/types/AiAssistant'
 import type { AiAssistantDocumentItem, AiAssistantSources, AiAssistantSourcesUpdate } from '~/types/AiAssistantSources'
 import type { ApiErrorBody } from '~/types/Api'
+import { ApiClient } from '~/services/api'
 
 const BASE_URL: string = '/api/v1/ai-assistants'
 
@@ -279,8 +281,17 @@ export class AiAssistantService {
   }
 
   /**
-   * Rebuild an assistant's knowledge from its prospect's latest data. Branding and persona
-   * (name, tone, languages, accent) and the public link are preserved.
+   * Stop every client-space link sent so far for a sold assistant, alert SMS included.
+   *
+   * @param assistantId - The sold assistant.
+   * @returns The assistant, whose next links are the only ones that open.
+   */
+  static revokeClientLinks(assistantId: number): Promise<AiAssistantSummary> {
+    return ApiClient.post<AiAssistantSummary>(`${BASE_URL}/${assistantId}/client-link/revoke`, {})
+  }
+
+  /**
+   * Rebuild an assistant's knowledge from its prospect's latest data, keeping its persona, accent and public link.
    *
    * @param assistantId - The assistant to regenerate.
    * @returns The refreshed assistant.
@@ -310,10 +321,8 @@ export class AiAssistantService {
   }
 
   /**
-   * Upload a desktop-produced FINAL video bundle (zip: video.mp4 + thumbnail.jpg).
+   * Upload the video the desktop app finished (a zip of video.mp4 and thumbnail.jpg), in multipart.
    *
-   * The sidecar does the whole montage locally; the API just stores it and marks the assistant
-   * ready. Multipart, so it bypasses the JSON api client.
    * @param assistantId - The assistant the video belongs to.
    * @param bundle - The zip produced by the sidecar.
    * @returns The updated assistant.
@@ -346,8 +355,13 @@ export class AiAssistantService {
    * @param interval - `month` (mensuel) or `year` (annuel).
    * @returns The link to send.
    */
-  static getSubscriptionLink(assistantId: number, interval: 'month' | 'year'): Promise<{ url: string }> {
-    return ApiClient.get<{ url: string }>(`${BASE_URL}/${assistantId}/subscription/link?interval=${interval}`)
+  static getSubscriptionLink(
+    assistantId: number,
+    interval: AssistantSubscriptionInterval,
+  ): Promise<AiAssistantSubscriptionLink> {
+    return ApiClient.get<AiAssistantSubscriptionLink>(
+      `${BASE_URL}/${assistantId}/subscription/link?interval=${interval}`,
+    )
   }
 
   /**
@@ -377,7 +391,7 @@ export class AiAssistantService {
   }
 
   /**
-   * Soft-delete one of the user's assistants.
+   * Delete one of the user's assistants: its files and its visitors' data are erased (refused while still paid for).
    *
    * @param assistantId - The assistant to remove.
    * @returns Nothing.

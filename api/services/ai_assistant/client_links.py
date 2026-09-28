@@ -6,6 +6,10 @@ The link names the assistant, expires after 30 days and carries an HMAC of both 
 purpose (``12.mfx3k2.Qs9…``, about 28 characters): it also rides in the one-segment alert SMS.
 Every alert carries a fresh one, opened on its request (« #demandes/12 »); the page itself moves to a fresh
 one at each visit, and sends a new one to the business when it has expired.
+
+« Couper les anciens liens » bumps the assistant's link version, which enters the signature from version 1 on:
+every link signed before stops opening. Version 0 signs exactly as the first links did, so the links sent before
+the version existed keep opening until the first cut.
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ from datetime import UTC, datetime, timedelta
 from typing import ClassVar
 
 from core.config import settings
+from models.ai_assistant import AiAssistant
 from services.ai_assistant.signed_token import SignedToken
 
 
@@ -42,12 +47,12 @@ class AiAssistantClientLinks:
     )
 
     @classmethod
-    def token(cls, assistant_id: int, *, now: datetime | None = None) -> str:
+    def token(cls, assistant: AiAssistant, *, now: datetime | None = None) -> str:
         """
-        A fresh token for an assistant's client space.
+        A fresh token for an assistant's client space, signed with its current link version.
 
         Args:
-            assistant_id: The sold assistant.
+            assistant: The sold assistant.
             now: Current time (tests); defaults to now.
 
         Returns:
@@ -55,22 +60,22 @@ class AiAssistantClientLinks:
         """
         expires_at = int((cls._utc(now) + timedelta(days=cls.TTL_DAYS)).timestamp())
         expiry = cls._base36(expires_at)
-        return f"{assistant_id}.{expiry}.{cls._sign(assistant_id, expiry)}"
+        return f"{assistant.id}.{expiry}.{cls._sign(assistant.id, expiry, cls._version_of(assistant))}"
 
     @classmethod
-    def url(cls, assistant_id: int, *, request_id: int | None = None, now: datetime | None = None) -> str:
+    def url(cls, assistant: AiAssistant, *, request_id: int | None = None, now: datetime | None = None) -> str:
         """
         The client-space page of an assistant, with a fresh token.
 
         Args:
-            assistant_id: The sold assistant.
+            assistant: The sold assistant.
             request_id: A request the page opens on arrival (« #demandes/12 »), for an alert.
             now: Current time (tests); defaults to now.
 
         Returns:
             The absolute page URL on the demo host.
         """
-        return cls.page_url(cls.token(assistant_id, now=now), request_id=request_id)
+        return cls.page_url(cls.token(assistant, now=now), request_id=request_id)
 
     @staticmethod
     def page_url(token: str, *, request_id: int | None = None) -> str:
@@ -88,39 +93,61 @@ class AiAssistantClientLinks:
         return f"{url}#demandes/{request_id}" if request_id is not None else url
 
     @classmethod
-    def sms_link(cls, assistant_id: int, *, request_id: int | None = None, now: datetime | None = None) -> str:
+    def sms_link(cls, assistant: AiAssistant, *, request_id: int | None = None, now: datetime | None = None) -> str:
         """The client-space URL without its scheme (a bare link is tapped all the same in an SMS)."""
-        return re.sub(r"^https?://", "", cls.url(assistant_id, request_id=request_id, now=now))
+        return re.sub(r"^https?://", "", cls.url(assistant, request_id=request_id, now=now))
 
     @classmethod
-    def read(cls, token: str, *, now: datetime | None = None) -> ClientLinkToken | None:
+    def named_assistant_id(cls, token: str) -> int | None:
         """
-        Check a token's shape and signature, and tell whether it has expired.
+        The assistant a well-formed token names, before its signature is checked (it needs the assistant's version).
 
         Args:
             token: The token from the page URL.
+
+        Returns:
+            The assistant id, or None when the token is not in its canonical form.
+        """
+        match = cls._TOKEN.fullmatch(token or "")
+        return int(match.group(1)) if match is not None else None
+
+    @classmethod
+    def read(cls, token: str, assistant: AiAssistant, *, now: datetime | None = None) -> ClientLinkToken | None:
+        """
+        Check a token's shape and signature against its assistant's current link version, and tell whether it expired.
+
+        Args:
+            token: The token from the page URL.
+            assistant: The assistant the token names (see :meth:`named_assistant_id`).
             now: Current time (tests); defaults to now.
 
         Returns:
-            The token's assistant and expiry, or None when it is malformed or forged.
+            The token's assistant and expiry, or None when it is malformed, forged, of another assistant, or signed
+            before the links were last cut.
         """
         match = cls._TOKEN.fullmatch(token or "")
-        if match is None:
+        if match is None or int(match.group(1)) != assistant.id:
             return None
-        assistant_id, expiry, signature = int(match.group(1)), match.group(2), match.group(3)
-        if not hmac.compare_digest(signature, cls._sign(assistant_id, expiry)):
+        expiry, signature = match.group(2), match.group(3)
+        if not hmac.compare_digest(signature, cls._sign(assistant.id, expiry, cls._version_of(assistant))):
             return None
         expires_at = datetime.fromtimestamp(int(expiry, 36), UTC)
         return ClientLinkToken(
-            assistant_id=assistant_id,
+            assistant_id=assistant.id,
             expires_at=expires_at.replace(tzinfo=None),
             is_expired=expires_at <= cls._utc(now),
         )
 
     @classmethod
-    def _sign(cls, assistant_id: int, expiry: str) -> str:
-        """Truncated HMAC-SHA256 of the assistant and expiry, base64url without padding."""
-        return SignedToken.short(cls._PURPOSE, assistant_id, expiry, length=cls._SIGNATURE_BYTES)
+    def _sign(cls, assistant_id: int, expiry: str, version: int) -> str:
+        """Truncated HMAC-SHA256 of the assistant, the expiry and (from 1 on) the link version, base64url."""
+        purpose = cls._PURPOSE if version == 0 else f"{cls._PURPOSE}.v{version}"
+        return SignedToken.short(purpose, assistant_id, expiry, length=cls._SIGNATURE_BYTES)
+
+    @staticmethod
+    def _version_of(assistant: AiAssistant) -> int:
+        """The assistant's link version (a row not flushed yet has none: its links are the first ones)."""
+        return assistant.client_link_version or 0
 
     @staticmethod
     def _utc(now: datetime | None) -> datetime:

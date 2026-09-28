@@ -29,6 +29,11 @@
           <UIcon name="i-lucide-link" class="mr-1.5 h-3.5 w-3.5" />
           Copier le lien annuel
         </button>
+        <UiCopyLinkField
+          v-if="linkToCopy"
+          :url="linkToCopy.url"
+          :link-label="`Lien d'abonnement ${intervalLabel(linkToCopy.interval)}`"
+        />
       </div>
     </template>
     <p
@@ -49,12 +54,17 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, PropType, Ref } from 'vue'
+import type {
+  AiAssistantSubscriptionLink,
+  AiAssistantSummary,
+  AssistantSubscriptionInterval,
+} from '~/types/AiAssistant'
+import type { AssistantSubscriptionCardProps, AssistantSubscriptionLinkToCopy } from '~/types/AssistantSubscriptionCard'
+import type { UseToastReturn } from '~/types/Composables'
 import { computed, ref } from 'vue'
-import type { AiAssistantSummary } from '~/types/AiAssistant'
-import type { AssistantSubscriptionCardProps, AssistantSubscriptionInterval } from '~/types/AssistantSubscriptionCard'
-import type { UseCopyToClipboardReturn, UseToastReturn } from '~/types/Composables'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { useToast } from '~/composables/useToast'
+import { ClipboardCopy } from '~/utils/clipboardCopy'
 
 const props: AssistantSubscriptionCardProps = defineProps({
   assistant: {
@@ -64,9 +74,10 @@ const props: AssistantSubscriptionCardProps = defineProps({
 })
 
 const toast: UseToastReturn = useToast()
-const { copy }: UseCopyToClipboardReturn = useCopyToClipboard()
 
 const isCopyingLink: Ref<boolean> = ref(false)
+/** The link the browser refused to copy, shown in a field with its own copy button. */
+const linkToCopy: Ref<AssistantSubscriptionLinkToCopy | null> = ref(null)
 
 const subscriptionLabel: ComputedRef<string> = computed((): string => {
   if (props.assistant.subscription_amount_cents == null) return ''
@@ -75,17 +86,34 @@ const subscriptionLabel: ComputedRef<string> = computed((): string => {
 })
 
 /**
- * Copy the permanent subscription link for the client.
+ * The billing period as the link's label names it.
  * @param interval - `month` or `year`.
- * @returns A promise resolved once copied.
+ * @returns « mensuel » or « annuel ».
+ */
+function intervalLabel(interval: AssistantSubscriptionInterval): string {
+  return interval === 'year' ? 'annuel' : 'mensuel'
+}
+
+/**
+ * Copy the permanent subscription link, asked for and written from the click itself so Safari allows the copy.
+ * @param interval - `month` or `year`.
+ * @returns A promise resolved once the link is copied, or shown to copy by hand.
  */
 async function copySubscriptionLink(interval: AssistantSubscriptionInterval): Promise<void> {
   if (isCopyingLink.value) return
   isCopyingLink.value = true
+  linkToCopy.value = null
+  const linkRequest: Promise<string> = AiAssistantService.getSubscriptionLink(props.assistant.id, interval).then(
+    (link: AiAssistantSubscriptionLink): string => link.url,
+  )
+  const copyAttempt: Promise<boolean> = ClipboardCopy.copyWhenReady(linkRequest)
   try {
-    const { url }: { url: string } = await AiAssistantService.getSubscriptionLink(props.assistant.id, interval)
-    await copy(url)
-    toast.success(`Lien d'abonnement ${interval === 'year' ? 'annuel' : 'mensuel'} copié.`)
+    const url: string = await linkRequest
+    if (await copyAttempt) {
+      toast.success(`Lien d'abonnement ${intervalLabel(interval)} copié.`)
+    } else {
+      linkToCopy.value = { interval, url }
+    }
   } catch {
     toast.error('Lien indisponible pour cet assistant.')
   } finally {

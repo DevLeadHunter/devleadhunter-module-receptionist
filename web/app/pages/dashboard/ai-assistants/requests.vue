@@ -139,7 +139,6 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, Ref } from 'vue'
-import { computed, onMounted, ref, watch } from 'vue'
 import type {
   AiAssistantListResponse,
   AiAssistantRequestItem,
@@ -151,12 +150,12 @@ import type { AiAssistantRequestFlag } from '~/types/AiAssistantRequestsPage'
 import type { AssistantRequestMutationNotice } from '~/types/DrawerStack'
 import type { SelectFieldOption } from '~/types/SelectField'
 import type { UiFilterTab } from '~/types/UiFilterTabs'
+import { computed, onMounted, ref, watch } from 'vue'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { useDrawerStackStore } from '~/stores/drawerStack'
 import { REQUEST_STATUS_LABELS, REQUEST_TYPE_LABELS } from '~/utils/aiAssistantLabels'
 import { formatShortMonthDayTime, parseApiDate } from '~/utils/date'
 
-/** The inbox of the requests visitors left across the user's assistants; each row opens its drawer. */
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'ai-assistant-module'] })
 
 useSeoMeta({ title: 'Demandes — DevLeadHunter' })
@@ -300,13 +299,13 @@ function requestFlags(request: AiAssistantRequestItem): AiAssistantRequestFlag[]
  */
 function applyUpdate(updated: AiAssistantRequestItem): void {
   const previous: AiAssistantRequestItem | undefined =
-    allRequests.value.find((item: AiAssistantRequestItem): boolean => item.id === updated.id) ??
-    newRequests.value.find((item: AiAssistantRequestItem): boolean => item.id === updated.id)
+    allRequests.value.find((request: AiAssistantRequestItem): boolean => request.id === updated.id) ??
+    newRequests.value.find((request: AiAssistantRequestItem): boolean => request.id === updated.id)
   allRequests.value = allRequests.value.map(
-    (item: AiAssistantRequestItem): AiAssistantRequestItem => (item.id === updated.id ? updated : item),
+    (request: AiAssistantRequestItem): AiAssistantRequestItem => (request.id === updated.id ? updated : request),
   )
   const others: AiAssistantRequestItem[] = newRequests.value.filter(
-    (item: AiAssistantRequestItem): boolean => item.id !== updated.id,
+    (request: AiAssistantRequestItem): boolean => request.id !== updated.id,
   )
   newRequests.value = updated.status === 'new' ? [updated, ...others] : others
   if (previous && !updated.is_test) {

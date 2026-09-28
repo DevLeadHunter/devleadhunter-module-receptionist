@@ -1,4 +1,9 @@
-import type { AiAssistantRequestStatus, AiAssistantRequestType, AiAssistantSummary } from '~/types/AiAssistant'
+import type {
+  AiAssistantRequestStatus,
+  AiAssistantRequestType,
+  AiAssistantStartStep,
+  AiAssistantSummary,
+} from '~/types/AiAssistant'
 import { daysUntil } from '~/utils/date'
 
 /** French label of each assistant status. */
@@ -28,6 +33,13 @@ export const REQUEST_STATUS_LABELS: Record<AiAssistantRequestStatus, string> = {
   dropped: 'Sans suite',
 }
 
+/** Each « Pour démarrer » step as the seller names it when calling the business. */
+const START_STEP_LABELS: Record<AiAssistantStartStep, string> = {
+  alert_phone: "Mobile d'alerte",
+  google_profile_or_website: 'Adresse sur la fiche Google ou ligne sur le site',
+  google_calendar: 'Agenda Google',
+}
+
 /**
  * The French label of an assistant status, or the raw status for an unknown one.
  * @param status - The status as the API returns it.
@@ -47,6 +59,33 @@ export function assistantLifetimeLabel(assistant: AiAssistantSummary): string {
   if (assistant.status !== 'active') return assistantStatusLabel(assistant.status)
   if (!assistant.demo_link_sent_at || !assistant.expires_at) return "En attente d'envoi"
   return `Expire dans ${daysUntil(assistant.expires_at)} j`
+}
+
+/**
+ * A language code as the widget knows it: Luxembourgish, first stored as « lu », is « lb ».
+ * @param code - The code as stored on an assistant, a request or a conversation.
+ * @returns The code, « lb » for a stored « lu ».
+ */
+export function widgetLanguageCode(code: string): string {
+  return code === 'lu' ? 'lb' : code
+}
+
+/**
+ * An assistant's languages on one line, as the widget names them (« FR · EN · LB »).
+ * @param languages - The codes as stored on the assistant.
+ * @returns The upper-case codes joined by a middle dot.
+ */
+export function assistantLanguagesLabel(languages: string[]): string {
+  return languages.map((code: string): string => widgetLanguageCode(code).toUpperCase()).join(' · ')
+}
+
+/**
+ * The « Pour démarrer » steps a sold assistant still misses, joined for one line (« Mobile d'alerte · Agenda Google »).
+ * @param steps - The missing steps, as the API returns them.
+ * @returns The labels joined by a middle dot.
+ */
+export function missingStartStepsLabel(steps: AiAssistantStartStep[]): string {
+  return steps.map((step: AiAssistantStartStep): string => START_STEP_LABELS[step]).join(' · ')
 }
 
 /**

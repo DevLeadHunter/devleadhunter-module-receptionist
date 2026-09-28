@@ -5,37 +5,14 @@
         v-if="open && assistant"
         class="fixed top-0 right-0 z-50 flex h-dvh w-full max-w-[520px] flex-col border-l border-[var(--app-line)] bg-[var(--app-surface)] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] shadow-2xl"
       >
-        <div class="flex items-start gap-3 border-b border-[var(--app-line)] px-5 py-4">
-          <button
-            v-if="showBack"
-            type="button"
-            class="flex h-10 w-7 shrink-0 items-center justify-center rounded text-[var(--app-ink-soft)] transition-colors hover:bg-[var(--app-surface-2)] hover:text-[var(--app-ink)]"
-            title="Revenir au volet précédent"
-            aria-label="Revenir au volet précédent"
-            @click="emit('back')"
-          >
-            <UIcon name="i-lucide-chevron-left" class="h-4 w-4" />
-          </button>
-          <div
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--app-line)] bg-[var(--app-surface)]"
-          >
-            <UIcon name="i-lucide-library" class="h-4 w-4 text-[var(--app-ink-soft)]" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <h2 class="truncate text-base leading-tight font-semibold text-[var(--app-ink)]">
-              Ce que {{ assistant.assistant_name }} lit
-            </h2>
-            <p class="text-muted mt-0.5 truncate text-sm">{{ assistant.business_name }}</p>
-          </div>
-          <button
-            type="button"
-            class="flex h-7 w-7 items-center justify-center rounded text-[var(--app-ink-soft)] transition-colors hover:bg-[var(--app-surface-2)] hover:text-[var(--app-ink)]"
-            aria-label="Fermer"
-            @click="emit('close')"
-          >
-            <UIcon name="i-lucide-x" class="h-4 w-4" />
-          </button>
-        </div>
+        <UiDrawerHeader
+          :title="`Ce que ${assistant.assistant_name} lit`"
+          :subtitle="assistant.business_name"
+          icon="i-lucide-library"
+          :show-back="showBack"
+          @back="emit('back')"
+          @close="emit('close')"
+        />
 
         <div class="flex-1 space-y-5 overflow-y-auto px-5 py-4">
           <p v-if="isLoading && !sources" class="text-muted text-sm">Chargement…</p>
@@ -202,16 +179,16 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
-import { computed, ref, watch } from 'vue'
 import type { AiAssistantSummary } from '~/types/AiAssistant'
 import type { AiAssistantDocumentItem, AiAssistantSources, AiAssistantSourcesUpdate } from '~/types/AiAssistantSources'
 import type { UseToastReturn } from '~/types/Composables'
 import type { UiAssistantSourcesDrawerEmits, UiAssistantSourcesDrawerProps } from '~/types/UiAssistantSourcesDrawer'
+import type { UiConfirmModalHandle } from '~/types/UiConfirmModal'
+import { computed, ref, watch } from 'vue'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { useToast } from '~/composables/useToast'
 import { formatNumericDateTime } from '~/utils/date'
 
-/** What an assistant reads — website, Google listing, documents — with a switch per source. */
 const props: UiAssistantSourcesDrawerProps = defineProps({
   open: {
     type: Boolean,
@@ -241,8 +218,7 @@ const isSaving: Ref<boolean> = ref(false)
 const hasLoadFailed: Ref<boolean> = ref(false)
 /** Document waiting for the deletion to be confirmed. */
 const documentToDelete: Ref<AiAssistantDocumentItem | null> = ref(null)
-/** Confirm modal handle. */
-const confirmModal: Ref<{ open: () => void } | null> = ref(null)
+const confirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
 const fileInput: Ref<HTMLInputElement | null> = ref(null)
 
 const isLoading: ComputedRef<boolean> = computed((): boolean => loadingAssistantId.value !== null)
@@ -425,7 +401,8 @@ async function toggleDocument(document: AiAssistantDocumentItem, enabled: boolea
     sources.value = {
       ...sources.value,
       documents: sources.value.documents.map(
-        (item: AiAssistantDocumentItem): AiAssistantDocumentItem => (item.id === updated.id ? updated : item),
+        (listedDocument: AiAssistantDocumentItem): AiAssistantDocumentItem =>
+          listedDocument.id === updated.id ? updated : listedDocument,
       ),
     }
   } catch {
@@ -467,7 +444,9 @@ async function deleteDocument(): Promise<void> {
     if (!isShowing(assistantId) || !sources.value) return
     sources.value = {
       ...sources.value,
-      documents: sources.value.documents.filter((item: AiAssistantDocumentItem): boolean => item.id !== document.id),
+      documents: sources.value.documents.filter(
+        (listedDocument: AiAssistantDocumentItem): boolean => listedDocument.id !== document.id,
+      ),
     }
     documentToDelete.value = null
   } catch {
@@ -487,7 +466,7 @@ watch(
     isUploading.value = false
     isSaving.value = false
     hasLoadFailed.value = false
-    if (assistantId !== null) void loadSources(assistantId)
+    if (assistantId !== null) loadSources(assistantId)
   },
   { immediate: true },
 )

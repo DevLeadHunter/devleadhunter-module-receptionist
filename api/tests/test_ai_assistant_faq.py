@@ -292,7 +292,7 @@ def test_the_owner_edits_the_faq_of_its_own_assistant_only(db: Session) -> None:
 
 def test_the_client_answers_from_its_space_and_the_page_lists_both(db: Session) -> None:
     assistant = _assistant(db)
-    token = AiAssistantClientLinks.token(assistant.id)
+    token = AiAssistantClientLinks.token(assistant)
     ai_assistant_faq_service.record_unanswered(db, assistant, "Livrez-vous à domicile ?")
     ai_assistant_faq_service.record_unanswered(db, assistant, "Prêtez-vous un véhicule ?")
 

@@ -57,7 +57,9 @@
         />
         <div class="min-w-0">
           <h2 class="truncate text-lg font-semibold text-[var(--app-ink)]">{{ props.assistant.business_name }}</h2>
-          <p class="text-xs text-[var(--app-ink-soft)]">{{ props.assistant.assistant_name }} · {{ languagesLabel }}</p>
+          <p class="text-xs text-[var(--app-ink-soft)]">
+            {{ props.assistant.assistant_name }} · {{ assistantLanguagesLabel(props.assistant.languages) }}
+          </p>
         </div>
       </div>
 
@@ -84,6 +86,16 @@
         </span>
       </div>
 
+      <p v-if="props.assistant.needs_follow_up" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+        <span class="app-badge app-badge--strong">
+          <UIcon name="i-lucide-phone-call" class="h-3 w-3" />
+          À relancer
+        </span>
+        <span class="text-[var(--app-ink-soft)]">
+          Il manque : {{ missingStartStepsLabel(props.assistant.missing_start_steps) }}
+        </span>
+      </p>
+
       <div class="relative z-20 flex flex-wrap gap-2">
         <button type="button" class="btn-primary h-9 px-4 text-xs" @click="emit('open', demoUrl)">
           Ouvrir la démo
@@ -92,7 +104,7 @@
           Détails
         </NuxtLink>
         <button type="button" class="btn-secondary h-9 px-4 text-xs" @click="copyDemoUrl">
-          {{ copied ? 'Copié !' : 'Copier le lien' }}
+          {{ isDemoUrlCopied ? 'Copié !' : 'Copier le lien' }}
         </button>
       </div>
     </div>
@@ -100,15 +112,23 @@
 </template>
 
 <script lang="ts" setup>
-import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
-import { computed, ref } from 'vue'
+import type { ComputedRef, EmitFn, PropType, Ref, ShallowRef } from 'vue'
 import type { AiAssistantSummary } from '~/types/AiAssistant'
 import type { AiAssistantCardEmits, AiAssistantCardProps } from '~/types/AiAssistantCard'
-import type { UseLazyPreviewReturn } from '~/types/Composables'
+import type { UseLazyPreviewReturn, UseToastReturn } from '~/types/Composables'
+import { computed, ref, useTemplateRef } from 'vue'
 import AssistantPortrait from '~/components/ai-assistants/AssistantPortrait.vue'
 import { useLazyPreview } from '~/composables/useLazyPreview'
-import { assistantLifetimeLabel, assistantStatusLabel, demoUrlWithInternal } from '~/utils/aiAssistantLabels'
+import { useToast } from '~/composables/useToast'
+import {
+  assistantLanguagesLabel,
+  assistantLifetimeLabel,
+  assistantStatusLabel,
+  demoUrlWithInternal,
+  missingStartStepsLabel,
+} from '~/utils/aiAssistantLabels'
 import { assistantPortraitUrl } from '~/utils/assistantPortrait'
+import { ClipboardCopy } from '~/utils/clipboardCopy'
 
 const props: AiAssistantCardProps = defineProps({
   assistant: {
@@ -119,10 +139,16 @@ const props: AiAssistantCardProps = defineProps({
 
 const emit: EmitFn<AiAssistantCardEmits> = defineEmits<AiAssistantCardEmits>()
 
-const copied: Ref<boolean> = ref(false)
-const isPreviewLoaded: Ref<boolean> = ref(false)
 /** Preview container observed to mount the iframe only once the card is on screen. */
-const previewContainer: Ref<HTMLElement | null> = ref(null)
+const previewContainer: Readonly<ShallowRef<HTMLElement | null>> = useTemplateRef('previewContainer')
+const { shouldRenderPreview, markPreviewLoaded }: UseLazyPreviewReturn = useLazyPreview(
+  previewContainer,
+  (): boolean => true,
+)
+const toast: UseToastReturn = useToast()
+
+const isDemoUrlCopied: Ref<boolean> = ref(false)
+const isPreviewLoaded: Ref<boolean> = ref(false)
 
 /** The demo page with the internal marker, so the preview never counts as a prospect visit. */
 const demoUrl: ComputedRef<string> = computed((): string => demoUrlWithInternal(props.assistant.demo_url))
@@ -134,22 +160,12 @@ const portraitUrl: ComputedRef<string> = computed((): string =>
   assistantPortraitUrl(props.assistant.demo_url, props.assistant.assistant_name, props.assistant.assistant_gender),
 )
 
-const { shouldRenderPreview, markPreviewLoaded }: UseLazyPreviewReturn = useLazyPreview(
-  previewContainer,
-  (): boolean => true,
-)
-
 const statusLabel: ComputedRef<string> = computed((): string => assistantStatusLabel(props.assistant.status))
 
 const statusDotClass: ComputedRef<string> = computed((): string => {
   if (props.assistant.status === 'active' || props.assistant.status === 'delivered') return 'bg-[var(--app-green)]'
   return 'bg-[var(--app-red)]'
 })
-
-/** « FR · EN » */
-const languagesLabel: ComputedRef<string> = computed((): string =>
-  props.assistant.languages.map((code: string): string => code.toUpperCase()).join(' · '),
-)
 
 const lifetimeLabel: ComputedRef<string> = computed((): string => assistantLifetimeLabel(props.assistant))
 
@@ -164,12 +180,18 @@ function onPreviewLoad(): void {
   markPreviewLoaded()
 }
 
-/** Copy the demo URL and show a short confirmation state. */
-function copyDemoUrl(): void {
-  emit('copy', props.assistant.demo_url)
-  copied.value = true
+/**
+ * Copy the public demo link and show « Copié ! » for a moment; say so when the browser refuses.
+ * @returns A promise resolved once the copy was tried.
+ */
+async function copyDemoUrl(): Promise<void> {
+  if (!(await ClipboardCopy.copyText(props.assistant.demo_url))) {
+    toast.error('Copie refusée par le navigateur : ouvrez le détail pour copier le lien.')
+    return
+  }
+  isDemoUrlCopied.value = true
   setTimeout((): void => {
-    copied.value = false
+    isDemoUrlCopied.value = false
   }, 2000)
 }
 </script>

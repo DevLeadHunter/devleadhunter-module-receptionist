@@ -151,7 +151,6 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
-import { computed, ref, watch } from 'vue'
 import type {
   AiAssistantAlertSettings,
   AiAssistantEditForm,
@@ -160,15 +159,16 @@ import type {
   AiAssistantUpdatePayload,
 } from '~/types/AiAssistant'
 import type { AssistantSettingsFormEmits, AssistantSettingsFormProps } from '~/types/AssistantSettingsForm'
-import type { SelectFieldOption } from '~/types/SelectField'
 import type { UseToastReturn } from '~/types/Composables'
+import type { SelectFieldOption } from '~/types/SelectField'
+import { computed, ref, watch } from 'vue'
 import AssistantPersonaPicker from '~/components/ai-assistants/AssistantPersonaPicker.vue'
-import { AiAssistantService } from '~/services/aiAssistantService'
 import { useToast } from '~/composables/useToast'
 import { ASSISTANT_TONE_OPTIONS } from '~/constants/assistantTones'
+import { AiAssistantService } from '~/services/aiAssistantService'
+import { widgetLanguageCode } from '~/utils/aiAssistantLabels'
 import { formatAssistantTone, parseAssistantTone } from '~/utils/assistantTone'
 
-/** Edit an assistant's identity, the alerts its business receives, and its model constraints. */
 const props: AssistantSettingsFormProps = defineProps({
   assistant: {
     type: Object as PropType<AiAssistantSummary>,
@@ -198,15 +198,13 @@ const HOUR_OPTIONS: SelectFieldOption<number>[] = Array.from(
   (_: unknown, hour: number): SelectFieldOption<number> => ({ value: hour, label: `${hour} h` }),
 )
 
-/** Languages a customer can offer, in the order they matter for the target markets. */
+/** The widget's five languages: the only ones an assistant can offer. */
 const LANGUAGE_OPTIONS: SelectFieldOption<string>[] = [
   { value: 'fr', label: 'Français' },
   { value: 'nl', label: 'Nederlands' },
-  { value: 'de', label: 'Deutsch' },
   { value: 'en', label: 'English' },
-  { value: 'lu', label: 'Lëtzebuergesch' },
-  { value: 'it', label: 'Italiano' },
-  { value: 'es', label: 'Español' },
+  { value: 'de', label: 'Deutsch' },
+  { value: 'lb', label: 'Lëtzebuergesch' },
 ]
 
 const form: Ref<AiAssistantEditForm> = ref(formOf(props.assistant))
@@ -232,6 +230,17 @@ const toneSummary: ComputedRef<string> = computed((): string => {
 })
 
 /**
+ * The assistant's languages among the widget's five, a stored « lu » read as « lb », without duplicates.
+ * @param languages - The codes as stored on the assistant.
+ * @returns The codes the language chips can show.
+ */
+function offeredLanguagesOf(languages: string[]): string[] {
+  const offeredCodes: string[] = LANGUAGE_OPTIONS.map((option: SelectFieldOption<string>): string => option.value)
+  const widgetCodes: string[] = languages.map(widgetLanguageCode)
+  return [...new Set(widgetCodes)].filter((code: string): boolean => offeredCodes.includes(code))
+}
+
+/**
  * The form as the assistant is now.
  * @param assistant - The assistant to edit.
  * @returns The prefilled form.
@@ -242,7 +251,7 @@ function formOf(assistant: AiAssistantSummary): AiAssistantEditForm {
     business_name: assistant.business_name,
     tone: assistant.tone ?? '',
     accent_color: assistant.accent_color ?? '',
-    languages: [...assistant.languages],
+    languages: offeredLanguagesOf(assistant.languages),
     email: assistant.email ?? '',
     alert_phone: assistant.alerts.phone ?? '',
     alert_sms_enabled: assistant.alerts.sms_enabled,

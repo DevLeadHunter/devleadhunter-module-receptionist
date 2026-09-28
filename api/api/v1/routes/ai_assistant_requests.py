@@ -118,7 +118,7 @@ async def list_assistant_leads(
     rows = (
         db.query(AiAssistantLead, AiAssistant.business_name)
         .join(AiAssistant, AiAssistant.id == AiAssistantLead.assistant_id)
-        .filter(AiAssistantLead.user_id == user.id)
+        .filter(AiAssistantLead.user_id == user.id, AiAssistant.deleted_at.is_(None))
         .order_by(AiAssistantLead.created_at.desc())
         .limit(500)
         .all()

@@ -190,7 +190,7 @@ class AiAssistantRequestAlerts:
                     contact=request.contact,
                     summary=request.need_summary or request.need,
                     received_local=OpeningHoursCalendar.to_business_time(request.created_at),
-                    link=AiAssistantClientLinks.sms_link(assistant.id, request_id=request.id),
+                    link=AiAssistantClientLinks.sms_link(assistant, request_id=request.id),
                     slots=self._sms_slots(db, request),
                 )
                 await self._send_sms(db, assistant, settings.phone_e164, text)
@@ -308,7 +308,7 @@ class AiAssistantRequestAlerts:
             contact=request.contact,
             summary=request.need_summary or request.need,
             has_photos=bool(AiAssistantRequestAttachments.photo_urls(request)),
-            link=AiAssistantClientLinks.sms_link(assistant.id, request_id=request.id),
+            link=AiAssistantClientLinks.sms_link(assistant, request_id=request.id),
             slots=tuple(AiAssistantAppointmentSlots.short_labels(request.appointment_slots_json)),
             booked=ai_assistant_calendar_booking.booked_labels(db, [request.id]).get(request.id),
         )
@@ -387,7 +387,7 @@ class AiAssistantRequestAlerts:
                     handled_url=AiAssistantRequestLinks.handled_url(request.id),
                     photo_urls=tuple(AiAssistantRequestAttachments.photo_urls(request)),
                     is_reminder=is_reminder,
-                    client_space_url=AiAssistantClientLinks.url(assistant.id, request_id=request.id),
+                    client_space_url=AiAssistantClientLinks.url(assistant, request_id=request.id),
                     appointment_slots=tuple(AiAssistantAppointmentSlots.labels(request.appointment_slots_json)),
                     appointment_booked=ai_assistant_calendar_booking.booked_labels(db, [request.id]).get(request.id),
                 )

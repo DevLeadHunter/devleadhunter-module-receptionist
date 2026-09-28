@@ -43,8 +43,12 @@ export type AiAssistantSummary = {
   installed_at: string | null
   installed_host: string | null
   google_profile_linked_at: string | null
+  missing_start_steps: AiAssistantStartStep[]
+  needs_follow_up: boolean
   created_at: string
 }
+
+export type AiAssistantStartStep = 'alert_phone' | 'google_profile_or_website' | 'google_calendar'
 
 /**
  * How the business owner is alerted of the requests once the assistant is sold, defaults applied:
@@ -82,6 +86,12 @@ export type AssistantSubscription = {
   canceled_at: string | null
   stripe_subscription_id: string | null
   created_at: string
+}
+
+export type AssistantSubscriptionInterval = 'month' | 'year'
+
+export type AiAssistantSubscriptionLink = {
+  url: string
 }
 
 /** The user's subscriptions plus the headline KPIs (active count + MRR). */

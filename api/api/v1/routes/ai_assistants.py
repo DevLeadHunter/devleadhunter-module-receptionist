@@ -3,7 +3,7 @@ prospecting video.
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -15,6 +15,7 @@ from api.v1.routes.ai_assistant_common import (
 )
 from core.database import get_db
 from enums.ai_assistant_request import AiAssistantRequestType
+from enums.ai_assistant_start_step import AiAssistantStartStep
 from enums.ai_assistant_status import AiAssistantStatus
 from models.ai_assistant import AiAssistant
 from models.prospect_db import ProspectDB
@@ -29,6 +30,7 @@ from schemas.ai_assistant import (
 from schemas.ai_assistant_client_space import AiAssistantClientLinkRequest, AiAssistantClientLinkResponse
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_SUCCESS, activity_log_service
 from services.ai_assistant.alert_settings import AlertSettings
+from services.ai_assistant.assistant_purge import ai_assistant_purge_service
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.client_space_service import ai_assistant_client_space_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
@@ -37,6 +39,7 @@ from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.report_service import ai_assistant_report_service
 from services.ai_assistant.request_service import RequestCounts, ai_assistant_request_service
+from services.ai_assistant.start_reminders import ai_assistant_start_reminders
 from services.assistant_subscription_service import assistant_subscription_service
 from services.assistant_video_service import (
     ASSISTANT_PRESENTER_MODULE,
@@ -60,7 +63,9 @@ def _to_owner_response(
     subscription: object | None = None,
     conversations: ConversationCounts | None = None,
     requests: RequestCounts | None = None,
+    start_steps: list[AiAssistantStartStep] | None = None,
 ) -> AiAssistantResponse:
+    missing_start_steps = start_steps or []
     return AiAssistantResponse(
         id=assistant.id,
         slug=assistant.slug,
@@ -104,18 +109,28 @@ def _to_owner_response(
         installed_at=assistant.installed_at,
         installed_host=assistant.installed_host,
         google_profile_linked_at=assistant.google_profile_linked_at,
+        missing_start_steps=missing_start_steps,
+        needs_follow_up=ai_assistant_start_reminders.needs_follow_up(assistant, missing_start_steps),
         unanswered_count=len(ai_assistant_faq_service.unanswered_of(assistant.knowledge_json)),
         created_at=assistant.created_at,
     )
 
 
+def _start_steps_of(db: Session, assistant: AiAssistant) -> list[AiAssistantStartStep]:
+    """The « Pour démarrer » steps a sold assistant still misses (a demo has none to take)."""
+    if assistant.status != AiAssistantStatus.DELIVERED.value:
+        return []
+    return ai_assistant_start_reminders.missing_steps(db, assistant)
+
+
 def _to_full_owner_response(db: Session, assistant: AiAssistant) -> AiAssistantResponse:
-    """One assistant as the list shows it (subscription and counts included), after an edit."""
+    """One assistant as the list shows it (subscription, counts and start steps included), after an edit."""
     return _to_owner_response(
         assistant,
         assistant_subscription_service.active_by_assistant_ids(db, [assistant.id]).get(assistant.id),
         ai_assistant_conversation_service.counts_for_assistants(db, [assistant.id]).get(assistant.id),
         ai_assistant_request_service.counts_for_assistants(db, [assistant.id]).get(assistant.id),
+        _start_steps_of(db, assistant),
     )
 
 
@@ -166,6 +181,7 @@ async def list_assistants(
                 subscriptions.get(assistant.id),
                 conversation_counts.get(assistant.id),
                 request_counts.get(assistant.id),
+                _start_steps_of(db, assistant),
             )
             for assistant in assistants
         ]
@@ -249,6 +265,22 @@ async def issue_assistant_client_link(
     return AiAssistantClientLinkResponse(
         url=delivery.url, expires_at=delivery.expires_at, sent_to=delivery.sent_to, send_error=delivery.send_error
     )
+
+
+@router.post("/{assistant_id}/client-link/revoke", response_model=AiAssistantResponse)
+async def revoke_assistant_client_links(
+    assistant_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """Stop every client-space link sent so far for one of the caller's sold assistants, alert SMS included."""
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
+    if assistant.status != AiAssistantStatus.DELIVERED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="L'espace client s'ouvre une fois l'assistant vendu."
+        )
+    ai_assistant_client_space_service.revoke_links(db, assistant, operator_email=user.email)
+    return _to_full_owner_response(db, assistant)
 
 
 @router.post("/{assistant_id}/deliver", response_model=AiAssistantResponse)
@@ -386,15 +418,17 @@ async def delete_assistant(
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> None:
-    """Soft-delete one of the caller's assistants, and its prospection video files."""
-    assistant = (
-        db.query(AiAssistant)
-        .filter(AiAssistant.id == assistant_id, AiAssistant.user_id == user.id, AiAssistant.deleted_at.is_(None))
-        .first()
-    )
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
-    assistant_video_service.purge_video(assistant)
+    """
+    Delete one of the caller's assistants, refused while a subscription still pays for it.
+
+    It stops being served, its files and its visitors' data are erased, and its row stays for the sales history.
+    """
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
+    if ai_assistant_purge_service.has_live_subscription(db, assistant):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Résiliez d'abord l'abonnement de cette réceptionniste."
+        )
     assistant.status = AiAssistantStatus.DELETED.value
-    assistant.deleted_at = datetime.utcnow()
+    assistant.deleted_at = datetime.now(UTC).replace(tzinfo=None)
     db.commit()
+    await ai_assistant_purge_service.purge(db, assistant)

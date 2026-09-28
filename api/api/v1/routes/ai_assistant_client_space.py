@@ -246,8 +246,8 @@ async def get_client_space(
         return ai_assistant_client_space_example.build()
     assistant, link = _open_client_space(db, token, request)
     # Each visit carries a fresh 30-day link the page moves to: a link opened monthly never expires.
-    fresh_token = AiAssistantClientLinks.token(assistant.id)
-    fresh_link = AiAssistantClientLinks.read(fresh_token) or link
+    fresh_token = AiAssistantClientLinks.token(assistant)
+    fresh_link = AiAssistantClientLinks.read(fresh_token, assistant) or link
     report = ai_assistant_client_space_service.latest_report(db, assistant)
     subscription = ai_assistant_client_space_service.current_subscription(db, assistant)
     records = ai_assistant_client_space_service.recent_requests(db, assistant)

@@ -5,39 +5,24 @@
         v-if="open && subscription"
         class="fixed top-0 right-0 z-50 flex h-dvh w-full max-w-[480px] flex-col border-l border-[var(--app-line)] bg-[var(--app-surface)] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] shadow-2xl"
       >
-        <div class="flex items-start gap-3 border-b border-[var(--app-line)] px-5 py-4">
-          <button
-            v-if="showBack"
-            class="flex h-10 w-7 shrink-0 items-center justify-center rounded text-[var(--app-ink-soft)] transition-colors hover:bg-[var(--app-surface-2)] hover:text-[var(--app-ink)]"
-            title="Revenir au volet précédent"
-            @click="emit('back')"
-          >
-            <UIcon name="i-lucide-chevron-left" class="h-4 w-4" />
-          </button>
-          <div
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--app-line)] bg-[var(--app-surface)]"
-          >
-            <UIcon name="i-lucide-repeat" class="h-4 w-4 text-[var(--app-ink-soft)]" />
-          </div>
-          <div class="min-w-0 flex-1">
+        <UiDrawerHeader
+          :title="subscription.business_name || 'Réceptionniste IA'"
+          icon="i-lucide-repeat"
+          :show-back="showBack"
+          @back="emit('back')"
+          @close="emit('close')"
+        >
+          <template #badges>
             <div class="mb-1 flex flex-wrap items-center gap-1.5">
               <span :class="['inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium', statusBadgeClass]">
                 {{ statusLabel }}
               </span>
             </div>
-            <h2 class="truncate text-base leading-tight font-semibold text-[var(--app-ink)]">
-              {{ subscription.business_name || 'Réceptionniste IA' }}
-            </h2>
+          </template>
+          <template #subtitle>
             <p class="mt-0.5 text-sm font-semibold text-[var(--app-accent-ink)]">{{ planLabel }}</p>
-          </div>
-          <button
-            class="flex h-7 w-7 items-center justify-center rounded text-[var(--app-ink-soft)] transition-colors hover:bg-[var(--app-surface-2)] hover:text-[var(--app-ink)]"
-            aria-label="Fermer"
-            @click="emit('close')"
-          >
-            <UIcon name="i-lucide-x" class="h-4 w-4" />
-          </button>
-        </div>
+          </template>
+        </UiDrawerHeader>
 
         <div class="flex-1 space-y-5 overflow-y-auto px-5 py-4">
           <section>
@@ -140,16 +125,16 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
-import { computed, ref } from 'vue'
 import type { AssistantSubscription } from '~/types/AiAssistant'
-import type { UiSubscriptionDrawerEmits, UiSubscriptionDrawerProps } from '~/types/UiSubscriptionDrawer'
 import type { UseToastReturn } from '~/types/Composables'
+import type { UiConfirmModalHandle } from '~/types/UiConfirmModal'
+import type { UiSubscriptionDrawerEmits, UiSubscriptionDrawerProps } from '~/types/UiSubscriptionDrawer'
+import { computed, ref } from 'vue'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { useToast } from '~/composables/useToast'
-import { formatShortMonthDate } from '~/utils/date'
 import { formatEuros } from '~/utils/currency'
+import { formatShortMonthDate } from '~/utils/date'
 
-/** Detail drawer for one assistant subscription: view + cancel/refund. */
 const props: UiSubscriptionDrawerProps = defineProps({
   open: {
     type: Boolean,
@@ -168,27 +153,27 @@ const props: UiSubscriptionDrawerProps = defineProps({
 const emit: EmitFn<UiSubscriptionDrawerEmits> = defineEmits<UiSubscriptionDrawerEmits>()
 
 const toast: UseToastReturn = useToast()
+
+const SUBSCRIPTION_STATUS_LABELS: Record<string, string> = {
+  active: 'Actif',
+  past_due: 'Paiement en retard',
+  canceled: 'Annulé',
+  incomplete: 'En attente de paiement',
+}
+
 const isBusy: Ref<boolean> = ref(false)
-const cancelConfirmModal: Ref<{ open: () => void } | null> = ref(null)
-const refundConfirmModal: Ref<{ open: () => void } | null> = ref(null)
+const cancelConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
+const refundConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
 
 /** A subscription still live on Stripe (active or past-due) can be canceled or refunded from here. */
 const canManageSubscription: ComputedRef<boolean> = computed(
   (): boolean => props.subscription?.status === 'active' || props.subscription?.status === 'past_due',
 )
 
-/** French label of the subscription status. */
-const statusLabel: ComputedRef<string> = computed((): string => {
-  const labels: Record<string, string> = {
-    active: 'Actif',
-    past_due: 'Paiement en retard',
-    canceled: 'Annulé',
-    incomplete: 'En attente de paiement',
-  }
-  return labels[props.subscription?.status ?? ''] ?? props.subscription?.status ?? '—'
-})
+const statusLabel: ComputedRef<string> = computed(
+  (): string => SUBSCRIPTION_STATUS_LABELS[props.subscription?.status ?? ''] ?? props.subscription?.status ?? '—',
+)
 
-/** Badge colour for the subscription status. */
 const statusBadgeClass: ComputedRef<string> = computed((): string => {
   const status: string = props.subscription?.status ?? ''
   if (status === 'active') return 'border border-[var(--app-green)]/40 bg-[var(--app-green)]/10 text-[var(--app-green)]'
@@ -236,9 +221,12 @@ async function runAction(action: () => Promise<AssistantSubscription | null>, su
  * @returns A promise resolved once the cancel is attempted.
  */
 async function handleCancel(): Promise<void> {
-  const id: number | undefined = props.subscription?.id
-  if (id === undefined) return
-  await runAction(() => AiAssistantService.cancelSubscription(id), 'Abonnement annulé.')
+  const subscriptionId: number | undefined = props.subscription?.id
+  if (subscriptionId === undefined) return
+  await runAction(
+    (): Promise<AssistantSubscription> => AiAssistantService.cancelSubscription(subscriptionId),
+    'Abonnement annulé.',
+  )
 }
 
 /**
@@ -246,10 +234,10 @@ async function handleCancel(): Promise<void> {
  * @returns A promise resolved once the refund is attempted.
  */
 async function handleRefund(): Promise<void> {
-  const id: number | undefined = props.subscription?.id
-  if (id === undefined) return
+  const subscriptionId: number | undefined = props.subscription?.id
+  if (subscriptionId === undefined) return
   await runAction(async (): Promise<null> => {
-    await AiAssistantService.refundSubscription(id)
+    await AiAssistantService.refundSubscription(subscriptionId)
     return null
   }, 'Dernier paiement remboursé.')
 }

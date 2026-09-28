@@ -311,7 +311,7 @@ class AiAssistantReportService:
             accent_color=ai_assistant_service.accent_color(assistant),
             website=assistant.custom_domain or self._prospect_website(db, assistant.prospect_id),
             service_start=OpeningHoursCalendar.to_business_time(start).date() if start > period.start else None,
-            client_space_url=AiAssistantClientLinks.url(assistant.id),
+            client_space_url=AiAssistantClientLinks.url(assistant),
         )
         failure = await self._deliver(db, assistant, content)
         if failure is not None:

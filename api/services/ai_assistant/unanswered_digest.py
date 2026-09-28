@@ -133,7 +133,7 @@ class AiAssistantUnansweredDigest:
                 business_name=assistant.business_name,
                 assistant_name=assistant.assistant_name,
                 questions=questions,
-                url=AiAssistantClientLinks.url(assistant.id, now=current),
+                url=AiAssistantClientLinks.url(assistant, now=current),
             )
             failure = await AiAssistantBusinessMailer.send(
                 db, assistant, rendered, recipient=recipient, recipient_name=assistant.business_name

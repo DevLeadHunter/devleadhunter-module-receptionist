@@ -12,6 +12,7 @@ from enums.ai_assistant_request import (
     AiAssistantRequestStatus,
     AiAssistantRequestType,
 )
+from enums.ai_assistant_start_step import AiAssistantStartStep
 from enums.assistant_booking_mode import AssistantBookingMode
 from enums.assistant_visitor_channel import AssistantVisitorChannel
 
@@ -110,6 +111,9 @@ class AiAssistantResponse(BaseModel):
     installed_at: datetime | None = None
     installed_host: str | None = None
     google_profile_linked_at: datetime | None = None
+    # Once sold: the « Pour démarrer » steps still missing, and whether the J+14 reminder went without them.
+    missing_start_steps: list[AiAssistantStartStep] = Field(default_factory=list)
+    needs_follow_up: bool = False
     created_at: datetime
 
 
