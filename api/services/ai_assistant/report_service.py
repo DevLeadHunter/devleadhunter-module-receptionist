@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from core.database import SessionLocal
 from enums.ai_assistant_status import AiAssistantStatus
-from enums.assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
+from enums.ai_assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_report import AiAssistantReport
 from models.ai_assistant_subscription import AiAssistantSubscription

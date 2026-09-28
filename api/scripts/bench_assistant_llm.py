@@ -27,8 +27,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.config import settings
 from core.database import SessionLocal
+from enums.ai_assistant_llm import LlmProvider
 from enums.ai_assistant_status import AiAssistantStatus
-from enums.assistant_llm import LlmProvider
 from models.ai_assistant import AiAssistant
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.llm_router import estimate_cost_eur

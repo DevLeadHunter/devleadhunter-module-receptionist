@@ -21,7 +21,7 @@ from starlette.requests import Request
 import api.v1.routes.ai_assistant_sources as sources_routes
 import services.ai_assistant.document_service as document_module
 import services.ai_assistant.source_service as source_module
-from enums.assistant_knowledge_source import AssistantKnowledgeSource
+from enums.ai_assistant_knowledge_source import AiAssistantKnowledgeSource
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_document import AiAssistantDocument
 from models.prospect_db import ProspectDB
@@ -141,14 +141,14 @@ def test_a_pdf_is_read_in_a_separate_process_stopped_when_too_long_and_one_at_a_
     assert document.pages == 1 and not document.is_truncated
 
 
-def _source(kind: AssistantKnowledgeSource, title: str, text: str, url: str | None = None) -> KnowledgeSourceText:
+def _source(kind: AiAssistantKnowledgeSource, title: str, text: str, url: str | None = None) -> KnowledgeSourceText:
     return KnowledgeSourceText(kind=kind, title=title, url=url, text=text)
 
 
 def test_everything_goes_in_whole_when_it_fits_the_budget() -> None:
     sources = [
-        _source(AssistantKnowledgeSource.PAGE, "Tarifs", "Vidange : 89 euros.", "https://garage.fr/tarifs"),
-        _source(AssistantKnowledgeSource.DOCUMENT, "CGV.pdf", "Paiement à la livraison du véhicule."),
+        _source(AiAssistantKnowledgeSource.PAGE, "Tarifs", "Vidange : 89 euros.", "https://garage.fr/tarifs"),
+        _source(AiAssistantKnowledgeSource.DOCUMENT, "CGV.pdf", "Paiement à la livraison du véhicule."),
     ]
 
     kept = AiAssistantKnowledgeBudget.select(sources, question="Bonjour", max_chars=1_000)
@@ -161,16 +161,19 @@ def test_everything_goes_in_whole_when_it_fits_the_budget() -> None:
 
 def test_beyond_the_budget_the_passages_closest_to_the_question_are_kept_in_reading_order() -> None:
     home = _source(
-        AssistantKnowledgeSource.PAGE, "Accueil", "Bienvenue au garage, ouvert depuis 1982. " * 60, "https://garage.fr/"
+        AiAssistantKnowledgeSource.PAGE,
+        "Accueil",
+        "Bienvenue au garage, ouvert depuis 1982. " * 60,
+        "https://garage.fr/",
     )
     prices = _source(
-        AssistantKnowledgeSource.PAGE,
+        AiAssistantKnowledgeSource.PAGE,
         "Tarifs",
         "Vidange complète : 89 euros. Pneus : 60 euros la pose. " * 3,
         "https://garage.fr/tarifs",
     )
     terms = _source(
-        AssistantKnowledgeSource.DOCUMENT, "CGV.pdf", "Le paiement se fait à la restitution du véhicule. " * 60
+        AiAssistantKnowledgeSource.DOCUMENT, "CGV.pdf", "Le paiement se fait à la restitution du véhicule. " * 60
     )
 
     kept = AiAssistantKnowledgeBudget.select(
@@ -183,8 +186,8 @@ def test_beyond_the_budget_the_passages_closest_to_the_question_are_kept_in_read
 
 
 def test_without_a_question_the_site_comes_before_the_documents() -> None:
-    page = _source(AssistantKnowledgeSource.PAGE, "Accueil", "Garage de quartier. " * 40, "https://garage.fr/")
-    document = _source(AssistantKnowledgeSource.DOCUMENT, "Plaquette.pdf", "Nos engagements. " * 40)
+    page = _source(AiAssistantKnowledgeSource.PAGE, "Accueil", "Garage de quartier. " * 40, "https://garage.fr/")
+    document = _source(AiAssistantKnowledgeSource.DOCUMENT, "Plaquette.pdf", "Nos engagements. " * 40)
 
     kept = AiAssistantKnowledgeBudget.select([page, document], question=None, max_chars=900)
 
@@ -658,12 +661,12 @@ def test_a_follow_up_question_keeps_the_subject_and_every_source_keeps_its_openi
     # budget and leave the documents out.
     site = [
         _source(
-            AssistantKnowledgeSource.PAGE, f"Page {index}", f"Atelier numéro {index}. " * 80, f"https://g.fr/{index}"
+            AiAssistantKnowledgeSource.PAGE, f"Page {index}", f"Atelier numéro {index}. " * 80, f"https://g.fr/{index}"
         )
         for index in range(3)
     ]
-    prices = _source(AssistantKnowledgeSource.DOCUMENT, "Grille.pdf", "Vidange Clio 4 : 89 euros. " * 30)
-    terms = _source(AssistantKnowledgeSource.DOCUMENT, "CGV.pdf", "Paiement à la livraison. " * 36)
+    prices = _source(AiAssistantKnowledgeSource.DOCUMENT, "Grille.pdf", "Vidange Clio 4 : 89 euros. " * 30)
+    terms = _source(AiAssistantKnowledgeSource.DOCUMENT, "CGV.pdf", "Paiement à la livraison. " * 36)
 
     kept = AiAssistantKnowledgeBudget.select([*site, prices, terms], question="Et ça coûte ?", max_chars=4600)
 

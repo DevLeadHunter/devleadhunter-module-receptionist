@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 
 import services.ai_assistant.calendar_access as access_module
 import services.ai_assistant.calendar_service as calendar_module
+from enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
 from enums.ai_assistant_request import AiAssistantRequestType
-from enums.assistant_calendar_status import AssistantCalendarStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
 from models.ai_assistant_calendar import AiAssistantCalendar
@@ -144,7 +144,7 @@ def test_a_booking_the_agenda_refuses_falls_back_on_the_half_day_and_flags_the_a
     assert request.type == AiAssistantRequestType.APPOINTMENT.value
     assert request.appointment_slots_json == [{"date": "2026-09-24", "period": "afternoon"}]
     db.refresh(calendar)
-    assert calendar.status == AssistantCalendarStatus.ERROR.value
+    assert calendar.status == AiAssistantCalendarStatus.ERROR.value
     assert access_module.ai_assistant_calendar_access.usable_calendar(db, assistant) is None
 
 
@@ -223,7 +223,7 @@ def test_a_refused_insert_is_kept_as_the_agendas_last_problem(db: Session, googl
         _book(db, assistant, calendar, add_request(db, assistant), paris(22, 10))
 
     db.refresh(calendar)
-    assert calendar.status == AssistantCalendarStatus.CONNECTED.value
+    assert calendar.status == AiAssistantCalendarStatus.CONNECTED.value
     assert "lecture seule" in calendar.last_error
     appointment = _book(db, assistant, calendar, add_request(db, assistant, session_id="session-2"), paris(22, 14))
     db.refresh(calendar)

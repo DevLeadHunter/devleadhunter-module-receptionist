@@ -11,7 +11,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 import migrations.rename_assistant_language_lu_to_lb as rename_migration
-from enums.assistant_widget_language import AssistantWidgetLanguage
+from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_report import AiAssistantReport
@@ -22,26 +22,26 @@ from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
 
 
 def test_the_widget_speaks_five_languages_with_luxembourgish_as_lb() -> None:
-    assert [language.value for language in AssistantWidgetLanguage] == ["fr", "nl", "en", "de", "lb"]
+    assert [language.value for language in AiAssistantWidgetLanguage] == ["fr", "nl", "en", "de", "lb"]
     assert LANGUAGE_NAMES["lb"] == "luxembourgeois" and "lu" not in LANGUAGE_NAMES
     assert ai_assistant_config_builder.build_config(country="LU")["languages"] == ["fr", "de", "en", "lb"]
 
 
 def test_a_code_is_read_whatever_its_case_region_or_legacy_spelling() -> None:
-    read = AssistantWidgetLanguage.from_code
+    read = AiAssistantWidgetLanguage.from_code
 
     assert [read(code) for code in ("lb", "LB", "lb-LU", "lb_LU", "lu", " fr ", "de-CH")] == [
-        AssistantWidgetLanguage.LB,
-        AssistantWidgetLanguage.LB,
-        AssistantWidgetLanguage.LB,
-        AssistantWidgetLanguage.LB,
-        AssistantWidgetLanguage.LB,
-        AssistantWidgetLanguage.FR,
-        AssistantWidgetLanguage.DE,
+        AiAssistantWidgetLanguage.LB,
+        AiAssistantWidgetLanguage.LB,
+        AiAssistantWidgetLanguage.LB,
+        AiAssistantWidgetLanguage.LB,
+        AiAssistantWidgetLanguage.LB,
+        AiAssistantWidgetLanguage.FR,
+        AiAssistantWidgetLanguage.DE,
     ]
     assert [read(code) for code in ("it", "", None)] == [None, None, None]
-    assert AssistantWidgetLanguage("lu") is AssistantWidgetLanguage.LB
-    assert AssistantWidgetLanguage.normalize_codes(["fr", "lu", "lb", "it", "DE"]) == ["fr", "lb", "de"]
+    assert AiAssistantWidgetLanguage("lu") is AiAssistantWidgetLanguage.LB
+    assert AiAssistantWidgetLanguage.normalize_codes(["fr", "lu", "lb", "it", "DE"]) == ["fr", "lb", "de"]
 
 
 def test_the_api_takes_lu_as_lb_and_keeps_the_widget_languages_only() -> None:

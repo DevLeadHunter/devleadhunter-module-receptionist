@@ -11,10 +11,10 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from core.config import settings
+from enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
 from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestStatus, AiAssistantRequestType
-from enums.assistant_calendar_status import AssistantCalendarConnection
-from enums.assistant_subscription_status import AssistantSubscriptionStatus
-from enums.assistant_widget_language import AssistantWidgetLanguage
+from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
+from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
 from schemas.ai_assistant_client_space import (
     AiAssistantClientAppointmentItem,
     AiAssistantClientCalendar,
@@ -145,7 +145,7 @@ class AiAssistantClientSpaceExample:
             ),
             settings=AiAssistantClientSettings(
                 assistant_name=_ASSISTANT_NAME,
-                languages=[AssistantWidgetLanguage.FR, AssistantWidgetLanguage.EN],
+                languages=[AiAssistantWidgetLanguage.FR, AiAssistantWidgetLanguage.EN],
                 alert_phone="+33612345678",
                 alert_sms_enabled=True,
                 alert_email_enabled=True,
@@ -159,17 +159,17 @@ class AiAssistantClientSpaceExample:
             ),
             language_options=[
                 AiAssistantClientLanguageOption(code=language, label=LANGUAGE_NAMES.get(language.value, language.value))
-                for language in AssistantWidgetLanguage
+                for language in AiAssistantWidgetLanguage
             ],
             subscription=AiAssistantClientSubscription(
-                status=AssistantSubscriptionStatus.ACTIVE,
+                status=AiAssistantSubscriptionStatus.ACTIVE,
                 price_label="79 €/mois",
                 period_end_label=f"{current + timedelta(days=19):%d/%m/%Y}",
                 cancel_scheduled=False,
                 can_manage=True,
             ),
             calendar=AiAssistantClientCalendar(
-                status=AssistantCalendarConnection.CONNECTED,
+                status=AiAssistantCalendarConnection.CONNECTED,
                 account_email="contact@toitures-morel.fr",
                 calendar_id="primary",
                 duration_minutes=60,

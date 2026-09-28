@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 
 import services.ai_assistant.google_calendar_client as google_module
-from enums.assistant_calendar_status import AssistantCalendarStatus
+from enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_calendar import AiAssistantCalendar
 from models.ai_assistant_request import AiAssistantRequest
@@ -159,7 +159,7 @@ def add_calendar(db: Session, assistant: AiAssistant, **fields: Any) -> AiAssist
         "access_token_encrypted": encryption_service.encrypt("access-0"),
         "refresh_token_encrypted": encryption_service.encrypt("refresh-0"),
         "token_expires_at": datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=1),
-        "status": AssistantCalendarStatus.CONNECTED.value,
+        "status": AiAssistantCalendarStatus.CONNECTED.value,
     }
     values.update(fields)
     calendar = AiAssistantCalendar(**values)

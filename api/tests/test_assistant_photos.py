@@ -17,9 +17,9 @@ import services.ai_assistant.photo_service as photo_module
 import services.ai_assistant.photo_vision as vision_module
 import services.ai_assistant.request_follow_up as follow_up_module
 import services.email_sending_service as email_sending_module
+from enums.ai_assistant_llm import AiAssistantLlmUsage
 from enums.ai_assistant_photo import AiAssistantPhotoRejection, AiAssistantPhotoUrgency
 from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestType
-from enums.assistant_llm import AssistantLlmUsage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_photo import AiAssistantPhoto
@@ -51,9 +51,9 @@ class _Model:
         self.vision_calls: list[list[dict[str, Any]]] = []
 
     async def __call__(
-        self, usage: AssistantLlmUsage, messages: list[dict[str, Any]], **_: Any
+        self, usage: AiAssistantLlmUsage, messages: list[dict[str, Any]], **_: Any
     ) -> dict[str, Any] | None:
-        if usage is AssistantLlmUsage.VISION:
+        if usage is AiAssistantLlmUsage.VISION:
             self.vision_calls.append(messages)
             return self.result
         return None

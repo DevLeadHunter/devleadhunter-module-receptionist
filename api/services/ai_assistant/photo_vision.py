@@ -11,8 +11,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
+from enums.ai_assistant_llm import AiAssistantLlmUsage
 from enums.ai_assistant_photo import AiAssistantPhotoUrgency
-from enums.assistant_llm import AssistantLlmUsage
 from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
 from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
 from services.ai_assistant.llm_router import assistant_llm_router
@@ -132,7 +132,7 @@ class AiAssistantPhotoVision:
         ]
         try:
             answer = await assistant_llm_router.complete_json(
-                AssistantLlmUsage.VISION, messages, eu_only=eu_only, max_tokens=700, temperature=0.2, timeout=60.0
+                AiAssistantLlmUsage.VISION, messages, eu_only=eu_only, max_tokens=700, temperature=0.2, timeout=60.0
             )
         except Exception:
             logger.warning("Vision call failed for a photo", exc_info=True)

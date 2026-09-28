@@ -15,7 +15,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
-from enums.assistant_llm import AssistantLlmUsage
+from enums.ai_assistant_llm import AiAssistantLlmUsage
 from services.ai_assistant.event_intake import EventIntakeContext
 from services.ai_assistant.follow_up_marker import FollowUpMarker, FollowUpMarkerStream
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
@@ -141,7 +141,7 @@ class AiAssistantChatService:
             limits=limits,
             event_intake=event_intake,
         )
-        raw = await assistant_llm_router.chat(AssistantLlmUsage.CHAT, messages, eu_only=eu_only)
+        raw = await assistant_llm_router.chat(AiAssistantLlmUsage.CHAT, messages, eu_only=eu_only)
         reply, question = MissingInfoMarker.split(clean_model_text(raw or ""))
         reply, follow_ups = FollowUpMarker.split(reply)
         return ChatAnswer(
@@ -192,7 +192,7 @@ class AiAssistantChatService:
         )
         marker = MissingInfoMarkerStream()
         follow_ups = FollowUpMarkerStream()
-        async for chunk in assistant_llm_router.chat_stream(AssistantLlmUsage.CHAT, messages, eu_only=eu_only):
+        async for chunk in assistant_llm_router.chat_stream(AiAssistantLlmUsage.CHAT, messages, eu_only=eu_only):
             text = follow_ups.feed(marker.feed(clean_model_text(chunk)))
             if text:
                 yield ChatDelta(text=text)

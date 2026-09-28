@@ -17,9 +17,9 @@ from typing import Any, ClassVar
 
 from sqlalchemy.orm import Session
 
+from enums.ai_assistant_booking_mode import AiAssistantBookingMode
+from enums.ai_assistant_calendar_status import AiAssistantCalendarConnection, AiAssistantCalendarStatus
 from enums.ai_assistant_status import AiAssistantStatus
-from enums.assistant_booking_mode import AssistantBookingMode
-from enums.assistant_calendar_status import AssistantCalendarConnection, AssistantCalendarStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
 from models.ai_assistant_calendar import AiAssistantCalendar
@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 class AppointmentOffer:
     """What the widget's appointment panel shows: the agenda's free slots, or half-days to wish."""
 
-    mode: AssistantBookingMode
+    mode: AiAssistantBookingMode
     slots: SlotPage | None
     settings: CalendarSettings | None
     days: list[AppointmentDay]
@@ -185,7 +185,7 @@ class AiAssistantCalendarService:
         calendar.access_token_encrypted = encryption_service.encrypt(tokens.access_token)
         calendar.refresh_token_encrypted = encryption_service.encrypt(tokens.refresh_token)
         calendar.token_expires_at = tokens.expires_at
-        calendar.status = AssistantCalendarStatus.CONNECTED.value
+        calendar.status = AiAssistantCalendarStatus.CONNECTED.value
         calendar.last_error = None
         calendar.connected_at = datetime.now(UTC).replace(tzinfo=None)
         db.commit()
@@ -282,7 +282,7 @@ class AiAssistantCalendarService:
 
     def connection(
         self, db: Session, assistant: AiAssistant
-    ) -> tuple[AssistantCalendarConnection, AiAssistantCalendar | None]:
+    ) -> tuple[AiAssistantCalendarConnection, AiAssistantCalendar | None]:
         """
         Where the assistant's agenda stands, as the client space shows it.
 
@@ -295,12 +295,12 @@ class AiAssistantCalendarService:
         """
         calendar = ai_assistant_calendar_access.calendar_of(db, assistant)
         if not google_calendar_client.is_configured:
-            return AssistantCalendarConnection.UNAVAILABLE, calendar
+            return AiAssistantCalendarConnection.UNAVAILABLE, calendar
         if calendar is None:
-            return AssistantCalendarConnection.DISCONNECTED, None
-        if calendar.status == AssistantCalendarStatus.ERROR.value:
-            return AssistantCalendarConnection.ERROR, calendar
-        return AssistantCalendarConnection.CONNECTED, calendar
+            return AiAssistantCalendarConnection.DISCONNECTED, None
+        if calendar.status == AiAssistantCalendarStatus.ERROR.value:
+            return AiAssistantCalendarConnection.ERROR, calendar
+        return AiAssistantCalendarConnection.CONNECTED, calendar
 
     async def offer(self, db: Session, assistant: AiAssistant, *, after: datetime | None = None) -> AppointmentOffer:
         """
@@ -322,10 +322,10 @@ class AiAssistantCalendarService:
                 logger.warning("Free slots of assistant %s unavailable, half-days offered", assistant.id)
             else:
                 return AppointmentOffer(
-                    mode=AssistantBookingMode.CALENDAR, slots=page, settings=CalendarSettings.of(calendar), days=[]
+                    mode=AiAssistantBookingMode.CALENDAR, slots=page, settings=CalendarSettings.of(calendar), days=[]
                 )
         return AppointmentOffer(
-            mode=AssistantBookingMode.REQUEST,
+            mode=AiAssistantBookingMode.REQUEST,
             slots=None,
             settings=None,
             days=AiAssistantAppointmentSlots.offer_for(assistant),

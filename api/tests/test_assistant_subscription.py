@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from enums.ai_assistant_status import AiAssistantStatus
-from enums.assistant_subscription_status import AssistantSubscriptionStatus
+from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_subscription import AiAssistantSubscription
 from services import assistant_subscription_service as sub_module
@@ -66,7 +66,7 @@ def test_checkout_locks_the_monthly_price_on_the_row(db: Session, monkeypatch: p
     row = db.query(AiAssistantSubscription).one()
     assert row.amount_cents == 2900
     assert row.interval == "month"
-    assert row.status == AssistantSubscriptionStatus.INCOMPLETE.value
+    assert row.status == AiAssistantSubscriptionStatus.INCOMPLETE.value
     assert row.stripe_checkout_session_id == "cs_test_123"
 
 
@@ -117,7 +117,7 @@ def test_activate_from_session_marks_active_and_stores_ids(db: Session) -> None:
     }
     fresh = service.activate_from_session(db, session_obj)
     db.refresh(row)
-    assert row.status == AssistantSubscriptionStatus.ACTIVE.value
+    assert row.status == AiAssistantSubscriptionStatus.ACTIVE.value
     assert row.stripe_subscription_id == "sub_123"
     assert row.client_email == "client@shop.fr"
     assert fresh is not None and fresh.id == row.id  # returned on fresh activation → the seller is notified
@@ -147,7 +147,7 @@ def test_update_from_stripe_subscription_syncs_status_and_cancel(db: Session) ->
     )
     db.refresh(row)
     db.refresh(assistant)
-    assert row.status == AssistantSubscriptionStatus.CANCELED.value
+    assert row.status == AiAssistantSubscriptionStatus.CANCELED.value
     assert row.canceled_at is not None
     assert row.current_period_end == datetime(2027, 1, 15, 8, 0)
     # The service ends with the subscription: the assistant is retired.
@@ -213,7 +213,7 @@ def test_cancel_incomplete_row_closes_locally_without_stripe(db: Session) -> Non
 
     service.cancel(db, row)  # no stripe_subscription_id → no Stripe call
     db.refresh(row)
-    assert row.status == AssistantSubscriptionStatus.CANCELED.value
+    assert row.status == AiAssistantSubscriptionStatus.CANCELED.value
     assert row.canceled_at is not None
 
 
@@ -236,7 +236,7 @@ def test_cancel_active_calls_stripe(db: Session, monkeypatch: pytest.MonkeyPatch
     service.cancel(db, row)
     db.refresh(row)
     assert cancelled == ["sub_9"]  # Stripe was told to cancel
-    assert row.status == AssistantSubscriptionStatus.CANCELED.value
+    assert row.status == AiAssistantSubscriptionStatus.CANCELED.value
 
 
 def test_list_for_user_returns_rows_with_names(db: Session) -> None:

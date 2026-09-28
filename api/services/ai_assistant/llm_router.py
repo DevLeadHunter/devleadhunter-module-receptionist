@@ -18,7 +18,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from core.config import settings
-from enums.assistant_llm import AssistantLlmOutage, AssistantLlmUsage, LlmProvider
+from enums.ai_assistant_llm import AiAssistantLlmOutage, AiAssistantLlmUsage, LlmProvider
 from services.llm_completion import LlmCompletion, LlmStreamUsage
 from services.llm_service import llm_service
 from services.mistral_service import MistralRequestRejectedError, mistral_service
@@ -29,18 +29,18 @@ logger = logging.getLogger(__name__)
 FALLBACK_ALERT_INTERVAL_SECONDS = 1800.0
 # With a fallback to try, Mistral gets half of the caller's time budget, never less than this.
 MIN_PROVIDER_TIMEOUT_SECONDS = 10.0
-_USAGE_LABELS: dict[AssistantLlmUsage, str] = {
-    AssistantLlmUsage.CHAT: "chat de l'assistant",
-    AssistantLlmUsage.VISION: "photos de devis",
-    AssistantLlmUsage.REQUEST: "analyse des demandes",
-    AssistantLlmUsage.REPORT: "rapport mensuel",
+_USAGE_LABELS: dict[AiAssistantLlmUsage, str] = {
+    AiAssistantLlmUsage.CHAT: "chat de l'assistant",
+    AiAssistantLlmUsage.VISION: "photos de devis",
+    AiAssistantLlmUsage.REQUEST: "analyse des demandes",
+    AiAssistantLlmUsage.REPORT: "rapport mensuel",
 }
-_OUTAGE_MESSAGES: dict[AssistantLlmOutage, str] = {
-    AssistantLlmOutage.FALLBACK: "Mistral indisponible : {usage} basculé sur Groq",
-    AssistantLlmOutage.NO_ANSWER: "Mistral et Groq indisponibles : {usage} sans réponse",
-    AssistantLlmOutage.EU_ONLY_NO_ANSWER: "Mistral indisponible : {usage} sans réponse pour les assistants « IA hébergée en Europe »",
-    AssistantLlmOutage.EU_ONLY_NO_KEY: "Assistant « IA hébergée en Europe » sans clé Mistral (MISTRAL_API_KEY) : {usage} sans réponse",
-    AssistantLlmOutage.REJECTED: "Mistral refuse nos requêtes ({usage}) : modèle ou paramètres à vérifier (MISTRAL_CHAT_MODEL…)",
+_OUTAGE_MESSAGES: dict[AiAssistantLlmOutage, str] = {
+    AiAssistantLlmOutage.FALLBACK: "Mistral indisponible : {usage} basculé sur Groq",
+    AiAssistantLlmOutage.NO_ANSWER: "Mistral et Groq indisponibles : {usage} sans réponse",
+    AiAssistantLlmOutage.EU_ONLY_NO_ANSWER: "Mistral indisponible : {usage} sans réponse pour les assistants « IA hébergée en Europe »",
+    AiAssistantLlmOutage.EU_ONLY_NO_KEY: "Assistant « IA hébergée en Europe » sans clé Mistral (MISTRAL_API_KEY) : {usage} sans réponse",
+    AiAssistantLlmOutage.REJECTED: "Mistral refuse nos requêtes ({usage}) : modèle ou paramètres à vérifier (MISTRAL_CHAT_MODEL…)",
 }
 
 
@@ -69,13 +69,13 @@ class AssistantLlmRouter:
 
     def __init__(self) -> None:
         # Last admin alert per usage and kind of outage (monotonic seconds): an outage never floods them.
-        self._last_alert: dict[tuple[AssistantLlmUsage, AssistantLlmOutage], float] = {}
+        self._last_alert: dict[tuple[AiAssistantLlmUsage, AiAssistantLlmOutage], float] = {}
         # Strong references to the alerts sent in the background (a task nobody holds can be collected).
         self._alert_tasks: set[asyncio.Task[None]] = set()
 
     async def chat(
         self,
-        usage: AssistantLlmUsage,
+        usage: AiAssistantLlmUsage,
         messages: list[dict[str, Any]],
         *,
         eu_only: bool,
@@ -110,7 +110,7 @@ class AssistantLlmRouter:
 
     async def complete_json(
         self,
-        usage: AssistantLlmUsage,
+        usage: AiAssistantLlmUsage,
         messages: list[dict[str, Any]],
         *,
         eu_only: bool,
@@ -145,7 +145,7 @@ class AssistantLlmRouter:
 
     async def complete(
         self,
-        usage: AssistantLlmUsage,
+        usage: AiAssistantLlmUsage,
         messages: list[dict[str, Any]],
         *,
         eu_only: bool,
@@ -176,7 +176,7 @@ class AssistantLlmRouter:
         options: dict[str, Any] = {"max_tokens": max_tokens, "temperature": temperature, "json_mode": json_mode}
         if not mistral_service.is_configured:
             if eu_only:
-                self._alert(usage, AssistantLlmOutage.EU_ONLY_NO_KEY)
+                self._alert(usage, AiAssistantLlmOutage.EU_ONLY_NO_KEY)
                 return None
             return await self._groq(usage, messages, started=started, fallback=False, timeout=timeout, **options)
         rejected = False
@@ -197,20 +197,20 @@ class AssistantLlmRouter:
             return completion
         if rejected:
             # A refused request is ours to fix (a wrong model name, a bad parameter): the admins hear it once.
-            self._alert(usage, AssistantLlmOutage.REJECTED)
+            self._alert(usage, AiAssistantLlmOutage.REJECTED)
         if eu_only:
             if not rejected:
-                self._alert(usage, AssistantLlmOutage.EU_ONLY_NO_ANSWER)
+                self._alert(usage, AiAssistantLlmOutage.EU_ONLY_NO_ANSWER)
             return None
         remaining = max(timeout - (time.monotonic() - started), MIN_PROVIDER_TIMEOUT_SECONDS)
         completion = await self._groq(usage, messages, started=started, fallback=True, timeout=remaining, **options)
         if not rejected:
-            self._alert(usage, AssistantLlmOutage.FALLBACK if completion else AssistantLlmOutage.NO_ANSWER)
+            self._alert(usage, AiAssistantLlmOutage.FALLBACK if completion else AiAssistantLlmOutage.NO_ANSWER)
         return completion
 
     async def chat_stream(
         self,
-        usage: AssistantLlmUsage,
+        usage: AiAssistantLlmUsage,
         messages: list[dict[str, Any]],
         *,
         eu_only: bool,
@@ -239,7 +239,7 @@ class AssistantLlmRouter:
         options: dict[str, Any] = {"max_tokens": max_tokens, "temperature": temperature}
         if not mistral_service.is_configured:
             if eu_only:
-                self._alert(usage, AssistantLlmOutage.EU_ONLY_NO_KEY)
+                self._alert(usage, AiAssistantLlmOutage.EU_ONLY_NO_KEY)
                 return
             async for delta in self._groq_stream(
                 usage, messages, started=started, fallback=False, timeout=timeout, **options
@@ -269,10 +269,10 @@ class AssistantLlmRouter:
             self._log(usage, LlmProvider.MISTRAL, completion, started=started, eu_only=eu_only, fallback=False)
             return
         if rejected:
-            self._alert(usage, AssistantLlmOutage.REJECTED)
+            self._alert(usage, AiAssistantLlmOutage.REJECTED)
         if eu_only:
             if not rejected:
-                self._alert(usage, AssistantLlmOutage.EU_ONLY_NO_ANSWER)
+                self._alert(usage, AiAssistantLlmOutage.EU_ONLY_NO_ANSWER)
             return
         remaining = max(timeout - (time.monotonic() - started), MIN_PROVIDER_TIMEOUT_SECONDS)
         async for delta in self._groq_stream(
@@ -281,11 +281,11 @@ class AssistantLlmRouter:
             served = True
             yield delta
         if not rejected:
-            self._alert(usage, AssistantLlmOutage.FALLBACK if served else AssistantLlmOutage.NO_ANSWER)
+            self._alert(usage, AiAssistantLlmOutage.FALLBACK if served else AiAssistantLlmOutage.NO_ANSWER)
 
     async def _groq_stream(
         self,
-        usage: AssistantLlmUsage,
+        usage: AiAssistantLlmUsage,
         messages: list[dict[str, Any]],
         *,
         started: float,
@@ -319,7 +319,7 @@ class AssistantLlmRouter:
 
     async def _groq(
         self,
-        usage: AssistantLlmUsage,
+        usage: AiAssistantLlmUsage,
         messages: list[dict[str, Any]],
         *,
         started: float,
@@ -330,8 +330,8 @@ class AssistantLlmRouter:
         json_mode: bool,
     ) -> LlmCompletion | None:
         """Ask Groq (its checked vision model for the photos; none available means no answer)."""
-        model = await llm_service.resolve_vision_model() if usage is AssistantLlmUsage.VISION else None
-        if usage is AssistantLlmUsage.VISION and model is None:
+        model = await llm_service.resolve_vision_model() if usage is AiAssistantLlmUsage.VISION else None
+        if usage is AiAssistantLlmUsage.VISION and model is None:
             return None
         completion = await llm_service.complete(
             messages,
@@ -346,11 +346,11 @@ class AssistantLlmRouter:
         return completion
 
     @staticmethod
-    def _mistral_model(usage: AssistantLlmUsage) -> str:
+    def _mistral_model(usage: AiAssistantLlmUsage) -> str:
         """The Mistral model of a usage (the multimodal one for the photos)."""
-        return settings.mistral_vision_model if usage is AssistantLlmUsage.VISION else settings.mistral_chat_model
+        return settings.mistral_vision_model if usage is AiAssistantLlmUsage.VISION else settings.mistral_chat_model
 
-    def _alert(self, usage: AssistantLlmUsage, outage: AssistantLlmOutage) -> None:
+    def _alert(self, usage: AiAssistantLlmUsage, outage: AiAssistantLlmOutage) -> None:
         """Warn in the log, and the admins in the background at most once per interval, of an outage."""
         message = _OUTAGE_MESSAGES[outage].format(usage=_USAGE_LABELS[usage])
         logger.warning("Assistant model outage (%s, %s): %s", usage.value, outage.value, message)
@@ -373,7 +373,7 @@ class AssistantLlmRouter:
 
     @staticmethod
     def _log(
-        usage: AssistantLlmUsage,
+        usage: AiAssistantLlmUsage,
         provider: LlmProvider,
         completion: LlmCompletion,
         *,

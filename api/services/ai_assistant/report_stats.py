@@ -15,13 +15,13 @@ from datetime import datetime
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import Session
 
+from enums.ai_assistant_llm import AiAssistantLlmUsage
 from enums.ai_assistant_request import (
     AiAssistantRequestChannel,
     AiAssistantRequestOutcome,
     AiAssistantRequestStatus,
     AiAssistantRequestType,
 )
-from enums.assistant_llm import AssistantLlmUsage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_message import AiAssistantMessage
@@ -163,7 +163,7 @@ class AiAssistantReportStats:
         if len(contents) < MIN_CONVERSATIONS_FOR_QUESTIONS:
             return ()
         answer = await assistant_llm_router.complete_json(
-            AssistantLlmUsage.REPORT,
+            AiAssistantLlmUsage.REPORT,
             [
                 {
                     "role": "system",

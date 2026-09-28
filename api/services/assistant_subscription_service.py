@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from core.config import settings
 from enums.ai_assistant_status import AiAssistantStatus
-from enums.assistant_subscription_status import AssistantSubscriptionStatus
+from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_subscription import AiAssistantSubscription
 from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
@@ -34,13 +34,13 @@ _INCOMPLETE_ROW_TTL_DAYS = 7
 
 # Stripe subscription statuses → our own. Anything unmapped leaves the record's status unchanged.
 _STRIPE_STATUS_MAP: dict[str, str] = {
-    "active": AssistantSubscriptionStatus.ACTIVE.value,
-    "trialing": AssistantSubscriptionStatus.ACTIVE.value,
-    "past_due": AssistantSubscriptionStatus.PAST_DUE.value,
-    "unpaid": AssistantSubscriptionStatus.PAST_DUE.value,
-    "canceled": AssistantSubscriptionStatus.CANCELED.value,
-    "incomplete_expired": AssistantSubscriptionStatus.CANCELED.value,
-    "incomplete": AssistantSubscriptionStatus.INCOMPLETE.value,
+    "active": AiAssistantSubscriptionStatus.ACTIVE.value,
+    "trialing": AiAssistantSubscriptionStatus.ACTIVE.value,
+    "past_due": AiAssistantSubscriptionStatus.PAST_DUE.value,
+    "unpaid": AiAssistantSubscriptionStatus.PAST_DUE.value,
+    "canceled": AiAssistantSubscriptionStatus.CANCELED.value,
+    "incomplete_expired": AiAssistantSubscriptionStatus.CANCELED.value,
+    "incomplete": AiAssistantSubscriptionStatus.INCOMPLETE.value,
 }
 
 
@@ -122,7 +122,7 @@ class AssistantSubscriptionService:
                 ai_assistant_id=assistant.id,
                 interval=interval,
                 currency="eur",
-                status=AssistantSubscriptionStatus.INCOMPLETE.value,
+                status=AiAssistantSubscriptionStatus.INCOMPLETE.value,
             )
             db.add(record)
         # Unpaid, so nothing to grandfather yet: the row follows the price configured at this click.
@@ -172,13 +172,13 @@ class AssistantSubscriptionService:
         record = self._record_from_metadata(db, session_obj.get("metadata"))
         if record is None:
             return None
-        was_already_active = record.status == AssistantSubscriptionStatus.ACTIVE.value
+        was_already_active = record.status == AiAssistantSubscriptionStatus.ACTIVE.value
         record.stripe_subscription_id = session_obj.get("subscription")
         record.stripe_customer_id = session_obj.get("customer")
         details = session_obj.get("customer_details") or {}
         record.client_email = details.get("email") or record.client_email
         record.client_name = details.get("name") or record.client_name
-        record.status = AssistantSubscriptionStatus.ACTIVE.value
+        record.status = AiAssistantSubscriptionStatus.ACTIVE.value
         # Stamped here even when a subscription update already flipped the row to active (events are unordered).
         if record.activated_at is None:
             record.activated_at = datetime.now(UTC).replace(tzinfo=None)
@@ -197,7 +197,7 @@ class AssistantSubscriptionService:
             .filter(
                 AiAssistantSubscription.ai_assistant_id == assistant_id,
                 AiAssistantSubscription.interval == interval,
-                AiAssistantSubscription.status == AssistantSubscriptionStatus.INCOMPLETE.value,
+                AiAssistantSubscription.status == AiAssistantSubscriptionStatus.INCOMPLETE.value,
                 AiAssistantSubscription.created_at >= cutoff,
             )
             .order_by(AiAssistantSubscription.created_at.desc())
@@ -214,7 +214,7 @@ class AssistantSubscriptionService:
         stale: list[AiAssistantSubscription] = (
             db.query(AiAssistantSubscription)
             .filter(
-                AiAssistantSubscription.status == AssistantSubscriptionStatus.INCOMPLETE.value,
+                AiAssistantSubscription.status == AiAssistantSubscriptionStatus.INCOMPLETE.value,
                 AiAssistantSubscription.created_at < cutoff,
             )
             .all()
@@ -266,7 +266,7 @@ class AssistantSubscriptionService:
         period_end = self._current_period_end(sub_obj)
         if period_end:
             record.current_period_end = datetime.fromtimestamp(int(period_end), UTC).replace(tzinfo=None)
-        if record.status == AssistantSubscriptionStatus.CANCELED.value:
+        if record.status == AiAssistantSubscriptionStatus.CANCELED.value:
             if record.canceled_at is None:
                 record.canceled_at = datetime.now(UTC).replace(tzinfo=None)
             # The service ends with the subscription: the widget stops answering, no alert, report or
@@ -300,7 +300,7 @@ class AssistantSubscriptionService:
             db.query(AiAssistantSubscription)
             .filter(
                 AiAssistantSubscription.ai_assistant_id == assistant_id,
-                AiAssistantSubscription.status == AssistantSubscriptionStatus.ACTIVE.value,
+                AiAssistantSubscription.status == AiAssistantSubscriptionStatus.ACTIVE.value,
             )
             .first()
             is not None
@@ -314,7 +314,7 @@ class AssistantSubscriptionService:
             db.query(AiAssistantSubscription)
             .filter(
                 AiAssistantSubscription.ai_assistant_id.in_(assistant_ids),
-                AiAssistantSubscription.status == AssistantSubscriptionStatus.ACTIVE.value,
+                AiAssistantSubscription.status == AiAssistantSubscriptionStatus.ACTIVE.value,
             )
             .all()
         )
@@ -345,7 +345,7 @@ class AssistantSubscriptionService:
             db.query(AiAssistantSubscription)
             .filter(
                 AiAssistantSubscription.user_id == user_id,
-                AiAssistantSubscription.status == AssistantSubscriptionStatus.ACTIVE.value,
+                AiAssistantSubscription.status == AiAssistantSubscriptionStatus.ACTIVE.value,
             )
             .all()
         )
@@ -381,7 +381,7 @@ class AssistantSubscriptionService:
             if not settings.stripe_secret_key:
                 raise ValueError("Stripe non configuré.")
             self._stripe.Subscription.cancel(subscription.stripe_subscription_id)
-        subscription.status = AssistantSubscriptionStatus.CANCELED.value
+        subscription.status = AiAssistantSubscriptionStatus.CANCELED.value
         subscription.canceled_at = subscription.canceled_at or datetime.now(UTC).replace(tzinfo=None)
         db.commit()
         db.refresh(subscription)

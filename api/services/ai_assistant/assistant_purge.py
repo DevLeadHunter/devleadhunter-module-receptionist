@@ -15,7 +15,7 @@ from sqlalchemy import exists, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from enums.assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
+from enums.ai_assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
 from models.ai_assistant_calendar import AiAssistantCalendar

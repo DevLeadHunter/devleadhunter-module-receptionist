@@ -25,9 +25,9 @@ from core.config import settings
 from core.database import SessionLocal, get_db
 from enums.ai_assistant_photo import AiAssistantPhotoRejection
 from enums.ai_assistant_status import AiAssistantStatus
-from enums.assistant_visitor_channel import AssistantVisitorChannel
-from enums.assistant_widget_language import AssistantWidgetLanguage
-from enums.assistant_widget_refusal import AssistantWidgetRefusalCode
+from enums.ai_assistant_visitor_channel import AiAssistantVisitorChannel
+from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
+from enums.ai_assistant_widget_refusal import AiAssistantWidgetRefusalCode
 from models.ai_assistant import AiAssistant
 from models.prospect_db import ProspectDB
 from schemas.ai_assistant import (
@@ -107,12 +107,12 @@ _MAX_INCOMING_MESSAGES = 40
 # Shown to a visitor for a refusal whose reason is not written for them.
 _INVALID_REQUEST = "Demande invalide : vérifiez vos informations et réessayez."
 # A contact the business cannot dial nor write to (a made-up number, a word): refused in the visitor's language.
-_UNREACHABLE_CONTACT: dict[AssistantWidgetLanguage, str] = {
-    AssistantWidgetLanguage.FR: "Indiquez un numéro de téléphone ou une adresse e-mail où l'on peut vous joindre.",
-    AssistantWidgetLanguage.NL: "Geef een telefoonnummer of e-mailadres op waarop we u kunnen bereiken.",
-    AssistantWidgetLanguage.EN: "Please give a phone number or an email address where you can be reached.",
-    AssistantWidgetLanguage.DE: "Bitte geben Sie eine Telefonnummer oder E-Mail-Adresse an, unter der wir Sie erreichen.",
-    AssistantWidgetLanguage.LB: "Gitt w.e.g. eng Telefonsnummer oder E-Mail-Adress un, wou mir Iech erreechen.",
+_UNREACHABLE_CONTACT: dict[AiAssistantWidgetLanguage, str] = {
+    AiAssistantWidgetLanguage.FR: "Indiquez un numéro de téléphone ou une adresse e-mail où l'on peut vous joindre.",
+    AiAssistantWidgetLanguage.NL: "Geef een telefoonnummer of e-mailadres op waarop we u kunnen bereiken.",
+    AiAssistantWidgetLanguage.EN: "Please give a phone number or an email address where you can be reached.",
+    AiAssistantWidgetLanguage.DE: "Bitte geben Sie eine Telefonnummer oder E-Mail-Adresse an, unter der wir Sie erreichen.",
+    AiAssistantWidgetLanguage.LB: "Gitt w.e.g. eng Telefonsnummer oder E-Mail-Adress un, wou mir Iech erreechen.",
 }
 # Shown to the operator when a « ?internal=1 » visit tries to book in a client's agenda.
 _TEST_BOOKING_REFUSED = (
@@ -475,7 +475,7 @@ async def get_assistant_appointment_slots(
     )
 
 
-def _slot_refusal(code: AssistantWidgetRefusalCode, error: Exception) -> HTTPException:
+def _slot_refusal(code: AiAssistantWidgetRefusalCode, error: Exception) -> HTTPException:
     """A 409 the widget reads by its code: it tells the visitor in their language and offers the slots again."""
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
@@ -499,7 +499,7 @@ async def submit_assistant_lead(
     if not payload.name.strip() or not payload.contact.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name and contact are required")
     if not VisitorContact.is_reachable(payload.contact):
-        language = AssistantWidgetLanguage.from_code(payload.language) or AssistantWidgetLanguage.FR
+        language = AiAssistantWidgetLanguage.from_code(payload.language) or AiAssistantWidgetLanguage.FR
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_UNREACHABLE_CONTACT[language])
     if payload.booking is not None and payload.internal:
         # A test visit is never announced: booking silently in a client's agenda (and texting the visitor) would be
@@ -520,7 +520,7 @@ async def submit_assistant_lead(
         )
     except SlotNoLongerOffered as exc:
         db.rollback()
-        raise _slot_refusal(AssistantWidgetRefusalCode.SLOT_WITHDRAWN, exc) from exc
+        raise _slot_refusal(AiAssistantWidgetRefusalCode.SLOT_WITHDRAWN, exc) from exc
     except AppointmentRefused as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
@@ -545,16 +545,16 @@ async def submit_assistant_lead(
         return AiAssistantLeadResponse(ok=True)
 
     booked_start: datetime | None = None
-    channel: AssistantVisitorChannel | None = None
+    channel: AiAssistantVisitorChannel | None = None
     if payload.booking is not None:
         try:
             outcome = await ai_assistant_calendar_booking.book_request(
                 db, assistant, captured, start=payload.booking.start, type_label=payload.booking.type
             )
         except SlotTakenError as exc:
-            raise _slot_refusal(AssistantWidgetRefusalCode.SLOT_TAKEN, exc) from exc
+            raise _slot_refusal(AiAssistantWidgetRefusalCode.SLOT_TAKEN, exc) from exc
         except SlotNoLongerOffered as exc:
-            raise _slot_refusal(AssistantWidgetRefusalCode.SLOT_WITHDRAWN, exc) from exc
+            raise _slot_refusal(AiAssistantWidgetRefusalCode.SLOT_WITHDRAWN, exc) from exc
         except AppointmentRefused as exc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
         except (ValueError, OverflowError) as exc:
@@ -564,9 +564,9 @@ async def submit_assistant_lead(
             ai_assistant_appointment_notices.schedule_confirmation(outcome.appointment.id)
             booked_start = OpeningHoursCalendar.to_business_time(outcome.appointment.starts_at)
             if outcome.appointment.visitor_phone_e164:
-                channel = AssistantVisitorChannel.SMS
+                channel = AiAssistantVisitorChannel.SMS
             elif outcome.appointment.visitor_email:
-                channel = AssistantVisitorChannel.EMAIL
+                channel = AiAssistantVisitorChannel.EMAIL
 
     ai_assistant_request_follow_up.schedule_follow_up(captured.id)
     return AiAssistantLeadResponse(ok=True, booked_start=booked_start, confirmation_channel=channel)
@@ -581,7 +581,7 @@ def _photo_language(raw_language: object) -> str | None:
     """The widget language of a photo's form field (« lu » read as « lb »), any other code as sent, bounded."""
     if not isinstance(raw_language, str) or not raw_language.strip():
         return None
-    language = AssistantWidgetLanguage.from_code(raw_language)
+    language = AiAssistantWidgetLanguage.from_code(raw_language)
     return language.value if language is not None else raw_language.strip()[:8]
 
 

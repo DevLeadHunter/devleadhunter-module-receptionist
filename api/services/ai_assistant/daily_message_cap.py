@@ -19,7 +19,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from core.config import settings
-from enums.assistant_widget_language import AssistantWidgetLanguage
+from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_message import AiAssistantMessage
@@ -35,14 +35,14 @@ _LISTING_DESCRIPTION_SEPARATOR = re.compile(r"\s+[-–—]\s+")
 class AiAssistantDailyMessageCap:
     """Counts an assistant's visitor messages of the day, words the capped reply and alerts the operator once."""
 
-    CAPPED_REPLIES: ClassVar[dict[AssistantWidgetLanguage, str]] = {
-        AssistantWidgetLanguage.FR: "{name} ne peut plus répondre aujourd'hui : laissez votre numéro, {business} vous rappelle.",
-        AssistantWidgetLanguage.NL: "{name} kan vandaag niet meer antwoorden: laat uw nummer achter, {business} belt u terug.",
-        AssistantWidgetLanguage.EN: "{name} can't answer any more today: leave your number and {business} will call you back.",
-        AssistantWidgetLanguage.DE: (
+    CAPPED_REPLIES: ClassVar[dict[AiAssistantWidgetLanguage, str]] = {
+        AiAssistantWidgetLanguage.FR: "{name} ne peut plus répondre aujourd'hui : laissez votre numéro, {business} vous rappelle.",
+        AiAssistantWidgetLanguage.NL: "{name} kan vandaag niet meer antwoorden: laat uw nummer achter, {business} belt u terug.",
+        AiAssistantWidgetLanguage.EN: "{name} can't answer any more today: leave your number and {business} will call you back.",
+        AiAssistantWidgetLanguage.DE: (
             "{name} kann heute nicht mehr antworten: Hinterlassen Sie Ihre Nummer, {business} ruft Sie zurück."
         ),
-        AssistantWidgetLanguage.LB: "{name} kann haut net méi äntweren: loosst Är Nummer do, {business} rifft Iech zréck.",
+        AiAssistantWidgetLanguage.LB: "{name} kann haut net méi äntweren: loosst Är Nummer do, {business} rifft Iech zréck.",
     }
 
     @staticmethod
@@ -125,7 +125,7 @@ class AiAssistantDailyMessageCap:
         Returns:
             The fixed reply, asking for a number to call back.
         """
-        widget_language = AssistantWidgetLanguage.from_code(language) or AssistantWidgetLanguage.FR
+        widget_language = AiAssistantWidgetLanguage.from_code(language) or AiAssistantWidgetLanguage.FR
         business = _LISTING_DESCRIPTION_SEPARATOR.split(assistant.business_name)[0].strip() or assistant.business_name
         return cls.CAPPED_REPLIES[widget_language].format(name=assistant.assistant_name, business=business)
 

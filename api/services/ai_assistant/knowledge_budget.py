@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import ClassVar
 
-from enums.assistant_knowledge_source import AssistantKnowledgeSource
+from enums.ai_assistant_knowledge_source import AiAssistantKnowledgeSource
 from services.text_normalizer import TextNormalizer
 
 
@@ -23,7 +23,7 @@ from services.text_normalizer import TextNormalizer
 class KnowledgeSourceText:
     """A website page or a document, with what the assistant cites of it (title, link)."""
 
-    kind: AssistantKnowledgeSource
+    kind: AiAssistantKnowledgeSource
     title: str
     url: str | None
     text: str

@@ -22,8 +22,8 @@ from sqlalchemy.orm import Session
 from core.config import settings
 from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestStatus
 from enums.ai_assistant_status import AiAssistantStatus
-from enums.assistant_subscription_status import AssistantSubscriptionStatus
-from enums.assistant_widget_language import AssistantWidgetLanguage
+from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
+from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_report import AiAssistantReport
 from models.ai_assistant_request import AiAssistantRequest
@@ -276,7 +276,7 @@ class AiAssistantClientSpaceService:
             db.query(AiAssistantSubscription)
             .filter(
                 AiAssistantSubscription.ai_assistant_id == assistant.id,
-                AiAssistantSubscription.status != AssistantSubscriptionStatus.INCOMPLETE.value,
+                AiAssistantSubscription.status != AiAssistantSubscriptionStatus.INCOMPLETE.value,
             )
             .order_by(AiAssistantSubscription.created_at.desc(), AiAssistantSubscription.id.desc())
             .first()
@@ -404,7 +404,7 @@ class AiAssistantClientSpaceService:
         """
         allowed = {key: value for key, value in fields.items() if key in self.SETTINGS_FIELDS and value is not None}
         if "languages" in allowed:
-            offered = {language.value for language in AssistantWidgetLanguage}
+            offered = {language.value for language in AiAssistantWidgetLanguage}
             kept = [code for code in (assistant.languages or []) if code not in offered]
             allowed["languages"] = [*allowed["languages"], *kept]
         previous_phone = assistant.alert_phone_e164

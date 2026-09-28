@@ -12,7 +12,7 @@ from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.database import Base
-from enums.assistant_subscription_status import AssistantSubscriptionStatus
+from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
 
 
 class AiAssistantSubscription(Base):
@@ -39,7 +39,7 @@ class AiAssistantSubscription(Base):
     currency: Mapped[str] = mapped_column(String(8), nullable=False, default="eur")
 
     status: Mapped[str] = mapped_column(
-        String(32), nullable=False, default=AssistantSubscriptionStatus.INCOMPLETE.value, index=True
+        String(32), nullable=False, default=AiAssistantSubscriptionStatus.INCOMPLETE.value, index=True
     )
     # End of the paid period (renews monthly/annually); NULL until the first payment.
     current_period_end: Mapped[datetime | None] = mapped_column(nullable=True)

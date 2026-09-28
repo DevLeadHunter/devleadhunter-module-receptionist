@@ -19,7 +19,7 @@ from sqlalchemy.pool import StaticPool
 import migrations.add_ai_assistant_calendars_tables as calendars_migration
 import services.ai_assistant.calendar_service as calendar_module
 import services.ai_assistant.google_calendar_client as google_module
-from enums.assistant_calendar_status import AssistantCalendarStatus
+from enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
 from models.ai_assistant_calendar import AiAssistantCalendar
 from services.ai_assistant.calendar_service import AiAssistantCalendarService, AiAssistantCalendarState
 from services.ai_assistant.google_calendar_client import (
@@ -173,7 +173,7 @@ def test_the_consent_stores_encrypted_tokens_on_a_sold_assistant_only(db: Sessio
 
     assert connected_assistant.id == assistant.id
     assert calendar.account_email == "garage.morel@gmail.com"
-    assert calendar.status == AssistantCalendarStatus.CONNECTED.value
+    assert calendar.status == AiAssistantCalendarStatus.CONNECTED.value
     assert calendar.refresh_token_encrypted and "refresh-1" not in calendar.refresh_token_encrypted
     assert encryption_service.decrypt(calendar.refresh_token_encrypted) == "refresh-1"
     with pytest.raises(ValueError, match="ne peut pas recevoir"):
@@ -223,7 +223,7 @@ def test_a_token_google_dropped_early_is_refreshed_once_before_the_agenda_is_dec
 
     db.refresh(calendar)
     assert slots.slots and google.refreshed == ["refresh-0"]
-    assert calendar.status == AssistantCalendarStatus.CONNECTED.value and calendar.last_error is None
+    assert calendar.status == AiAssistantCalendarStatus.CONNECTED.value and calendar.last_error is None
 
 
 def test_an_agenda_id_google_cannot_read_changes_nothing(db: Session, google: FakeGoogle) -> None:

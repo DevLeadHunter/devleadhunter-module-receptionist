@@ -15,8 +15,8 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 from typing import ClassVar
 
+from enums.ai_assistant_llm import AiAssistantLlmUsage
 from enums.ai_assistant_request import AiAssistantRequestType
-from enums.assistant_llm import AssistantLlmUsage
 from services.ai_assistant.llm_router import assistant_llm_router
 from services.french_date_formatter import FrenchDateFormatter
 from services.text_normalizer import TextNormalizer
@@ -119,7 +119,7 @@ class AiAssistantRequestAnalyzer:
             return fallback
         try:
             answer = await assistant_llm_router.complete_json(
-                AssistantLlmUsage.REQUEST,
+                AiAssistantLlmUsage.REQUEST,
                 [
                     {"role": "system", "content": self._SYSTEM_PROMPT},
                     {"role": "user", "content": self._user_prompt(business_name, need, transcript)},

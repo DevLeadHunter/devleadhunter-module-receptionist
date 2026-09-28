@@ -25,7 +25,7 @@ import services.ai_assistant.start_reminders as start_reminders_module
 import services.email_sending_service as email_sending_module
 from core.config import settings
 from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestType
-from enums.assistant_widget_language import AssistantWidgetLanguage
+from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_report import AiAssistantReport
 from models.ai_assistant_request import AiAssistantRequest
@@ -208,7 +208,7 @@ def test_the_page_shows_the_assistant_requests_report_settings_and_subscription(
     assert page.report is not None and page.report.month_label == "août 2026"
     assert page.report.languages_line == "luxembourgeois 25 %"
     assert page.report.handling_line == "2 demandes marquées traitées, en 5 h en moyenne."
-    assert page.settings.languages == [AssistantWidgetLanguage.FR, AssistantWidgetLanguage.EN]
+    assert page.settings.languages == [AiAssistantWidgetLanguage.FR, AiAssistantWidgetLanguage.EN]
     assert page.settings.alert_phone == "+33612345678"
     assert page.subscription is not None
     assert (page.subscription.price_label, page.subscription.period_end_label) == ("79 €/mois", "12/10/2026")
@@ -298,7 +298,7 @@ def test_the_client_changes_only_its_own_settings_and_keeps_the_operator_languag
 
     assert (saved.assistant_name, saved.alert_phone, saved.alert_sms_enabled) == ("Léa", "+33612345678", False)
     # « lu », sent by a page opened before Luxembourgish became « lb », is read as « lb ».
-    assert saved.languages == [AssistantWidgetLanguage.FR, AssistantWidgetLanguage.LB]
+    assert saved.languages == [AiAssistantWidgetLanguage.FR, AiAssistantWidgetLanguage.LB]
     # The texted types come back in the module's order; the quiet window as chosen.
     assert saved.alert_sms_types == [AiAssistantRequestType.QUOTE, AiAssistantRequestType.URGENT]
     assert (saved.alert_quiet_start_hour, saved.alert_quiet_end_hour) == (21, 7)

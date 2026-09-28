@@ -5,10 +5,10 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints
 
+from enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
 from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestStatus, AiAssistantRequestType
-from enums.assistant_calendar_status import AssistantCalendarConnection
-from enums.assistant_subscription_status import AssistantSubscriptionStatus
-from enums.assistant_widget_language import AssistantWidgetLanguage
+from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
+from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
 from schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantUnansweredEntry
 from services.ai_assistant.field_limits import LABEL_MAX_CHARS, SHORT_TEXT_MAX_CHARS
 
@@ -108,7 +108,7 @@ class AiAssistantClientReport(BaseModel):
 class AiAssistantClientSubscription(BaseModel):
     """The client's subscription, read from its local copy."""
 
-    status: AssistantSubscriptionStatus
+    status: AiAssistantSubscriptionStatus
     # « 79 €/mois » or « 790 €/an », the price locked at subscription.
     price_label: str
     # « 12/10/2026 »: end of the paid period, when Stripe sent it.
@@ -123,7 +123,7 @@ class AiAssistantClientSettings(BaseModel):
     """The settings a client may change, defaults applied."""
 
     assistant_name: str
-    languages: list[AssistantWidgetLanguage]
+    languages: list[AiAssistantWidgetLanguage]
     alert_phone: str | None = None
     alert_sms_enabled: bool
     alert_email_enabled: bool
@@ -137,14 +137,14 @@ class AiAssistantClientSettings(BaseModel):
 class AiAssistantClientLanguageOption(BaseModel):
     """A language the widget can speak, with its French name."""
 
-    code: AssistantWidgetLanguage
+    code: AiAssistantWidgetLanguage
     label: str
 
 
 class AiAssistantClientCalendar(BaseModel):
     """The agenda section: its connection and the booking settings (defaults applied)."""
 
-    status: AssistantCalendarConnection
+    status: AiAssistantCalendarConnection
     account_email: str | None = None
     calendar_id: str
     duration_minutes: int
@@ -237,8 +237,8 @@ class AiAssistantClientSettingsUpdate(BaseModel):
     """A client's settings edit (partial; the alert mobile is read like in the dashboard)."""
 
     assistant_name: str | None = Field(default=None, min_length=1, max_length=LABEL_MAX_CHARS)
-    languages: list[AssistantWidgetLanguage] | None = Field(
-        default=None, min_length=1, max_length=len(AssistantWidgetLanguage)
+    languages: list[AiAssistantWidgetLanguage] | None = Field(
+        default=None, min_length=1, max_length=len(AiAssistantWidgetLanguage)
     )
     # As typed; empty clears it (no SMS).
     alert_phone: str | None = Field(default=None, max_length=32)

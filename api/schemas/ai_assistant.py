@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, Field, field_validator
 
+from enums.ai_assistant_booking_mode import AiAssistantBookingMode
 from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from enums.ai_assistant_request import (
     AiAssistantDayPeriod,
@@ -13,10 +14,9 @@ from enums.ai_assistant_request import (
     AiAssistantRequestType,
 )
 from enums.ai_assistant_start_step import AiAssistantStartStep
-from enums.assistant_booking_mode import AssistantBookingMode
-from enums.assistant_visitor_channel import AssistantVisitorChannel
-from enums.assistant_widget_language import AssistantWidgetLanguage
-from enums.assistant_widget_refusal import AssistantWidgetRefusalCode
+from enums.ai_assistant_visitor_channel import AiAssistantVisitorChannel
+from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
+from enums.ai_assistant_widget_refusal import AiAssistantWidgetRefusalCode
 from services.ai_assistant.field_limits import (
     LABEL_MAX_CHARS,
     LONG_TEXT_MAX_CHARS,
@@ -31,7 +31,7 @@ BOOKABLE_YEAR_MAX = 2100
 
 def _current_language_code(code: str | None) -> str | None:
     """A widget language in its current spelling (a widget still open on « lu » sends « lb »), any other as sent."""
-    language = AssistantWidgetLanguage.from_code(code)
+    language = AiAssistantWidgetLanguage.from_code(code)
     return language.value if language is not None else code
 
 
@@ -68,8 +68,8 @@ class AiAssistantUpdateRequest(BaseModel):
     @field_validator("languages")
     @classmethod
     def _widget_languages_only(cls, value: list[str] | None) -> list[str] | None:
-        """Keep the widget's languages (``AssistantWidgetLanguage``), « lu » read as « lb », each once."""
-        return AssistantWidgetLanguage.normalize_codes(value) if value is not None else None
+        """Keep the widget's languages (``AiAssistantWidgetLanguage``), « lu » read as « lb », each once."""
+        return AiAssistantWidgetLanguage.normalize_codes(value) if value is not None else None
 
 
 class AiAssistantAlertSettings(BaseModel):
@@ -312,7 +312,7 @@ class AiAssistantChatResponse(BaseModel):
 class AiAssistantRefusal(BaseModel):
     """A refusal the widget recognises by its code (it words it for the visitor); the message is for a reader."""
 
-    code: AssistantWidgetRefusalCode
+    code: AiAssistantWidgetRefusalCode
     message: str
 
 
@@ -340,7 +340,7 @@ class AiAssistantAppointmentTime(BaseModel):
 class AiAssistantAppointmentSlotsResponse(BaseModel):
     """What the appointment panel offers: free slots of the agenda, or open half-days to wish (from tomorrow)."""
 
-    mode: AssistantBookingMode = AssistantBookingMode.REQUEST
+    mode: AiAssistantBookingMode = AiAssistantBookingMode.REQUEST
     days: list[AiAssistantAppointmentDay] = Field(default_factory=list)
     max_chosen: int
     times: list[AiAssistantAppointmentTime] = Field(default_factory=list)
@@ -401,7 +401,7 @@ class AiAssistantLeadResponse(BaseModel):
     # The appointment's start when it was booked in the agenda (None: a request the business confirms).
     booked_start: datetime | None = None
     # How the visitor gets the confirmation of a booked appointment (None: no mobile nor email to use).
-    confirmation_channel: AssistantVisitorChannel | None = None
+    confirmation_channel: AiAssistantVisitorChannel | None = None
 
 
 class AiAssistantLeadItem(BaseModel):

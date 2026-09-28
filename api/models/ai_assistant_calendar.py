@@ -6,7 +6,7 @@ from sqlalchemy import JSON, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.database import UTF8MB4_TABLE_OPTIONS, Base
-from enums.assistant_calendar_status import AssistantCalendarStatus
+from enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
 
 
 class AiAssistantCalendar(Base):
@@ -38,7 +38,7 @@ class AiAssistantCalendar(Base):
     min_notice_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Kinds of appointment the visitor picks from (« Révision », « Contrôle technique »), in order.
     appointment_types_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default=AssistantCalendarStatus.CONNECTED.value)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default=AiAssistantCalendarStatus.CONNECTED.value)
     last_error: Mapped[str | None] = mapped_column(String(255), nullable=True)
     connected_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

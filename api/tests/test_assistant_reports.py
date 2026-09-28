@@ -27,8 +27,8 @@ import services.ai_assistant.message_delivery as delivery_module
 import services.ai_assistant.report_service as report_module
 import services.ai_assistant.report_stats as report_stats_module
 import services.email_sending_service as email_sending_module
+from enums.ai_assistant_llm import AiAssistantLlmUsage
 from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from enums.assistant_llm import AssistantLlmUsage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_message import AiAssistantMessage
@@ -283,7 +283,7 @@ def test_the_figures_cover_the_month_exactly_without_tests_or_other_assistants(
         top_questions=("Intervenez-vous le samedi ?", "<b>Combien coûte un devis ?</b>", "Quels sont vos horaires ?"),
     )
     [call] = outbox["model"].calls
-    assert call["args"][0] is AssistantLlmUsage.REPORT
+    assert call["args"][0] is AiAssistantLlmUsage.REPORT
     assert call["eu_only"] is True
     # Each conversation's first visitor message of the month, never the replies, the tests or other months.
     assert call["args"][1][1]["content"].splitlines() == [

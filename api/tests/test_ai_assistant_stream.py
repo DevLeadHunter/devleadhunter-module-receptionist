@@ -24,7 +24,7 @@ import services.ai_assistant.llm_router as router_module
 import services.ai_assistant.missing_info_marker as marker_module
 import services.llm_service as llm_module
 import services.mistral_service as mistral_module
-from enums.assistant_llm import AssistantLlmUsage
+from enums.ai_assistant_llm import AiAssistantLlmUsage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.prospect_db import ProspectDB
@@ -87,7 +87,7 @@ def providers(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
 def _streamed(router: AssistantLlmRouter, *, eu_only: bool = False) -> str | None:
     async def run() -> str | None:
-        deltas = [delta async for delta in router.chat_stream(AssistantLlmUsage.CHAT, _MESSAGES, eu_only=eu_only)]
+        deltas = [delta async for delta in router.chat_stream(AiAssistantLlmUsage.CHAT, _MESSAGES, eu_only=eu_only)]
         await asyncio.sleep(0)  # let the background admin alert run
         return "".join(deltas) if deltas else None
 

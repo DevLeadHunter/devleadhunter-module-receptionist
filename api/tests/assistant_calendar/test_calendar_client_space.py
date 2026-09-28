@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 import api.v1.routes.ai_assistant_client_space as client_routes
 import services.ai_assistant.google_calendar_client as google_module
-from enums.assistant_calendar_status import AssistantCalendarConnection
+from enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
 from models.ai_assistant_appointment import AiAssistantAppointment
 from models.ai_assistant_calendar import AiAssistantCalendar
 from schemas.ai_assistant_client_space import AiAssistantClientCalendarUpdate
@@ -50,15 +50,15 @@ def test_the_client_space_shows_the_agenda_and_the_upcoming_appointments(
     monkeypatch.setattr(google_module.settings, "google_client_id", "")
     unavailable = asyncio.run(client_routes.get_client_space(token, VISITOR_REQUEST, db))
 
-    assert disconnected.calendar.status is AssistantCalendarConnection.DISCONNECTED
-    assert space.calendar.status is AssistantCalendarConnection.CONNECTED
+    assert disconnected.calendar.status is AiAssistantCalendarConnection.DISCONNECTED
+    assert space.calendar.status is AiAssistantCalendarConnection.CONNECTED
     assert space.calendar.account_email == "garage.morel@gmail.com"
     assert (space.calendar.duration_minutes, space.calendar.min_notice_hours) == (60, 24)
     assert space.calendar.appointment_types == ["Révision"]
     [upcoming] = space.appointments
     assert (upcoming.name, upcoming.type_label) == ("Julie Roux", "Révision")
     assert space.requests[0].appointment_booked.endswith("(Révision)")
-    assert unavailable.calendar.status is AssistantCalendarConnection.UNAVAILABLE
+    assert unavailable.calendar.status is AiAssistantCalendarConnection.UNAVAILABLE
 
 
 def test_the_client_connects_changes_and_disconnects_the_agenda(
@@ -96,7 +96,7 @@ def test_the_client_connects_changes_and_disconnects_the_agenda(
     assert (settings.duration_minutes, settings.min_notice_hours) == (30, 4)
     assert settings.appointment_types == ["Révision", "Pneus"]
     assert refused.value.status_code == 422
-    assert disconnected.status is AssistantCalendarConnection.DISCONNECTED
+    assert disconnected.status is AiAssistantCalendarConnection.DISCONNECTED
     assert db.query(AiAssistantCalendar).count() == 0
 
 

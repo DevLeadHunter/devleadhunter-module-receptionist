@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 from api.v1.routes.ai_assistant_common import client_ip, confirmation_response, faq_response
 from core.database import get_db
 from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestStatus, AiAssistantRequestType
-from enums.assistant_subscription_status import AssistantSubscriptionStatus
-from enums.assistant_widget_language import AssistantWidgetLanguage
+from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
+from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
 from models.ai_assistant_report import AiAssistantReport
@@ -171,7 +171,7 @@ def _to_report(report: AiAssistantReport, assistant_name: str) -> AiAssistantCli
 def _to_subscription(subscription: AiAssistantSubscription) -> AiAssistantClientSubscription:
     per = "/an" if subscription.interval == "year" else "/mois"
     return AiAssistantClientSubscription(
-        status=AssistantSubscriptionStatus(subscription.status),
+        status=AiAssistantSubscriptionStatus(subscription.status),
         price_label=f"{AssistantPricingService.format_price(subscription.amount_cents)}{per}",
         period_end_label=(
             _business_label(subscription.current_period_end, "%d/%m/%Y") if subscription.current_period_end else None
@@ -224,10 +224,10 @@ def _to_installed(assistant: AiAssistant) -> AiAssistantClientInstalled | None:
 
 def _to_settings(assistant: AiAssistant) -> AiAssistantClientSettings:
     alerts = AlertSettings.of(assistant)
-    offered = {language.value for language in AssistantWidgetLanguage}
+    offered = {language.value for language in AiAssistantWidgetLanguage}
     return AiAssistantClientSettings(
         assistant_name=assistant.assistant_name,
-        languages=[AssistantWidgetLanguage(code) for code in (assistant.languages or []) if code in offered],
+        languages=[AiAssistantWidgetLanguage(code) for code in (assistant.languages or []) if code in offered],
         alert_phone=alerts.phone_e164,
         alert_sms_enabled=alerts.sms_enabled,
         alert_email_enabled=alerts.email_enabled,
@@ -264,7 +264,7 @@ async def get_client_space(
         settings=_to_settings(assistant),
         language_options=[
             AiAssistantClientLanguageOption(code=language, label=LANGUAGE_NAMES.get(language.value, language.value))
-            for language in AssistantWidgetLanguage
+            for language in AiAssistantWidgetLanguage
         ],
         subscription=_to_subscription(subscription) if subscription is not None else None,
         calendar=_to_calendar(db, assistant),

@@ -15,7 +15,7 @@ import pytest
 
 import services.ai_assistant.llm_router as router_module
 import services.mistral_service as mistral_module
-from enums.assistant_llm import AssistantLlmUsage
+from enums.ai_assistant_llm import AiAssistantLlmUsage
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.llm_router import AssistantLlmRouter
 from services.llm_service import LlmCompletion
@@ -78,7 +78,7 @@ def providers(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
 
 def _chat(
-    router: AssistantLlmRouter, usage: AssistantLlmUsage = AssistantLlmUsage.CHAT, *, eu_only: bool = False
+    router: AssistantLlmRouter, usage: AiAssistantLlmUsage = AiAssistantLlmUsage.CHAT, *, eu_only: bool = False
 ) -> str | None:
     async def run() -> str | None:
         answer = await router.chat(usage, _MESSAGES, eu_only=eu_only)
@@ -130,8 +130,8 @@ def test_both_providers_down_is_reported_as_such(providers: dict[str, Any]) -> N
     assert providers["alerts"].messages == ["Mistral et Groq indisponibles : chat de l'assistant sans réponse"]
 
 
-@pytest.mark.parametrize("usage", list(AssistantLlmUsage))
-def test_an_eu_only_assistant_never_reaches_groq(providers: dict[str, Any], usage: AssistantLlmUsage) -> None:
+@pytest.mark.parametrize("usage", list(AiAssistantLlmUsage))
+def test_an_eu_only_assistant_never_reaches_groq(providers: dict[str, Any], usage: AiAssistantLlmUsage) -> None:
     router = AssistantLlmRouter()
 
     served = _chat(router, usage, eu_only=True)
@@ -190,12 +190,12 @@ def test_the_photos_use_the_vision_models_of_each_provider(providers: dict[str, 
     router = AssistantLlmRouter()
     providers["mistral"].text = '{"relevant": true}'
 
-    served = asyncio.run(router.complete_json(AssistantLlmUsage.VISION, _MESSAGES, eu_only=False))
+    served = asyncio.run(router.complete_json(AiAssistantLlmUsage.VISION, _MESSAGES, eu_only=False))
     providers["mistral"].text = None
     providers["groq"].text = '{"relevant": false}'
-    fallback = asyncio.run(router.complete_json(AssistantLlmUsage.VISION, _MESSAGES, eu_only=False))
+    fallback = asyncio.run(router.complete_json(AiAssistantLlmUsage.VISION, _MESSAGES, eu_only=False))
     providers["vision_models"][0] = None
-    no_vision_model = asyncio.run(router.complete_json(AssistantLlmUsage.VISION, _MESSAGES, eu_only=False))
+    no_vision_model = asyncio.run(router.complete_json(AiAssistantLlmUsage.VISION, _MESSAGES, eu_only=False))
 
     assert served == {"relevant": True} and fallback == {"relevant": False} and no_vision_model is None
     assert providers["mistral"].calls[0]["json_mode"] is True

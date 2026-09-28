@@ -2,7 +2,7 @@
 
 import pytest
 
-from enums.assistant_llm import AssistantLlmUsage
+from enums.ai_assistant_llm import AiAssistantLlmUsage
 from services.ai_assistant import chat_service as chat_module
 from services.ai_assistant.chat_service import MAX_HISTORY_MESSAGES, ai_assistant_chat_service
 
@@ -116,7 +116,7 @@ async def test_an_eu_only_assistant_asks_the_router_to_stay_on_mistral(monkeypat
         knowledge=_KB, assistant_name="Sofia", history=[{"role": "user", "content": "Bonjour"}], eu_only=True
     )
 
-    assert captured == {"usage": AssistantLlmUsage.CHAT, "eu_only": True}
+    assert captured == {"usage": AiAssistantLlmUsage.CHAT, "eu_only": True}
 
 
 @pytest.mark.asyncio

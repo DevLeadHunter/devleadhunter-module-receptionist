@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 
 import api.v1.routes.ai_assistant_widget as routes
 import services.ai_assistant.calendar_access as access_module
-from enums.assistant_booking_mode import AssistantBookingMode
-from enums.assistant_visitor_channel import AssistantVisitorChannel
+from enums.ai_assistant_booking_mode import AiAssistantBookingMode
+from enums.ai_assistant_visitor_channel import AiAssistantVisitorChannel
 from models.ai_assistant_appointment import AiAssistantAppointment
 from schemas.ai_assistant import AiAssistantBookingChoice, AiAssistantLeadRequest
 from services.ai_assistant.chat_service import AiAssistantChatService
@@ -44,10 +44,10 @@ def test_the_slots_route_offers_the_agenda_or_falls_back_on_half_days(
     access_module.ai_assistant_calendar_access._busy_cache.clear()
     fallback = asyncio.run(routes.get_assistant_appointment_slots(assistant.slug, VISITOR_REQUEST, after=None, db=db))
 
-    assert offer.mode is AssistantBookingMode.CALENDAR
+    assert offer.mode is AiAssistantBookingMode.CALENDAR
     assert [time.start for time in offer.times] == [paris(22, 10), paris(22, 14), paris(23, 8)]
     assert (offer.types, offer.duration_minutes, offer.max_chosen, offer.has_more) == (["Révision"], 30, 1, True)
-    assert fallback.mode is AssistantBookingMode.REQUEST
+    assert fallback.mode is AiAssistantBookingMode.REQUEST
     assert fallback.times == [] and fallback.days
 
 
@@ -114,5 +114,5 @@ def test_the_widget_learns_how_the_confirmation_leaves(
     sms = asyncio.run(routes.submit_assistant_lead(assistant.slug, by_sms, VISITOR_REQUEST, db))
     nothing = asyncio.run(routes.submit_assistant_lead(assistant.slug, by_nothing, VISITOR_REQUEST, db))
 
-    assert sms.confirmation_channel is AssistantVisitorChannel.SMS
+    assert sms.confirmation_channel is AiAssistantVisitorChannel.SMS
     assert nothing.booked_start == paris(22, 14) and nothing.confirmation_channel is None

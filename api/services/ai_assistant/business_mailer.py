@@ -11,7 +11,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from enums.assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
+from enums.ai_assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_subscription import AiAssistantSubscription
 from models.prospect_db import ProspectDB

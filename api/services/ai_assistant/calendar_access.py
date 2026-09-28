@@ -15,8 +15,8 @@ from typing import ClassVar, TypeVar
 
 from sqlalchemy.orm import Session
 
+from enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
 from enums.ai_assistant_status import AiAssistantStatus
-from enums.assistant_calendar_status import AssistantCalendarStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_calendar import AiAssistantCalendar
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
@@ -60,7 +60,7 @@ class AiAssistantCalendarAccess:
         if assistant.status != AiAssistantStatus.DELIVERED.value or not google_calendar_client.is_configured:
             return None
         calendar = self.calendar_of(db, assistant)
-        if calendar is None or calendar.status != AssistantCalendarStatus.CONNECTED.value:
+        if calendar is None or calendar.status != AiAssistantCalendarStatus.CONNECTED.value:
             return None
         return calendar
 
@@ -198,9 +198,9 @@ class AiAssistantCalendarAccess:
             row.last_error = message
             db.commit()
             return
-        if row.status == AssistantCalendarStatus.ERROR.value:
+        if row.status == AiAssistantCalendarStatus.ERROR.value:
             return
-        row.status = AssistantCalendarStatus.ERROR.value
+        row.status = AiAssistantCalendarStatus.ERROR.value
         row.last_error = message
         db.commit()
         self.forget_busy(calendar.id)
