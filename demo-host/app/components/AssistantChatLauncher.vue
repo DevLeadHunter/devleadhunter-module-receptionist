@@ -4,6 +4,7 @@
     type="button"
     class="ai-launcher"
     :class="{ 'ai-launcher--mobile': props.isMobileLayout }"
+    data-capture="launcher"
     :aria-label="UI_LABELS[props.language].open.replace('{name}', props.assistantName)"
     @click="emit('open')"
   >

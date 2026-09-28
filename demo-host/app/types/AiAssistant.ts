@@ -57,23 +57,37 @@ export type AssistantChatMessage = {
   follow_ups?: string[]
 }
 
+/** A line of the widget's thread; an `isLocal` one is the widget's own, never stored nor sent to the model. */
+export type AssistantThreadMessage = AssistantChatMessage & {
+  isLocal?: boolean
+}
+
+/** The phone number or email a visitor typed in the chat, filed by the API as their request. */
+export type AssistantCapturedContact = {
+  name: string
+  contact: string
+}
+
 /**
  * The assistant's reply to a chat request; `offer_booking` when the visitor asks for an appointment, `follow_ups`
- * the questions offered next.
+ * the questions offered next, `daily_limit_reached` when it answered its messages of the day (a fixed reply).
  */
 export type AssistantChatReply = {
   reply: string
   offer_booking: boolean
   follow_ups: string[]
+  daily_limit_reached: boolean
+  captured_contact: AssistantCapturedContact | null
 }
 
-/** Localized labels for the lead-capture form. */
+/** Localized labels for the lead-capture form; `contactHint` shows under a contact that cannot be reached. */
 export type AssistantLeadLabels = {
   open: string
   title: string
   name: string
-  contact: string
-  /** Under the contact field when what was typed is neither a phone number nor an email address. */
+  contactBy: string
+  phone: string
+  email: string
   contactHint: string
   need: string
   send: string
@@ -81,8 +95,22 @@ export type AssistantLeadLabels = {
   sent: string
 }
 
-/** Languages the widget offers preset greetings and suggestions for. */
-export type AssistantWidgetLanguage = 'fr' | 'nl' | 'en' | 'de' | 'lu'
+/** How the visitor wants to be reached: the contact field's keyboard and autofill follow it. */
+export type AssistantContactChannel = 'phone' | 'email'
+
+/** What the visitor reads when a call fails; `unavailable` carries `{name}` and `{business}`. */
+export type AssistantErrorLabels = {
+  rateLimited: string
+  network: string
+  server: string
+  unavailable: string
+}
+
+/** The codes of a pick the API refused, read by the widget rather than its sentence. */
+export type AssistantSlotRefusalCode = 'slot_taken' | 'slot_withdrawn'
+
+/** Languages the widget offers preset greetings and suggestions for (Luxembourgish is BCP 47's « lb »). */
+export type AssistantWidgetLanguage = 'fr' | 'nl' | 'en' | 'de' | 'lb'
 
 /** @deprecated Use `AssistantWidgetLanguage`: kept while the client space still imports this name. */
 export type AssistantWidgetLang = AssistantWidgetLanguage
@@ -157,6 +185,24 @@ export type AssistantSlotChoice = {
   period: AssistantDayPeriod
 }
 
+/** A free slot of the agenda the visitor picked, and its kind. */
+export type AssistantBookingChoice = {
+  start: string
+  type: string | null
+}
+
+/** The visitor's details as the widget sends them: they become a request, with the appointment picked. */
+export type AssistantLeadRequestBody = {
+  name: string
+  contact: string
+  need: string
+  language: AssistantWidgetLanguage
+  session_id: string
+  internal: boolean
+  slots: AssistantSlotChoice[]
+  booking: AssistantBookingChoice | null
+}
+
 /** Where the slot panel's data stands. */
 export type AssistantSlotsState = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -214,12 +260,16 @@ export type AssistantExampleLabels = {
   thanks: string
 }
 
-/** What the widget sends to be answered: the recent thread, the visitor's session and language. */
+/**
+ * What the widget sends to be answered: the recent thread, the visitor's session and language, and the name they gave
+ * in it (it names the request a phone number typed in the chat opens).
+ */
 export type AssistantChatRequestBody = {
   messages: AssistantChatMessage[]
   session_id: string
   language: AssistantWidgetLanguage
   internal: boolean
+  visitor_name?: string
 }
 
 /** One frame of the streamed reply: a piece of text, then the closing frame with the whole reply. */
@@ -229,4 +279,6 @@ export type AssistantChatStreamFrame = {
   reply?: string
   offer_booking?: boolean
   follow_ups?: string[]
+  daily_limit_reached?: boolean
+  captured_contact?: AssistantCapturedContact | null
 }

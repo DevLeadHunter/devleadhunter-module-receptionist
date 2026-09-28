@@ -1,6 +1,13 @@
 import type { ComputedRef, Ref } from 'vue'
 import { computed, ref } from 'vue'
-import type { AssistantAppointmentLabels, AssistantAppointmentTime, AssistantLeadReply } from '~/types/AiAssistant'
+import type {
+  AssistantAppointmentLabels,
+  AssistantAppointmentTime,
+  AssistantCapturedContact,
+  AssistantLeadReply,
+  AssistantSlotRefusalCode,
+  AssistantThreadMessage,
+} from '~/types/AiAssistant'
 import type { AssistantLeadSummary } from '~/types/AssistantChat'
 import type { AssistantContactDetails } from '~/types/AssistantChatContactForm'
 import type { AssistantContactPrefill } from '~/types/AssistantContactPrefill'
@@ -9,11 +16,19 @@ import type { UseAssistantBookingReturn } from '~/types/UseAssistantBooking'
 import type { UseAssistantLeadFormReturn } from '~/types/UseAssistantLeadForm'
 import type { UseAssistantPhotoUploadReturn } from '~/types/UseAssistantPhotoUpload'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
-import { APPOINTMENT_LABELS, FALLBACK_REPLY, LEAD_LABELS } from '~/constants/AssistantWidgetLabels'
+import { APPOINTMENT_LABELS, LEAD_LABELS } from '~/constants/AssistantWidgetLabels'
 import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
+import { AssistantRequestUtils } from '~/utils/AssistantRequestUtils'
 import { AssistantScheduleUtils } from '~/utils/AssistantScheduleUtils'
+import { AssistantThreadUtils } from '~/utils/AssistantThreadUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 import { VisitorContactUtils } from '~/utils/VisitorContactUtils'
+
+/** The refusals of a pick the widget answers by offering the slots again. */
+const SLOT_REFUSAL_CODES: string[] = ['slot_taken', 'slot_withdrawn']
+
+/** The visitor's words the business's side of the demo shows for a request left in the chat, at most. */
+const CHAT_NEED_MAX_CHARS: number = 140
 
 /**
  * The contact form of a conversation: the visitor's details become a request, with the appointment and the photo.
@@ -33,11 +48,12 @@ export function useAssistantLeadForm(
   const isLeadFormOpen: ComputedRef<boolean> = computed((): boolean => context.openPanel.value === 'lead-form')
   /** What the visitor already gave in the chat (« Léo », « 06 42 19 38 12 »): the form opens filled with it. */
   const leadPrefill: ComputedRef<AssistantContactPrefill> = computed((): AssistantContactPrefill =>
-    VisitorContactUtils.extract(context.messages.value),
+    VisitorContactUtils.extract(AssistantThreadUtils.conversationOf(context.messages.value)),
   )
 
   /** Show the contact form for a call back: an appointment picked before is not part of it. */
   function openLeadForm(): void {
+    if (context.isAssistantUnavailable.value) return
     context.noteInlineOpening()
     booking.forgetPicks()
     context.openPanel.value = 'lead-form'
@@ -91,9 +107,9 @@ export function useAssistantLeadForm(
     else if (bookedTime) slots = AssistantScheduleUtils.timeLabel(bookedTime.start, context.language.value)
     else if (booking.chosenSlots.value.length > 0) slots = booking.chosenSlotsLine.value
     return {
-      name: details.name.trim(),
-      contact: details.contact.trim(),
-      need: details.need.trim(),
+      name: details.name,
+      contact: details.contact,
+      need: details.need,
       kind: hasAppointment ? 'appointment' : photo.hasSentPhoto.value ? 'quote' : 'question',
       slots,
       booked: reply.booked_start !== null,
@@ -102,17 +118,59 @@ export function useAssistantLeadForm(
   }
 
   /**
-   * Tell the visitor why their pick was refused, then offer the slots again.
-   * @param detail - The API's sentence for the refusal.
-   * @returns A promise resolved once the offer is read again.
+   * The visitor's own words for a request left in the chat: what their photo shows, else their first question.
+   * @returns The need, short enough for an SMS preview; empty when they only gave their number.
    */
-  async function offerSlotsAgain(detail: string | null): Promise<void> {
-    const isWithdrawn: boolean = detail !== null && detail.includes('proposé')
-    const labels: AssistantAppointmentLabels = APPOINTMENT_LABELS[context.language.value]
-    context.messages.value.push({ role: 'assistant', content: isWithdrawn ? labels.unavailable : labels.taken })
-    booking.forgetPicks()
-    context.openPanel.value = 'slots'
-    await booking.loadSlots()
+  function chatNeed(): string {
+    if (photo.leadNeedPrefill.value) return photo.leadNeedPrefill.value
+    const firstQuestion: AssistantThreadMessage | undefined = AssistantThreadUtils.conversationOf(
+      context.messages.value,
+    ).find((message: AssistantThreadMessage): boolean => message.role === 'user')
+    const words: string = firstQuestion?.content.trim() ?? ''
+    return words.length > CHAT_NEED_MAX_CHARS ? `${words.slice(0, CHAT_NEED_MAX_CHARS - 1).trimEnd()}…` : words
+  }
+
+  /**
+   * Confirm, as the form does, the request the API filed from a phone number or an email typed in the chat.
+   * @param captured - The name and contact the request carries.
+   */
+  function confirmCapturedContact(captured: AssistantCapturedContact): void {
+    if (context.hasSentLead.value) return
+    context.hasSentLead.value = true
+    captureDemoEvent('assistant_lead_submitted', { source: 'chat' })
+    if (context.openPanel.value === 'lead-form') context.openPanel.value = null
+    context.pushLocalLine(LEAD_LABELS[context.language.value].sent)
+    lastLeadSummary.value = {
+      name: captured.name,
+      contact: captured.contact,
+      need: chatNeed(),
+      kind: photo.hasSentPhoto.value ? 'quote' : 'question',
+      slots: '',
+      booked: false,
+      hasPhoto: photo.hasSentPhoto.value,
+    }
+  }
+
+  /**
+   * Whether a refusal code is one of a pick the API refused.
+   * @param code - The code the API sent, or null.
+   * @returns True for a slot taken or withdrawn meanwhile.
+   */
+  function isSlotRefusal(code: string | null): code is AssistantSlotRefusalCode {
+    return code !== null && SLOT_REFUSAL_CODES.includes(code)
+  }
+
+  /**
+   * Tell the visitor why their details did not go: a pick taken meanwhile, a sentence written for them, or a failure.
+   * @param error - What the call threw.
+   * @returns A promise resolved once the slots are offered again, when that is the answer.
+   */
+  async function reportLeadFailure(error: unknown): Promise<void> {
+    const code: string | null = ApiRefusalUtils.code(error)
+    const detail: string | null = ApiRefusalUtils.detail(error)
+    if (ApiRefusalUtils.status(error) === 409 && isSlotRefusal(code)) await booking.offerSlotsAgain(code)
+    else if (ApiRefusalUtils.status(error) === 422 && detail !== null) context.pushLocalLine(detail)
+    else context.reportFailure(AssistantRequestUtils.failureOf(error))
   }
 
   /**
@@ -121,38 +179,29 @@ export function useAssistantLeadForm(
    * @returns A promise resolved once the request is sent.
    */
   async function submitLead(details: AssistantContactDetails): Promise<void> {
-    if (isSubmittingLead.value || !details.name.trim() || !VisitorContactUtils.isReachable(details.contact)) return
+    const name: string = details.name.trim()
+    const contact: string = details.contact.trim()
+    if (isSubmittingLead.value || !name || !VisitorContactUtils.isReachable(contact)) return
     isSubmittingLead.value = true
     const bookedTime: AssistantAppointmentTime | null =
       booking.bookingMode.value === 'calendar' ? booking.chosenTime.value : null
+    const sentDetails: AssistantContactDetails = { name, contact, need: details.need.trim() }
     try {
-      const reply: AssistantLeadReply = await $fetch<AssistantLeadReply>(`${context.publicEndpoint}/lead`, {
-        method: 'POST',
-        body: {
-          name: details.name,
-          contact: details.contact,
-          need: details.need,
-          language: context.language.value,
-          session_id: context.sessionId.value,
-          internal: DemoBeaconUtils.isInternalVisit(),
-          slots: bookedTime ? [] : booking.chosenSlots.value,
-          booking: bookedTime ? { start: bookedTime.start, type: booking.chosenKind.value } : null,
-        },
+      const reply: AssistantLeadReply = await AssistantRequestUtils.sendLead(context.publicEndpoint, {
+        ...sentDetails,
+        language: context.language.value,
+        session_id: context.sessionId.value,
+        internal: DemoBeaconUtils.isInternalVisit(),
+        slots: bookedTime ? [] : booking.chosenSlots.value,
+        booking: bookedTime ? { start: bookedTime.start, type: booking.chosenKind.value } : null,
       })
       context.hasSentLead.value = true
-      captureDemoEvent('assistant_lead_submitted')
+      captureDemoEvent('assistant_lead_submitted', { source: 'form' })
       context.openPanel.value = null
-      context.messages.value.push({ role: 'assistant', content: leadConfirmation(reply, bookedTime) })
-      lastLeadSummary.value = leadSummary(details, reply, bookedTime)
+      context.pushLocalLine(leadConfirmation(reply, bookedTime))
+      lastLeadSummary.value = leadSummary(sentDetails, reply, bookedTime)
     } catch (error: unknown) {
-      // A slot taken or withdrawn meanwhile answers 409: the offer is read again. A 422 carries a sentence
-      // written for the visitor (a kind to choose, a test visit); anything else is a technical failure.
-      const status: number | undefined = ApiRefusalUtils.status(error)
-      const detail: string | null = ApiRefusalUtils.detail(error)
-      const hasPick: boolean = bookedTime !== null || booking.chosenSlots.value.length > 0
-      if (hasPick && status === 409) await offerSlotsAgain(detail)
-      else if (status === 422 && detail !== null) context.messages.value.push({ role: 'assistant', content: detail })
-      else context.messages.value.push({ role: 'assistant', content: FALLBACK_REPLY[context.language.value] })
+      await reportLeadFailure(error)
     } finally {
       isSubmittingLead.value = false
     }
@@ -166,5 +215,6 @@ export function useAssistantLeadForm(
     openLeadForm,
     cancelLeadForm,
     submitLead,
+    confirmCapturedContact,
   }
 }

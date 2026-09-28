@@ -82,6 +82,7 @@
 import type { ComputedRef, PropType, Ref } from 'vue'
 import { computed, onMounted, ref } from 'vue'
 import type { AssistantContactBannerProps, AssistantContactBannerState } from '~/types/AssistantContactBanner'
+import { ASSISTANT_FIRST_BYTE_TIMEOUT_MS } from '~/constants/AssistantWidgetLimits'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 
@@ -148,17 +149,24 @@ async function submit(): Promise<void> {
   if (isSending.value) return
   isSending.value = true
   hasError.value = false
+  const controller: AbortController = new AbortController()
+  const timeout: ReturnType<typeof setTimeout> = setTimeout(
+    (): void => controller.abort(),
+    ASSISTANT_FIRST_BYTE_TIMEOUT_MS,
+  )
   try {
     const response: Response = await fetch(`${apiBase.value}/api/v1/ai-assistants/public/${props.slug}/interest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: message.value.trim() || null }),
+      signal: controller.signal,
     })
     if (!response.ok) throw new Error(`interest beacon failed (${response.status})`)
     state.value = 'sent'
   } catch {
     hasError.value = true
   } finally {
+    clearTimeout(timeout)
     isSending.value = false
   }
 }
@@ -264,7 +272,8 @@ onMounted((): void => {
   border: 1px solid rgba(23, 19, 13, 0.14);
   border-radius: 10px;
   font: inherit;
-  font-size: 0.85rem;
+  /* 16px minimum: below it, iOS Safari zooms the whole page when the field is focused. */
+  font-size: 16px;
   color: #17130d;
   background: #fff;
   resize: vertical;

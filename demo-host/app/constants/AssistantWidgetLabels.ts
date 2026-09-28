@@ -1,6 +1,7 @@
 import type {
   AiAssistantPersonaGender,
   AssistantAppointmentLabels,
+  AssistantErrorLabels,
   AssistantExampleLabels,
   AssistantLeadLabels,
   AssistantPhotoLabels,
@@ -21,16 +22,7 @@ export const LANGUAGE_LABELS: Record<AssistantWidgetLanguage, string> = {
   nl: 'Nederlands',
   en: 'English',
   de: 'Deutsch',
-  lu: 'Lëtzebuergesch',
-}
-
-/** Each language as the « Répond en … » line under the header names it. */
-export const LANGUAGE_NAMES: Record<AssistantWidgetLanguage, string> = {
-  fr: 'français',
-  nl: 'Nederlands',
-  en: 'English',
-  de: 'Deutsch',
-  lu: 'Lëtzebuergesch',
+  lb: 'Lëtzebuergesch',
 }
 
 /** The persona's role under its name in the header, by language and gender (« Réceptionniste IA »). */
@@ -39,7 +31,7 @@ export const ROLE_LABELS: Record<AssistantWidgetLanguage, Record<AiAssistantPers
   nl: { feminine: 'AI-receptioniste', masculine: 'AI-receptionist' },
   en: { feminine: 'AI receptionist', masculine: 'AI receptionist' },
   de: { feminine: 'KI-Rezeptionistin', masculine: 'KI-Rezeptionist' },
-  lu: { feminine: 'KI-Receptionistin', masculine: 'KI-Receptionist' },
+  lb: { feminine: 'KI-Receptionistin', masculine: 'KI-Receptionist' },
 }
 
 /** The « en ligne » pill of the header. */
@@ -48,7 +40,7 @@ export const ONLINE_LABELS: Record<AssistantWidgetLanguage, string> = {
   nl: 'online',
   en: 'online',
   de: 'online',
-  lu: 'online',
+  lb: 'online',
 }
 
 /**
@@ -72,7 +64,7 @@ export const GREETING_INTROS: Record<AssistantWidgetLanguage, Record<AiAssistant
     feminine: 'Guten Tag, ich bin {name}, die KI-Rezeptionistin von {business}.',
     masculine: 'Guten Tag, ich bin {name}, der KI-Rezeptionist von {business}.',
   },
-  lu: {
+  lb: {
     feminine: "Moien, ech sinn d'{name}, d'KI-Receptionistin bei {business}.",
     masculine: 'Moien, ech sinn de {name}, de KI-Receptionist bei {business}.',
   },
@@ -107,7 +99,7 @@ export const GREETING_FOLLOW_UPS: Record<AssistantWidgetLanguage, Record<Assista
     quote: 'Für ein Angebot beschreiben Sie Ihr Vorhaben oder senden Sie ein Foto.',
     appointment: 'Für einen Termin sagen Sie mir, was Sie brauchen, ich schlage eine Zeit vor.',
   },
-  lu: {
+  lb: {
     default: 'Wéi kann ech Iech hëllefen?',
     contact: 'Wëllt Dir eis erreechen? Sot mir, wat Dir braucht, ech ginn et weider.',
     quote: 'Fir en Devis: beschreift Äre Projet oder schéckt eng Foto.',
@@ -161,7 +153,7 @@ export const UI_LABELS: Record<AssistantWidgetLanguage, AssistantUiLabels> = {
     send: 'Senden',
     more: 'Weitere Aktionen',
   },
-  lu: {
+  lb: {
     close: 'Zoumaachen',
     open: 'Gespréich mat {name} opmaachen',
     launcherBefore: 'Eng Fro? ',
@@ -204,7 +196,7 @@ export const EXAMPLE_LABELS: Record<AssistantWidgetLanguage, AssistantExampleLab
     thanks:
       'Danke, gut angekommen. Ich leite es sofort an {business} weiter, mit Ihren Kontaktdaten: Sie werden bei Öffnung zurückgerufen. Lieber ein Termin? Wählen Sie unten eine Zeit.',
   },
-  lu: {
+  lb: {
     chip: 'E Beispill kucken',
     visitor: 'Moien, ënner der Kichespull tröpfelt et. Kënnt Dir dës Woch laanschtkommen?',
     askPhoto: 'Notéiert. Kënnt Dir mir eng Foto schécken, fir datt {business} de Besuch virbereede kann?',
@@ -219,7 +211,7 @@ export const SUGGESTIONS: Record<AssistantWidgetLanguage, string[]> = {
   nl: ['Welke diensten bieden jullie aan?'],
   en: ['What services do you offer?'],
   de: ['Welche Leistungen bieten Sie an?'],
-  lu: ['Wéi eng Servicer bitt Dir un?'],
+  lb: ['Wéi eng Servicer bitt Dir un?'],
 }
 
 /** Placeholder of the message field. */
@@ -228,16 +220,41 @@ export const UI_PLACEHOLDER: Record<AssistantWidgetLanguage, string> = {
   nl: 'Typ uw bericht…',
   en: 'Type your message…',
   de: 'Ihre Nachricht…',
-  lu: 'Är Noriicht…',
+  lb: 'Är Noriicht…',
 }
 
-/** The assistant's reply when the API cannot answer. */
-export const FALLBACK_REPLY: Record<AssistantWidgetLanguage, string> = {
-  fr: 'Je rencontre un souci technique. Réessayez dans un instant.',
-  nl: 'Sorry, er is een technisch probleem. Probeer het zo meteen opnieuw.',
-  en: 'Sorry, I hit a technical issue. Please try again in a moment.',
-  de: 'Entschuldigung, es gab ein technisches Problem. Bitte versuchen Sie es gleich erneut.',
-  lu: 'Pardon, et gouf e technescht Problem. Probéiert w.e.g. gläich nach eng Kéier.',
+/** What the visitor reads when a call fails: too many messages, no network, a technical issue, a gone assistant. */
+export const ERROR_LABELS: Record<AssistantWidgetLanguage, AssistantErrorLabels> = {
+  fr: {
+    rateLimited: "Trop de messages d'un coup : patientez une minute.",
+    network: 'Pas de connexion pour le moment : vérifiez votre réseau et réessayez.',
+    server: 'Je rencontre un souci technique. Réessayez dans un instant.',
+    unavailable: "{name} n'est plus disponible ici : contactez {business} directement.",
+  },
+  nl: {
+    rateLimited: 'Te veel berichten tegelijk: wacht even een minuut.',
+    network: 'Geen verbinding op dit moment: controleer uw netwerk en probeer het opnieuw.',
+    server: 'Sorry, er is een technisch probleem. Probeer het zo meteen opnieuw.',
+    unavailable: '{name} is hier niet meer beschikbaar: neem rechtstreeks contact op met {business}.',
+  },
+  en: {
+    rateLimited: 'Too many messages at once: please wait a minute.',
+    network: 'No connection right now: check your network and try again.',
+    server: 'Sorry, I hit a technical issue. Please try again in a moment.',
+    unavailable: '{name} is no longer available here: please contact {business} directly.',
+  },
+  de: {
+    rateLimited: 'Zu viele Nachrichten auf einmal: Bitte warten Sie eine Minute.',
+    network: 'Gerade keine Verbindung: Prüfen Sie Ihr Netz und versuchen Sie es erneut.',
+    server: 'Entschuldigung, es gab ein technisches Problem. Bitte versuchen Sie es gleich erneut.',
+    unavailable: '{name} ist hier nicht mehr verfügbar: Bitte wenden Sie sich direkt an {business}.',
+  },
+  lb: {
+    rateLimited: 'Ze vill Messagen op eemol: waart w.e.g. eng Minutt.',
+    network: 'De Moment keng Verbindung: kuckt Äert Netz no a probéiert nach eng Kéier.',
+    server: 'Pardon, et gouf e technescht Problem. Probéiert w.e.g. gläich nach eng Kéier.',
+    unavailable: '{name} ass hei net méi disponibel: kontaktéiert {business} direkt.',
+  },
 }
 
 /** Texts of the contact form. */
@@ -246,7 +263,9 @@ export const LEAD_LABELS: Record<AssistantWidgetLanguage, AssistantLeadLabels> =
     open: 'Être rappelé',
     title: 'Laissez vos coordonnées',
     name: 'Votre nom',
-    contact: 'Email ou téléphone',
+    contactBy: 'Vous joindre par',
+    phone: 'Téléphone',
+    email: 'E-mail',
     contactHint: 'Un numéro de téléphone ou une adresse e-mail valide, pour vous joindre.',
     need: 'Votre besoin (facultatif)',
     send: 'Envoyer',
@@ -257,7 +276,9 @@ export const LEAD_LABELS: Record<AssistantWidgetLanguage, AssistantLeadLabels> =
     open: 'Word teruggebeld',
     title: 'Laat uw gegevens achter',
     name: 'Uw naam',
-    contact: 'E-mail of telefoon',
+    contactBy: 'Bereikbaar via',
+    phone: 'Telefoon',
+    email: 'E-mail',
     contactHint: 'Een geldig telefoonnummer of e-mailadres, om u te bereiken.',
     need: 'Wat u nodig heeft (optioneel)',
     send: 'Versturen',
@@ -268,7 +289,9 @@ export const LEAD_LABELS: Record<AssistantWidgetLanguage, AssistantLeadLabels> =
     open: 'Request a callback',
     title: 'Leave your details',
     name: 'Your name',
-    contact: 'Email or phone',
+    contactBy: 'Reach me by',
+    phone: 'Phone',
+    email: 'Email',
     contactHint: 'A valid phone number or email address, so we can reach you.',
     need: 'What you need (optional)',
     send: 'Send',
@@ -279,18 +302,22 @@ export const LEAD_LABELS: Record<AssistantWidgetLanguage, AssistantLeadLabels> =
     open: 'Rückruf anfragen',
     title: 'Ihre Kontaktdaten',
     name: 'Ihr Name',
-    contact: 'E-Mail oder Telefon',
+    contactBy: 'Erreichbar per',
+    phone: 'Telefon',
+    email: 'E-Mail',
     contactHint: 'Eine gültige Telefonnummer oder E-Mail-Adresse, um Sie zu erreichen.',
     need: 'Ihr Anliegen (optional)',
     send: 'Senden',
     cancel: 'Abbrechen',
     sent: 'Danke, Ihre Daten wurden übermittelt. Wir melden uns in Kürze.',
   },
-  lu: {
+  lb: {
     open: 'Réckruff ufroen',
     title: 'Är Kontaktdaten',
     name: 'Ären Numm',
-    contact: 'E-Mail oder Telefon',
+    contactBy: 'Erreechbar iwwer',
+    phone: 'Telefon',
+    email: 'E-Mail',
     contactHint: 'Eng gëlteg Telefonsnummer oder E-Mail-Adress, fir Iech z’erreechen.',
     need: 'Wat Dir braucht (fakultativ)',
     send: 'Schécken',
@@ -299,13 +326,13 @@ export const LEAD_LABELS: Record<AssistantWidgetLanguage, AssistantLeadLabels> =
   },
 }
 
-/** Locales of the slot dates (Luxembourgish is « lb » in the browsers' date formats). */
+/** Locales of the slot dates. */
 export const DATE_LOCALES: Record<AssistantWidgetLanguage, string> = {
   fr: 'fr-FR',
   nl: 'nl-BE',
   en: 'en-GB',
   de: 'de-DE',
-  lu: 'lb',
+  lb: 'lb',
 }
 
 /** Texts of the appointment chip, button and slot panel. */
@@ -402,7 +429,7 @@ export const APPOINTMENT_LABELS: Record<AssistantWidgetLanguage, AssistantAppoin
     unavailable: 'Dieses Zeitfenster ist gerade weggefallen. Bitte wählen Sie ein anderes.',
     sent: 'Danke! Ihre Terminanfrage wurde übermittelt ({slots}). Wir melden uns zur Bestätigung.',
   },
-  lu: {
+  lb: {
     chip: 'Rendez-vous huelen',
     button: 'Rendez-vous huelen',
     title: `Wielt 1 oder ${ASSISTANT_SLOTS_MAX_CHOSEN} Zäitfënsteren, déi Iech passen: mir confirméieren eng dovun.`,
@@ -473,7 +500,7 @@ export const PHOTO_LABELS: Record<AssistantWidgetLanguage, AssistantPhotoLabels>
     tooLarge: `Dieses Foto ist zu groß (max. ${ASSISTANT_PHOTO_MAX_MEGABYTES} MB).`,
     quota: `Sie haben bereits ${ASSISTANT_PHOTOS_PER_VISIT} Fotos gesendet, das reicht für das Angebot.`,
   },
-  lu: {
+  lb: {
     chip: 'Eng Foto fir en Devis schécken',
     button: 'Foto schécken',
     note: `Är Foto déngt nëmme fir Ären Devis virzebereeden a gëtt no ${ASSISTANT_PHOTO_RETENTION_DAYS} Deeg geläscht. Weist w.e.g. keng Persounen drop.`,

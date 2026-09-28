@@ -2,6 +2,7 @@
   <div
     class="ai-message"
     :class="[`ai-message--${props.message.role}`, { 'ai-message--with-portrait': props.avatarUrl !== null }]"
+    :data-capture-message="props.message.role"
   >
     <span v-if="props.avatarUrl !== null" class="ai-message__portrait" aria-hidden="true">
       <AssistantAvatar :url="props.avatarUrl" :fallback-url="props.avatarFallbackUrl" :alt="props.assistantName" />

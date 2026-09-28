@@ -2,12 +2,14 @@ import type { ComputedRef, Ref } from 'vue'
 import { computed, ref, watch } from 'vue'
 import type {
   AiAssistantConfig,
-  AssistantChatMessage,
   AssistantChatReply,
   AssistantChatRequestBody,
+  AssistantErrorLabels,
+  AssistantThreadMessage,
   AssistantWidgetLanguage,
 } from '~/types/AiAssistant'
 import type { AssistantDemoScriptStep, AssistantHostPage } from '~/types/AssistantDemoScript'
+import type { AssistantReplyOutcome, AssistantRequestFailure, AssistantStreamOutcome } from '~/types/AssistantRequest'
 import type { AssistantStoredConversation, AssistantThreadContext, AssistantThreadPanel } from '~/types/AssistantThread'
 import type { UseAssistantBookingReturn } from '~/types/UseAssistantBooking'
 import type { UseAssistantConversationReturn } from '~/types/UseAssistantConversation'
@@ -18,11 +20,12 @@ import { useAssistantLeadForm } from '~/composables/useAssistantLeadForm'
 import { useAssistantPhotoUpload } from '~/composables/useAssistantPhotoUpload'
 import { postHostPersist } from '~/composables/useAssistantWidgetFrame'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
-import { FALLBACK_REPLY, GREETING_FOLLOW_UPS, GREETING_INTROS, SUGGESTIONS } from '~/constants/AssistantWidgetLabels'
+import { ERROR_LABELS, GREETING_FOLLOW_UPS, GREETING_INTROS, SUGGESTIONS } from '~/constants/AssistantWidgetLabels'
 import { ASSISTANT_STORED_MESSAGES_MAX } from '~/constants/AssistantWidgetLimits'
 import { AssistantConversationStorageUtils } from '~/utils/AssistantConversationStorageUtils'
 import { AssistantHostPageUtils } from '~/utils/AssistantHostPageUtils'
 import { AssistantLanguageUtils } from '~/utils/AssistantLanguageUtils'
+import { AssistantRequestUtils } from '~/utils/AssistantRequestUtils'
 import { AssistantStreamUtils } from '~/utils/AssistantStreamUtils'
 import { AssistantThreadUtils } from '~/utils/AssistantThreadUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
@@ -38,6 +41,9 @@ const EXAMPLE_REPLY_DELAY_MS: number = 1500
 
 /** A French word starting with a vowel or a mute h takes « d' » (« d'Atelier ») rather than « de ». */
 const FRENCH_ELISION_START: RegExp = /^[aeiouyàâäéèêëîïôöùûüh]/i
+
+/** A sold receptionist answers a business's own customers: the demo page's played example is a sales pitch. */
+const DELIVERED_STATUS: string = 'delivered'
 
 /**
  * A pause, for the typed greeting and the played example.
@@ -66,7 +72,7 @@ export function useAssistantConversation(
   const publicEndpoint: string = `${runtimeConfig.public.apiBase}/api/v1/ai-assistants/public/${assistant.slug}`
   const storageKey: string = AssistantConversationStorageUtils.key(assistant.slug)
 
-  const messages: Ref<AssistantChatMessage[]> = ref([])
+  const messages: Ref<AssistantThreadMessage[]> = ref([])
   const language: Ref<AssistantWidgetLanguage> = ref(AssistantLanguageUtils.DEFAULT_LANGUAGE)
   const draft: Ref<string> = ref('')
   const isBusy: Ref<boolean> = ref(false)
@@ -77,6 +83,8 @@ export function useAssistantConversation(
   const sessionId: Ref<string> = ref('')
   const openPanel: Ref<AssistantThreadPanel | null> = ref(null)
   const hasSentLead: Ref<boolean> = ref(false)
+  /** The API no longer serves this assistant (expired, deleted): the widget says so and stops offering its input. */
+  const isAssistantUnavailable: Ref<boolean> = ref(false)
   let isPlayingExample: boolean = false
   let hasCapturedInlineOpening: boolean = false
 
@@ -89,7 +97,10 @@ export function useAssistantConversation(
     isBusy,
     openPanel,
     hasSentLead,
+    isAssistantUnavailable,
     noteInlineOpening,
+    pushLocalLine,
+    reportFailure,
   }
   const booking: UseAssistantBookingReturn = useAssistantBooking(context)
   const photo: UseAssistantPhotoUploadReturn = useAssistantPhotoUpload(context)
@@ -99,24 +110,28 @@ export function useAssistantConversation(
     AssistantLanguageUtils.offered(assistant.languages),
   )
   const suggestions: ComputedRef<string[]> = computed((): string[] => SUGGESTIONS[language.value])
+  const canPlayExample: ComputedRef<boolean> = computed(
+    (): boolean => inline && !hasPlayedExample.value && assistant.status !== DELIVERED_STATUS,
+  )
   /** The opening chips show under the greeting only, until the visitor writes or opens a panel. */
   const shouldShowOpeningChips: ComputedRef<boolean> = computed(
-    (): boolean => messages.value.length <= 1 && openPanel.value === null,
+    (): boolean => messages.value.length <= 1 && openPanel.value === null && !isAssistantUnavailable.value,
   )
   /** The thread ends on a reply the visitor may act on: nothing typing, no panel open. */
   const endsOnReply: ComputedRef<boolean> = computed((): boolean => {
-    const last: AssistantChatMessage | undefined = messages.value[messages.value.length - 1]
+    const last: AssistantThreadMessage | undefined = messages.value[messages.value.length - 1]
     return (
       messages.value.length > 1 &&
       last?.role === 'assistant' &&
       !isBusy.value &&
       !isStreaming.value &&
-      openPanel.value === null
+      openPanel.value === null &&
+      !isAssistantUnavailable.value
     )
   })
   /** The questions the last reply offers next, as chips under it, until the visitor goes on. */
   const followUps: ComputedRef<string[]> = computed((): string[] => {
-    const last: AssistantChatMessage | undefined = messages.value[messages.value.length - 1]
+    const last: AssistantThreadMessage | undefined = messages.value[messages.value.length - 1]
     return endsOnReply.value && last?.follow_ups?.length ? last.follow_ups : []
   })
   /** A reply without questions still offers the two actions (photo, appointment), so the visitor can click on. */
@@ -126,8 +141,40 @@ export function useAssistantConversation(
   )
   /** A slim way to leave one's details stays above the composer, from the greeting until the request is sent. */
   const shouldShowCallbackBar: ComputedRef<boolean> = computed(
-    (): boolean => !hasSentLead.value && openPanel.value === null,
+    (): boolean => !hasSentLead.value && openPanel.value === null && !isAssistantUnavailable.value,
   )
+
+  /**
+   * Add one of the widget's own lines to the thread (shown, never stored nor sent to the model).
+   * @param content - The line.
+   * @param role - Whose side it shows on.
+   */
+  function pushLocalLine(content: string, role: AssistantThreadMessage['role'] = 'assistant'): void {
+    messages.value.push(AssistantThreadUtils.localLine(content, role))
+  }
+
+  /**
+   * Tell the visitor a call failed; a gone assistant closes what is open and stops offering the input.
+   * @param failure - Why the call failed.
+   */
+  function reportFailure(failure: AssistantRequestFailure): void {
+    if (isAssistantUnavailable.value) return
+    captureDemoEvent('assistant_request_failed', { reason: failure })
+    const labels: AssistantErrorLabels = ERROR_LABELS[language.value]
+    if (failure === 'unavailable') {
+      isAssistantUnavailable.value = true
+      openPanel.value = null
+      pushLocalLine(
+        labels.unavailable
+          .replace('{name}', assistant.assistant_name)
+          .replace('{business}', BusinessNameUtils.short(assistant.business_name)),
+      )
+      return
+    }
+    if (failure === 'rate-limited') pushLocalLine(labels.rateLimited)
+    else if (failure === 'network') pushLocalLine(labels.network)
+    else pushLocalLine(labels.server)
+  }
 
   /**
    * Take a stored conversation: its session, its language when still offered, and its thread when it has one.
@@ -137,10 +184,8 @@ export function useAssistantConversation(
   function applyStoredConversation(stored: AssistantStoredConversation | null): boolean {
     if (!stored) return false
     if (stored.sessionId) sessionId.value = stored.sessionId
-    const storedLanguage: AssistantWidgetLanguage | undefined = offeredLanguages.value.find(
-      (code: AssistantWidgetLanguage): boolean => code === stored.language,
-    )
-    if (storedLanguage) language.value = storedLanguage
+    const storedLanguage: AssistantWidgetLanguage | null = AssistantLanguageUtils.fromStoredCode(stored.language)
+    if (storedLanguage && offeredLanguages.value.includes(storedLanguage)) language.value = storedLanguage
     if (!stored.messages.length) return false
     messages.value = stored.messages.slice(-ASSISTANT_STORED_MESSAGES_MAX)
     return true
@@ -152,7 +197,9 @@ export function useAssistantConversation(
    * @param raw - The serialised conversation the loader sent, or null when the host page has none.
    */
   function restoreFromHost(raw: string | null): void {
-    const hasSpoken: boolean = messages.value.some((message: AssistantChatMessage): boolean => message.role === 'user')
+    const hasSpoken: boolean = AssistantThreadUtils.conversationOf(messages.value).some(
+      (message: AssistantThreadMessage): boolean => message.role === 'user',
+    )
     if (hasSpoken || !raw) return
     applyStoredConversation(AssistantConversationStorageUtils.parse(raw))
   }
@@ -160,7 +207,7 @@ export function useAssistantConversation(
   /** Persist this visitor's conversation and language, bounded to the most recent messages. */
   function persistConversation(): void {
     // An empty thread has nothing to save, and saving it would wipe the copy the host page keeps from an earlier page.
-    if (messages.value.length === 0) return
+    if (AssistantThreadUtils.conversationOf(messages.value).length === 0) return
     const raw: string = AssistantConversationStorageUtils.serialize(language.value, sessionId.value, messages.value)
     AssistantConversationStorageUtils.write(storageKey, raw)
     if (!inline) postHostPersist(raw)
@@ -222,12 +269,13 @@ export function useAssistantConversation(
 
   /**
    * Play a scripted conversation in the thread, turn by turn, as if a customer were writing and the assistant
-   * typing; the demo page then hands over to the visitor. Only laid out in a page, once.
+   * typing; the demo page then hands over to the visitor. Only laid out in a page, once, never for a sold assistant.
+   * Its lines are the widget's own: the model never reads them as the visitor's.
    * @param steps - The turns to play.
    * @returns A promise resolved once the last turn is in the thread.
    */
   async function playExample(steps: AssistantDemoScriptStep[]): Promise<void> {
-    if (!inline || isBusy.value || isPlayingExample || hasPlayedExample.value) return
+    if (!canPlayExample.value || isBusy.value || isPlayingExample) return
     isPlayingExample = true
     noteInlineOpening()
     captureDemoEvent('assistant_example_played')
@@ -241,7 +289,7 @@ export function useAssistantConversation(
       }
       // The scripted customer's photo shows in its bubble, like a real upload would.
       if (step.photoUrl) photo.showPhotoPreview(messages.value.length, step.photoUrl)
-      messages.value.push({ role: step.role, content: step.content })
+      pushLocalLine(step.content, step.role)
     }
     isPlayingExample = false
     hasPlayedExample.value = true
@@ -260,7 +308,7 @@ export function useAssistantConversation(
    */
   function setLanguage(nextLanguage: AssistantWidgetLanguage): void {
     language.value = nextLanguage
-    const greeting: AssistantChatMessage | undefined = messages.value[0]
+    const greeting: AssistantThreadMessage | undefined = messages.value[0]
     if (messages.value.length === 1 && greeting?.role === 'assistant') greeting.content = greetingText(nextLanguage)
   }
 
@@ -278,96 +326,139 @@ export function useAssistantConversation(
   }
 
   /**
-   * Send a text as the visitor's message (an internal visit is flagged so it stays out of the counts).
-   * @param text - The message to send.
-   * @returns A promise resolving once the reply is handled.
-   */
-  async function sendText(text: string): Promise<void> {
-    const trimmed: string = text.trim()
-    if (!trimmed || isBusy.value || isStreaming.value) return
-    noteInlineOpening()
-    messages.value.push({ role: 'user', content: trimmed })
-    // A visitor writing in another offered language moves the widget to it; a short line leaves it as is.
-    const hasFollowedVisitor: boolean = followLanguage(trimmed)
-    captureDemoEvent('assistant_message_sent')
-    draft.value = ''
-    isBusy.value = true
-    let offerBooking: boolean = false
-    const body: AssistantChatRequestBody = {
-      messages: AssistantThreadUtils.conversationTurns(messages.value),
-      session_id: sessionId.value,
-      language: language.value,
-      internal: DemoBeaconUtils.isInternalVisit(),
-    }
-    try {
-      let answer: AssistantChatReply | null = await streamReply(body)
-      if (!answer) {
-        answer = await $fetch<AssistantChatReply>(`${publicEndpoint}/chat`, { method: 'POST', body })
-        messages.value.push(AssistantThreadUtils.replyMessage(answer.reply, answer.follow_ups))
-      }
-      offerBooking = answer.offer_booking
-      // The reply is longer than the question: when the question was too short to tell, the reply decides.
-      if (!hasFollowedVisitor) followLanguage(answer.reply)
-    } catch {
-      messages.value.push({ role: 'assistant', content: FALLBACK_REPLY[language.value] })
-    } finally {
-      isBusy.value = false
-      isStreaming.value = false
-    }
-    if (offerBooking && !booking.hasOfferedBooking.value && !leadForm.isLeadFormOpen.value) {
-      await booking.openSlotPanel()
-    }
-  }
-
-  /**
    * Ask for the reply as a stream, growing the assistant's bubble as the text lands.
    * @param body - The chat request.
-   * @returns The whole reply, or null when the stream is unavailable or broke (the plain request takes over).
+   * @returns The whole reply, a failure, or `fallback` when the stream is unusable (its partial bubble removed).
    */
-  async function streamReply(body: AssistantChatRequestBody): Promise<AssistantChatReply | null> {
-    let response: Response
-    try {
-      response = await fetch(`${publicEndpoint}/chat/stream`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-    } catch {
-      return null
-    }
-    if (!response.ok) return null
+  async function streamReply(body: AssistantChatRequestBody): Promise<AssistantStreamOutcome> {
     let bubbleIndex: number = -1
-    const closing: AssistantChatReply | null = await AssistantStreamUtils.read(response, (delta: string): void => {
-      if (bubbleIndex === -1) {
-        isBusy.value = false
-        isStreaming.value = true
-        bubbleIndex = messages.value.push({ role: 'assistant', content: '' }) - 1
-      }
-      const bubble: AssistantChatMessage | undefined = messages.value[bubbleIndex]
-      if (bubble) bubble.content += delta
-    })
-    if (!closing) {
+    const outcome: AssistantStreamOutcome = await AssistantStreamUtils.request(
+      `${publicEndpoint}/chat/stream`,
+      body,
+      (delta: string): void => {
+        if (bubbleIndex === -1) {
+          isBusy.value = false
+          isStreaming.value = true
+          bubbleIndex = messages.value.push({ role: 'assistant', content: '' }) - 1
+        }
+        const bubble: AssistantThreadMessage | undefined = messages.value[bubbleIndex]
+        if (bubble) bubble.content += delta
+      },
+    )
+    if (outcome.kind === 'fallback') {
       // A stream cut mid-way would leave a truncated reply: the plain request answers instead.
       if (bubbleIndex !== -1) messages.value.splice(bubbleIndex, 1)
       isStreaming.value = false
       isBusy.value = true
-      return null
+      return outcome
     }
-    const bubble: AssistantChatMessage | undefined = messages.value[bubbleIndex]
+    if (outcome.kind === 'failure') return outcome
+    const closing: AssistantChatReply = outcome.reply
+    const bubble: AssistantThreadMessage | undefined = messages.value[bubbleIndex]
     if (bubble && closing.reply) bubble.content = closing.reply
     else if (!bubble && closing.reply) {
       messages.value.push(AssistantThreadUtils.replyMessage(closing.reply, closing.follow_ups))
     }
     if (bubble && closing.follow_ups.length > 0) bubble.follow_ups = closing.follow_ups
-    return closing
+    return outcome
   }
 
   /**
-   * Send the current draft as the visitor's message.
+   * The assistant's reply: streamed, else asked in one piece; bounded in time either way.
+   * @param body - The chat request.
+   * @returns The reply, or why it did not come.
+   */
+  async function requestReply(body: AssistantChatRequestBody): Promise<AssistantReplyOutcome> {
+    const streamed: AssistantStreamOutcome = await streamReply(body)
+    if (streamed.kind !== 'fallback') return streamed
+    try {
+      const reply: AssistantChatReply = await AssistantRequestUtils.fetchChatReply(publicEndpoint, body)
+      messages.value.push(AssistantThreadUtils.replyMessage(reply.reply, reply.follow_ups))
+      return { kind: 'reply', reply }
+    } catch (error: unknown) {
+      return { kind: 'failure', failure: AssistantRequestUtils.failureOf(error) }
+    }
+  }
+
+  /**
+   * Act on what a reply carries beyond its text: the request filed from the visitor's contact, the daily limit
+   * reached (the contact form opens), an appointment asked for (the slot panel opens, once a visit).
+   * @param reply - The reply.
+   * @returns A promise resolved once the slot panel is loaded, when it opens.
+   */
+  async function actOnReply(reply: AssistantChatReply): Promise<void> {
+    if (reply.captured_contact) leadForm.confirmCapturedContact(reply.captured_contact)
+    if (reply.daily_limit_reached) {
+      captureDemoEvent('assistant_daily_limit_reached')
+      if (!hasSentLead.value) leadForm.openLeadForm()
+      return
+    }
+    if (reply.offer_booking && !booking.hasOfferedBooking.value && !leadForm.isLeadFormOpen.value) {
+      await booking.openSlotPanel()
+    }
+  }
+
+  /**
+   * Send a text as the visitor's message (an internal visit is flagged so it stays out of the counts); when the
+   * reply does not come, the message leaves the thread and the visitor is told why.
+   * @param text - The message to send.
+   * @returns A promise resolving to true once the reply is in the thread, false when nothing was sent.
+   */
+  async function sendVisitorMessage(text: string): Promise<boolean> {
+    const trimmed: string = text.trim()
+    if (!trimmed || isBusy.value || isStreaming.value || isAssistantUnavailable.value) return false
+    noteInlineOpening()
+    const visitorIndex: number = messages.value.push({ role: 'user', content: trimmed }) - 1
+    // A visitor writing in another offered language moves the widget to it; a short line leaves it as is.
+    const hasFollowedVisitor: boolean = followLanguage(trimmed)
+    captureDemoEvent('assistant_message_sent')
+    isBusy.value = true
+    const body: AssistantChatRequestBody = {
+      messages: AssistantThreadUtils.conversationTurns(messages.value),
+      session_id: sessionId.value,
+      language: language.value,
+      internal: DemoBeaconUtils.isInternalVisit(),
+      visitor_name: leadForm.leadPrefill.value.name || undefined,
+    }
+    let outcome: AssistantReplyOutcome
+    try {
+      outcome = await requestReply(body)
+    } finally {
+      isBusy.value = false
+      isStreaming.value = false
+    }
+    if (outcome.kind === 'failure') {
+      // Unanswered, the message leaves the thread (its partial reply too): sent again, it would show twice.
+      messages.value.splice(visitorIndex)
+      reportFailure(outcome.failure)
+      return false
+    }
+    // The reply is longer than the question: when the question was too short to tell, the reply decides.
+    if (!hasFollowedVisitor) followLanguage(outcome.reply.reply)
+    await actOnReply(outcome.reply)
+    return true
+  }
+
+  /**
+   * Send the draft as the visitor's message; the field empties at once and gets the text back if it did not go.
    * @returns A promise resolving once the reply is handled.
    */
   async function sendDraft(): Promise<void> {
-    await sendText(draft.value)
+    const text: string = draft.value.trim()
+    if (!text || isBusy.value || isStreaming.value || isAssistantUnavailable.value) return
+    draft.value = ''
+    const isAnswered: boolean = await sendVisitorMessage(text)
+    // A draft typed meanwhile is the visitor's latest words: it stays.
+    if (!isAnswered && !draft.value.trim()) draft.value = text
+  }
+
+  /**
+   * Send a suggestion chip as the visitor's message; the draft the visitor is typing stays in the field.
+   * @param text - The suggestion.
+   * @returns A promise resolving once the reply is handled.
+   */
+  async function sendSuggestion(text: string): Promise<void> {
+    await sendVisitorMessage(text)
   }
 
   watch([messages, language], (): void => persistConversation(), { deep: true })
@@ -381,6 +472,8 @@ export function useAssistantConversation(
     isBusy,
     isStreaming,
     hasSentLead,
+    isAssistantUnavailable,
+    canPlayExample,
     shouldShowOpeningChips,
     followUps,
     shouldShowActionChips,
@@ -391,7 +484,7 @@ export function useAssistantConversation(
     greet,
     playExample,
     setLanguage,
-    sendText,
+    sendSuggestion,
     sendDraft,
     ...booking,
     ...photo,

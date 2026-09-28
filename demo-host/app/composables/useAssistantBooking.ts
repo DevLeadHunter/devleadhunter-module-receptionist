@@ -8,12 +8,15 @@ import type {
   AssistantBookingMode,
   AssistantDayPeriod,
   AssistantSlotChoice,
+  AssistantSlotRefusalCode,
   AssistantSlotsState,
 } from '~/types/AiAssistant'
+import type { AssistantRequestFailure } from '~/types/AssistantRequest'
 import type { AssistantThreadContext } from '~/types/AssistantThread'
 import type { UseAssistantBookingReturn } from '~/types/UseAssistantBooking'
 import { APPOINTMENT_LABELS } from '~/constants/AssistantWidgetLabels'
 import { ASSISTANT_SLOTS_MAX_CHOSEN } from '~/constants/AssistantWidgetLimits'
+import { AssistantRequestUtils } from '~/utils/AssistantRequestUtils'
 import { AssistantScheduleUtils } from '~/utils/AssistantScheduleUtils'
 
 /**
@@ -76,9 +79,9 @@ export function useAssistantBooking(context: AssistantThreadContext): UseAssista
     // A new page of slots: a time picked on the page before would stay chosen while out of sight.
     chosenTime.value = null
     try {
-      const offer: AssistantAppointmentSlots = await $fetch<AssistantAppointmentSlots>(
-        `${context.publicEndpoint}/appointment-slots`,
-        { query: after ? { after } : {} },
+      const offer: AssistantAppointmentSlots = await AssistantRequestUtils.fetchAppointmentSlots(
+        context.publicEndpoint,
+        after,
       )
       bookingMode.value = offer.mode
       slotsAfter.value = after
@@ -89,8 +92,11 @@ export function useAssistantBooking(context: AssistantThreadContext): UseAssista
       appointmentKinds.value = offer.types
       if (chosenKind.value !== null && !offer.types.includes(chosenKind.value)) chosenKind.value = null
       slotsState.value = 'ready'
-    } catch {
+    } catch (error: unknown) {
       slotsState.value = 'error'
+      // A gone assistant closes the panel and says so; any other failure is told inside the card.
+      const failure: AssistantRequestFailure = AssistantRequestUtils.failureOf(error)
+      if (failure === 'unavailable') context.reportFailure(failure)
     }
   }
 
@@ -99,7 +105,7 @@ export function useAssistantBooking(context: AssistantThreadContext): UseAssista
    * @returns A promise resolved once the offer is shown (or its failure).
    */
   async function openSlotPanel(): Promise<void> {
-    if (context.isBusy.value || context.hasSentLead.value) return
+    if (context.isBusy.value || context.hasSentLead.value || context.isAssistantUnavailable.value) return
     context.noteInlineOpening()
     hasOfferedBooking.value = true
     context.openPanel.value = 'slots'
@@ -171,6 +177,19 @@ export function useAssistantBooking(context: AssistantThreadContext): UseAssista
     context.openPanel.value = 'lead-form'
   }
 
+  /**
+   * Tell the visitor their pick was taken or withdrawn meanwhile, then offer the slots again.
+   * @param code - Why the API refused the pick.
+   * @returns A promise resolved once the offer is read again.
+   */
+  async function offerSlotsAgain(code: AssistantSlotRefusalCode): Promise<void> {
+    const labels: AssistantAppointmentLabels = APPOINTMENT_LABELS[context.language.value]
+    context.pushLocalLine(code === 'slot_withdrawn' ? labels.unavailable : labels.taken)
+    forgetPicks()
+    context.openPanel.value = 'slots'
+    await loadSlots()
+  }
+
   return {
     bookingMode,
     slotsState,
@@ -197,5 +216,6 @@ export function useAssistantBooking(context: AssistantThreadContext): UseAssista
     chooseKind,
     confirmSlots,
     forgetPicks,
+    offerSlotsAgain,
   }
 }

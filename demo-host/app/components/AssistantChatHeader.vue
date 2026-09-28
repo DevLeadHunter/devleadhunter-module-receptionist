@@ -181,6 +181,12 @@ defineExpose({ focusClose })
   border-color: var(--ai-ink);
   color: var(--ai-ink);
 }
+/* Below 16px iOS Safari zooms the whole page when the selector opens. */
+@media (pointer: coarse) {
+  .ai-header__language {
+    font-size: 16px;
+  }
+}
 /* A native select keeps the focus after a click: the widget shows it with its own border, not the browser's ring. */
 .ai-header__language:focus,
 .ai-header__language:focus-visible {

@@ -5,6 +5,7 @@ import type {
   AssistantBookingMode,
   AssistantDayPeriod,
   AssistantSlotChoice,
+  AssistantSlotRefusalCode,
   AssistantSlotsState,
 } from '~/types/AiAssistant'
 
@@ -34,4 +35,5 @@ export type UseAssistantBookingReturn = {
   chooseKind: (kind: string) => void
   confirmSlots: () => void
   forgetPicks: () => void
+  offerSlotsAgain: (code: AssistantSlotRefusalCode) => Promise<void>
 }

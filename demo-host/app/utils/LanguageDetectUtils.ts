@@ -143,7 +143,7 @@ const MARKERS: Record<AssistantWidgetLanguage, string[]> = {
     'ja',
     'auch',
   ],
-  lu: [
+  lb: [
     'ech',
     'dir',
     'mir',

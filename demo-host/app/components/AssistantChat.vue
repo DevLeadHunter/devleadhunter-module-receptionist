@@ -20,10 +20,13 @@
         v-else
         ref="panelElement"
         class="ai-panel"
-        :class="{ 'ai-panel--mobile': isMobileLayout && !props.inline, 'ai-panel--inline': props.inline }"
+        :class="{ 'ai-panel--mobile': isFullScreen, 'ai-panel--inline': props.inline }"
+        data-capture="panel"
         role="dialog"
+        :aria-modal="isFullScreen ? 'true' : undefined"
         :aria-label="props.assistant.assistant_name"
         @keydown.esc="close"
+        @keydown.tab="keepFocusInFullScreenPanel"
       >
         <AssistantChatHeader
           ref="headerComponent"
@@ -59,10 +62,10 @@
             :language="language"
             :suggestions="suggestions"
             :can-send-photo="photosRemaining > 0"
-            :can-play-example="props.inline && !hasPlayedExample"
+            :can-play-example="canPlayExample"
             @photo="openPhotoPanel"
             @appointment="openSlotPanel"
-            @suggest="sendText"
+            @suggest="sendSuggestion"
             @example="playScriptedExample"
           />
           <AssistantChatQuickReplies
@@ -73,7 +76,7 @@
             :can-book-appointment="shouldShowActionChips && !hasSentLead"
             @photo="openPhotoPanel"
             @appointment="openSlotPanel"
-            @suggest="sendText"
+            @suggest="sendSuggestion"
           />
 
           <AssistantChatPhotoCard
@@ -125,6 +128,7 @@
         <AssistantChatCallbackBar v-if="shouldShowCallbackBar" :language="language" @open="openLeadForm" />
 
         <AssistantChatComposer
+          v-if="!isAssistantUnavailable"
           v-model="draft"
           :language="language"
           :is-busy="isBusy || isStreaming"
@@ -161,6 +165,7 @@ import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { AssistantAvatarUtils } from '~/utils/AssistantAvatarUtils'
 import { AssistantDemoScenarioUtils } from '~/utils/AssistantDemoScenarioUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
+import { FocusTrapUtils } from '~/utils/FocusTrapUtils'
 
 const props: AssistantChatProps = defineProps({
   assistant: {
@@ -198,6 +203,8 @@ const {
   isBusy,
   isStreaming,
   hasSentLead,
+  isAssistantUnavailable,
+  canPlayExample,
   photoPreviews,
   photosRemaining,
   isPhotoPanelOpen,
@@ -229,7 +236,7 @@ const {
   greet,
   playExample,
   setLanguage,
-  sendText,
+  sendSuggestion,
   sendDraft,
   openPhotoPanel,
   closePhotoPanel,
@@ -287,6 +294,8 @@ const roleLabel: ComputedRef<string> = computed(
   (): string => ROLE_LABELS[language.value][props.assistant.assistant_gender ?? 'feminine'],
 )
 const onlineLabel: ComputedRef<string> = computed((): string => ONLINE_LABELS[language.value])
+/** On a phone the floating panel fills the screen: a modal dialog, the keyboard kept inside it. */
+const isFullScreen: ComputedRef<boolean> = computed((): boolean => isMobileLayout.value && !props.inline)
 
 /**
  * Whether the message ends a run of assistant replies: the portrait sits beside that one only.
@@ -328,6 +337,14 @@ function close(): void {
   isPanelLeaving.value = true
   isPanelOpen.value = false
   nextTick((): void => launcherComponent.value?.focus())
+}
+
+/**
+ * Keep Tab inside the panel while it fills the screen: behind it, the host page is out of sight.
+ * @param event - The Tab key press in the panel.
+ */
+function keepFocusInFullScreenPanel(event: KeyboardEvent): void {
+  if (isFullScreen.value && panelElement.value) FocusTrapUtils.keepTabInside(event, panelElement.value)
 }
 
 /** The panel is in place: the next opening animates again. */

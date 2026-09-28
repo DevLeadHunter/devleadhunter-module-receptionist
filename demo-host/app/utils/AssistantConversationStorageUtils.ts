@@ -1,4 +1,4 @@
-import type { AssistantChatMessage } from '~/types/AiAssistant'
+import type { AssistantThreadMessage } from '~/types/AiAssistant'
 import type { AssistantStoredConversation } from '~/types/AssistantThread'
 import { AssistantThreadUtils } from '~/utils/AssistantThreadUtils'
 
@@ -65,13 +65,13 @@ export class AssistantConversationStorageUtils {
   }
 
   /**
-   * A conversation in its serialised form, its most recent turns only.
+   * A conversation in its serialised form, its most recent turns only, without the widget's own lines.
    * @param language - The widget's language.
    * @param sessionId - The visitor's session.
    * @param messages - The thread.
    * @returns The text to keep.
    */
-  static serialize(language: string, sessionId: string, messages: AssistantChatMessage[]): string {
+  static serialize(language: string, sessionId: string, messages: AssistantThreadMessage[]): string {
     return JSON.stringify({
       // « lang »: the name the conversations already kept in visitors' browsers use.
       lang: language,

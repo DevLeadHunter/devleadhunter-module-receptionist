@@ -1,9 +1,22 @@
 <template>
   <div class="ai-chips">
-    <button v-if="props.canPlayExample" type="button" class="ai-chip ai-chip--example" @click="emit('example')">
+    <button
+      v-if="props.canPlayExample"
+      type="button"
+      class="ai-chip ai-chip--example"
+      data-capture="example-chip"
+      data-capture-chip
+      @click="emit('example')"
+    >
       {{ EXAMPLE_LABELS[props.language].chip }}
     </button>
-    <button v-if="props.canSendPhoto" type="button" class="ai-chip ai-chip--photo" @click="emit('photo')">
+    <button
+      v-if="props.canSendPhoto"
+      type="button"
+      class="ai-chip ai-chip--photo"
+      data-capture-chip
+      @click="emit('photo')"
+    >
       <AssistantIcon name="camera" class="ai-chip__icon" />
       {{ PHOTO_LABELS[props.language].chip }}
     </button>
@@ -11,6 +24,8 @@
       v-if="props.canBookAppointment"
       type="button"
       class="ai-chip ai-chip--appointment"
+      data-capture="appointment-chip"
+      data-capture-chip
       @click="emit('appointment')"
     >
       <AssistantIcon name="calendar" class="ai-chip__icon" />
@@ -21,6 +36,7 @@
       :key="suggestion"
       type="button"
       class="ai-chip"
+      data-capture-chip
       @click="emit('suggest', suggestion)"
     >
       {{ suggestion }}
