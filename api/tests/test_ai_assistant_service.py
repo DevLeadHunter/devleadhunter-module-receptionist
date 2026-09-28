@@ -43,7 +43,7 @@ def test_build_fields_assembles_knowledge_and_persona() -> None:
         use_brand_color=False,
     )
     assert fields["assistant_name"] == "Sofia"
-    assert fields["languages"] == ["fr", "de", "en", "lu"]
+    assert fields["languages"] == ["fr", "de", "en", "lb"]
     assert fields["knowledge_json"]["palette"] == {"accent": None}
     assert fields["knowledge_json"]["identity"]["business_name"] == "LUMA Immobilier"
     assert fields["description"] == "Agence de référence."

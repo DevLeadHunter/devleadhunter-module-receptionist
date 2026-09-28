@@ -1,3 +1,5 @@
+import { ASSISTANT_PHOTO_MAX_MEGABYTES } from '~/constants/AssistantWidgetLimits'
+
 /**
  * Client-side preparation of the photos a visitor sends an assistant for a quote: a downscaled JPEG,
  * so a phone photo uploads fast and stays under the API's size limit.
@@ -8,7 +10,7 @@ export class PhotoCompressionUtils {
   /** JPEG quality of the upload. */
   static readonly JPEG_QUALITY: number = 0.82
   /** Largest file the API accepts. */
-  static readonly MAX_BYTES: number = 8 * 1024 * 1024
+  static readonly MAX_BYTES: number = ASSISTANT_PHOTO_MAX_MEGABYTES * 1024 * 1024
 
   /**
    * Whether a picked file can be sent as a photo (images, HEIC included for iPhones).

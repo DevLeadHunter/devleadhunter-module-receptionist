@@ -1,7 +1,7 @@
 <template>
   <div class="assistant-chat-window">
     <AssistantChat
-      :config="props.assistant"
+      :assistant="props.assistant"
       inline
       @lead-sent="emit('lead-sent', $event)"
       @example-played="emit('example-played')"

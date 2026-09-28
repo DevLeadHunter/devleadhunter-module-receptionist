@@ -5,11 +5,11 @@ import type {
   AssistantDayPeriod,
   AssistantSlotChoice,
   AssistantSlotsState,
-  AssistantWidgetLang,
+  AssistantWidgetLanguage,
 } from '~/types/AiAssistant'
 
 export type AssistantChatSlotsCardProps = {
-  lang: AssistantWidgetLang
+  language: AssistantWidgetLanguage
   bookingMode: AssistantBookingMode
   slotsState: AssistantSlotsState
   days: AssistantAppointmentDay[]

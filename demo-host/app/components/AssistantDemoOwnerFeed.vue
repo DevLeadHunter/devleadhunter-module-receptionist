@@ -36,10 +36,6 @@
 <script lang="ts" setup>
 import type { AssistantDemoOwnerFeedProps } from '~/types/AssistantDemoOwnerFeed'
 
-/**
- * The business's side of the demo: the SMS its phone receives when a request lands, as a notification card on
- * the page (the visitor's own request replaces the trade's example once they send one).
- */
 const props: AssistantDemoOwnerFeedProps = defineProps({
   timeLabel: {
     type: String,

@@ -1,5 +1,5 @@
 <template>
-  <AssistantChat v-if="assistant" :config="assistant" :host-page="hostPage" />
+  <AssistantChat v-if="assistant" :assistant="assistant" :host-page="hostPage" />
 </template>
 
 <script lang="ts" setup>

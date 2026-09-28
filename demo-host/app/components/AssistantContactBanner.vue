@@ -1,50 +1,76 @@
 <template>
-  <div v-if="isVisible" class="ac" :class="{ 'ac--open': state !== 'collapsed' }" :style="accentStyle">
+  <div
+    v-if="isVisible"
+    class="contact-banner"
+    :class="{ 'contact-banner--open': state !== 'collapsed' }"
+    :style="accentStyle"
+  >
     <!-- Collapsed pill — bottom-left so it never covers the assistant widget (bottom-right). -->
-    <button v-if="state === 'collapsed'" type="button" class="ac-pill" @click="open">
-      <img v-if="ownerPhotoUrl" class="ac-avatar" :src="ownerPhotoUrl" alt="" />
-      <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
+    <button v-if="state === 'collapsed'" type="button" class="contact-banner__pill" @click="open">
+      <img v-if="ownerPhotoUrl" class="contact-banner__avatar" :src="ownerPhotoUrl" alt="" />
+      <svg
+        v-else
+        class="contact-banner__pill-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.4"
+        aria-hidden="true"
+      >
         <path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9L4.9 19.1" stroke-linecap="round" />
       </svg>
-      <span class="ac-pill__text">
-        <span class="ac-pill__label">Votre réceptionniste vous plaît ?</span>
-        <span class="ac-pill__hint">Écrivez-moi un mot</span>
+      <span class="contact-banner__pill-text">
+        <span class="contact-banner__pill-label">Votre réceptionniste vous plaît ?</span>
+        <span class="contact-banner__pill-hint">Écrivez-moi un mot</span>
       </span>
     </button>
 
-    <!-- Open card — one optional message; the visit came from an email, so no coordinates asked. -->
-    <div v-else-if="state === 'open'" class="ac-card">
-      <div class="ac-card__head">
-        <span class="ac-card__title">Parler à {{ ownerName || 'la personne qui vous l’a envoyé' }}</span>
-        <button type="button" class="ac-card__close" aria-label="Réduire" @click="collapse">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+    <!-- Open card — one optional message; the visit came from an email, so no contact details asked. -->
+    <div v-else-if="state === 'open'" class="contact-banner__card">
+      <div class="contact-banner__card-head">
+        <span class="contact-banner__card-title"> Parler à {{ ownerName || 'la personne qui vous l’a envoyé' }} </span>
+        <button type="button" class="contact-banner__card-close" aria-label="Réduire" @click="collapse">
+          <svg
+            class="contact-banner__card-close-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
             <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </button>
       </div>
-      <p class="ac-card__intro">
+      <p class="contact-banner__card-intro">
         Votre réceptionniste pour {{ businessName }} vous intéresse ? Laissez-moi un mot, je reviens vers vous.
       </p>
       <textarea
         v-model="message"
-        class="ac-card__field"
+        class="contact-banner__card-field"
         rows="3"
         placeholder="Votre message (facultatif)"
         aria-label="Votre message"
       />
-      <button type="button" class="ac-card__send" :disabled="isSending" @click="submit">
+      <button type="button" class="contact-banner__card-send" :disabled="isSending" @click="submit">
         {{ isSending ? 'Envoi…' : 'Envoyer' }}
       </button>
-      <p v-if="hasError" class="ac-card__error">Envoi impossible, réessayez dans un instant.</p>
-      <div v-if="hasOwnerContact" class="ac-card__contacts">
-        <a v-if="ownerPhone" class="ac-chip" :href="ownerPhoneHref">Appeler</a>
-        <a v-if="ownerEmail" class="ac-chip" :href="ownerEmailHref">Écrire un email</a>
+      <p v-if="hasError" class="contact-banner__card-error">Envoi impossible, réessayez dans un instant.</p>
+      <div v-if="hasOwnerContact" class="contact-banner__card-contacts">
+        <a v-if="ownerPhone" class="contact-banner__contact-link" :href="ownerPhoneHref">Appeler</a>
+        <a v-if="ownerEmail" class="contact-banner__contact-link" :href="ownerEmailHref">Écrire un email</a>
       </div>
     </div>
 
-    <!-- Sent confirmation. -->
-    <div v-else class="ac-card ac-card--sent">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+    <div v-else class="contact-banner__card contact-banner__card--sent">
+      <svg
+        class="contact-banner__sent-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        aria-hidden="true"
+      >
         <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
       <p>Merci, votre message est envoyé. On vous recontacte très vite.</p>
@@ -56,22 +82,10 @@
 import type { ComputedRef, PropType, Ref } from 'vue'
 import { computed, onMounted, ref } from 'vue'
 import type { AssistantContactBannerProps, AssistantContactBannerState } from '~/types/AssistantContactBanner'
+import { ASSISTANT_FIRST_BYTE_TIMEOUT_MS } from '~/constants/AssistantWidgetLimits'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 
-/**
- * « Cet assistant vous plaît ? » banner overlaid on the assistant sales page (/ia/{slug}).
- * Lets the prospect (the business owner) raise their hand towards the seller — a hot buy signal,
- * beaconed to the assistant interest endpoint which notifies the owner in real time.
- * @param slug The assistant's public slug.
- * @param businessName The prospect's business name, shown in the card.
- * @param ownerName The seller's name, shown in the card title.
- * @param ownerPhotoUrl The seller's photo URL, shown in the pill.
- * @param ownerPhone The seller's phone, for the direct « Appeler » chip.
- * @param ownerEmail The seller's email, for the direct email chip.
- * @param status The assistant status — the banner shows only on an active assistant.
- * @param accentColor The prospect's brand accent, used on the send button.
- */
 const props: AssistantContactBannerProps = defineProps({
   slug: { type: String, required: true },
   businessName: { type: String, required: true },
@@ -93,7 +107,7 @@ const hasError: Ref<boolean> = ref(false)
 const isClientReady: Ref<boolean> = ref(false)
 
 const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<string, string> => ({
-  '--ac-accent': props.accentColor || AssistantAccentUtils.FALLBACK_ACCENT,
+  '--contact-banner-accent': props.accentColor || AssistantAccentUtils.FALLBACK_ACCENT,
 }))
 
 const ownerPhotoUrl: ComputedRef<string> = computed((): string => (props.ownerPhotoUrl ?? '').trim())
@@ -135,17 +149,24 @@ async function submit(): Promise<void> {
   if (isSending.value) return
   isSending.value = true
   hasError.value = false
+  const controller: AbortController = new AbortController()
+  const timeout: ReturnType<typeof setTimeout> = setTimeout(
+    (): void => controller.abort(),
+    ASSISTANT_FIRST_BYTE_TIMEOUT_MS,
+  )
   try {
     const response: Response = await fetch(`${apiBase.value}/api/v1/ai-assistants/public/${props.slug}/interest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: message.value.trim() || null }),
+      signal: controller.signal,
     })
     if (!response.ok) throw new Error(`interest beacon failed (${response.status})`)
     state.value = 'sent'
   } catch {
     hasError.value = true
   } finally {
+    clearTimeout(timeout)
     isSending.value = false
   }
 }
@@ -156,14 +177,14 @@ onMounted((): void => {
 </script>
 
 <style scoped>
-.ac {
+.contact-banner {
   position: fixed;
   bottom: 18px;
   left: 18px;
   z-index: 40;
   font-family: 'Inter', system-ui, sans-serif;
 }
-.ac-pill {
+.contact-banner__pill {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -176,35 +197,35 @@ onMounted((): void => {
   cursor: pointer;
   color: #17130d;
 }
-.ac-pill svg {
+.contact-banner__pill-icon {
   width: 15px;
   height: 15px;
-  color: var(--ac-accent);
+  color: var(--contact-banner-accent);
   flex-shrink: 0;
 }
-.ac-avatar {
+.contact-banner__avatar {
   width: 30px;
   height: 30px;
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
 }
-.ac-pill__text {
+.contact-banner__pill-text {
   display: flex;
   flex-direction: column;
   line-height: 1.15;
   text-align: left;
   min-width: 0;
 }
-.ac-pill__label {
+.contact-banner__pill-label {
   font-size: 0.82rem;
   font-weight: 600;
 }
-.ac-pill__hint {
+.contact-banner__pill-hint {
   font-size: 0.72rem;
   color: #6d665b;
 }
-.ac-card {
+.contact-banner__card {
   width: min(320px, 82vw);
   padding: 16px;
   border: 1px solid rgba(23, 19, 13, 0.1);
@@ -213,19 +234,19 @@ onMounted((): void => {
   box-shadow: 0 12px 34px rgba(23, 19, 13, 0.18);
   color: #17130d;
 }
-.ac-card__head {
+.contact-banner__card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 8px;
 }
-.ac-card__title {
+.contact-banner__card-title {
   font-family: 'Fraunces', Georgia, serif;
   font-size: 1rem;
   font-weight: 600;
 }
-.ac-card__close {
+.contact-banner__card-close {
   display: grid;
   place-items: center;
   width: 26px;
@@ -235,62 +256,63 @@ onMounted((): void => {
   color: #a09a8c;
   cursor: pointer;
 }
-.ac-card__close svg {
+.contact-banner__card-close-icon {
   width: 16px;
   height: 16px;
 }
-.ac-card__intro {
+.contact-banner__card-intro {
   margin: 0 0 10px;
   font-size: 0.82rem;
   line-height: 1.45;
   color: #6d665b;
 }
-.ac-card__field {
+.contact-banner__card-field {
   width: 100%;
   padding: 9px 11px;
   border: 1px solid rgba(23, 19, 13, 0.14);
   border-radius: 10px;
   font: inherit;
-  font-size: 0.85rem;
+  /* 16px minimum: below it, iOS Safari zooms the whole page when the field is focused. */
+  font-size: 16px;
   color: #17130d;
   background: #fff;
   resize: vertical;
   box-sizing: border-box;
 }
-.ac-card__field:focus {
+.contact-banner__card-field:focus {
   outline: none;
-  border-color: var(--ac-accent);
+  border-color: var(--contact-banner-accent);
 }
-.ac-card__send {
+.contact-banner__card-send {
   width: 100%;
   margin-top: 10px;
   padding: 10px;
   border: none;
   border-radius: 10px;
-  background: var(--ac-accent);
+  background: var(--contact-banner-accent);
   color: #fff;
   font: inherit;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }
-.ac-card__send:disabled {
+.contact-banner__card-send:disabled {
   opacity: 0.6;
   cursor: default;
 }
-.ac-card__error {
+.contact-banner__card-error {
   margin: 8px 0 0;
   font-size: 0.76rem;
   color: #9f3a2f;
 }
-.ac-card__contacts {
+.contact-banner__card-contacts {
   display: flex;
   gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid rgba(23, 19, 13, 0.08);
 }
-.ac-chip {
+.contact-banner__contact-link {
   flex: 1;
   padding: 8px;
   border: 1px solid rgba(23, 19, 13, 0.14);
@@ -301,7 +323,7 @@ onMounted((): void => {
   color: #17130d;
   text-decoration: none;
 }
-.ac-card--sent {
+.contact-banner__card--sent {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -309,18 +331,18 @@ onMounted((): void => {
   line-height: 1.4;
   color: #17130d;
 }
-.ac-card--sent svg {
+.contact-banner__sent-icon {
   width: 22px;
   height: 22px;
   flex-shrink: 0;
-  color: var(--ac-accent);
+  color: var(--contact-banner-accent);
 }
 @media (max-width: 560px) {
-  .ac {
+  .contact-banner {
     bottom: 14px;
     left: 14px;
   }
-  .ac-pill__hint {
+  .contact-banner__pill-hint {
     display: none;
   }
 }

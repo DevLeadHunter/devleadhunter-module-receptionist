@@ -1,9 +1,9 @@
 """AI assistant model for prospect-generated conversational receptionists."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, Boolean, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Date, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
@@ -91,6 +91,8 @@ class AiAssistant(Base):
     start_reminder_j14_sent_at: Mapped[datetime | None] = mapped_column(nullable=True)
     # Signs its client-space links from 1 on; « Couper les anciens liens » bumps it and every older link stops opening.
     client_link_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # The business day (Paris) its operator was told the daily cap of visitor messages was reached: once a day.
+    message_cap_alerted_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(onupdate=datetime.utcnow, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)

@@ -1,21 +1,21 @@
 <template>
   <div class="ai-callback">
-    <button type="button" class="ai-callback__btn" @click="emit('open')">
+    <button type="button" class="ai-callback__button" @click="emit('open')">
       <AssistantIcon name="pencil" class="ai-callback__icon" />
-      {{ LEAD_LABELS[props.lang].open }}
+      {{ LEAD_LABELS[props.language].open }}
     </button>
   </div>
 </template>
 
 <script lang="ts" setup>
 import type { EmitFn, PropType } from 'vue'
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 import type { AssistantChatCallbackBarEmits, AssistantChatCallbackBarProps } from '~/types/AssistantChatCallbackBar'
 import { LEAD_LABELS } from '~/constants/AssistantWidgetLabels'
 
 const props: AssistantChatCallbackBarProps = defineProps({
-  lang: {
-    type: String as PropType<AssistantWidgetLang>,
+  language: {
+    type: String as PropType<AssistantWidgetLanguage>,
     required: true,
   },
 })
@@ -30,7 +30,7 @@ const emit: EmitFn<AssistantChatCallbackBarEmits> = defineEmits<AssistantChatCal
   background: var(--ai-paper-2);
   text-align: center;
 }
-.ai-callback__btn {
+.ai-callback__button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -50,7 +50,7 @@ const emit: EmitFn<AssistantChatCallbackBarEmits> = defineEmits<AssistantChatCal
     color 0.12s ease,
     text-decoration-color 0.12s ease;
 }
-.ai-callback__btn:hover {
+.ai-callback__button:hover {
   color: var(--ai-ink);
   text-decoration-color: var(--ai-ink);
 }

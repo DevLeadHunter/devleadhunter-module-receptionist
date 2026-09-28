@@ -73,6 +73,8 @@ def test_the_lead_route_books_the_slot_or_answers_409_when_it_was_taken(
     with pytest.raises(HTTPException) as refused:
         asyncio.run(routes.submit_assistant_lead(assistant.slug, taken, VISITOR_REQUEST, db))
     assert refused.value.status_code == 409
+    # The widget reads the code, never the sentence: it tells the visitor in their language and reloads the slots.
+    assert refused.value.detail["code"] == "slot_taken"
 
 
 def test_the_chat_opens_the_appointment_panel_when_the_visitor_asks_for_one() -> None:

@@ -1,27 +1,27 @@
 <template>
   <AssistantChatCard
-    :title="PHOTO_LABELS[props.lang].button"
-    :note="PHOTO_LABELS[props.lang].note"
-    :primary-label="PHOTO_LABELS[props.lang].pick"
+    :title="PHOTO_LABELS[props.language].button"
+    :note="PHOTO_LABELS[props.language].note"
+    :primary-label="PHOTO_LABELS[props.language].pick"
     :primary-disabled="props.isBusy"
-    :secondary-label="LEAD_LABELS[props.lang].cancel"
+    :secondary-label="LEAD_LABELS[props.language].cancel"
     @primary="fileInput?.click()"
     @secondary="emit('cancel')"
   >
-    <input ref="fileInput" type="file" accept="image/*" class="ai-photo__input" @change="onFilePicked" />
+    <input ref="fileInput" type="file" accept="image/*" class="ai-photo-card__input" @change="onFilePicked" />
   </AssistantChatCard>
 </template>
 
 <script lang="ts" setup>
 import type { EmitFn, PropType, Ref } from 'vue'
 import { ref } from 'vue'
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 import type { AssistantChatPhotoCardEmits, AssistantChatPhotoCardProps } from '~/types/AssistantChatPhotoCard'
 import { LEAD_LABELS, PHOTO_LABELS } from '~/constants/AssistantWidgetLabels'
 
 const props: AssistantChatPhotoCardProps = defineProps({
-  lang: {
-    type: String as PropType<AssistantWidgetLang>,
+  language: {
+    type: String as PropType<AssistantWidgetLanguage>,
     required: true,
   },
   isBusy: {
@@ -47,7 +47,7 @@ function onFilePicked(event: Event): void {
 </script>
 
 <style scoped>
-.ai-photo__input {
+.ai-photo-card__input {
   display: none;
 }
 </style>

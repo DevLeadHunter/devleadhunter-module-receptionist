@@ -1,4 +1,4 @@
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 
 /** What the visitor types to be called back. */
 export type AssistantContactDetails = {
@@ -8,7 +8,7 @@ export type AssistantContactDetails = {
 }
 
 export type AssistantChatContactFormProps = {
-  lang: AssistantWidgetLang
+  language: AssistantWidgetLanguage
   pickedSummary: string
   initialName: string
   initialContact: string

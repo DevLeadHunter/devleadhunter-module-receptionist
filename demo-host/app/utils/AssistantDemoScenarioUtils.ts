@@ -1,4 +1,4 @@
-import type { AssistantExampleLabels, AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantExampleLabels, AssistantWidgetLanguage } from '~/types/AiAssistant'
 import type { AssistantLeadSummary } from '~/types/AssistantChat'
 import type { AssistantDemoScriptStep } from '~/types/AssistantDemoScript'
 import { EXAMPLE_LABELS, PHOTO_LABELS } from '~/constants/AssistantWidgetLabels'
@@ -230,19 +230,23 @@ export class AssistantDemoScenarioUtils {
    * The conversation the demo page plays by itself: the customer's opening, a reply, the customer again, a closing
    * reply that hands over. In French the opening and the replies follow the trade; the other languages share one
    * quote scenario. Nothing in it states a fact about the business.
-   * @param lang - The widget's language.
+   * @param language - The widget's language.
    * @param tradeLabel - The Google Maps category, or null.
    * @param businessName - The business as the assistant names it.
    * @returns The turns, in order.
    */
-  static script(lang: AssistantWidgetLang, tradeLabel: string | null, businessName: string): AssistantDemoScriptStep[] {
-    const labels: AssistantExampleLabels = EXAMPLE_LABELS[lang]
+  static script(
+    language: AssistantWidgetLanguage,
+    tradeLabel: string | null,
+    businessName: string,
+  ): AssistantDemoScriptStep[] {
+    const labels: AssistantExampleLabels = EXAMPLE_LABELS[language]
     const match: TradeExample = AssistantDemoScenarioUtils.match(tradeLabel)
-    const opening: string = lang === 'fr' ? match.opening : labels.visitor
+    const opening: string = language === 'fr' ? match.opening : labels.visitor
     // The shared script of the other languages is a leak under a sink: its photo goes with it.
-    const photoFile: string | null = lang === 'fr' ? match.photo : 'plomberie'
+    const photoFile: string | null = language === 'fr' ? match.photo : 'plomberie'
     const photoUrl: string | null = photoFile ? `/showroom/examples/${photoFile}.jpg` : null
-    if (lang === 'fr' && match.isEvent) {
+    if (language === 'fr' && match.isEvent) {
       return [
         { role: 'user', content: opening },
         {
@@ -256,7 +260,7 @@ export class AssistantDemoScenarioUtils {
         },
       ]
     }
-    if (lang === 'fr' && match.kind === 'appointment') {
+    if (language === 'fr' && match.kind === 'appointment') {
       const when: string = match.slots
         ? `${match.slots.charAt(0).toUpperCase()}${match.slots.slice(1)} si possible`
         : 'Le plus tôt possible'
@@ -270,7 +274,7 @@ export class AssistantDemoScenarioUtils {
         },
       ]
     }
-    if (lang === 'fr' && match.kind === 'question') {
+    if (language === 'fr' && match.kind === 'question') {
       const firstName: string = EXAMPLE_NAME.split(' ')[0] ?? EXAMPLE_NAME
       return [
         { role: 'user', content: opening },
@@ -288,7 +292,7 @@ export class AssistantDemoScenarioUtils {
     return [
       { role: 'user', content: opening },
       { role: 'assistant', content: labels.askPhoto.replace('{business}', businessName) },
-      { role: 'user', content: PHOTO_LABELS[lang].sent, ...(photoUrl ? { photoUrl } : {}) },
+      { role: 'user', content: PHOTO_LABELS[language].sent, ...(photoUrl ? { photoUrl } : {}) },
       { role: 'assistant', content: labels.thanks.replace('{business}', businessName) },
     ]
   }

@@ -83,7 +83,7 @@ class AiAssistantPhotoVision:
             "Danke für das Foto, ich leite es für Ihr Angebot weiter. Beschreiben Sie das Problem kurz und "
             "hinterlassen Sie Ihren Vornamen und eine Telefonnummer, damit wir Sie kontaktieren."
         ),
-        "lu": (
+        "lb": (
             "Merci fir d'Foto, ech ginn se fir Ären Devis weider. Beschreift de Problem a puer Wierder a "
             "loosst Äre Virnumm an eng Telefonsnummer, da mellen mir eis."
         ),
@@ -93,7 +93,7 @@ class AiAssistantPhotoVision:
         "nl": "Op deze foto zie ik niets om een offerte voor te maken. Stuur me een foto van het probleem.",
         "en": "I can't see anything to quote on this photo. Please send me a photo of the problem.",
         "de": "Auf diesem Foto sehe ich nichts für ein Angebot. Schicken Sie mir bitte ein Foto des Problems.",
-        "lu": "Op dëser Foto gesinn ech näischt fir en Devis. Schéckt mer w.e.g. eng Foto vum Problem.",
+        "lb": "Op dëser Foto gesinn ech näischt fir en Devis. Schéckt mer w.e.g. eng Foto vum Problem.",
     }
     # A figure with a currency, either way round (« 250 € », « EUR 250 », « 250,- Euro », « CHF 90 »):
     # nothing shown to the visitor may carry a price.

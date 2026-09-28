@@ -176,7 +176,7 @@ def test_the_page_shows_the_assistant_requests_report_settings_and_subscription(
                 "requests": 4,
                 "handled": 2,
                 "average_handling_hours": 5.0,
-                "languages": [{"code": "lu", "share_pct": 25}],
+                "languages": [{"code": "lb", "share_pct": 25}],
             },
         )
     )
@@ -297,14 +297,15 @@ def test_the_client_changes_only_its_own_settings_and_keeps_the_operator_languag
     )
 
     assert (saved.assistant_name, saved.alert_phone, saved.alert_sms_enabled) == ("Léa", "+33612345678", False)
-    assert saved.languages == [AssistantWidgetLanguage.FR, AssistantWidgetLanguage.LU]
+    # « lu », sent by a page opened before Luxembourgish became « lb », is read as « lb ».
+    assert saved.languages == [AssistantWidgetLanguage.FR, AssistantWidgetLanguage.LB]
     # The texted types come back in the module's order; the quiet window as chosen.
     assert saved.alert_sms_types == [AiAssistantRequestType.QUOTE, AiAssistantRequestType.URGENT]
     assert (saved.alert_quiet_start_hour, saved.alert_quiet_end_hour) == (21, 7)
     assert untouched.languages == saved.languages
     db.refresh(assistant)
     # « it » was set by the operator and is not offered in the space: it stays.
-    assert assistant.languages == ["fr", "lu", "it"]
+    assert assistant.languages == ["fr", "lb", "it"]
     with pytest.raises(ValueError):
         AiAssistantClientSettingsUpdate(languages=["xx"])
     with pytest.raises(ValueError):

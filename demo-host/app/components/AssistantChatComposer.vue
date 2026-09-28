@@ -5,7 +5,7 @@
         type="button"
         class="ai-compose__tool ai-compose__tool--more"
         :class="{ 'ai-compose__tool--open': isToolMenuOpen }"
-        :aria-label="UI_LABELS[props.lang].more"
+        :aria-label="UI_LABELS[props.language].more"
         :aria-expanded="isToolMenuOpen"
         :disabled="props.isBusy || (!props.canSendPhoto && !props.canBook)"
         @click="toggleToolMenu"
@@ -20,8 +20,8 @@
           :disabled="!props.canSendPhoto"
           @click="pickTool('photo')"
         >
-          <AssistantIcon name="camera" />
-          <span>{{ PHOTO_LABELS[props.lang].button }}</span>
+          <AssistantIcon name="camera" class="ai-compose__item-icon" />
+          <span>{{ PHOTO_LABELS[props.language].button }}</span>
         </button>
         <button
           type="button"
@@ -30,15 +30,15 @@
           :disabled="!props.canBook"
           @click="pickTool('appointment')"
         >
-          <AssistantIcon name="calendar" />
-          <span>{{ APPOINTMENT_LABELS[props.lang].button }}</span>
+          <AssistantIcon name="calendar" class="ai-compose__item-icon" />
+          <span>{{ APPOINTMENT_LABELS[props.language].button }}</span>
         </button>
       </div>
       <button
         type="button"
         class="ai-compose__tool ai-compose__tool--wide"
-        :aria-label="PHOTO_LABELS[props.lang].button"
-        :title="PHOTO_LABELS[props.lang].button"
+        :aria-label="PHOTO_LABELS[props.language].button"
+        :title="PHOTO_LABELS[props.language].button"
         :disabled="props.isBusy || !props.canSendPhoto"
         @click="emit('photo')"
       >
@@ -47,8 +47,8 @@
       <button
         type="button"
         class="ai-compose__tool ai-compose__tool--wide"
-        :aria-label="APPOINTMENT_LABELS[props.lang].button"
-        :title="APPOINTMENT_LABELS[props.lang].button"
+        :aria-label="APPOINTMENT_LABELS[props.language].button"
+        :title="APPOINTMENT_LABELS[props.language].button"
         :disabled="props.isBusy || !props.canBook"
         @click="emit('appointment')"
       >
@@ -56,11 +56,12 @@
       </button>
     </div>
     <textarea
+      class="ai-compose__field"
       :value="props.modelValue"
       rows="1"
       maxlength="2000"
-      :placeholder="UI_PLACEHOLDER[props.lang]"
-      :aria-label="UI_LABELS[props.lang].message"
+      :placeholder="UI_PLACEHOLDER[props.language]"
+      :aria-label="UI_LABELS[props.language].message"
       @input="onInput"
       @focus="closeToolMenu"
       @keydown.enter.exact.prevent="emit('send')"
@@ -68,7 +69,7 @@
     <button
       type="submit"
       class="ai-compose__send"
-      :aria-label="UI_LABELS[props.lang].send"
+      :aria-label="UI_LABELS[props.language].send"
       :disabled="props.isBusy || !props.modelValue.trim()"
     >
       <AssistantIcon name="send" />
@@ -79,7 +80,7 @@
 <script lang="ts" setup>
 import type { EmitFn, PropType, Ref } from 'vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 import type {
   AssistantChatComposerEmits,
   AssistantChatComposerProps,
@@ -88,8 +89,8 @@ import type {
 import { APPOINTMENT_LABELS, PHOTO_LABELS, UI_LABELS, UI_PLACEHOLDER } from '~/constants/AssistantWidgetLabels'
 
 const props: AssistantChatComposerProps = defineProps({
-  lang: {
-    type: String as PropType<AssistantWidgetLang>,
+  language: {
+    type: String as PropType<AssistantWidgetLanguage>,
     required: true,
   },
   modelValue: {
@@ -192,7 +193,7 @@ onBeforeUnmount((): void => {
   gap: 8px;
   flex: none;
 }
-.ai-compose textarea {
+.ai-compose__field {
   flex: 1;
   min-width: 0;
   resize: none;
@@ -209,12 +210,12 @@ onBeforeUnmount((): void => {
   line-height: 1.35;
 }
 /* An empty field keeps its hint on one line, however narrow the bar is beside its tool buttons. */
-.ai-compose textarea:placeholder-shown {
+.ai-compose__field:placeholder-shown {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ai-compose textarea:focus {
+.ai-compose__field:focus {
   outline: 2px solid var(--ai-accent-strong);
   outline-offset: 1px;
 }
@@ -299,7 +300,7 @@ onBeforeUnmount((): void => {
   opacity: 0.4;
   cursor: default;
 }
-.ai-compose__item .assistant-icon {
+.ai-compose__item-icon {
   font-size: 18px;
   color: var(--ai-accent-strong);
 }

@@ -76,7 +76,7 @@ def test_the_confirmation_and_the_reminder_fit_one_sms_in_every_language() -> No
     assert "Ihr Termin am Do. 24.09. um 14:00" in AppointmentTexts.confirmation_sms(
         card=card, start_local=paris(24, 14), type_label=None, language="de"
     )
-    assert AppointmentTexts.language("lu") == "fr"
+    assert AppointmentTexts.language("lb") == "fr"
 
 
 def test_a_business_name_outside_gsm7_never_costs_the_visitor_their_sms() -> None:

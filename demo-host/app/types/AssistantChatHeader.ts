@@ -1,4 +1,4 @@
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 
 export type AssistantChatHeaderProps = {
   assistantName: string
@@ -8,11 +8,11 @@ export type AssistantChatHeaderProps = {
   avatarUrl: string
   avatarFallbackUrl: string
   canClose: boolean
-  lang: AssistantWidgetLang
-  languages: AssistantWidgetLang[]
+  language: AssistantWidgetLanguage
+  languages: AssistantWidgetLanguage[]
 }
 
 export type AssistantChatHeaderEmits = {
   close: []
-  'change-lang': [code: AssistantWidgetLang]
+  'change-language': [language: AssistantWidgetLanguage]
 }

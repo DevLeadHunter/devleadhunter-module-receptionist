@@ -1,5 +1,5 @@
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 
 export type AssistantChatTypingIndicatorProps = {
-  lang: AssistantWidgetLang
+  language: AssistantWidgetLanguage
 }

@@ -1,7 +1,7 @@
-import type { AssistantWidgetLang } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
 
 export type AssistantChatPhotoCardProps = {
-  lang: AssistantWidgetLang
+  language: AssistantWidgetLanguage
   isBusy: boolean
 }
 

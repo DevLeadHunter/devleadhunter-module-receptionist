@@ -12,10 +12,9 @@ FIRST_CHIP_SELECTOR = "[data-capture-chip], .ai-chips button"
 EXAMPLE_CHIP_SELECTOR = '[data-capture="example-chip"], .ai-chip--example'
 APPOINTMENT_CHIP_SELECTOR = '[data-capture="appointment-chip"], .ai-chip--appointment'
 
-# The bubbles of the thread have no capture attribute: the check of the example reads their classes.
-MESSAGE_SELECTOR = ".ai-m"
-VISITOR_MESSAGE_SELECTOR = ".ai-m--user"
-RECEPTIONIST_MESSAGE_SELECTOR = ".ai-m--assistant"
+MESSAGE_SELECTOR = "[data-capture-message], .ai-m"
+VISITOR_MESSAGE_SELECTOR = '[data-capture-message="user"], .ai-m--user'
+RECEPTIONIST_MESSAGE_SELECTOR = '[data-capture-message="assistant"], .ai-m--assistant'
 
 CLIENT_HOME_SELECTOR = '[data-capture="client-home"], .cs-home'
 REQUEST_ROW_SELECTOR = '[data-capture="client-home"] [data-capture="request-row"], .cs-home .cs-row'

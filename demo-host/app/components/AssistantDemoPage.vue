@@ -388,7 +388,7 @@ onMounted((): void => {
     top: 24px;
   }
 }
-.ia__banner--hidden :deep(.ac) {
+.ia__banner--hidden :deep(.contact-banner) {
   opacity: 0;
   pointer-events: none;
 }
