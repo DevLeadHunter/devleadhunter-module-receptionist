@@ -673,6 +673,10 @@ Aucune fonctionnalité nouvelle : une passe par commit (ou par écran pour l'int
 
 ### Relecture : points laissés pour plus tard
 
+Traités le 28/09 (voir « Vingt et unième passage » dans `docs/ASSISTANT_MODULE.md`), sauf `calendar_booking.py`,
+gardé d'un bloc (surtout des docstrings), et la conversion latin1 → utf8mb4 de la migration des documents,
+inutile mais sans effet.
+
 🟡 À faire dans une passe dédiée (plus gros, ou discutable) :
 - **Fichiers encore longs** :
   - `appointment_notices.py` (674 lignes) : sortir les textes et l'ICS dans `appointment_texts.py` ;
@@ -1012,6 +1016,9 @@ photos d'exemple par métier, cartes Asana à passer en Terminé à la main, pr�
 24. **Jeu de caractères des tables de la phase 1** : réglé à la relecture par la migration `convert_ai_assistant_tables_to_utf8mb4` (idempotente, MySQL seulement), qui convertit au déploiement toute table `ai_assistant*` encore en latin1 (les conversations et messages créés le 24/09 en font partie). Après le déploiement, vérifier : `SELECT TABLE_NAME, TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'ai_assistant%' AND TABLE_COLLATION NOT LIKE 'utf8mb4%';` doit ne rien renvoyer.
 
 ## Petits points laissés en l'état
+
+Traités le 28/09 : l'accord de « réceptionniste virtuel », le `GROQ_MODEL` de `.env.example` et la marque « test »
+du journal. Restent le renommage de `HTTP_413_REQUEST_ENTITY_TOO_LARGE` et les créneaux ajoutés après l'annonce.
 
 - L'email de résumé R3 dit toujours « votre réceptionniste virtuelle », même pour un prénom masculin. Le rapport R9 accorde déjà via `resolve_persona_gender` ; il suffit d'en faire autant dans `request_email.py`.
 - `api/.env.example` (ligne existante, non modifiée) propose `GROQ_MODEL=llama-3.3-70b-versatile`, un modèle retiré le 2026-06-17 selon `core/config.py`. Il faut le supprimer ou le remplacer par `openai/gpt-oss-120b`.

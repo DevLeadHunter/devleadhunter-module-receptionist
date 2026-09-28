@@ -1441,4 +1441,9 @@ référence, portrait de Sofia.
   conversation du widget, tests de l'agenda dans `tests/assistant_calendar/`) ; OAuth Google, appels Mistral/Groq,
   garde-fous SMS et envoi des messages sortants mis en commun ; tailles des champs en un seul module ; énumérations
   préfixées `AiAssistant*` ; lecture d'une adresse d'utilisateur limitée à l'internet public ; l'adresse d'un
-  événement Google Agenda est définie (le rappel J-1 d'un rendez-vous réservé dans l'agenda repart).
+  événement Google Agenda est définie (le rappel J-1 d'un rendez-vous réservé dans l'agenda repart) ; l'e-mail d'une
+  demande accorde « réceptionniste virtuel » au prénom, comme le rapport ; le journal des conversations marque les
+  visites de test.
+- **Laissé en l'état** : la liste du dashboard lit les étapes « Pour démarrer » réceptionniste par réceptionniste
+  (une requête d'agenda par réceptionniste vendue) ; `HTTP_413_REQUEST_ENTITY_TOO_LARGE` reste tant que la version de
+  Starlette du serveur, qui doit connaître `HTTP_413_CONTENT_TOO_LARGE`, n'est pas vérifiée.
