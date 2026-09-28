@@ -6,7 +6,7 @@ that cannot wait (quote, appointment, emergency by default), by a one-segment se
 owner's quiet window (22 h → 8 h, Paris time, by default) the SMS waits for the end of the window.
 A request still waiting after a day gets one reminder, never more; after two days the operator is
 told, because a subscriber leaving requests unanswered is about to churn. A demo alerts no one but
-the operator, whose push is sent by the request service.
+the operator, whose push is sent by the follow-up (``request_follow_up``).
 """
 
 from __future__ import annotations
