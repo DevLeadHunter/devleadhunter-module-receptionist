@@ -49,7 +49,7 @@ class ExtractedDocument:
 
     text: str
     pages: int
-    truncated: bool
+    is_truncated: bool
 
 
 class AiAssistantDocumentText:
@@ -77,12 +77,12 @@ class AiAssistantDocumentText:
     _READING: ClassVar[threading.Lock] = threading.Lock()
 
     @classmethod
-    async def read(cls, data: bytes) -> ExtractedDocument:
+    async def read(cls, pdf_bytes: bytes) -> ExtractedDocument:
         """
         Read a PDF in a separate process, one at a time, stopped after ``TIMEOUT_SECONDS``.
 
         Args:
-            data: The file's bytes.
+            pdf_bytes: The file's bytes.
 
         Returns:
             The cleaned, bounded text (see :meth:`extract`).
@@ -91,7 +91,7 @@ class AiAssistantDocumentText:
             DocumentRejected: When the file is refused or its reading takes too long.
             DocumentReaderBusy: When another PDF is being read.
         """
-        return await asyncio.to_thread(cls._read_in_process, data)
+        return await asyncio.to_thread(cls._read_in_process, pdf_bytes)
 
     @staticmethod
     def _reader_environment() -> dict[str, str]:
@@ -100,14 +100,14 @@ class AiAssistantDocumentText:
         return {name: os.environ[name] for name in kept if name in os.environ}
 
     @classmethod
-    def _read_in_process(cls, data: bytes) -> ExtractedDocument:
+    def _read_in_process(cls, pdf_bytes: bytes) -> ExtractedDocument:
         """Run the reading process on the file, kill it when it runs out of time, and read its answer."""
         if not cls._READING.acquire(blocking=False):
             raise DocumentReaderBusy(cls.BUSY)
         try:
             completed = subprocess.run(  # This module, run by the API's own interpreter.
                 [sys.executable, "-m", _READER_MODULE],
-                input=data,
+                input=pdf_bytes,
                 capture_output=True,
                 timeout=cls.TIMEOUT_SECONDS,
                 cwd=_API_ROOT,
@@ -131,7 +131,7 @@ class AiAssistantDocumentText:
         if isinstance(answer.get("error"), str):
             raise DocumentRejected(answer["error"])
         return ExtractedDocument(
-            text=str(answer["text"]), pages=int(answer["pages"]), truncated=bool(answer["truncated"])
+            text=str(answer["text"]), pages=int(answer["pages"]), is_truncated=bool(answer["truncated"])
         )
 
     @classmethod
@@ -145,12 +145,12 @@ class AiAssistantDocumentText:
             logger.info("PDF reading process left without a memory bound")
 
     @classmethod
-    def extract(cls, data: bytes) -> ExtractedDocument:
+    def extract(cls, pdf_bytes: bytes) -> ExtractedDocument:
         """
         Read the text of a PDF (in the calling process: see :meth:`read`).
 
         Args:
-            data: The file's bytes.
+            pdf_bytes: The file's bytes.
 
         Returns:
             The cleaned text, bounded to ``MAX_CHARS`` at a line break.
@@ -158,9 +158,9 @@ class AiAssistantDocumentText:
         Raises:
             DocumentRejected: When the file is not a readable PDF, is protected, is too large, or has no text layer.
         """
-        if len(data) > cls.MAX_BYTES:
+        if len(pdf_bytes) > cls.MAX_BYTES:
             raise DocumentRejected("Fichier trop lourd (10 Mo au plus)")
-        if not data.startswith(b"%PDF"):
+        if not pdf_bytes.startswith(b"%PDF"):
             raise DocumentRejected("Ce fichier n'est pas un PDF")
         limits = dict.fromkeys(
             (
@@ -174,7 +174,7 @@ class AiAssistantDocumentText:
         )
         try:
             with apply_configuration(**limits):
-                reader = PdfReader(io.BytesIO(data), strict=False)
+                reader = PdfReader(io.BytesIO(pdf_bytes), strict=False)
                 if reader.is_encrypted and not reader.decrypt(""):
                     raise DocumentRejected("PDF protégé par un mot de passe : enregistrez-le sans protection")
                 pages = [cls._page_text(page) for page in reader.pages[: cls.MAX_PAGES]]
@@ -187,8 +187,8 @@ class AiAssistantDocumentText:
         text = cls.clean("\n\n".join(pages))
         if len(text) < cls.MIN_CHARS:
             raise DocumentRejected("Ce PDF ne contient pas de texte lisible (document scanné ?)")
-        bounded, truncated = cls.bound(text, cls.MAX_CHARS)
-        return ExtractedDocument(text=bounded, pages=page_count, truncated=truncated or page_count > cls.MAX_PAGES)
+        bounded, is_cut = cls.bound(text, cls.MAX_CHARS)
+        return ExtractedDocument(text=bounded, pages=page_count, is_truncated=is_cut or page_count > cls.MAX_PAGES)
 
     @classmethod
     def _page_text(cls, page: PageObject) -> str:
@@ -244,7 +244,7 @@ def _main() -> None:
     AiAssistantDocumentText.bound_process()
     try:
         document = AiAssistantDocumentText.extract(sys.stdin.buffer.read())
-        answer: dict[str, object] = {"text": document.text, "pages": document.pages, "truncated": document.truncated}
+        answer: dict[str, object] = {"text": document.text, "pages": document.pages, "truncated": document.is_truncated}
     except DocumentRejected as exc:
         answer = {"error": str(exc)}
     except Exception:  # Memory exhausted, or anything pypdf raised past extract's net: the file cannot be read.

@@ -97,7 +97,7 @@ class AiAssistantSourceService:
         db.refresh(assistant)
         knowledge = dict(assistant.knowledge_json or {})
         previous = knowledge.get("website") if isinstance(knowledge.get("website"), dict) else None
-        if crawl is not None and not force and AiAssistantWebsiteSync.shrank(previous, crawl):
+        if crawl is not None and not force and AiAssistantWebsiteSync.has_shrunk(previous, crawl):
             sync = AiAssistantWebsiteSync.incomplete(previous, at=_utc_now())
         else:
             sync = AiAssistantWebsiteSync.record(previous, crawl, at=_utc_now())

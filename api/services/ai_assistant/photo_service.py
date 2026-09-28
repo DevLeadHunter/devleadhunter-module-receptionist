@@ -141,14 +141,14 @@ class AiAssistantPhotoService:
             url=url, business_name=business_name, trade=trade, language=language, eu_only=eu_only
         )
         photo.url = url
-        photo.relevant = analysis.relevant
+        photo.relevant = analysis.is_relevant
         photo.object_label = analysis.object_label
         photo.damage = analysis.damage
         photo.urgency = analysis.urgency.value if analysis.urgency else None
         photo.missing_questions = list(analysis.missing_questions) or None
         photo.reply = analysis.reply
         # An off-topic photo leaves storage at once; if that fails, its link is hidden and the purge retries.
-        if analysis.relevant is False and not await self._forget(photo):
+        if analysis.is_relevant is False and not await self._forget(photo):
             photo.url = None
         db.commit()
         db.refresh(photo)

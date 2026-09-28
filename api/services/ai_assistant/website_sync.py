@@ -94,7 +94,7 @@ class AiAssistantWebsiteSync:
         }
 
     @classmethod
-    def shrank(cls, previous: dict[str, Any] | None, crawl: dict[str, Any] | None) -> bool:
+    def has_shrunk(cls, previous: dict[str, Any] | None, crawl: dict[str, Any] | None) -> bool:
         """
         Whether a read lost more than half of the pages, or of the text, of the previous one.
 

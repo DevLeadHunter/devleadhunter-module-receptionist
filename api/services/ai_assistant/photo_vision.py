@@ -26,7 +26,7 @@ _MAX_REPLY_CHARS = 600
 class PhotoAnalysis:
     """What the vision model saw in a photo, and what the assistant answers the visitor."""
 
-    relevant: bool | None
+    is_relevant: bool | None
     object_label: str | None
     damage: str | None
     urgency: AiAssistantPhotoUrgency | None
@@ -117,7 +117,7 @@ class AiAssistantPhotoVision:
             eu_only: The assistant only allows Mistral (no Groq fallback).
 
         Returns:
-            The analysis; a neutral one (``relevant`` None) when no model is available.
+            The analysis; a neutral one (``is_relevant`` None) when no model is available.
         """
         context = (
             f"Entreprise : {business_name}" + (f" ({trade})" if trade else "") + ". "
@@ -155,8 +155,8 @@ class AiAssistantPhotoVision:
         if not isinstance(answer, dict):
             return cls.fallback(language)
         lang = cls._lang(language)
-        relevant = cls._verdict(answer.get("relevant"))
-        if relevant is False:
+        is_relevant = cls._verdict(answer.get("relevant"))
+        if is_relevant is False:
             reply = cls._text(answer.get("reply"), _MAX_REPLY_CHARS)
             safe = reply if reply and not cls.PRICE_PATTERN.search(reply) else cls.OFF_TOPIC_REPLIES[lang]
             return PhotoAnalysis(False, None, None, None, (), safe)
@@ -176,7 +176,7 @@ class AiAssistantPhotoVision:
         if not reply or cls.PRICE_PATTERN.search(reply):
             reply = cls.FALLBACK_REPLIES[lang]
         return PhotoAnalysis(
-            relevant=relevant,
+            is_relevant=is_relevant,
             object_label=cls._without_price(cls._text(answer.get("object"), SHORT_TEXT_MAX_CHARS)),
             damage=cls._without_price(cls._text(answer.get("damage"), SHORT_TEXT_MAX_CHARS)),
             urgency=urgency,

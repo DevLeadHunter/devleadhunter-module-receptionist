@@ -48,7 +48,7 @@ class AiAssistantDocumentService:
             or 0
         )
 
-    async def add(self, db: Session, assistant: AiAssistant, *, filename: str, data: bytes) -> AiAssistantDocument:
+    async def add(self, db: Session, assistant: AiAssistant, *, filename: str, pdf_bytes: bytes) -> AiAssistantDocument:
         """
         Read a PDF, keep the file in R2 and give its text to the assistant.
 
@@ -56,7 +56,7 @@ class AiAssistantDocumentService:
             db: Active database session.
             assistant: The assistant.
             filename: The uploaded file's name (shown to the operator, cited to visitors).
-            data: The file's bytes.
+            pdf_bytes: The file's bytes.
 
         Returns:
             The stored, enabled document.
@@ -70,10 +70,10 @@ class AiAssistantDocumentService:
             raise ValueError(self._limit_message())
         if not r2_storage.is_configured():
             raise RuntimeError("Stockage des fichiers indisponible")
-        extracted = await AiAssistantDocumentText.read(data)
-        key = r2_storage.assistant_document_key(assistant.id)
+        extracted = await AiAssistantDocumentText.read(pdf_bytes)
+        storage_key = r2_storage.assistant_document_key(assistant.id)
         try:
-            await r2_storage.upload_bytes_async(key, data, "application/pdf")
+            await r2_storage.upload_bytes_async(storage_key, pdf_bytes, "application/pdf")
         except Exception as exc:
             logger.warning("Document of assistant %s not uploaded", assistant.id, exc_info=True)
             raise RuntimeError("Stockage des fichiers indisponible") from exc
@@ -87,11 +87,11 @@ class AiAssistantDocumentService:
                 user_id=assistant.user_id,
                 assistant_id=assistant.id,
                 name=self.display_name(filename),
-                storage_key=key,
-                size_bytes=len(data),
+                storage_key=storage_key,
+                size_bytes=len(pdf_bytes),
                 pages=extracted.pages,
                 text=extracted.text,
-                truncated=extracted.truncated,
+                truncated=extracted.is_truncated,
                 enabled=True,
             )
             db.add(document)
@@ -100,7 +100,7 @@ class AiAssistantDocumentService:
             db.commit()
         except Exception:
             db.rollback()
-            await self._delete_file(key)
+            await self._delete_file(storage_key)
             raise
         db.refresh(document)
         return document
@@ -145,12 +145,12 @@ class AiAssistantDocumentService:
         document = self._get(db, assistant, document_id)
         if document is None:
             return False
-        key = document.storage_key
+        storage_key = document.storage_key
         db.delete(document)
         db.flush()
         self.sync_knowledge(db, assistant)
         db.commit()
-        await self._delete_file(key)
+        await self._delete_file(storage_key)
         return True
 
     def sync_knowledge(self, db: Session, assistant: AiAssistant) -> None:
@@ -182,12 +182,12 @@ class AiAssistantDocumentService:
         return f"{cls.MAX_DOCUMENTS} documents au plus : supprimez-en un d'abord"
 
     @staticmethod
-    async def _delete_file(key: str) -> None:
+    async def _delete_file(storage_key: str) -> None:
         """Delete a document's file, best effort (an orphan file is only storage)."""
         try:
-            await r2_storage.delete_async(key)
+            await r2_storage.delete_async(storage_key)
         except Exception:
-            logger.warning("Document file %s could not be deleted", key, exc_info=True)
+            logger.warning("Document file %s could not be deleted", storage_key, exc_info=True)
 
     @staticmethod
     def _get(db: Session, assistant: AiAssistant, document_id: int) -> AiAssistantDocument | None:
