@@ -1,10 +1,6 @@
 <template>
   <article class="cs-detail">
-    <header v-if="props.showBack" class="cs-bar">
-      <button type="button" class="cs-bar__back" @click="emit('back')">
-        <ClientSpaceIcon name="chevron-left" />Demandes
-      </button>
-    </header>
+    <ClientSpaceBackBar v-if="props.showBack" back-label="Demandes" @back="emit('back')" />
 
     <form class="cs-detail__body" @submit.prevent="submit">
       <div class="cs-head">

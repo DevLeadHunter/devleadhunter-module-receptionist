@@ -67,4 +67,4 @@ const appointmentLabel: ComputedRef<string> = computed((): string => {
 })
 </script>
 
-<!-- The row's styles are the client space's shared atoms (page styles): the receptionist's question rows reuse them. -->
+<!-- The row's styles are shared atoms (assets/css/client-space.css): the receptionist's question rows reuse them. -->

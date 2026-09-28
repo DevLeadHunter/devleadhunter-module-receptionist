@@ -27,7 +27,6 @@ import type {
   AiAssistantClientSettings,
   AiAssistantClientSpace,
   AiAssistantClientSubscription,
-  AiAssistantClientSubscriptionStatus,
 } from '~/types/AiAssistantClientSpace'
 import type {
   ClientSpaceSettingsEntry,
@@ -35,13 +34,7 @@ import type {
   ClientSpaceSettingsMenuEmits,
   ClientSpaceSettingsMenuProps,
 } from '~/types/ClientSpaceSettingsMenu'
-
-const SUBSCRIPTION_LABELS: Record<AiAssistantClientSubscriptionStatus, string> = {
-  incomplete: 'En attente',
-  active: 'Actif',
-  past_due: 'Paiement en attente',
-  canceled: 'Résilié',
-}
+import { CLIENT_SPACE_SUBSCRIPTION_STATUS_LABELS } from '~/constants/ClientSpaceSubscriptionStatuses'
 
 /**
  * The settings as a menu of grouped lines, each leading to one screen: the receptionist, the alerts, the
@@ -191,7 +184,7 @@ const groups: ComputedRef<ClientSpaceSettingsGroup[]> = computed((): ClientSpace
       {
         key: 'subscription',
         label: subscription ? subscription.price_label : 'Abonnement',
-        value: subscription ? SUBSCRIPTION_LABELS[subscription.status] : 'Aucun',
+        value: subscription ? CLIENT_SPACE_SUBSCRIPTION_STATUS_LABELS[subscription.status] : 'Aucun',
         tone: subscription?.status === 'active' ? 'green' : subscription?.status === 'past_due' ? 'amber' : 'plain',
         screen: 'subscription',
       },
