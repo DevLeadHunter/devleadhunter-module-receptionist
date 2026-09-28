@@ -31,9 +31,7 @@ from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots,
 from services.ai_assistant.field_limits import LONG_TEXT_MAX_CHARS, SESSION_ID_MAX_CHARS, SHORT_TEXT_MAX_CHARS
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.photo_service import ai_assistant_photo_service
-from services.ai_assistant.request_analyzer import TranscriptLine
 from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
-from services.ai_assistant.request_follow_up import ai_assistant_request_follow_up
 
 OWNER_LIST_LIMIT = 300
 # A resubmission within the same visit updates its request; after this, or once the request was
@@ -189,18 +187,6 @@ class AiAssistantRequestService:
         local = OpeningHoursCalendar.to_business_time(now_utc)
         release = QuietHours.release_at(local, settings.quiet_start_hour, settings.quiet_end_hour)
         request.sms_due_at = now_utc if release == local else OpeningHoursCalendar.to_utc(release)
-
-    def schedule_follow_up(self, request_id: int) -> None:
-        """Type, summarize and announce a request in the background (see ``request_follow_up``)."""
-        ai_assistant_request_follow_up.schedule_follow_up(request_id)
-
-    async def follow_up(self, db: Session, request: AiAssistantRequest, assistant: AiAssistant) -> None:
-        """Type and summarize a request, then announce it if not done yet (see ``request_follow_up``)."""
-        await ai_assistant_request_follow_up.follow_up(db, request, assistant)
-
-    def transcript(self, db: Session, request: AiAssistantRequest) -> list[TranscriptLine]:
-        """The conversation of the request's widget session, oldest first (see ``request_attachments``)."""
-        return AiAssistantRequestAttachments.transcript(db, request)
 
     def list_for_owner(
         self,
@@ -396,19 +382,6 @@ class AiAssistantRequestService:
             .scalar()
             or 0
         )
-
-    def unannounced_request_ids(self, db: Session, *, now: datetime | None = None) -> list[int]:
-        """Real requests whose announcement was lost, to pick up again (see ``request_follow_up``)."""
-        return ai_assistant_request_follow_up.unannounced_request_ids(db, now=now)
-
-    async def announce_pending(self) -> int:
-        """Run the follow-up of every request whose announcement was lost (see ``request_follow_up``)."""
-        return await ai_assistant_request_follow_up.announce_pending()
-
-    @staticmethod
-    def photo_urls(request: AiAssistantRequest) -> list[str]:
-        """Public URLs of the photos attached to a request, in upload order (see ``request_attachments``)."""
-        return AiAssistantRequestAttachments.photo_urls(request)
 
     @staticmethod
     def _set_status(request: AiAssistantRequest, status: AiAssistantRequestStatus) -> None:

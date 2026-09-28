@@ -34,6 +34,7 @@ from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots,
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
+from services.ai_assistant.request_follow_up import AiAssistantRequestFollowUp
 from services.ai_assistant.request_service import AiAssistantRequestService
 from services.rate_limiter import SlidingWindowRateLimiter
 from services.sms.gsm_segments import segment_count
@@ -81,7 +82,7 @@ def public_routes(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     monkeypatch.setattr(routes, "assistant_chat_limiter", SlidingWindowRateLimiter(30, 300))
     monkeypatch.setattr(routes, "assistant_lead_limiter", SlidingWindowRateLimiter(8, 300))
     monkeypatch.setattr(OpeningHoursCalendar, "business_now", staticmethod(lambda: _SUNDAY_EVENING))
-    monkeypatch.setattr(routes.ai_assistant_request_service, "schedule_follow_up", scheduled.append)
+    monkeypatch.setattr(routes.ai_assistant_request_follow_up, "schedule_follow_up", scheduled.append)
     return scheduled
 
 
@@ -240,7 +241,7 @@ def test_the_follow_up_makes_it_an_appointment_announced_with_its_half_days(
     request.created_at = _TUESDAY_14H_UTC
     db.commit()
 
-    asyncio.run(AiAssistantRequestService().follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
 
     assert request.type == AiAssistantRequestType.APPOINTMENT.value
     sent = outbox["email"].calls[0]
@@ -259,7 +260,7 @@ def test_an_urgency_read_by_the_analysis_wins_over_the_half_days(db: Session, ou
     request.created_at = _TUESDAY_14H_UTC
     db.commit()
 
-    asyncio.run(AiAssistantRequestService().follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
 
     assert request.type == AiAssistantRequestType.URGENT.value
     [sms] = outbox["sms"].texts

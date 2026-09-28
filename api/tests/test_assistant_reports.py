@@ -43,6 +43,7 @@ from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
 from services.ai_assistant.chat_service import ChatAnswer
 from services.ai_assistant.report_email import AiAssistantReportEmail, LanguageShare, MonthlyStats, ReportEmailContent
 from services.ai_assistant.report_service import AiAssistantReportService, ReportPeriod
+from services.ai_assistant.report_stats import AiAssistantReportStats
 from services.assistant_subscription_service import AssistantSubscriptionService
 from tests.assistant_fakes import AsyncCallRecorder
 
@@ -260,7 +261,7 @@ def test_the_figures_cover_the_month_exactly_without_tests_or_other_assistants(
     _request(db, assistant, created_at=datetime(2026, 8, 31, 21, 30), request_type="quote")
     _request(db, other, created_at=received, request_type="quote")
 
-    stats = asyncio.run(AiAssistantReportService().compute(db, assistant, start=_SEPTEMBER.start, end=_SEPTEMBER.end))
+    stats = asyncio.run(AiAssistantReportStats.compute(db, assistant, start=_SEPTEMBER.start, end=_SEPTEMBER.end))
 
     assert stats == MonthlyStats(
         conversations=5,

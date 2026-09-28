@@ -28,7 +28,7 @@ def business_clock(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     """Monday 10:00 in Paris, and the background work recorded instead of run."""
     scheduled: list[int] = []
     monkeypatch.setattr(OpeningHoursCalendar, "business_now", staticmethod(lambda: MONDAY_10H))
-    monkeypatch.setattr(routes.ai_assistant_request_service, "schedule_follow_up", lambda request_id: None)
+    monkeypatch.setattr(routes.ai_assistant_request_follow_up, "schedule_follow_up", lambda request_id: None)
     monkeypatch.setattr(routes.ai_assistant_appointment_notices, "schedule_confirmation", scheduled.append)
     return scheduled
 

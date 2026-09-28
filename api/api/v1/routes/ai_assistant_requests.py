@@ -34,6 +34,7 @@ from schemas.ai_assistant import (
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
 from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
+from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
 from services.ai_assistant.request_links import AiAssistantRequestLinks
 from services.ai_assistant.request_service import ai_assistant_request_service
 from services.auth_service import get_current_active_user
@@ -65,7 +66,7 @@ def _to_request_item(
         received_outside_hours=request.received_outside_hours,
         is_test=request.is_test,
         owner_note=request.owner_note,
-        photo_urls=ai_assistant_request_service.photo_urls(request),
+        photo_urls=AiAssistantRequestAttachments.photo_urls(request),
         appointment_slots=AiAssistantAppointmentSlots.labels(request.appointment_slots_json),
         appointment_booked=booked,
         created_at=request.created_at,
@@ -169,7 +170,7 @@ async def get_assistant_request(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
     assistant = db.get(AiAssistant, record.assistant_id)
     booked = ai_assistant_calendar_booking.booked_labels(db, [record.id]).get(record.id)
-    transcript = ai_assistant_request_service.transcript(db, record)
+    transcript = AiAssistantRequestAttachments.transcript(db, record)
     return AiAssistantRequestDetail(
         request=_to_request_item(record, assistant.business_name if assistant else "", booked),
         transcript=[

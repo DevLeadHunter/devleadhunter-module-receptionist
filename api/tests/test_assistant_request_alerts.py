@@ -31,6 +31,7 @@ from services.ai_assistant.alert_settings import AlertSettings, QuietHours
 from services.ai_assistant.alert_sms import AlertSms
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.request_alerts import AiAssistantRequestAlerts
+from services.ai_assistant.request_follow_up import AiAssistantRequestFollowUp
 from services.ai_assistant.request_service import AiAssistantRequestService
 from services.sms.gsm_segments import segment_count
 from services.sms.phone_normalizer import to_e164_mobile
@@ -195,7 +196,7 @@ def test_a_quote_at_22h_pushes_now_texts_at_8h_and_reminds_once_the_next_day(
     alerts = AiAssistantRequestAlerts()
     _freeze(monkeypatch, _MONDAY_22H_UTC)
 
-    asyncio.run(AiAssistantRequestService().follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
 
     assert len(outbox["push"].calls) == 1
     assert len(outbox["email"].calls) == 1
@@ -230,7 +231,7 @@ def test_a_question_goes_by_email_only(db: Session, outbox: dict[str, Any], monk
     request = _request(db, assistant, created_at=_TUESDAY_8H_UTC + timedelta(hours=4))
     _freeze(monkeypatch, _TUESDAY_8H_UTC + timedelta(hours=4))
 
-    asyncio.run(AiAssistantRequestService().follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
 
     assert len(outbox["email"].calls) == 1
     assert request.sms_due_at is None
@@ -244,7 +245,7 @@ def test_a_quote_in_the_day_is_texted_at_once(
     request = _request(db, assistant, created_at=_TUESDAY_8H_UTC + timedelta(hours=4))
     _freeze(monkeypatch, _TUESDAY_8H_UTC + timedelta(hours=4))
 
-    asyncio.run(AiAssistantRequestService().follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
 
     assert len(outbox["sms"].texts) == 1
     assert request.sms_sent_at is not None
@@ -255,7 +256,7 @@ def test_a_demo_never_alerts_its_prospect(db: Session, outbox: dict[str, Any], m
     request = _request(db, assistant, created_at=_TUESDAY_8H_UTC + timedelta(hours=4))
     _freeze(monkeypatch, _TUESDAY_8H_UTC + timedelta(hours=4))
 
-    asyncio.run(AiAssistantRequestService().follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
 
     assert len(outbox["push"].calls) == 1
     assert outbox["email"].calls == []
@@ -270,7 +271,7 @@ def test_the_owner_can_turn_each_channel_off(
     request = _request(db, assistant, created_at=_TUESDAY_8H_UTC + timedelta(hours=4))
     _freeze(monkeypatch, _TUESDAY_8H_UTC + timedelta(hours=4))
 
-    asyncio.run(AiAssistantRequestService().follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
 
     assert outbox["email"].calls == []
     assert outbox["sms"].texts == []
@@ -283,7 +284,7 @@ def test_a_request_handled_before_8h_is_never_texted(
     assistant = _assistant(db)
     request = _request(db, assistant, created_at=_MONDAY_22H_UTC)
     _freeze(monkeypatch, _MONDAY_22H_UTC)
-    asyncio.run(AiAssistantRequestService().follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
 
     AiAssistantRequestService().update_for_owner(db, request, status=AiAssistantRequestStatus.HANDLED)
 
@@ -316,7 +317,7 @@ def test_requests_waiting_48h_warn_the_operator_once_per_subscriber(db: Session,
 def test_a_demo_request_is_never_reminded_after_the_sale(db: Session, outbox: dict[str, Any]) -> None:
     assistant = _assistant(db, status="active")
     request = _request(db, assistant, created_at=_MONDAY_22H_UTC)
-    asyncio.run(AiAssistantRequestService().follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
     assistant.status = "delivered"
     db.commit()
 

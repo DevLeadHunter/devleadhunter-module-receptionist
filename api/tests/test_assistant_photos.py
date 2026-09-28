@@ -27,6 +27,8 @@ from models.prospect_db import ProspectDB
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.photo_service import AiAssistantPhotoService, PhotoRejectedError
 from services.ai_assistant.photo_vision import AiAssistantPhotoVision
+from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
+from services.ai_assistant.request_follow_up import AiAssistantRequestFollowUp
 from services.ai_assistant.request_service import AiAssistantRequestService
 from tests.assistant_fakes import AsyncCallRecorder
 
@@ -216,11 +218,11 @@ def test_the_session_photos_make_the_request_a_quote_by_photo(db: Session, cloud
     request, _ = service.capture(
         db, assistant=assistant, name="Marc", contact="06 12 34 56 78", need=None, language="fr", session_id="session-1"
     )
-    asyncio.run(service.follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
 
     assert request.channel == AiAssistantRequestChannel.PHOTO.value
     assert request.type == AiAssistantRequestType.QUOTE.value
-    assert service.photo_urls(request) == [photo.url]
+    assert AiAssistantRequestAttachments.photo_urls(request) == [photo.url]
     assert request.photos_json[0]["damage"] == "rayure profonde, peinture à refaire"
     db.refresh(photo)
     assert photo.request_id == request.id
@@ -235,7 +237,7 @@ def test_a_photo_showing_an_immediate_risk_makes_the_request_urgent(db: Session,
     request, _ = service.capture(
         db, assistant=assistant, name="Léa", contact="06 12 34 56 78", need=None, language="fr", session_id="session-1"
     )
-    asyncio.run(service.follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
 
     assert request.type == AiAssistantRequestType.URGENT.value
 
@@ -258,7 +260,7 @@ def test_photos_leave_storage_after_90_days_and_their_links_leave_the_request(
     db.refresh(request)
     assert photo.url is None and photo.deleted_at is not None
     assert cloud["storage"].objects == {}
-    assert AiAssistantRequestService.photo_urls(request) == []
+    assert AiAssistantRequestAttachments.photo_urls(request) == []
     [journaled] = [message for message in db.query(AiAssistantConversation).one().messages if message.role == "user"]
     assert journaled.photo_url is None
     assert request.photos_json[0]["damage"] == "rayure profonde, peinture à refaire"
@@ -364,7 +366,7 @@ def test_a_photo_sent_after_the_contact_details_joins_the_request(db: Session, c
     service.attach_late_photos(db, assistant_id=assistant.id, session_id="session-1")
 
     db.refresh(request)
-    assert service.photo_urls(request) == [photo.url]
+    assert AiAssistantRequestAttachments.photo_urls(request) == [photo.url]
     assert request.type == AiAssistantRequestType.QUOTE.value
     assert request.channel == AiAssistantRequestChannel.PHOTO.value
 
@@ -388,7 +390,7 @@ def test_a_photo_sent_to_another_assistant_never_joins_the_request(db: Session, 
     service.attach_late_photos(db, assistant_id=assistant.id, session_id="session-1")
 
     db.refresh(request)
-    assert service.photo_urls(request) == []
+    assert AiAssistantRequestAttachments.photo_urls(request) == []
     assert request.channel != AiAssistantRequestChannel.PHOTO.value
 
 

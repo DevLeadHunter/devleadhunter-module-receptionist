@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_request import AiAssistantRequest
+from services.ai_assistant.request_follow_up import ai_assistant_request_follow_up
 from services.ai_assistant.request_service import ai_assistant_request_service
 from services.ai_assistant.visitor_contact import VisitorContact
 
@@ -120,7 +121,7 @@ class AiAssistantChatContactCapture:
             session_id=session,
             is_test=is_test,
         )
-        ai_assistant_request_service.schedule_follow_up(request.id)
+        ai_assistant_request_follow_up.schedule_follow_up(request.id)
         return CapturedChatContact(request=request, name=request.name, contact=request.contact)
 
     @classmethod

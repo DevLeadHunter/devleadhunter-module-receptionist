@@ -77,6 +77,7 @@ from services.ai_assistant.photo_service import (
     PhotoRejectedError,
     ai_assistant_photo_service,
 )
+from services.ai_assistant.request_follow_up import ai_assistant_request_follow_up
 from services.ai_assistant.request_service import ai_assistant_request_service
 from services.ai_assistant.request_volume import AiAssistantRequestVolume
 from services.ai_assistant.visitor_contact import VisitorContact
@@ -567,7 +568,7 @@ async def submit_assistant_lead(
             elif outcome.appointment.visitor_email:
                 channel = AssistantVisitorChannel.EMAIL
 
-    ai_assistant_request_service.schedule_follow_up(captured.id)
+    ai_assistant_request_follow_up.schedule_follow_up(captured.id)
     return AiAssistantLeadResponse(ok=True, booked_start=booked_start, confirmation_channel=channel)
 
 

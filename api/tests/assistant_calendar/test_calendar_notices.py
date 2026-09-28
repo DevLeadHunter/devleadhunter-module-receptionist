@@ -17,7 +17,6 @@ from services.ai_assistant.alert_sms import AlertSms
 from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
 from services.ai_assistant.appointment_reminder import AppointmentReminderWindow
 from services.ai_assistant.appointment_texts import AppointmentTexts, BusinessCard
-from services.ai_assistant.calendar_booking import AiAssistantCalendarBooking
 from services.ai_assistant.google_calendar_client import CalendarEventState
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
 from services.sms.gsm_segments import segment_count, to_gsm7
@@ -35,9 +34,9 @@ from tests.assistant_calendar.calendar_fakes import (
 def test_the_reminder_leaves_the_day_before_within_the_day_or_not_at_all() -> None:
     booked_monday = utc(MONDAY_10H)
 
-    assert AiAssistantCalendarBooking.reminder_due_at(utc(paris(24, 8)), booked_at=booked_monday) == utc(paris(23, 9))
-    assert AiAssistantCalendarBooking.reminder_due_at(utc(paris(24, 21)), booked_at=booked_monday) == utc(paris(23, 19))
-    assert AiAssistantCalendarBooking.reminder_due_at(utc(paris(22, 11)), booked_at=booked_monday) is None
+    assert AppointmentReminderWindow.due_at(utc(paris(24, 8)), booked_at=booked_monday) == utc(paris(23, 9))
+    assert AppointmentReminderWindow.due_at(utc(paris(24, 21)), booked_at=booked_monday) == utc(paris(23, 19))
+    assert AppointmentReminderWindow.due_at(utc(paris(22, 11)), booked_at=booked_monday) is None
 
 
 def test_the_reminder_is_planned_until_19h_and_still_sent_until_20h() -> None:

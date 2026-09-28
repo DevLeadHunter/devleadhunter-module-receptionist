@@ -7,7 +7,7 @@ import logging
 
 from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
 from services.ai_assistant.request_alerts import ai_assistant_request_alerts
-from services.ai_assistant.request_service import ai_assistant_request_service
+from services.ai_assistant.request_follow_up import ai_assistant_request_follow_up
 from services.ai_assistant.unanswered_digest import ai_assistant_unanswered_digest
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class AiAssistantRequestRunner:
         """
         while True:
             try:
-                recovered: int = await ai_assistant_request_service.announce_pending()
+                recovered: int = await ai_assistant_request_follow_up.announce_pending()
                 if recovered:
                     logger.info("Announced assistant requests picked up again: %s", recovered)
             except Exception:

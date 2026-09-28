@@ -317,7 +317,9 @@ class AiAssistantCalendarBooking:
                 visitor_email=visitor_email,
                 language=request.language,
                 is_test=bool(request.is_test),
-                reminder_due_at=self.reminder_due_at(start_utc, booked_at=OpeningHoursCalendar.to_utc(local_now)),
+                reminder_due_at=AppointmentReminderWindow.due_at(
+                    start_utc, booked_at=OpeningHoursCalendar.to_utc(local_now)
+                ),
             )
             db.add(appointment)
             if calendar.last_error:
@@ -326,11 +328,6 @@ class AiAssistantCalendarBooking:
             db.refresh(appointment)
         ai_assistant_calendar_access.forget_busy(calendar.id)
         return appointment
-
-    @staticmethod
-    def reminder_due_at(start_utc: datetime, *, booked_at: datetime) -> datetime | None:
-        """When the visitor's J-1 reminder leaves, None when too close to the booking (see ``appointment_reminder``)."""
-        return AppointmentReminderWindow.due_at(start_utc, booked_at=booked_at)
 
     @staticmethod
     def start_label(appointment: AiAssistantAppointment) -> str:

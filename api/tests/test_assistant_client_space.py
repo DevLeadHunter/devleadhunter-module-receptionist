@@ -48,7 +48,7 @@ from services.ai_assistant.event_intake import AiAssistantEventIntake, EventInta
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.limits import AiAssistantLimits
 from services.ai_assistant.report_email import AiAssistantReportEmail
-from services.ai_assistant.report_service import ai_assistant_report_service
+from services.ai_assistant.report_stats import AiAssistantReportStats
 from services.ai_assistant.request_analyzer import ai_assistant_request_analyzer
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
 from services.rate_limiter import SlidingWindowRateLimiter
@@ -643,7 +643,7 @@ def test_a_called_back_request_is_marked_won_or_lost_and_the_month_counts_the_cl
     won = outcome(fresh.id, AiAssistantRequestOutcome.WON)
     assert (won.status.value, won.outcome) == ("handled", AiAssistantRequestOutcome.WON)
     stats = asyncio.run(
-        ai_assistant_report_service.compute(db, assistant, start=datetime(2026, 9, 1), end=datetime(2026, 10, 1))
+        AiAssistantReportStats.compute(db, assistant, start=datetime(2026, 9, 1), end=datetime(2026, 10, 1))
     )
     assert (
         stats.won == 1

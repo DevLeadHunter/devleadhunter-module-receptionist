@@ -34,7 +34,7 @@ def scheduled(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     follow_ups: list[int] = []
     monkeypatch.setattr(routes, "assistant_chat_limiter", SlidingWindowRateLimiter(30, 300))
     monkeypatch.setattr(routes, "assistant_lead_limiter", SlidingWindowRateLimiter(8, 300))
-    monkeypatch.setattr(routes.ai_assistant_request_service, "schedule_follow_up", follow_ups.append)
+    monkeypatch.setattr(routes.ai_assistant_request_follow_up, "schedule_follow_up", follow_ups.append)
     monkeypatch.setattr(
         routes.ai_assistant_chat_service, "answer", AsyncCallRecorder(result=ChatAnswer(reply="Bien noté, merci."))
     )

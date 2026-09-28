@@ -209,10 +209,6 @@ class AiAssistantReportService:
             return False
         return await self._attempt(db, row, now=now)
 
-    async def compute(self, db: Session, assistant: AiAssistant, *, start: datetime, end: datetime) -> MonthlyStats:
-        """The figures of an assistant over a period, test visits and requests excluded (see ``report_stats``)."""
-        return await AiAssistantReportStats.compute(db, assistant, start=start, end=end)
-
     def service_start(self, db: Session, assistant_id: int, period: ReportPeriod) -> datetime | None:
         """
         Where an assistant's report of a month starts: the month's start, or the payment when it came later.
@@ -294,7 +290,7 @@ class AiAssistantReportService:
         period = ReportPeriod.of_key(row.month)
         start = self.service_start(db, assistant.id, period) or period.start
         if row.stats_json is None:
-            stats = await self.compute(db, assistant, start=start, end=period.end)
+            stats = await AiAssistantReportStats.compute(db, assistant, start=start, end=period.end)
             row.stats_json = asdict(stats)
             row.is_empty = stats.is_empty
             db.commit()

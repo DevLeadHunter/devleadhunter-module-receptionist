@@ -62,7 +62,7 @@ from services.ai_assistant.report_email import AiAssistantReportEmail, MonthlySt
 from services.ai_assistant.report_service import ReportPeriod
 from services.ai_assistant.request_alerts import ai_assistant_request_alerts
 from services.ai_assistant.request_analyzer import AiAssistantRequestAnalyzer
-from services.ai_assistant.request_service import ai_assistant_request_service
+from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
 from services.assistant_pricing_service import AssistantPricingService
 from services.french_date_formatter import FrenchDateFormatter
 from services.rate_limiter import (
@@ -113,7 +113,7 @@ def _to_request_item(record: AiAssistantRequest, booked: str | None = None) -> A
         received_day=_business_label(record.created_at, "%Y-%m-%d"),
         received_time=_business_label(record.created_at, "%H:%M"),
         received_outside_hours=record.received_outside_hours,
-        photo_urls=ai_assistant_request_service.photo_urls(record),
+        photo_urls=AiAssistantRequestAttachments.photo_urls(record),
         appointment_slots=AiAssistantAppointmentSlots.labels(record.appointment_slots_json),
         appointment_booked=booked,
         outcome=AiAssistantRequestOutcome(record.outcome) if record.outcome else None,

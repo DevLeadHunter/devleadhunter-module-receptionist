@@ -26,7 +26,9 @@ from models.prospect_db import ProspectDB
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
 from services.ai_assistant.request_analyzer import TranscriptLine
+from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
+from services.ai_assistant.request_follow_up import AiAssistantRequestFollowUp
 from services.ai_assistant.request_links import AiAssistantRequestLinks
 from services.ai_assistant.request_service import AiAssistantRequestService
 from tests.assistant_fakes import VISITOR_REQUEST, AsyncCallRecorder
@@ -164,7 +166,7 @@ def test_the_request_links_the_session_conversation(db: Session) -> None:
     )
 
     request, _ = _capture(db, assistant)
-    transcript = AiAssistantRequestService().transcript(db, request)
+    transcript = AiAssistantRequestAttachments.transcript(db, request)
 
     assert request.conversation_id is not None
     assert [(line.role, line.content) for line in transcript] == [
@@ -192,8 +194,8 @@ def test_follow_up_types_summarizes_and_announces_a_sold_assistant_request_once(
     request, _ = _capture(db, assistant)
     service = AiAssistantRequestService()
 
-    asyncio.run(service.follow_up(db, request, assistant))
-    asyncio.run(service.follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
 
     assert request.type == AiAssistantRequestType.QUOTE.value
     assert request.need_summary == "Tuiles déplacées côté rue, devis demandé."
@@ -215,7 +217,7 @@ def test_the_business_email_falls_back_on_the_prospect_address(
     assistant = _assistant(db, status="delivered")
     request, _ = _capture(db, assistant)
 
-    asyncio.run(AiAssistantRequestService().follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
 
     assert outbox["email"].calls[0]["recipient_email"] == "contact@toitures-morel.fr"
 
@@ -224,7 +226,7 @@ def test_a_demo_request_never_writes_to_the_prospect(db: Session, outbox: dict[s
     assistant = _assistant(db, status="active", email="patron@toitures-morel.fr")
     request, _ = _capture(db, assistant)
 
-    asyncio.run(AiAssistantRequestService().follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
 
     assert outbox["email"].calls == []
     assert len(outbox["push"].calls) == 1
@@ -236,7 +238,7 @@ def test_an_internal_test_request_is_typed_but_never_announced(
     assistant = _assistant(db, status="delivered", email="patron@toitures-morel.fr")
     request, _ = _capture(db, assistant, is_test=True)
 
-    asyncio.run(AiAssistantRequestService().follow_up(db, request, assistant))
+    asyncio.run(AiAssistantRequestFollowUp().follow_up(db, request, assistant))
 
     assert request.type == AiAssistantRequestType.QUOTE.value
     assert outbox["email"].calls == []
@@ -380,11 +382,11 @@ def test_lost_announcements_are_picked_up_once_by_the_runner(
     add(0.5)
     add(60 * 25)
     monkeypatch.setattr(follow_up_module, "SessionLocal", sessionmaker(bind=engine))
-    service = AiAssistantRequestService()
+    follow_up = AiAssistantRequestFollowUp()
 
-    assert service.unannounced_request_ids(db, now=now) == [lost.id]
-    assert asyncio.run(service.announce_pending()) == 1
-    assert asyncio.run(service.announce_pending()) == 0
+    assert follow_up.unannounced_request_ids(db, now=now) == [lost.id]
+    assert asyncio.run(follow_up.announce_pending()) == 1
+    assert asyncio.run(follow_up.announce_pending()) == 0
     assert len(outbox["push"].calls) == 1
 
 

@@ -44,7 +44,7 @@ def capped_routes(monkeypatch: pytest.MonkeyPatch) -> dict[str, AsyncCallRecorde
     monkeypatch.setattr(cap_module.settings, "assistant_daily_visitor_message_cap", 2)
     monkeypatch.setattr(routes, "assistant_chat_limiter", SlidingWindowRateLimiter(30, 300))
     monkeypatch.setattr(routes.ai_assistant_chat_service, "answer", model)
-    monkeypatch.setattr(routes.ai_assistant_request_service, "schedule_follow_up", lambda request_id: None)
+    monkeypatch.setattr(routes.ai_assistant_request_follow_up, "schedule_follow_up", lambda request_id: None)
     monkeypatch.setattr(cap_module.notification_service, "notify_assistant_daily_cap_reached", alert)
     return {"model": model, "alert": alert}
 
