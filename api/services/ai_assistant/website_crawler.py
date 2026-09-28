@@ -3,6 +3,7 @@
 The Google Maps enrichment says little (a line of description, sometimes no service at all); the
 prospect's own site says what they sell, at what price, where and to whom. A handful of pages, text
 only, bounded so the whole site fits in the prompt — no retrieval layer until a catalogue needs one.
+The address is typed by a person: only the public internet is fetched, redirects included (``public_url_guard``).
 """
 
 import asyncio
@@ -15,6 +16,8 @@ from urllib.parse import urljoin, urlparse, urlunparse
 
 import httpx
 from bs4 import BeautifulSoup
+
+from services.public_url_guard import PublicOnlyAsyncTransport
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +111,10 @@ class AiAssistantWebsiteCrawler:
         total_chars: int = 0
         try:
             async with httpx.AsyncClient(
-                timeout=FETCH_TIMEOUT_SECONDS, follow_redirects=True, headers={"User-Agent": _USER_AGENT}
+                timeout=FETCH_TIMEOUT_SECONDS,
+                follow_redirects=True,
+                headers={"User-Agent": _USER_AGENT},
+                transport=PublicOnlyAsyncTransport(),
             ) as client:
                 home = await self._fetch(client, home_url)
                 if home is None:
