@@ -3,7 +3,6 @@ prospecting video.
 """
 
 import logging
-from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -13,6 +12,7 @@ from api.v1.routes.ai_assistant_common import (
     demo_url,
     owned_assistant_or_404,
 )
+from core.clock import naive_utc_now
 from core.database import get_db
 from enums.ai_assistant_request import AiAssistantRequestType
 from enums.ai_assistant_start_step import AiAssistantStartStep
@@ -429,6 +429,6 @@ async def delete_assistant(
             status_code=status.HTTP_409_CONFLICT, detail="Résiliez d'abord l'abonnement de cette réceptionniste."
         )
     assistant.status = AiAssistantStatus.DELETED.value
-    assistant.deleted_at = datetime.now(UTC).replace(tzinfo=None)
+    assistant.deleted_at = naive_utc_now()
     db.commit()
     await ai_assistant_purge_service.purge(db, assistant)

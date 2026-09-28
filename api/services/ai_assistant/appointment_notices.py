@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import ClassVar
 
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
+from core.clock import naive_utc_now
 from core.database import SessionLocal
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
@@ -32,11 +33,6 @@ from services.email_sending_service import EmailSendingService
 from services.sms_config_service import sms_config_service
 
 logger = logging.getLogger(__name__)
-
-
-def _utc_now() -> datetime:
-    """Current time, naive UTC (patched in tests)."""
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class AiAssistantAppointmentNotices:
@@ -114,7 +110,7 @@ class AiAssistantAppointmentNotices:
         assistant = db.get(AiAssistant, appointment.assistant_id)
         if assistant is None:
             return True
-        if not await self._still_scheduled(db, assistant, appointment, now=now or _utc_now()):
+        if not await self._still_scheduled(db, assistant, appointment, now=now or naive_utc_now()):
             return True
         card = BusinessCard.of(assistant)
         language = AppointmentTexts.language(appointment.language)
@@ -187,7 +183,7 @@ class AiAssistantAppointmentNotices:
         Returns:
             How many messages were claimed.
         """
-        current = now or _utc_now()
+        current = now or naive_utc_now()
         booked = AiAssistantAppointment.google_event_id.is_not(None)
         lost = (
             db.query(AiAssistantAppointment)
@@ -243,7 +239,7 @@ class AiAssistantAppointmentNotices:
         db: Session, appointment: AiAssistantAppointment, column: InstrumentedAttribute[datetime | None]
     ) -> bool:
         """Mark a message sent before it leaves, only if nobody did (atomic)."""
-        return AiAssistantMessageDelivery.claim(db, appointment, column.is_(None), values={column: _utc_now()})
+        return AiAssistantMessageDelivery.claim(db, appointment, column.is_(None), values={column: naive_utc_now()})
 
     @staticmethod
     async def _send_sms(db: Session, assistant: AiAssistant, appointment: AiAssistantAppointment, text: str) -> None:

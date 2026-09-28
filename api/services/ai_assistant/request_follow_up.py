@@ -13,10 +13,11 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import asdict
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from core.clock import naive_utc_now
 from core.database import SessionLocal
 from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
 from models.ai_assistant import AiAssistant
@@ -124,7 +125,7 @@ class AiAssistantRequestFollowUp:
         Returns:
             Ids of requests still new, captured between one day and two minutes ago, never announced.
         """
-        current = now or datetime.now(UTC).replace(tzinfo=None)
+        current = now or naive_utc_now()
         rows = (
             db.query(AiAssistantRequest.id)
             .filter(

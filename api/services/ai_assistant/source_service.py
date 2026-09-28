@@ -15,6 +15,7 @@ from typing import Any, ClassVar
 
 from sqlalchemy.orm import Session
 
+from core.clock import naive_utc_now
 from core.database import SessionLocal
 from enums.ai_assistant_status import AiAssistantStatus
 from models.ai_assistant import AiAssistant
@@ -24,11 +25,6 @@ from services.ai_assistant.knowledge_sources import SourceToggles
 from services.ai_assistant.website_sync import AiAssistantWebsiteSync
 
 logger = logging.getLogger(__name__)
-
-
-def _utc_now() -> datetime:
-    """Current time, naive UTC (patched in tests)."""
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class AiAssistantSourceService:
@@ -98,9 +94,9 @@ class AiAssistantSourceService:
         knowledge = dict(assistant.knowledge_json or {})
         previous = knowledge.get("website") if isinstance(knowledge.get("website"), dict) else None
         if crawl is not None and not force and AiAssistantWebsiteSync.has_shrunk(previous, crawl):
-            sync = AiAssistantWebsiteSync.incomplete(previous, at=_utc_now())
+            sync = AiAssistantWebsiteSync.incomplete(previous, at=naive_utc_now())
         else:
-            sync = AiAssistantWebsiteSync.record(previous, crawl, at=_utc_now())
+            sync = AiAssistantWebsiteSync.record(previous, crawl, at=naive_utc_now())
             if crawl is not None:
                 knowledge["website"] = crawl
         knowledge["website_sync"] = sync
@@ -120,7 +116,7 @@ class AiAssistantSourceService:
         Returns:
             At most ``MAX_PER_PASS`` assistants.
         """
-        current = now or _utc_now()
+        current = now or naive_utc_now()
         candidates = (
             db.query(AiAssistant)
             .join(ProspectDB, ProspectDB.id == AiAssistant.prospect_id)

@@ -172,7 +172,7 @@ def test_unanswered_questions_count_once_per_wording_and_the_oldest_leaves_when_
 ) -> None:
     assistant = _assistant(db)
     clock = [datetime(2026, 9, 25, 9, 0)]
-    monkeypatch.setattr(faq_module, "_utc_now", lambda: clock[0])
+    monkeypatch.setattr(faq_module, "naive_utc_now", lambda: clock[0])
 
     ai_assistant_faq_service.record_unanswered(db, assistant, "  Livrez-vous à domicile ?  ")
     clock[0] = datetime(2026, 9, 25, 9, 30)
@@ -204,7 +204,7 @@ def test_an_answer_in_the_faq_removes_the_unanswered_question_and_positions_are_
     db: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     assistant = _assistant(db)
-    monkeypatch.setattr(faq_module, "_utc_now", lambda: datetime(2026, 9, 25, 9, 0))
+    monkeypatch.setattr(faq_module, "naive_utc_now", lambda: datetime(2026, 9, 25, 9, 0))
     ai_assistant_faq_service.record_unanswered(db, assistant, "Livrez-vous à domicile ?")
     ai_assistant_faq_service.record_unanswered(db, assistant, "Prêtez-vous un véhicule ?")
 

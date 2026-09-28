@@ -71,7 +71,7 @@ def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     monkeypatch.setattr(alerts_module.notification_service, "notify_assistant_requests_waiting", AsyncCallRecorder())
     monkeypatch.setattr(sms_module.notification_service, "notify_sms_event", AsyncCallRecorder())
     monkeypatch.setattr(sms_module.sms_service, "_provider", provider)
-    monkeypatch.setattr(alerts_module, "_utc_now", lambda: _TUESDAY_14H_UTC)
+    monkeypatch.setattr(alerts_module, "naive_utc_now", lambda: _TUESDAY_14H_UTC)
     return {"model": model, "email": email, "sms": provider}
 
 

@@ -13,11 +13,12 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import ColumnElement
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
+from core.clock import naive_utc_now
 from core.database import SessionLocal
 from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
 from enums.ai_assistant_status import AiAssistantStatus
@@ -50,11 +51,6 @@ STALE_WINDOW = timedelta(days=7)
 SMS_DUE_WINDOW = timedelta(hours=12)
 
 
-def _utc_now() -> datetime:
-    """Current time as naive UTC, the storage convention."""
-    return datetime.now(UTC).replace(tzinfo=None)
-
-
 class AiAssistantRequestAlerts:
     """Sends the owner's alerts and reminders, and warns the operator about requests left waiting."""
 
@@ -83,7 +79,7 @@ class AiAssistantRequestAlerts:
         if assistant.status != AiAssistantStatus.DELIVERED.value or AiAssistantBusinessMailer.is_muted(db, assistant):
             return
         settings = AlertSettings.of(assistant)
-        current = now or _utc_now()
+        current = now or naive_utc_now()
         request.owner_alerted_at = current
         text_now = False
         if settings.wants_sms(AiAssistantRequestType(request.type)):
@@ -108,7 +104,7 @@ class AiAssistantRequestAlerts:
         Returns:
             How many SMS were sent.
         """
-        current = now or _utc_now()
+        current = now or naive_utc_now()
         rows = (
             db.query(AiAssistantRequest, AiAssistant)
             .join(AiAssistant, AiAssistant.id == AiAssistantRequest.assistant_id)
@@ -151,7 +147,7 @@ class AiAssistantRequestAlerts:
         Returns:
             How many requests were reminded.
         """
-        current = now or _utc_now()
+        current = now or naive_utc_now()
         local = OpeningHoursCalendar.to_business_time(current)
         rows = (
             db.query(AiAssistantRequest, AiAssistant)
@@ -209,7 +205,7 @@ class AiAssistantRequestAlerts:
         Returns:
             How many requests were reported for the first time.
         """
-        current = now or _utc_now()
+        current = now or naive_utc_now()
         rows = (
             db.query(AiAssistantRequest, AiAssistant)
             .join(AiAssistant, AiAssistant.id == AiAssistantRequest.assistant_id)
@@ -434,7 +430,7 @@ class AiAssistantRequestAlerts:
             request,
             AiAssistantRequest.status == AiAssistantRequestStatus.NEW.value,
             column.is_(None),
-            values={column: _utc_now()},
+            values={column: naive_utc_now()},
         )
 
 

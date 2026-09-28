@@ -270,7 +270,7 @@ def _journal_turn(
 
 
 def _capture_contact(
-    db: Session, assistant: AiAssistant, *, slug: str, payload: AiAssistantChatRequest
+    db: Session, assistant: AiAssistant, *, slug: str, payload: AiAssistantChatRequest, is_past_daily_cap: bool
 ) -> AiAssistantCapturedContact | None:
     """File the phone number or email the visitor's message holds as their request; never costs them the reply."""
     try:
@@ -282,6 +282,7 @@ def _capture_contact(
             visitor_message=payload.messages[-1].content,
             visitor_name=payload.visitor_name,
             is_test=payload.internal,
+            is_past_daily_cap=is_past_daily_cap,
         )
     except Exception as exc:
         # No traceback: a database error would quote the visitor's details in the log.
@@ -303,7 +304,7 @@ def _record_streamed_turn(
             if assistant is None:
                 return None
             _journal_turn(journal_db, assistant, slug=slug, payload=payload, answer=answer)
-            return _capture_contact(journal_db, assistant, slug=slug, payload=payload)
+            return _capture_contact(journal_db, assistant, slug=slug, payload=payload, is_past_daily_cap=False)
     except Exception as exc:
         logger.warning("Assistant conversation journal failed for slug %s (%s)", slug, type(exc).__name__)
         return None
@@ -320,7 +321,7 @@ async def _capped_turn(
     """
     answer = ChatAnswer(reply=ai_assistant_daily_message_cap.capped_reply(assistant, payload.language))
     _journal_turn(db, assistant, slug=slug, payload=payload, answer=answer)
-    captured = _capture_contact(db, assistant, slug=slug, payload=payload)
+    captured = _capture_contact(db, assistant, slug=slug, payload=payload, is_past_daily_cap=True)
     if not payload.internal:
         await ai_assistant_daily_message_cap.alert_operator_once(db, assistant)
     return AiAssistantChatResponse(reply=answer.reply, daily_limit_reached=True, captured_contact=captured)
@@ -380,7 +381,7 @@ async def chat_with_assistant(
         reply=answer.reply,
         offer_booking=ai_assistant_chat_service.asks_for_appointment(history[-1]["content"]),
         follow_ups=list(answer.follow_ups),
-        captured_contact=_capture_contact(db, assistant, slug=slug, payload=payload),
+        captured_contact=_capture_contact(db, assistant, slug=slug, payload=payload, is_past_daily_cap=False),
     )
 
 

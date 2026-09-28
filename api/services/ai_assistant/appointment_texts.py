@@ -11,19 +11,15 @@ from __future__ import annotations
 import html
 import re
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import ClassVar
 
+from core.clock import naive_utc_now
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RenderedEmail
 from services.french_date_formatter import FrenchDateFormatter
 from services.sms.gsm_segments import segment_count, to_strict_gsm7
-
-
-def _utc_now() -> datetime:
-    """Current time, naive UTC (the ``.ics`` stamp)."""
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 @dataclass(frozen=True)
@@ -341,7 +337,7 @@ class AppointmentTexts:
         Returns:
             The file's bytes (UTF-8, CRLF lines, long lines folded).
         """
-        stamp = f"{_utc_now():%Y%m%dT%H%M%SZ}"
+        stamp = f"{naive_utc_now():%Y%m%dT%H%M%SZ}"
         lines = [
             "BEGIN:VCALENDAR",
             "VERSION:2.0",

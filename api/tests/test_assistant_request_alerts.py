@@ -103,7 +103,7 @@ def _request(db: Session, assistant: AiAssistant, *, created_at: datetime, **fie
 
 
 def _freeze(monkeypatch: pytest.MonkeyPatch, moment: datetime) -> None:
-    monkeypatch.setattr(alerts_module, "_utc_now", lambda: moment)
+    monkeypatch.setattr(alerts_module, "naive_utc_now", lambda: moment)
 
 
 def test_settings_default_to_sms_for_what_cannot_wait_and_a_night_window(db: Session) -> None:

@@ -10,10 +10,11 @@ unanswered question sends nothing. A demo, a muted business or an assistant with
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from core.clock import naive_utc_now
 from core.database import SessionLocal
 from enums.ai_assistant_status import AiAssistantStatus
 from models.ai_assistant import AiAssistant
@@ -28,11 +29,6 @@ logger = logging.getLogger(__name__)
 DIGEST_WEEKDAY = 0  # Monday
 DIGEST_HOUR = 8  # business local time
 DIGEST_WINDOW = timedelta(days=7)
-
-
-def _utc_now() -> datetime:
-    """Current time as naive UTC, the storage convention."""
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class AiAssistantUnansweredDigest:
@@ -106,7 +102,7 @@ class AiAssistantUnansweredDigest:
         Returns:
             How many emails went.
         """
-        current = now or _utc_now()
+        current = now or naive_utc_now()
         local = OpeningHoursCalendar.to_business_time(current)
         if not self.is_due_moment(local):
             return 0

@@ -14,6 +14,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from core.clock import naive_utc_now
 from models.ai_assistant import AiAssistant
 from services.text_normalizer import TextNormalizer
 
@@ -21,11 +22,6 @@ MAX_FAQ_ENTRIES = 50
 MAX_UNANSWERED_ENTRIES = 30
 MAX_QUESTION_CHARS = 200
 MAX_ANSWER_CHARS = 1000
-
-
-def _utc_now() -> datetime:
-    """Current time, naive UTC (patched in tests)."""
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 @dataclass(frozen=True)
@@ -102,7 +98,7 @@ class AiAssistantFaqService:
         question = _bounded(question, MAX_QUESTION_CHARS)
         if not question:
             raise ValueError("La question est vide.")
-        now = _utc_now().isoformat()
+        now = naive_utc_now().isoformat()
         entries = self._stored_unanswered(assistant.knowledge_json)
         key = _key(question)
         for entry in entries:
@@ -163,7 +159,7 @@ class AiAssistantFaqService:
         faq = self._stored_faq(assistant.knowledge_json)
         if len(faq) >= MAX_FAQ_ENTRIES:
             raise ValueError(f"La FAQ est pleine ({MAX_FAQ_ENTRIES} questions au plus).")
-        faq.append({**entry, "created_at": _utc_now().isoformat()})
+        faq.append({**entry, "created_at": naive_utc_now().isoformat()})
         key = _key(entry["question"])
         unanswered = [
             item for item in self._stored_unanswered(assistant.knowledge_json) if _key(item["question"]) != key
