@@ -32,7 +32,7 @@
         <UiCopyLinkField
           v-if="linkToCopy"
           :url="linkToCopy.url"
-          :label="`Lien d'abonnement ${intervalLabel(linkToCopy.interval)}`"
+          :link-label="`Lien d'abonnement ${intervalLabel(linkToCopy.interval)}`"
         />
       </div>
     </template>

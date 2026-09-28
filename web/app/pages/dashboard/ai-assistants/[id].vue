@@ -333,7 +333,6 @@ const stats: ComputedRef<AiAssistantDetailStat[]> = computed((): AiAssistantDeta
   ]
 })
 
-/** « à patron@toitures-morel.fr », or the business's known address when the assistant has none. */
 const businessRecipientLabel: ComputedRef<string> = computed((): string =>
   assistant.value?.email ? `à ${assistant.value.email}` : "à l'adresse connue du commerce",
 )

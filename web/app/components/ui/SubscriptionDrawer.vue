@@ -154,7 +154,6 @@ const emit: EmitFn<UiSubscriptionDrawerEmits> = defineEmits<UiSubscriptionDrawer
 
 const toast: UseToastReturn = useToast()
 
-/** French label of each subscription status the API returns. */
 const SUBSCRIPTION_STATUS_LABELS: Record<string, string> = {
   active: 'Actif',
   past_due: 'Paiement en retard',
