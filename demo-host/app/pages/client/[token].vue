@@ -1,34 +1,11 @@
 <template>
   <div class="cs" :style="accentStyle">
-    <main v-if="state === 'loading'" class="cs-message">
-      <p class="cs-muted">Chargement…</p>
-    </main>
-
-    <main v-else-if="state === 'expired'" class="cs-message">
-      <h1 class="cs-message__title">Ce lien a expiré</h1>
-      <p class="cs-muted">Pour protéger vos demandes, un lien qui n’a pas été ouvert depuis 30 jours expire.</p>
-      <button v-if="renewState === 'idle'" type="button" class="cs-btn cs-btn--primary" @click="renewLink">
-        Recevoir un nouveau lien par email
-      </button>
-      <p v-else-if="renewState === 'sending'" class="cs-muted">Envoi…</p>
-      <p v-else-if="renewState === 'sent'" class="cs-notice">
-        C’est envoyé : ouvrez le nouveau lien depuis votre boîte mail.
-      </p>
-      <p v-else class="cs-notice cs-notice--error">
-        Envoi impossible pour le moment : répondez à l’un de nos emails, on vous renvoie un lien.
-      </p>
-    </main>
-
-    <main v-else-if="!space" class="cs-message">
-      <h1 class="cs-message__title">{{ state === 'unavailable' ? 'Espace indisponible' : 'Lien invalide' }}</h1>
-      <p class="cs-muted">
-        {{
-          state === 'unavailable'
-            ? 'Réessayez dans quelques minutes.'
-            : 'Ce lien n’ouvre aucun espace. Utilisez le dernier lien reçu par email ou par SMS.'
-        }}
-      </p>
-    </main>
+    <ClientSpaceAccessMessage
+      v-if="state === 'loading' || state === 'expired' || !space"
+      :state="state"
+      :renew-state="renewState"
+      @renew="renewLink"
+    />
 
     <div v-else class="cs-shell">
       <ClientSpaceSidebar
@@ -403,15 +380,12 @@ import type {
   AiAssistantClientLimit,
   AiAssistantClientLimitUpdate,
   AiAssistantClientPortal,
-  AiAssistantClientRenew,
-  AiAssistantClientRenewState,
   AiAssistantClientRequest,
   AiAssistantClientRequestOutcome,
   AiAssistantClientSettings,
   AiAssistantClientSettingsUpdate,
   AiAssistantClientSpace,
   AiAssistantClientSpaceLoad,
-  AiAssistantClientSpaceState,
   AiAssistantClientSubscription,
   AiAssistantClientSubscriptionStatus,
   AiAssistantClientTestSms,
@@ -421,8 +395,9 @@ import type {
 import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
 import type { ClientSpaceSettingsScreen } from '~/types/ClientSpaceNavigation'
 import type { ClientSpaceCopyKey } from '~/types/ClientSpacePage'
+import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
+import { useClientSpaceLink } from '~/composables/useClientSpaceLink'
 import { useClientSpaceNavigation } from '~/composables/useClientSpaceNavigation'
-import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { AssistantAvatarUtils } from '~/utils/AssistantAvatarUtils'
 
@@ -448,40 +423,28 @@ const SETTINGS_TITLES: Record<ClientSpaceSettingsScreen, string> = {
 /** From this width, the sidebar replaces the tab bar and a request opens beside the list. */
 const WIDE_QUERY: string = '(min-width: 1024px)'
 
-/** Where the browser keeps the latest link of a space, so an icon on the home screen outlives its 30 days. */
-const STORED_LINK_PREFIX: string = 'client-space-link:'
-
 /** The tag the line to paste goes before, shown as text (a template cannot carry it as markup). */
 const BODY_END_TAG: string = '</body>'
 
 const route: ReturnType<typeof useRoute> = useRoute()
-const config: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
-const token: ComputedRef<string> = computed((): string => String(route.params.token ?? ''))
-const endpoint: ComputedRef<string> = computed(
-  (): string => `${config.public.apiBase}/api/v1/ai-assistants/client/${encodeURIComponent(token.value)}`,
-)
+const link: UseClientSpaceLinkReturn = useClientSpaceLink()
+const {
+  token,
+  endpoint,
+  state,
+  space,
+  renewState,
+  fetchSpace,
+  setLoadResult,
+  showExpiredOnUnauthorized,
+  failureMessage,
+  renewLink,
+}: UseClientSpaceLinkReturn = link
 
 const { data: load }: Awaited<ReturnType<typeof useAsyncData<AiAssistantClientSpaceLoad | undefined>>> =
   await useAsyncData<AiAssistantClientSpaceLoad>(
     () => `client-space-${token.value}`,
-    async (): Promise<AiAssistantClientSpaceLoad> => {
-      try {
-        return { state: 'ready', space: await $fetch<AiAssistantClientSpace>(endpoint.value) }
-      } catch (error: unknown) {
-        const status: number | undefined = ApiRefusalUtils.status(error)
-        if (status === 401) {
-          const stored: string | null = storedFreshToken()
-          if (stored && stored !== token.value) {
-            // The link kept on the home screen lapsed, but the space was opened since: follow the fresher one.
-            window.location.replace(`/client/${stored}${window.location.search}${window.location.hash}`)
-            return { state: 'loading', space: null }
-          }
-          return { state: 'expired', space: null }
-        }
-        if (status === 404) return { state: 'invalid', space: null }
-        return { state: 'unavailable', space: null }
-      }
-    },
+    fetchSpace,
     // Loaded by the visitor's browser: the API rate-limits per visitor, never per demo-host server.
     { server: false },
   )
@@ -496,8 +459,6 @@ const {
   closeDetail,
 }: ReturnType<typeof useClientSpaceNavigation> = useClientSpaceNavigation()
 
-const state: Ref<AiAssistantClientSpaceState> = ref('loading')
-const space: Ref<AiAssistantClientSpace | null> = ref(null)
 const isWide: Ref<boolean> = ref(false)
 const busyRequestId: Ref<number | null> = ref(null)
 const actionError: Ref<string | null> = ref(null)
@@ -508,7 +469,6 @@ const faqError: Ref<string | null> = ref(null)
 const hasSavedSettings: Ref<boolean> = ref(false)
 const isOpeningPortal: Ref<boolean> = ref(false)
 const portalError: Ref<string | null> = ref(null)
-const renewState: Ref<AiAssistantClientRenewState> = ref('idle')
 const isCalendarBusy: Ref<boolean> = ref(false)
 const calendarError: Ref<string | null> = ref(null)
 const hasSavedCalendar: Ref<boolean> = ref(false)
@@ -622,70 +582,6 @@ const snippetMailto: ComputedRef<string> = computed((): string => {
     `chaque page ?\n\n${space.value?.embed_snippet ?? ''}\n\nMerci !`
   return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 })
-
-/**
- * The assistant a token names (its first segment), to key the link the browser keeps.
- * @param value The token.
- * @returns The assistant's id as written in the token, or an empty string for the example.
- */
-function tokenAssistantId(value: string): string {
-  return /^\d+\./.test(value) ? (value.split('.')[0] ?? '') : ''
-}
-
-/**
- * The latest link the browser kept for the same space as the URL's token.
- * @returns The stored token, or null when there is none (or no storage).
- */
-function storedFreshToken(): string | null {
-  const id: string = tokenAssistantId(token.value)
-  if (!id) return null
-  try {
-    return window.localStorage.getItem(`${STORED_LINK_PREFIX}${id}`)
-  } catch {
-    return null
-  }
-}
-
-/**
- * Move to the fresh link the API issued: the URL, and the browser's memory of it, so the link kept on the home
- * screen keeps opening the space month after month.
- * @param fresh The fresh token.
- */
-function adoptFreshToken(fresh: string): void {
-  const id: string = tokenAssistantId(fresh)
-  try {
-    if (id) window.localStorage.setItem(`${STORED_LINK_PREFIX}${id}`, fresh)
-  } catch {
-    // Private browsing or storage off: the URL still moves.
-  }
-  const path: string = `/client/${fresh}`
-  if (window.location.pathname !== path) {
-    window.history.replaceState(window.history.state, '', `${path}${window.location.search}${window.location.hash}`)
-  }
-}
-
-/**
- * Switch to the « lien expiré » screen when the link lapsed during the visit.
- * @param error What `$fetch` threw.
- * @returns True when the link had expired.
- */
-function showExpiredOnUnauthorized(error: unknown): boolean {
-  if (ApiRefusalUtils.status(error) !== 401) return false
-  state.value = 'expired'
-  space.value = null
-  return true
-}
-
-/**
- * The message a failed call shows, unless the link lapsed: the page then switches to the « lien expiré » screen.
- * @param error What `$fetch` threw.
- * @param fallback The message when the API gave no readable reason.
- * @returns Null on a 401, else the API's detail or the fallback.
- */
-function failureMessage(error: unknown, fallback: string): string | null {
-  if (showExpiredOnUnauthorized(error)) return null
-  return ApiRefusalUtils.detail(error) ?? fallback
-}
 
 /**
  * Replace a request in the list with what the API returned, and keep the pending count right.
@@ -913,22 +809,6 @@ async function openPortal(): Promise<void> {
 }
 
 /**
- * Ask for a fresh link: it goes to the business's email address, never shown here.
- * @returns A promise resolved once the API answered.
- */
-async function renewLink(): Promise<void> {
-  renewState.value = 'sending'
-  try {
-    const answer: AiAssistantClientRenew = await $fetch<AiAssistantClientRenew>(`${endpoint.value}/renew`, {
-      method: 'POST',
-    })
-    renewState.value = answer.sent ? 'sent' : 'failed'
-  } catch {
-    renewState.value = 'failed'
-  }
-}
-
-/**
  * Copy a text (the address, the voicemail, the line to paste); its button says so for a moment.
  * @param text What to copy.
  * @param key Which button said it.
@@ -1074,10 +954,7 @@ function onWideChange(): void {
 watch(
   load,
   (value: AiAssistantClientSpaceLoad | undefined): void => {
-    if (!value) return
-    state.value = value.state
-    space.value = value.space
-    if (value.state === 'ready' && value.space?.fresh_token) adoptFreshToken(value.space.fresh_token)
+    if (value) setLoadResult(value)
   },
   { immediate: true },
 )
