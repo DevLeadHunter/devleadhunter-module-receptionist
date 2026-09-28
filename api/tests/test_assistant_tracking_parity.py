@@ -3,6 +3,7 @@ prospect list, the hot leads and the evening recap."""
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -22,6 +23,7 @@ from services.sms_variables import SmsVariables
 
 _DEMO_PAGE = "https://demo.dibodev.fr/ia/garage-martin"
 _VIDEO_PAGE = "https://demo.dibodev.fr/va/garage-martin"
+_RECEPTIONIST = SimpleNamespace(slug="garage-martin", demo_link_sent_at=None, expires_at=None)
 
 
 def _prospect(db: Session, *, name: str = "Garage Martin") -> ProspectDB:
@@ -39,12 +41,13 @@ def _assistant(db: Session, prospect: ProspectDB) -> AiAssistant:
 
 def _stub_receptionist_pages(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        EmailVariables, "resolve_assistant_url", classmethod(lambda cls, db, prospect_id, user_id: _DEMO_PAGE)
+        EmailVariables, "active_assistant", staticmethod(lambda db, prospect_id, user_id: _RECEPTIONIST)
     )
+    monkeypatch.setattr(EmailVariables, "assistant_page_url", staticmethod(lambda assistant: _DEMO_PAGE))
     monkeypatch.setattr(
         EmailVariables,
-        "resolve_assistant_video",
-        classmethod(lambda cls, db, prospect_id, user_id: (_VIDEO_PAGE, "https://cdn.dibodev.fr/garage-martin.jpg")),
+        "assistant_video_urls",
+        staticmethod(lambda assistant: (_VIDEO_PAGE, "https://cdn.dibodev.fr/garage-martin.jpg")),
     )
 
 
@@ -65,7 +68,7 @@ def test_the_receptionist_sms_links_take_the_short_form_that_stamps_the_sms_chan
 ) -> None:
     _stub_receptionist_pages(monkeypatch)
 
-    variables = SmsVariables.build_for_prospect(db, user_id=7, prospect=_prospect(db))
+    variables = SmsVariables.build_for_prospect(db, user_id=7, prospect=_prospect(db), assistant=_RECEPTIONIST)
 
     assert variables["lien_assistant"] == "demo.dibodev.fr/s/ia/garage-martin"
     assert variables["lien_video_assistant"] == "demo.dibodev.fr/s/va/garage-martin"
