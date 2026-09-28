@@ -23,7 +23,9 @@ from starlette.requests import Request
 import migrations.add_ai_assistant_conversations_is_test as conversations_migration
 import migrations.add_ai_assistant_reports_table as reports_migration
 import migrations.add_assistant_subscription_activated_at as subscriptions_migration
+import services.ai_assistant.message_delivery as delivery_module
 import services.ai_assistant.report_service as report_module
+import services.ai_assistant.report_stats as report_stats_module
 import services.email_sending_service as email_sending_module
 from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from enums.assistant_llm import AssistantLlmUsage
@@ -80,10 +82,10 @@ def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     email = AsyncCallRecorder(record_args=True, result={"success": True})
     push = AsyncCallRecorder(record_args=True)
     logged: list[dict[str, Any]] = []
-    monkeypatch.setattr(report_module.assistant_llm_router, "complete_json", model)
+    monkeypatch.setattr(report_stats_module.assistant_llm_router, "complete_json", model)
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
     monkeypatch.setattr(report_module.notification_service, "notify_assistant_inactive", push)
-    monkeypatch.setattr(report_module.activity_log_service, "record", lambda **kwargs: logged.append(kwargs))
+    monkeypatch.setattr(delivery_module.activity_log_service, "record", lambda **kwargs: logged.append(kwargs))
     return {"model": model, "email": email, "push": push, "logged": logged}
 
 

@@ -20,7 +20,7 @@ import api.v1.routes.ai_assistant_widget as routes
 import migrations.add_ai_assistant_request_appointment_slots as slots_migration
 import services.ai_assistant.request_alerts as alerts_module
 import services.ai_assistant.request_analyzer as analyzer_module
-import services.ai_assistant.request_service as request_module
+import services.ai_assistant.request_follow_up as follow_up_module
 import services.email_sending_service as email_sending_module
 import services.sms_service as sms_module
 from enums.ai_assistant_request import AiAssistantDayPeriod, AiAssistantRequestType
@@ -29,6 +29,7 @@ from models.ai_assistant_request import AiAssistantRequest
 from models.prospect_db import ProspectDB
 from models.sms_config import SmsConfig
 from schemas.ai_assistant import AiAssistantLeadRequest, AiAssistantSlotChoice
+from services.ai_assistant.alert_sms import AlertSms
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentSlot
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
@@ -65,7 +66,7 @@ def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     provider = AcceptingSmsProvider()
     monkeypatch.setattr(analyzer_module.assistant_llm_router, "complete_json", model)
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
-    monkeypatch.setattr(request_module.notification_service, "notify_assistant_lead", AsyncCallRecorder())
+    monkeypatch.setattr(follow_up_module.notification_service, "notify_assistant_lead", AsyncCallRecorder())
     monkeypatch.setattr(alerts_module.notification_service, "notify_assistant_requests_waiting", AsyncCallRecorder())
     monkeypatch.setattr(sms_module.notification_service, "notify_sms_event", AsyncCallRecorder())
     monkeypatch.setattr(sms_module.sms_service, "_provider", provider)
@@ -275,7 +276,7 @@ _LONG_SUMMARY = (
 
 def test_the_sms_keeps_both_half_days_whole_whatever_the_summary_and_the_link() -> None:
     for name in ("Julie Roux", "Jean-Christophe Dupont-Lefebvre de la Tour"):
-        text = alerts_module.AlertSms.new_request(
+        text = AlertSms.new_request(
             request_type=AiAssistantRequestType.APPOINTMENT,
             name=name,
             contact="06 11 22 33 44",
@@ -283,7 +284,7 @@ def test_the_sms_keeps_both_half_days_whole_whatever_the_summary_and_the_link() 
             has_photos=False,
             link=_LINK,
         )
-        with_slots = alerts_module.AlertSms.new_request(
+        with_slots = AlertSms.new_request(
             request_type=AiAssistantRequestType.APPOINTMENT,
             name=name,
             contact="06 11 22 33 44",
@@ -297,7 +298,7 @@ def test_the_sms_keeps_both_half_days_whole_whatever_the_summary_and_the_link() 
         assert segment_count(with_slots) == 1
         assert "06 11 22 33 44, pour mar. 22/09 après-midi ou ven. 25/09 matin" in with_slots
 
-    reminder = alerts_module.AlertSms.reminder(
+    reminder = AlertSms.reminder(
         request_type=AiAssistantRequestType.APPOINTMENT,
         name="Julie Roux",
         contact="06 11 22 33 44",
@@ -313,7 +314,7 @@ def test_the_sms_keeps_both_half_days_whole_whatever_the_summary_and_the_link() 
 def test_a_contact_too_long_for_both_half_days_keeps_the_first_one_or_none() -> None:
     long_contact = "julie.roux.plomberie.chauffage@entreprise-exemple-longue.fr"
 
-    text = alerts_module.AlertSms.new_request(
+    text = AlertSms.new_request(
         request_type=AiAssistantRequestType.QUOTE,
         name="Jean-Christophe Dupont-Lefebvre de la Tour",
         contact=long_contact,
@@ -328,7 +329,7 @@ def test_a_contact_too_long_for_both_half_days_keeps_the_first_one_or_none() -> 
     assert "pour mar. 22/09 après-midi" in text
     assert "ven. 25/09 matin" not in text
     # A head that cannot even take one half-day goes without (the email has them).
-    no_room = alerts_module.AlertSms.reminder(
+    no_room = AlertSms.reminder(
         request_type=AiAssistantRequestType.APPOINTMENT,
         name="Jean-Christophe Dupont-Lefebvre de la Tour",
         contact=long_contact,

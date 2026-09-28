@@ -13,7 +13,7 @@ import hashlib
 import hmac
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import ClassVar
 
 from sqlalchemy.orm import Session
@@ -24,6 +24,7 @@ from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
 from models.ai_assistant_calendar import AiAssistantCalendar
 from models.ai_assistant_request import AiAssistantRequest
+from services.ai_assistant.appointment_reminder import AppointmentReminderWindow
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentRefused, AppointmentSlot
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.calendar_access import ai_assistant_calendar_access
@@ -61,11 +62,6 @@ class BookingOutcome:
 class AiAssistantCalendarBooking:
     """Books a visitor's pick in the agenda and reads the appointments booked."""
 
-    REMINDER_HOURS_BEFORE: ClassVar[int] = 24
-    # The reminder never leaves before 9:00 nor after 19:00 (business time).
-    REMINDER_EARLIEST: ClassVar[time] = time(9, 0)
-    REMINDER_LATEST: ClassVar[time] = time(19, 0)
-    REMINDER_MIN_GAP: ClassVar[timedelta] = timedelta(hours=2)
     MAX_BOOKINGS_PER_DAY: ClassVar[int] = 20
 
     def __init__(self) -> None:
@@ -330,26 +326,10 @@ class AiAssistantCalendarBooking:
         ai_assistant_calendar_access.forget_busy(calendar.id)
         return appointment
 
-    @classmethod
-    def reminder_due_at(cls, start_utc: datetime, *, booked_at: datetime) -> datetime | None:
-        """
-        When the visitor's J-1 reminder leaves: 24 hours before, kept between 9:00 and 19:00 (business time).
-
-        Args:
-            start_utc: The appointment's start, naive UTC.
-            booked_at: When it was booked, naive UTC.
-
-        Returns:
-            The due moment, naive UTC, or None when it would come less than 2 hours after the booking.
-        """
-        tz = OpeningHoursCalendar.business_timezone()
-        due = OpeningHoursCalendar.to_business_time(start_utc) - timedelta(hours=cls.REMINDER_HOURS_BEFORE)
-        if due.time() < cls.REMINDER_EARLIEST:
-            due = datetime.combine(due.date(), cls.REMINDER_EARLIEST, tzinfo=tz)
-        elif due.time() > cls.REMINDER_LATEST:
-            due = datetime.combine(due.date(), cls.REMINDER_LATEST, tzinfo=tz)
-        due_utc = OpeningHoursCalendar.to_utc(due)
-        return due_utc if due_utc > booked_at + cls.REMINDER_MIN_GAP else None
+    @staticmethod
+    def reminder_due_at(start_utc: datetime, *, booked_at: datetime) -> datetime | None:
+        """When the visitor's J-1 reminder leaves, None when too close to the booking (see ``appointment_reminder``)."""
+        return AppointmentReminderWindow.due_at(start_utc, booked_at=booked_at)
 
     @staticmethod
     def start_label(appointment: AiAssistantAppointment) -> str:
