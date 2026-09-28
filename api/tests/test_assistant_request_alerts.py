@@ -17,7 +17,7 @@ from sqlalchemy.pool import StaticPool
 import migrations.add_ai_assistant_alerts as alerts_migration
 import services.ai_assistant.request_alerts as alerts_module
 import services.ai_assistant.request_analyzer as analyzer_module
-import services.ai_assistant.request_service as request_module
+import services.ai_assistant.request_follow_up as follow_up_module
 import services.email_sending_service as email_sending_module
 import services.sms_service as sms_module
 from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
@@ -53,7 +53,7 @@ def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     provider = AcceptingSmsProvider()
     monkeypatch.setattr(analyzer_module.assistant_llm_router, "complete_json", model)
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
-    monkeypatch.setattr(request_module.notification_service, "notify_assistant_lead", push)
+    monkeypatch.setattr(follow_up_module.notification_service, "notify_assistant_lead", push)
     monkeypatch.setattr(alerts_module.notification_service, "notify_assistant_requests_waiting", waiting)
     monkeypatch.setattr(sms_module.notification_service, "notify_sms_event", sms_event)
     monkeypatch.setattr(sms_module.sms_service, "_provider", provider)

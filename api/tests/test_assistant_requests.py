@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 import migrations.add_ai_assistant_requests_table as requests_migration
 import services.ai_assistant.request_analyzer as analyzer_module
-import services.ai_assistant.request_service as request_module
+import services.ai_assistant.request_follow_up as follow_up_module
 import services.email_sending_service as email_sending_module
 from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
 from models.ai_assistant import AiAssistant
@@ -181,7 +181,7 @@ def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, AsyncCallRecorder]:
     push = AsyncCallRecorder()
     monkeypatch.setattr(analyzer_module.assistant_llm_router, "complete_json", model)
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
-    monkeypatch.setattr(request_module.notification_service, "notify_assistant_lead", push)
+    monkeypatch.setattr(follow_up_module.notification_service, "notify_assistant_lead", push)
     return {"model": model, "email": email, "push": push}
 
 
@@ -379,7 +379,7 @@ def test_lost_announcements_are_picked_up_once_by_the_runner(
     add(10, legacy_lead_id=1)
     add(0.5)
     add(60 * 25)
-    monkeypatch.setattr(request_module, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(follow_up_module, "SessionLocal", sessionmaker(bind=engine))
     service = AiAssistantRequestService()
 
     assert service.unannounced_request_ids(db, now=now) == [lost.id]

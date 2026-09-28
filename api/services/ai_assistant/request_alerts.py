@@ -32,6 +32,7 @@ from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
 from services.ai_assistant.client_links import AiAssistantClientLinks
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_analyzer import TranscriptLine, ai_assistant_request_analyzer
+from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
 from services.ai_assistant.request_links import AiAssistantRequestLinks
 from services.notification_service import notification_service
@@ -151,8 +152,6 @@ class AiAssistantRequestAlerts:
         Returns:
             How many requests were reminded.
         """
-        from services.ai_assistant.request_service import ai_assistant_request_service
-
         current = now or _utc_now()
         local = OpeningHoursCalendar.to_business_time(current)
         rows = (
@@ -183,7 +182,7 @@ class AiAssistantRequestAlerts:
             reminded += 1
             request_type = AiAssistantRequestType(request.type)
             if settings.email_enabled:
-                transcript = ai_assistant_request_service.transcript(db, request)
+                transcript = AiAssistantRequestAttachments.transcript(db, request)
                 await self._email_owner(db, request, assistant, transcript, is_reminder=True)
             if settings.wants_sms(request_type) and settings.phone_e164 is not None:
                 text = AlertSms.reminder(
@@ -304,14 +303,12 @@ class AiAssistantRequestAlerts:
         """Send the request's alert SMS if nobody did yet; returns whether this call sent it."""
         if settings.phone_e164 is None or not self.claim(db, request, AiAssistantRequest.sms_sent_at):
             return False
-        from services.ai_assistant.request_service import ai_assistant_request_service
-
         text = AlertSms.new_request(
             request_type=AiAssistantRequestType(request.type),
             name=request.name,
             contact=request.contact,
             summary=request.need_summary or request.need,
-            has_photos=bool(ai_assistant_request_service.photo_urls(request)),
+            has_photos=bool(AiAssistantRequestAttachments.photo_urls(request)),
             link=AiAssistantClientLinks.sms_link(assistant.id, request_id=request.id),
             slots=tuple(AiAssistantAppointmentSlots.short_labels(request.appointment_slots_json)),
             booked=ai_assistant_calendar_booking.booked_labels(db, [request.id]).get(request.id),
@@ -378,8 +375,6 @@ class AiAssistantRequestAlerts:
         is_reminder: bool,
     ) -> None:
         """Send the request summary (or its reminder) to the business, from the operator's identity; never raises."""
-        from services.ai_assistant.request_service import ai_assistant_request_service
-
         try:
             recipient = AiAssistantBusinessMailer.business_email(db, assistant)
             if not recipient:
@@ -400,7 +395,7 @@ class AiAssistantRequestAlerts:
                     received_outside_hours=request.received_outside_hours,
                     transcript=ai_assistant_request_analyzer.bound_transcript(transcript),
                     handled_url=AiAssistantRequestLinks.handled_url(request.id),
-                    photo_urls=tuple(ai_assistant_request_service.photo_urls(request)),
+                    photo_urls=tuple(AiAssistantRequestAttachments.photo_urls(request)),
                     is_reminder=is_reminder,
                     client_space_url=AiAssistantClientLinks.url(assistant.id, request_id=request.id),
                     appointment_slots=tuple(AiAssistantAppointmentSlots.labels(request.appointment_slots_json)),

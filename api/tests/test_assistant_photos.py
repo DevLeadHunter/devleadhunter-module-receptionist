@@ -14,7 +14,7 @@ from PIL import Image
 from sqlalchemy.orm import Session
 
 import services.ai_assistant.photo_service as photo_module
-import services.ai_assistant.request_service as request_module
+import services.ai_assistant.request_follow_up as follow_up_module
 import services.email_sending_service as email_sending_module
 from enums.ai_assistant_photo import AiAssistantPhotoRejection, AiAssistantPhotoUrgency
 from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestType
@@ -89,7 +89,7 @@ def cloud(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         AsyncCallRecorder(record_args=True, result={"success": True}),
     )
     monkeypatch.setattr(
-        request_module.notification_service, "notify_assistant_lead", AsyncCallRecorder(record_args=True)
+        follow_up_module.notification_service, "notify_assistant_lead", AsyncCallRecorder(record_args=True)
     )
     return {"storage": storage, "vision": vision}
 
