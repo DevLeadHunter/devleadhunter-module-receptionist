@@ -28,7 +28,6 @@ def _current_language_code(code: str | None) -> str | None:
     return language.value if language is not None else code
 
 
-# The language a widget sends with a turn or a request: « lu » arrives as « lb ».
 WidgetLanguageCode = Annotated[str | None, AfterValidator(_current_language_code)]
 
 

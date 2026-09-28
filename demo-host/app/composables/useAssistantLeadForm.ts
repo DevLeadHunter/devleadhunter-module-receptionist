@@ -24,10 +24,8 @@ import { AssistantThreadUtils } from '~/utils/AssistantThreadUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 import { VisitorContactUtils } from '~/utils/VisitorContactUtils'
 
-/** The refusals of a pick the widget answers by offering the slots again. */
 const SLOT_REFUSAL_CODES: string[] = ['slot_taken', 'slot_withdrawn']
 
-/** The visitor's words the business's side of the demo shows for a request left in the chat, at most. */
 const CHAT_NEED_MAX_CHARS: number = 140
 
 /**

@@ -83,7 +83,6 @@ export function useAssistantConversation(
   const sessionId: Ref<string> = ref('')
   const openPanel: Ref<AssistantThreadPanel | null> = ref(null)
   const hasSentLead: Ref<boolean> = ref(false)
-  /** The API no longer serves this assistant (expired, deleted): the widget says so and stops offering its input. */
   const isAssistantUnavailable: Ref<boolean> = ref(false)
   let isPlayingExample: boolean = false
   let hasCapturedInlineOpening: boolean = false
@@ -270,7 +269,6 @@ export function useAssistantConversation(
   /**
    * Play a scripted conversation in the thread, turn by turn, as if a customer were writing and the assistant
    * typing; the demo page then hands over to the visitor. Only laid out in a page, once, never for a sold assistant.
-   * Its lines are the widget's own: the model never reads them as the visitor's.
    * @param steps - The turns to play.
    * @returns A promise resolved once the last turn is in the thread.
    */
@@ -381,8 +379,7 @@ export function useAssistantConversation(
   }
 
   /**
-   * Act on what a reply carries beyond its text: the request filed from the visitor's contact, the daily limit
-   * reached (the contact form opens), an appointment asked for (the slot panel opens, once a visit).
+   * Act on what a reply carries beyond its text: the contact it filed, the daily limit, an appointment asked for.
    * @param reply - The reply.
    * @returns A promise resolved once the slot panel is loaded, when it opens.
    */
@@ -399,8 +396,7 @@ export function useAssistantConversation(
   }
 
   /**
-   * Send a text as the visitor's message (an internal visit is flagged so it stays out of the counts); when the
-   * reply does not come, the message leaves the thread and the visitor is told why.
+   * Send a text as the visitor's message (an internal visit is flagged so it stays out of the counts).
    * @param text - The message to send.
    * @returns A promise resolving to true once the reply is in the thread, false when nothing was sent.
    */

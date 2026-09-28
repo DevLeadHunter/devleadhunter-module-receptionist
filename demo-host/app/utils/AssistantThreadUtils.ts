@@ -1,10 +1,7 @@
 import type { AssistantChatMessage, AssistantThreadMessage } from '~/types/AiAssistant'
 import { ASSISTANT_STORED_MESSAGES_MAX } from '~/constants/AssistantWidgetLimits'
 
-/**
- * Reads and shapes the lines of a widget's thread: stored data checked, the turns the API and the storage receive.
- * The widget's own lines (a failure, a confirmation, the played example) are shown, never stored nor sent.
- */
+/** Reads and shapes a widget's thread: its own lines (a failure, a confirmation) are never stored nor sent. */
 export class AssistantThreadUtils {
   /**
    * Whether a value is a well-formed chat message (guards against corrupted stored data).

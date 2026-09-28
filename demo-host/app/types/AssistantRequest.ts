@@ -1,9 +1,7 @@
 import type { AssistantChatReply } from '~/types/AiAssistant'
 
-/** Why a call of the widget failed, as the visitor is told. */
 export type AssistantRequestFailure = 'rate-limited' | 'unavailable' | 'network' | 'server'
 
-/** A reply the widget waited for, or why it did not come. */
 export type AssistantReplyOutcome =
   { kind: 'reply'; reply: AssistantChatReply } | { kind: 'failure'; failure: AssistantRequestFailure }
 

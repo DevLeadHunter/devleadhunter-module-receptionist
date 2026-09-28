@@ -223,7 +223,7 @@ export const UI_PLACEHOLDER: Record<AssistantWidgetLanguage, string> = {
   lb: 'Är Noriicht…',
 }
 
-/** What the visitor reads when a call fails: too many messages, no network, a technical issue, a gone assistant. */
+/** What the visitor reads when a call fails. */
 export const ERROR_LABELS: Record<AssistantWidgetLanguage, AssistantErrorLabels> = {
   fr: {
     rateLimited: "Trop de messages d'un coup : patientez une minute.",

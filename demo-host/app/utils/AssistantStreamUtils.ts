@@ -14,8 +14,7 @@ export class AssistantStreamUtils {
    * @param url - The streaming endpoint.
    * @param body - The chat request.
    * @param onDelta - Called with each piece of text as it arrives.
-   * @returns The whole reply; a failure the plain request would meet too (a limit, a gone assistant, a timeout);
-   * or `fallback` when only the stream is unusable.
+   * @returns The whole reply, a failure the plain request would meet too, or `fallback` when only the stream fails.
    */
   static async request(
     url: string,

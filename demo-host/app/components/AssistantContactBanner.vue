@@ -5,7 +5,7 @@
     :class="{ 'contact-banner--open': state !== 'collapsed' }"
     :style="accentStyle"
   >
-    <!-- Collapsed pill, bottom-left so it never covers the assistant widget (bottom-right). -->
+    <!-- Collapsed pill — bottom-left so it never covers the assistant widget (bottom-right). -->
     <button v-if="state === 'collapsed'" type="button" class="contact-banner__pill" @click="open">
       <img v-if="ownerPhotoUrl" class="contact-banner__avatar" :src="ownerPhotoUrl" alt="" />
       <svg
@@ -25,7 +25,7 @@
       </span>
     </button>
 
-    <!-- The visit came from an email: one optional message, no contact details asked. -->
+    <!-- Open card — one optional message; the visit came from an email, so no contact details asked. -->
     <div v-else-if="state === 'open'" class="contact-banner__card">
       <div class="contact-banner__card-head">
         <span class="contact-banner__card-title"> Parler à {{ ownerName || 'la personne qui vous l’a envoyé' }} </span>

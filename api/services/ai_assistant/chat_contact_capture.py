@@ -47,7 +47,6 @@ class CapturedChatContact:
 class AiAssistantChatContactCapture:
     """Reads a visitor's phone number or email in their chat message and files it as the session's request."""
 
-    # The request's name when the visitor gave none: the business reads « Visiteur » and the contact beside it.
     FALLBACK_NAME: ClassVar[str] = "Visiteur"
     NAME_MAX_CHARS: ClassVar[int] = 64
 

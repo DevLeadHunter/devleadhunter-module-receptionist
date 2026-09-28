@@ -294,7 +294,6 @@ const roleLabel: ComputedRef<string> = computed(
   (): string => ROLE_LABELS[language.value][props.assistant.assistant_gender ?? 'feminine'],
 )
 const onlineLabel: ComputedRef<string> = computed((): string => ONLINE_LABELS[language.value])
-/** On a phone the floating panel fills the screen: a modal dialog, the keyboard kept inside it. */
 const isFullScreen: ComputedRef<boolean> = computed((): boolean => isMobileLayout.value && !props.inline)
 
 /**

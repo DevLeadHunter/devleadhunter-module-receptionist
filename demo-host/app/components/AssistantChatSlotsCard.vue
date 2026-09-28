@@ -85,8 +85,6 @@ import type { AssistantChatSlotsCardEmits, AssistantChatSlotsCardProps } from '~
 import { APPOINTMENT_LABELS, LEAD_LABELS } from '~/constants/AssistantWidgetLabels'
 import { AssistantScheduleUtils } from '~/utils/AssistantScheduleUtils'
 
-const DAY_PERIODS: AssistantDayPeriod[] = ['morning', 'afternoon']
-
 const props: AssistantChatSlotsCardProps = defineProps({
   language: {
     type: String as PropType<AssistantWidgetLanguage>,
@@ -139,6 +137,8 @@ const props: AssistantChatSlotsCardProps = defineProps({
 })
 
 const emit: EmitFn<AssistantChatSlotsCardEmits> = defineEmits<AssistantChatSlotsCardEmits>()
+
+const DAY_PERIODS: AssistantDayPeriod[] = ['morning', 'afternoon']
 
 const card: Ref<ComponentPublicInstance | null> = ref(null)
 

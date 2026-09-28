@@ -1,4 +1,4 @@
-/** The API's photo quota per visit (`MAX_PHOTOS_PER_SESSION`): the widget's counter and its texts read it. */
+/** The API's photo quota per visit (`MAX_PHOTOS_PER_SESSION`). */
 export const ASSISTANT_PHOTOS_PER_VISIT: number = 3
 
 /** The API's largest photo (`MAX_PHOTO_BYTES`), in megabytes. */
@@ -18,7 +18,6 @@ export const ASSISTANT_FIRST_BYTE_TIMEOUT_MS: number = 20_000
 /** Longest wait for the first words of a reply, above the API's 40 s for its model and the fallback one. */
 export const ASSISTANT_REPLY_START_TIMEOUT_MS: number = 45_000
 
-/** Longest silence between two pieces of a streamed reply. */
 export const ASSISTANT_STREAM_IDLE_TIMEOUT_MS: number = 20_000
 
 /** Longest wait for a whole reply asked without streaming. */

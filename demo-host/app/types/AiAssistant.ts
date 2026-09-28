@@ -70,7 +70,7 @@ export type AssistantCapturedContact = {
 
 /**
  * The assistant's reply to a chat request; `offer_booking` when the visitor asks for an appointment, `follow_ups`
- * the questions offered next, `daily_limit_reached` when it answered its messages of the day (a fixed reply).
+ * the questions offered next.
  */
 export type AssistantChatReply = {
   reply: string
@@ -80,7 +80,7 @@ export type AssistantChatReply = {
   captured_contact: AssistantCapturedContact | null
 }
 
-/** Localized labels for the lead-capture form; `contactHint` shows under a contact that cannot be reached. */
+/** Localized labels for the lead-capture form. */
 export type AssistantLeadLabels = {
   open: string
   title: string
@@ -95,7 +95,6 @@ export type AssistantLeadLabels = {
   sent: string
 }
 
-/** How the visitor wants to be reached: the contact field's keyboard and autofill follow it. */
 export type AssistantContactChannel = 'phone' | 'email'
 
 /** What the visitor reads when a call fails; `unavailable` carries `{name}` and `{business}`. */
@@ -106,13 +105,12 @@ export type AssistantErrorLabels = {
   unavailable: string
 }
 
-/** The codes of a pick the API refused, read by the widget rather than its sentence. */
 export type AssistantSlotRefusalCode = 'slot_taken' | 'slot_withdrawn'
 
-/** Languages the widget offers preset greetings and suggestions for (Luxembourgish is BCP 47's « lb »). */
+/** Languages the widget offers preset greetings and suggestions for. */
 export type AssistantWidgetLanguage = 'fr' | 'nl' | 'en' | 'de' | 'lb'
 
-/** @deprecated Use `AssistantWidgetLanguage`: kept while the client space still imports this name. */
+/** @deprecated Use `AssistantWidgetLanguage`. */
 export type AssistantWidgetLang = AssistantWidgetLanguage
 
 /** The assistant's answer to a photo sent for a quote. */
@@ -191,7 +189,6 @@ export type AssistantBookingChoice = {
   type: string | null
 }
 
-/** The visitor's details as the widget sends them: they become a request, with the appointment picked. */
 export type AssistantLeadRequestBody = {
   name: string
   contact: string
@@ -260,10 +257,7 @@ export type AssistantExampleLabels = {
   thanks: string
 }
 
-/**
- * What the widget sends to be answered: the recent thread, the visitor's session and language, and the name they gave
- * in it (it names the request a phone number typed in the chat opens).
- */
+/** What the widget sends to be answered: the recent thread, the visitor's session and language. */
 export type AssistantChatRequestBody = {
   messages: AssistantChatMessage[]
   session_id: string

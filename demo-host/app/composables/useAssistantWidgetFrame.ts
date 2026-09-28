@@ -23,11 +23,10 @@ export function postHostPersist(state: string): void {
 }
 
 /**
- * The widget's dialogue with the loader framing it on a client's site: whether its panel is open, the iframe size to
- * give, the host viewport to follow, open requests from the loader's own launcher to honour.
+ * The widget's dialogue with the loader framing it on a client's site: iframe size to give, host viewport to follow,
+ * open requests from the loader's own launcher to honour.
  * @param options - Whether the widget is laid out in a page, its launcher element, what to do on open.
- * @returns The panel's visibility, whether it runs in the loader's iframe and whether the host calls for the mobile
- * layout.
+ * @returns The panel's state, whether it runs in the loader's iframe, and whether the host calls for the mobile layout.
  */
 export function useAssistantWidgetFrame(options: UseAssistantWidgetFrameOptions): UseAssistantWidgetFrameReturn {
   const isEmbedded: Ref<boolean> = ref(false)

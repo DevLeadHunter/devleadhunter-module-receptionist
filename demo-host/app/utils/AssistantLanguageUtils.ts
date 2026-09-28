@@ -30,8 +30,7 @@ export class AssistantLanguageUtils {
   }
 
   /**
-   * The widget language a code of our own data names, its legacy spelling included (a conversation kept in the
-   * browser, an assistant's languages).
+   * The widget language a stored code names (a kept conversation, an assistant's list), the legacy « lu » included.
    * @param code - The stored code.
    * @returns The widget language, or null when the widget does not speak it.
    */

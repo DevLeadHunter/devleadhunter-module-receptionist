@@ -21,7 +21,6 @@ export function useAssistantPhotoUpload(context: AssistantThreadContext): UseAss
   const photoPreviews: Ref<Record<number, string>> = ref({})
   const photosRemaining: Ref<number> = ref(ASSISTANT_PHOTOS_PER_VISIT)
   const hasSentPhoto: Ref<boolean> = ref(false)
-  /** What an accepted photo shows, to prefill the need of the contact form. */
   const leadNeedPrefill: Ref<string> = ref('')
 
   const isPhotoPanelOpen: ComputedRef<boolean> = computed((): boolean => context.openPanel.value === 'photo')

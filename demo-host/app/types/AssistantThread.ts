@@ -7,13 +7,9 @@ import type {
 } from '~/types/AiAssistant'
 import type { AssistantRequestFailure } from '~/types/AssistantRequest'
 
-/** The card open in the thread, at most one at a time. */
 export type AssistantThreadPanel = 'photo' | 'slots' | 'lead-form'
 
-/**
- * The state the parts of a conversation share: the thread, its language and session, what is open in it; and how a
- * part adds one of the widget's own lines, or tells the visitor a call failed.
- */
+/** The thread state the conversation's parts share, and how they add a widget line or report a failed call. */
 export type AssistantThreadContext = {
   assistant: AiAssistantConfig
   publicEndpoint: string
@@ -29,7 +25,6 @@ export type AssistantThreadContext = {
   reportFailure: (failure: AssistantRequestFailure) => void
 }
 
-/** A conversation as the widget or the host page stored it, read back field by field. */
 export type AssistantStoredConversation = {
   language: string | null
   sessionId: string | null

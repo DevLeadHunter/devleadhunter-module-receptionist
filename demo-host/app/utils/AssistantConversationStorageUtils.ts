@@ -2,10 +2,7 @@ import type { AssistantThreadMessage } from '~/types/AiAssistant'
 import type { AssistantStoredConversation } from '~/types/AssistantThread'
 import { AssistantThreadUtils } from '~/utils/AssistantThreadUtils'
 
-/**
- * Keeps a visitor's conversation in the browser's storage (the widget's own, and the host page's through the
- * loader), so a returning visitor finds their thread; the widget keeps working when storage is refused.
- */
+/** Keeps a visitor's conversation in the browser's storage, so a returning visitor finds their thread. */
 export class AssistantConversationStorageUtils {
   /**
    * The storage key of an assistant's conversation (the loader uses the same one on the host page).
