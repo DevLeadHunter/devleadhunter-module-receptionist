@@ -305,7 +305,7 @@ La passe d'interface a revu dans Chromium, à 1280 et 375 px, en clair et en som
 
 **Fichiers**
 - API :
-  - `services/mistral_service.py`, `services/ai_assistant/llm_router.py`, `enums/assistant_llm.py`
+  - `services/mistral_service.py`, `services/ai_assistant/llm_router.py`, `enums/ai_assistant_llm.py`
   - `core/config.py` (modèles et prix Mistral / Groq), `.env.example`
   - `models/ai_assistant.py` (`eu_only`), `migrations/add_ai_assistant_eu_only.py`
   - `chat_service.py`, `photo_service.py`, `request_analyzer.py` passent par le routeur
@@ -385,7 +385,7 @@ La passe d'interface a revu dans Chromium, à 1280 et 375 px, en clair et en som
   - `models/ai_assistant_report.py` + migration
   - `models/ai_assistant_conversation.py` (`is_test`) + migration
   - `models/ai_assistant_subscription.py` (`activated_at`) + migration, posé dans `assistant_subscription_service.activate_from_session`
-  - `enums/assistant_subscription_status.py` (`LIVE_SUBSCRIPTION_STATUSES`)
+  - `enums/ai_assistant_subscription_status.py` (`LIVE_SUBSCRIPTION_STATUSES`)
   - `conversation_service.py` : compteurs par dernier message, tests exclus
   - `request_alerts.business_email` : public, repli sur l'email Stripe
   - `notification_service.notify_assistant_inactive`
@@ -429,7 +429,7 @@ La passe d'interface a revu dans Chromium, à 1280 et 375 px, en clair et en som
   - `services/ai_assistant/client_links.py` : jeton `<id>.<expiration base 36>.<signature>` (~28 caractères, HMAC-SHA256 tronqué à 96 bits), forme canonique stricte
   - `services/ai_assistant/client_space_service.py` (lecture, « traitée », réglages, portail Stripe, envoi du lien, avis de changement du mobile), `client_space_email.py`
   - `api/v1/routes/ai_assistant_client_space.py` (routes publiques `/ai-assistants/client/{token}…`), route owner `POST /ai-assistants/{id}/client-link` dans `ai_assistants.py`
-  - `schemas/ai_assistant_client_space.py`, `enums/assistant_widget_language.py`, `services/rate_limiter.py` (3 limiteurs)
+  - `schemas/ai_assistant_client_space.py`, `enums/ai_assistant_widget_language.py`, `services/rate_limiter.py` (3 limiteurs)
   - `assistant_subscription_service.billing_portal_url` ; `cancel_at_period_end` (modèle, migration, webhook)
   - Lien branché dans le SMS d'alerte (`AlertSms._fit` : résumé d'abord, lien si ≥ 30 caractères de résumé), l'email de résumé et le rapport mensuel (`AiAssistantRequestEmail.paragraph/button/document/client_space_note`, partagés)
   - `client_ip`, `business_country` rendus publics (réutilisés)
@@ -491,7 +491,7 @@ La passe d'interface a revu dans Chromium, à 1280 et 375 px, en clair et en som
   - `services/ai_assistant/google_calendar_client.py` : consentement, échange et rafraîchissement des jetons, adresse du compte, freeBusy, création d'événement (identifiant fixé par nous), révocation
   - `services/ai_assistant/calendar_service.py` : `state` OAuth signé, connexion, réglages, offre (premier créneau libre par demi-journée), réservation sous verrou, repli sur la demi-journée, libellés « réservé »
   - `services/ai_assistant/appointment_notices.py` : textes du visiteur en 4 langues, fichier `.ics`, confirmation, rappel J-1, passe de la boucle
-  - `models/ai_assistant_calendar.py`, `models/ai_assistant_appointment.py`, `enums/assistant_calendar_status.py`, `enums/assistant_booking_mode.py`, `migrations/add_ai_assistant_calendars_tables.py`
+  - `models/ai_assistant_calendar.py`, `models/ai_assistant_appointment.py`, `enums/ai_assistant_calendar_status.py`, `enums/ai_assistant_booking_mode.py`, `migrations/add_ai_assistant_calendars_tables.py`
   - routes : offre publique en mode agenda (`after`), `booking` de `POST …/lead` (409 si pris), `offer_booking` du chat ; espace client `calendar/connect`, `PATCH`/`DELETE calendar`, retour Google `calendar/google/callback`
   - `request_alerts.py` (SMS « RDV réservé le … par … »), `request_email.py` (bloc « Dans votre agenda »), `request_service.follow_up` (reste un rendez-vous), `request_runner.py` (passe des messages au visiteur), `chat_service.asks_for_appointment`, règle du prompt (`knowledge_builder.py`), `client_space_email.render_calendar_connected`, `opening_hours.business_timezone`
   - `core/config.py` et `.env.example` : `GOOGLE_CALENDAR_REDIRECT_URI`
@@ -530,7 +530,7 @@ La passe d'interface a revu dans Chromium, à 1280 et 375 px, en clair et en som
   - `services/ai_assistant/knowledge_budget.py` : budget du prompt (tout entier si ça tient, sinon les passages les plus proches des 3 derniers messages du visiteur, chaque source gardant son début)
   - `knowledge_builder.py` : pages et documents encadrés comme données, liens, citation des documents, interrupteurs ; `chat_service.py` : messages du visiteur transmis, taille du prompt journalisée ; `scripts/bench_assistant_llm.py` : même prompt que le chat
   - `assistant_service.py` : la régénération garde documents et interrupteurs, note la lecture du site, garde les pages d'un site injoignable ; `get_for_owner` (aussi utilisé par `_owned_assistant_or_404`)
-  - `models/ai_assistant_document.py` (table en utf8mb4), `enums/assistant_knowledge_source.py`, `migrations/add_ai_assistant_documents_table.py`, `schemas/ai_assistant_sources.py`, routes `api/v1/routes/ai_assistant_sources.py`
+  - `models/ai_assistant_document.py` (table en utf8mb4), `enums/ai_assistant_knowledge_source.py`, `migrations/add_ai_assistant_documents_table.py`, `schemas/ai_assistant_sources.py`, routes `api/v1/routes/ai_assistant_sources.py`
   - `r2_storage_service.py` (`documents/assistant/…`), stockage admin (type « document d'assistant »), `main.py` (boucle, journal INFO du chat)
 - Web : `components/ui/AssistantSourcesDrawer.vue` (volet « Sources »), bouton « Sources » de la carte, `services/aiAssistantService.ts`, `types/AiAssistantSources.ts`, pile de volets.
 - Widget : `utils/MessageLinkUtils.ts` (liens des réponses, sans les `**` du Markdown).
