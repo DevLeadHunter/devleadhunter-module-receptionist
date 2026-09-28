@@ -19,6 +19,7 @@ from api.v1.routes.ai_assistant_common import (
 )
 from core.database import get_db
 from enums.ai_assistant_request import AiAssistantRequestType
+from enums.ai_assistant_start_step import AiAssistantStartStep
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.demo_video_status import DemoVideoStatus
 from models.ai_assistant import AiAssistant
@@ -43,6 +44,7 @@ from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.report_service import ai_assistant_report_service
 from services.ai_assistant.request_alerts import AlertSettings
 from services.ai_assistant.request_service import RequestCounts, ai_assistant_request_service
+from services.ai_assistant.start_reminders import ai_assistant_start_reminders
 from services.assistant_subscription_service import assistant_subscription_service
 from services.assistant_video_service import (
     ASSISTANT_PRESENTER_MODULE,
@@ -69,7 +71,9 @@ def _to_owner_response(
     subscription: object | None = None,
     conversations: ConversationCounts | None = None,
     requests: RequestCounts | None = None,
+    start_steps: list[AiAssistantStartStep] | None = None,
 ) -> AiAssistantResponse:
+    missing_start_steps = start_steps or []
     return AiAssistantResponse(
         id=assistant.id,
         slug=assistant.slug,
@@ -113,18 +117,28 @@ def _to_owner_response(
         installed_at=assistant.installed_at,
         installed_host=assistant.installed_host,
         google_profile_linked_at=assistant.google_profile_linked_at,
+        missing_start_steps=missing_start_steps,
+        needs_follow_up=ai_assistant_start_reminders.needs_follow_up(assistant, missing_start_steps),
         unanswered_count=len(ai_assistant_faq_service.unanswered_of(assistant.knowledge_json)),
         created_at=assistant.created_at,
     )
 
 
+def _start_steps_of(db: Session, assistant: AiAssistant) -> list[AiAssistantStartStep]:
+    """The « Pour démarrer » steps a sold assistant still misses (a demo has none to take)."""
+    if assistant.status != AiAssistantStatus.DELIVERED.value:
+        return []
+    return ai_assistant_start_reminders.missing_steps(db, assistant)
+
+
 def _to_full_owner_response(db: Session, assistant: AiAssistant) -> AiAssistantResponse:
-    """One assistant as the list shows it (subscription and counts included), after an edit."""
+    """One assistant as the list shows it (subscription, counts and start steps included), after an edit."""
     return _to_owner_response(
         assistant,
         assistant_subscription_service.active_by_assistant_ids(db, [assistant.id]).get(assistant.id),
         ai_assistant_conversation_service.counts_for_assistants(db, [assistant.id]).get(assistant.id),
         ai_assistant_request_service.counts_for_assistants(db, [assistant.id]).get(assistant.id),
+        _start_steps_of(db, assistant),
     )
 
 
@@ -175,6 +189,7 @@ async def list_assistants(
                 subscriptions.get(assistant.id),
                 conversation_counts.get(assistant.id),
                 request_counts.get(assistant.id),
+                _start_steps_of(db, assistant),
             )
             for assistant in assistants
         ]

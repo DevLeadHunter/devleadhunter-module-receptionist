@@ -84,6 +84,16 @@
         </span>
       </div>
 
+      <p v-if="props.assistant.needs_follow_up" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+        <span class="app-badge app-badge--strong">
+          <UIcon name="i-lucide-phone-call" class="h-3 w-3" />
+          À relancer
+        </span>
+        <span class="text-[var(--app-ink-soft)]">
+          Il manque : {{ missingStartStepsLabel(props.assistant.missing_start_steps) }}
+        </span>
+      </p>
+
       <div class="relative z-20 flex flex-wrap gap-2">
         <button type="button" class="btn-primary h-9 px-4 text-xs" @click="emit('open', demoUrl)">
           Ouvrir la démo
@@ -107,7 +117,12 @@ import type { AiAssistantCardEmits, AiAssistantCardProps } from '~/types/AiAssis
 import type { UseLazyPreviewReturn } from '~/types/Composables'
 import AssistantPortrait from '~/components/ai-assistants/AssistantPortrait.vue'
 import { useLazyPreview } from '~/composables/useLazyPreview'
-import { assistantLifetimeLabel, assistantStatusLabel, demoUrlWithInternal } from '~/utils/aiAssistantLabels'
+import {
+  assistantLifetimeLabel,
+  assistantStatusLabel,
+  demoUrlWithInternal,
+  missingStartStepsLabel,
+} from '~/utils/aiAssistantLabels'
 import { assistantPortraitUrl } from '~/utils/assistantPortrait'
 
 const props: AiAssistantCardProps = defineProps({

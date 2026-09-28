@@ -52,6 +52,14 @@
               <UIcon name="i-lucide-triangle-alert" class="h-3 w-3" />
               Risque de désabonnement
             </span>
+            <span v-if="assistant.needs_follow_up" class="app-badge app-badge--strong">
+              <UIcon name="i-lucide-phone-call" class="h-3 w-3" />
+              À relancer
+            </span>
+          </p>
+          <p v-if="assistant.needs_follow_up" class="text-sm text-[var(--app-ink)]">
+            Les deux relances automatiques sont parties. Il manque encore :
+            {{ missingStartStepsLabel(assistant.missing_start_steps) }}.
           </p>
         </div>
       </header>
@@ -220,7 +228,7 @@ import { RECEPTIONIST_VIDEO_BUILD_PHASES } from '~/constants/videoBuildPhases'
 import { useToast } from '~/composables/useToast'
 import { useVideoGenerationProgress } from '~/composables/useVideoGenerationProgress'
 import { useDrawerStackStore } from '~/stores/drawerStack'
-import { assistantStatusLabel, demoUrlWithInternal } from '~/utils/aiAssistantLabels'
+import { assistantStatusLabel, demoUrlWithInternal, missingStartStepsLabel } from '~/utils/aiAssistantLabels'
 import { assistantPortraitUrl } from '~/utils/assistantPortrait'
 
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'ai-assistant-module'] })

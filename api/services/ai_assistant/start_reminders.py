@@ -1,7 +1,8 @@
 """
 The « Pour démarrer » reminders: three days and two weeks after the sale, the business gets one email listing what
 still keeps its receptionist from being found (no alert mobile, no address on its Google profile nor line on its
-site, no agenda), with the way to its space. Nothing when every step is done; never more than these two.
+site, no agenda), with the way to its space. Nothing when every step is done; never more than these two. Past the
+second one, the dashboard flags the receptionist « À relancer » for the operator to call.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from enums.ai_assistant_start_step import AiAssistantStartStep
 from enums.ai_assistant_status import AiAssistantStatus
 from models.ai_assistant import AiAssistant
 from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
@@ -24,13 +26,21 @@ logger = logging.getLogger(__name__)
 REMINDERS: tuple[tuple[int, str], ...] = ((3, "start_reminder_j3_sent_at"), (14, "start_reminder_j14_sent_at"))
 # The agenda states that count as a missing step (an agenda Google cannot offer is not the client's fault).
 _AGENDA_MISSING_STATES: frozenset[str] = frozenset({"disconnected", "error"})
+# Each step as the client reads it in the reminder; ``{assistant_name}`` is the receptionist's first name.
+_CLIENT_WORDING: dict[AiAssistantStartStep, str] = {
+    AiAssistantStartStep.ALERT_PHONE: "votre numéro de mobile, pour recevoir les demandes par SMS",
+    AiAssistantStartStep.GOOGLE_PROFILE_OR_WEBSITE: (
+        "l'adresse de {assistant_name} sur votre fiche Google, ou la ligne à coller sur votre site"
+    ),
+    AiAssistantStartStep.GOOGLE_CALENDAR: "votre agenda Google, pour que les rendez-vous s'y posent tout seuls",
+}
 
 
 class AiAssistantStartReminders:
-    """Emails the steps left to start, at J+3 and J+14 after the sale."""
+    """Emails the steps left to start, at J+3 and J+14 after the sale, and flags who still needs a call after that."""
 
     @staticmethod
-    def missing_steps(db: Session, assistant: AiAssistant) -> list[str]:
+    def missing_steps(db: Session, assistant: AiAssistant) -> list[AiAssistantStartStep]:
         """
         What keeps the receptionist from serving: the « Pour démarrer » steps not done yet.
 
@@ -39,19 +49,51 @@ class AiAssistantStartReminders:
             assistant: A sold assistant.
 
         Returns:
-            The steps, as the client reads them; empty when everything is in place.
+            The steps, in the order the client takes them; empty when everything is in place.
         """
-        steps: list[str] = []
+        steps: list[AiAssistantStartStep] = []
         if not assistant.alert_phone_e164:
-            steps.append("votre numéro de mobile, pour recevoir les demandes par SMS")
+            steps.append(AiAssistantStartStep.ALERT_PHONE)
         if assistant.installed_at is None and assistant.google_profile_linked_at is None:
-            steps.append(
-                f"l'adresse de {assistant.assistant_name} sur votre fiche Google, ou la ligne à coller sur votre site"
-            )
+            steps.append(AiAssistantStartStep.GOOGLE_PROFILE_OR_WEBSITE)
         state, _calendar = ai_assistant_calendar_service.connection(db, assistant)
         if str(getattr(state, "value", state)) in _AGENDA_MISSING_STATES:
-            steps.append("votre agenda Google, pour que les rendez-vous s'y posent tout seuls")
+            steps.append(AiAssistantStartStep.GOOGLE_CALENDAR)
         return steps
+
+    @staticmethod
+    def needs_follow_up(assistant: AiAssistant, missing_steps: list[AiAssistantStartStep]) -> bool:
+        """
+        Whether the operator should call the business: sold, its last reminder (J+14) sent, and steps still missing.
+
+        Args:
+            assistant: The assistant.
+            missing_steps: Its « Pour démarrer » steps not done yet (see :meth:`missing_steps`).
+
+        Returns:
+            True when the reminders are over and the receptionist still cannot serve fully.
+        """
+        return (
+            assistant.status == AiAssistantStatus.DELIVERED.value
+            and assistant.deleted_at is None
+            and assistant.delivered_at is not None
+            and assistant.start_reminder_j14_sent_at is not None
+            and bool(missing_steps)
+        )
+
+    @staticmethod
+    def client_wording(step: AiAssistantStartStep, assistant: AiAssistant) -> str:
+        """
+        A step as the business reads it in its reminder.
+
+        Args:
+            step: The missing step.
+            assistant: The assistant, whose first name the wording may carry.
+
+        Returns:
+            The sentence (« votre numéro de mobile, pour recevoir les demandes par SMS »).
+        """
+        return _CLIENT_WORDING[step].format(assistant_name=assistant.assistant_name)
 
     async def send_due(self, db: Session, *, now: datetime | None = None) -> int:
         """
@@ -89,7 +131,7 @@ class AiAssistantStartReminders:
                     assistant_name=assistant.assistant_name,
                     url=AiAssistantClientLinks.url(assistant, now=now),
                     days=days,
-                    missing=missing,
+                    missing=[self.client_wording(step, assistant) for step in missing],
                 )
                 recipient = AiAssistantBusinessMailer.business_email(db, assistant)
                 if not recipient:
