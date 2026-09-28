@@ -25,7 +25,7 @@
       </span>
     </button>
 
-    <!-- Open card — one optional message; the visit came from an email, so no contact details asked. -->
+    <!-- Open card — one optional message; the visit came from an email, so no coordinates asked. -->
     <div v-else-if="state === 'open'" class="contact-banner__card">
       <div class="contact-banner__card-head">
         <span class="contact-banner__card-title"> Parler à {{ ownerName || 'la personne qui vous l’a envoyé' }} </span>

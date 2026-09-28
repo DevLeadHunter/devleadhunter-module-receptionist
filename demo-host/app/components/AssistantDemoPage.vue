@@ -103,7 +103,7 @@
       </p>
     </main>
 
-    <div :class="{ 'ia__banner--hidden': isComposerFocused }">
+    <div class="ia__banner" :class="{ 'ia__banner--hidden': isComposerFocused }">
       <AssistantContactBanner
         :slug="props.assistant.slug"
         :business-name="props.assistant.business_name"
@@ -120,14 +120,14 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, PropType, Ref } from 'vue'
+import type { AiAssistantClosedHours, AiAssistantConfig } from '~/types/AiAssistant'
+import type { AssistantLeadSummary } from '~/types/AssistantChat'
+import type { AssistantDemoPageProps } from '~/types/AssistantDemoPage'
 import { computed, onMounted, ref } from 'vue'
 import AssistantChatWindow from '~/components/AssistantChatWindow.vue'
 import AssistantDemoOwnerFeed from '~/components/AssistantDemoOwnerFeed.vue'
 import DemoCtaLink from '~/components/DemoCtaLink.vue'
 import { captureDemoEvent, useDemoTracking } from '~/composables/useDemoTracking'
-import type { AiAssistantClosedHours, AiAssistantConfig } from '~/types/AiAssistant'
-import type { AssistantLeadSummary } from '~/types/AssistantChat'
-import type { AssistantDemoPageProps } from '~/types/AssistantDemoPage'
 import { AssistantDemoScenarioUtils } from '~/utils/AssistantDemoScenarioUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'

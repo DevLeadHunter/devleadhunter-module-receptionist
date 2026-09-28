@@ -154,24 +154,6 @@ import type {
 } from '~/types/AiAssistantClientSpace'
 import type { ClientSpaceAgendaEmits, ClientSpaceAgendaProps } from '~/types/ClientSpaceAgenda'
 
-/** How many appointment types a client may offer. */
-const MAX_TYPES: number = 6
-
-/** Google's id of the account's main agenda; the field shows it empty, its placeholder names it. */
-const PRIMARY_CALENDAR_ID: string = 'primary'
-
-/**
- * The agenda section: connect the client's Google agenda, the appointment requests still to confirm, the
- * appointments booked, and the booking settings once connected.
- * @param calendar The agenda's connection and settings, defaults applied.
- * @param appointments The upcoming appointments the receptionist booked.
- * @param requests The latest requests; the appointment ones still waiting are listed as to confirm.
- * @param assistantName The receptionist's first name.
- * @param isBusy A call is in flight.
- * @param errorMessage Why the last call was refused, if it was.
- * @param hasSaved The last settings save went through.
- * @param readOnly The example space: shown, never connected nor saved.
- */
 const props: ClientSpaceAgendaProps = defineProps({
   calendar: { type: Object as PropType<AiAssistantClientCalendar>, required: true },
   appointments: { type: Array as PropType<AiAssistantClientAppointment[]>, required: true },
@@ -184,6 +166,12 @@ const props: ClientSpaceAgendaProps = defineProps({
 })
 
 const emit: EmitFn<ClientSpaceAgendaEmits> = defineEmits<ClientSpaceAgendaEmits>()
+
+/** How many appointment types a client may offer. */
+const MAX_TYPES: number = 6
+
+/** Google's id of the account's main agenda. */
+const PRIMARY_CALENDAR_ID: string = 'primary'
 
 const duration: Ref<number> = ref(props.calendar.duration_minutes)
 const notice: Ref<number> = ref(props.calendar.min_notice_hours)

@@ -1,17 +1,11 @@
 import type { Ref } from 'vue'
-import type {
-  AiAssistantConfig,
-  AssistantChatMessage,
-  AssistantThreadMessage,
-  AssistantWidgetLanguage,
-} from '~/types/AiAssistant'
+import type { AssistantChatMessage, AssistantThreadMessage, AssistantWidgetLanguage } from '~/types/AiAssistant'
 import type { AssistantRequestFailure } from '~/types/AssistantRequest'
 
 export type AssistantThreadPanel = 'photo' | 'slots' | 'lead-form'
 
 /** The conversation thread its parts share: its state, and how a part adds a widget line or reports a failed call. */
 export type AssistantConversationThread = {
-  assistant: AiAssistantConfig
   publicEndpoint: string
   messages: Ref<AssistantThreadMessage[]>
   language: Ref<AssistantWidgetLanguage>

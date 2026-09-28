@@ -206,7 +206,6 @@ export function useAssistantBooking(thread: AssistantConversationThread): UseAss
     pickedSummary,
     hasOfferedBooking,
     isSlotPanelOpen,
-    loadSlots,
     openSlotPanel,
     closeSlotPanel,
     loadFirstSlotsPage,

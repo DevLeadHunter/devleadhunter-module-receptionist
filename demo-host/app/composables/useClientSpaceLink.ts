@@ -11,7 +11,7 @@ import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
 import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
 import { ClientSpaceLanguageUtils } from '~/utils/ClientSpaceLanguageUtils'
 
-/** Where the browser keeps the latest link of a space, so an icon on the home screen outlives the link it saved. */
+/** Where the browser keeps the latest link of a space, so an icon on the home screen outlives its 30 days. */
 const STORED_LINK_PREFIX: string = 'client-space-link:'
 
 /**

@@ -23,7 +23,7 @@ export class AssistantLanguageUtils {
   /**
    * Whether a code is one of the widget's languages, as written.
    * @param code - A lower-case primary language code.
-   * @returns True for « fr », « nl », « en », « de » and « lb ».
+   * @returns True when the widget speaks it.
    */
   static isWidgetLanguage(code: string): code is AssistantWidgetLanguage {
     return WIDGET_LANGUAGES.has(code)

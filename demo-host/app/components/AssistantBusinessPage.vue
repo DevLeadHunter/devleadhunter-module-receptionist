@@ -8,8 +8,12 @@
         Une question, une photo, un rendez-vous : écrivez à {{ assistantName }}, {{ pronoun }} vous répond à toute
         heure.
       </p>
-      <p v-if="openStatusLabel" class="business-page__status" :class="{ 'business-page__status--open': isOpenNow }">
-        <span class="business-page__status-dot" aria-hidden="true" />{{ openStatusLabel }}
+      <p v-if="openStatusLabel" class="business-page__status">
+        <span
+          class="business-page__status-dot"
+          :class="{ 'business-page__status-dot--open': isOpenNow }"
+          aria-hidden="true"
+        />{{ openStatusLabel }}
       </p>
     </header>
 
@@ -36,7 +40,7 @@
     </div>
 
     <footer class="business-page__footer">
-      {{ assistantName }} est {{ roleLabel }} de {{ businessName }} : {{ pronoun }} note votre demande et la transmet
+      {{ assistantName }} est {{ roleLabel }} {{ ofBusinessName }} : {{ pronoun }} note votre demande et la transmet
       aussitôt.
     </footer>
   </main>
@@ -44,12 +48,12 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, PropType } from 'vue'
-import { computed } from 'vue'
-import AssistantChatWindow from '~/components/AssistantChatWindow.vue'
-import OpeningHoursList from '~/components/OpeningHoursList.vue'
 import type { AiAssistantConfig } from '~/types/AiAssistant'
 import type { AssistantBusinessPageProps } from '~/types/AssistantBusinessPage'
 import type { AiAssistantOpeningHoursRow } from '~/types/AiAssistantPublicBusiness'
+import { computed } from 'vue'
+import AssistantChatWindow from '~/components/AssistantChatWindow.vue'
+import OpeningHoursList from '~/components/OpeningHoursList.vue'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 import { ContactLinkUtils } from '~/utils/ContactLinkUtils'
 
@@ -60,6 +64,8 @@ const props: AssistantBusinessPageProps = defineProps({
 const businessName: ComputedRef<string> = computed((): string => BusinessNameUtils.short(props.assistant.business_name))
 
 const assistantName: ComputedRef<string> = computed((): string => props.assistant.assistant_name)
+
+const ofBusinessName: ComputedRef<string> = computed((): string => BusinessNameUtils.ofBusiness(businessName.value))
 
 const tradeLine: ComputedRef<string> = computed((): string =>
   BusinessNameUtils.tradeAndCity(props.assistant.trade_label ?? null, props.assistant.city ?? null),
@@ -188,7 +194,7 @@ const openStatusLabel: ComputedRef<string> = computed((): string => {
   border-radius: 50%;
   background: var(--ia-ink-dim);
 }
-.business-page__status--open .business-page__status-dot {
+.business-page__status-dot--open {
   background: #3fb950;
   box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.2);
 }

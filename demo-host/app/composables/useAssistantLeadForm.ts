@@ -24,7 +24,7 @@ import { AssistantThreadUtils } from '~/utils/AssistantThreadUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 import { VisitorContactUtils } from '~/utils/VisitorContactUtils'
 
-const SLOT_REFUSAL_CODES: string[] = ['slot_taken', 'slot_withdrawn']
+const SLOT_REFUSAL_CODES: AssistantSlotRefusalCode[] = ['slot_taken', 'slot_withdrawn']
 
 const CHAT_NEED_MAX_CHARS: number = 140
 
@@ -155,7 +155,7 @@ export function useAssistantLeadForm(
    * @returns True for a slot taken or withdrawn meanwhile.
    */
   function isSlotRefusal(code: string | null): code is AssistantSlotRefusalCode {
-    return code !== null && SLOT_REFUSAL_CODES.includes(code)
+    return SLOT_REFUSAL_CODES.some((refusal: AssistantSlotRefusalCode): boolean => refusal === code)
   }
 
   /**

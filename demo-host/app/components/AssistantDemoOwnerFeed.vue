@@ -84,7 +84,7 @@ const props: AssistantDemoOwnerFeedProps = defineProps({
   color: var(--ia-ink-dim);
 }
 .feed__time {
-  font-family: var(--ia-font-d);
+  font-family: var(--ia-font-display);
   font-size: 30px;
   font-weight: 500;
   line-height: 1;

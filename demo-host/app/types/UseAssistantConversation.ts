@@ -5,7 +5,7 @@ import type { UseAssistantBookingReturn } from '~/types/UseAssistantBooking'
 import type { UseAssistantLeadFormReturn } from '~/types/UseAssistantLeadForm'
 import type { UseAssistantPhotoUploadReturn } from '~/types/UseAssistantPhotoUpload'
 
-export type UseAssistantThreadReturn = {
+export type UseAssistantConversationReturn = {
   messages: Ref<AssistantThreadMessage[]>
   language: Ref<AssistantWidgetLanguage>
   offeredLanguages: ComputedRef<AssistantWidgetLanguage[]>
@@ -26,11 +26,50 @@ export type UseAssistantThreadReturn = {
   greet: () => Promise<void>
   playExample: (steps: AssistantDemoScriptStep[]) => Promise<void>
   setLanguage: (language: AssistantWidgetLanguage) => void
-  sendSuggestion: (text: string) => Promise<void>
+  sendSuggestion: (text: string) => Promise<boolean>
   sendDraft: () => Promise<void>
-}
-
-export type UseAssistantConversationReturn = UseAssistantThreadReturn &
-  UseAssistantBookingReturn &
-  UseAssistantPhotoUploadReturn &
-  UseAssistantLeadFormReturn
+} & Pick<
+  UseAssistantBookingReturn,
+  | 'bookingMode'
+  | 'slotsState'
+  | 'slotDays'
+  | 'slotTimes'
+  | 'hasMoreTimes'
+  | 'hasPreviousSlotsPage'
+  | 'appointmentKinds'
+  | 'chosenSlots'
+  | 'chosenTime'
+  | 'chosenKind'
+  | 'canContinueBooking'
+  | 'pickedSummary'
+  | 'isSlotPanelOpen'
+  | 'openSlotPanel'
+  | 'closeSlotPanel'
+  | 'loadFirstSlotsPage'
+  | 'showMoreTimes'
+  | 'toggleSlot'
+  | 'chooseTime'
+  | 'chooseKind'
+  | 'confirmSlots'
+> &
+  Pick<
+    UseAssistantPhotoUploadReturn,
+    | 'photoPreviews'
+    | 'photosRemaining'
+    | 'leadNeedPrefill'
+    | 'isPhotoPanelOpen'
+    | 'openPhotoPanel'
+    | 'closePhotoPanel'
+    | 'sendPhoto'
+    | 'releasePhotoPreviews'
+  > &
+  Pick<
+    UseAssistantLeadFormReturn,
+    | 'isLeadFormOpen'
+    | 'isSubmittingLead'
+    | 'leadPrefill'
+    | 'lastLeadSummary'
+    | 'openLeadForm'
+    | 'cancelLeadForm'
+    | 'submitLead'
+  >

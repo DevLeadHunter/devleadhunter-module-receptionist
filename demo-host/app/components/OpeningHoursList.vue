@@ -7,7 +7,7 @@
       :class="{ 'opening-hours__row--today': row.is_today }"
     >
       <dt class="opening-hours__day">
-        {{ capitalized(row.day) }}
+        {{ capitalizeDay(row.day) }}
         <span v-if="row.is_today" class="opening-hours__today">aujourd'hui</span>
       </dt>
       <dd class="opening-hours__hours">{{ row.hours }}</dd>
@@ -29,7 +29,7 @@ const props: OpeningHoursListProps = defineProps({
  * @param day - The day, as the listing words it.
  * @returns The day with its first letter in capitals.
  */
-function capitalized(day: string): string {
+function capitalizeDay(day: string): string {
   return day.charAt(0).toLocaleUpperCase('fr-FR') + day.slice(1)
 }
 </script>

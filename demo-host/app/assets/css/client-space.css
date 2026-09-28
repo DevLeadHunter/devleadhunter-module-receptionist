@@ -1,4 +1,4 @@
-/* The client space's tokens and shared atoms; the page sets the --cs-accent-* shades from the business's colour. */
+/* The client space's tokens and atoms, shared by its components (the business's colour comes from the API). */
 .cs {
   --cs-bg: #f7f5f0;
   --cs-card: #ffffff;

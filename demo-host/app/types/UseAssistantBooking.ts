@@ -25,7 +25,6 @@ export type UseAssistantBookingReturn = {
   pickedSummary: ComputedRef<string>
   hasOfferedBooking: Ref<boolean>
   isSlotPanelOpen: ComputedRef<boolean>
-  loadSlots: (after?: string | null) => Promise<void>
   openSlotPanel: () => Promise<void>
   closeSlotPanel: () => void
   loadFirstSlotsPage: () => Promise<void>

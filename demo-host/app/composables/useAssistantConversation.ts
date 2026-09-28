@@ -43,9 +43,6 @@ const INLINE_GREETING_DELAY_MS: number = 900
 const EXAMPLE_VISITOR_DELAY_MS: number = 900
 const EXAMPLE_REPLY_DELAY_MS: number = 1500
 
-/** A French word starting with a vowel or a mute h takes « d' » (« d'Atelier ») rather than « de ». */
-const FRENCH_ELISION_START: RegExp = /^[aeiouyàâäéèêëîïôöùûüh]/i
-
 /** A sold receptionist answers a business's own customers: the demo page's played example is a sales pitch. */
 const DELIVERED_STATUS: string = 'delivered'
 
@@ -92,7 +89,6 @@ export function useAssistantConversation(
   let hasCapturedInlineOpening: boolean = false
 
   const thread: AssistantConversationThread = {
-    assistant,
     publicEndpoint,
     messages,
     language,
@@ -247,7 +243,7 @@ export function useAssistantConversation(
    */
   function greetingText(greetingLanguage: AssistantWidgetLanguage): string {
     const business: string = BusinessNameUtils.short(assistant.business_name)
-    const ofBusiness: string = FRENCH_ELISION_START.test(business) ? `d'${business}` : `de ${business}`
+    const ofBusiness: string = BusinessNameUtils.ofBusiness(business)
     const intro: string = GREETING_INTROS[greetingLanguage][assistant.assistant_gender ?? 'feminine']
       .replace('{name}', assistant.assistant_name)
       .replace('{business}', business)
@@ -452,15 +448,6 @@ export function useAssistantConversation(
     if (!isAnswered && !draft.value.trim()) draft.value = text
   }
 
-  /**
-   * Send a suggestion chip as the visitor's message; the draft the visitor is typing stays in the field.
-   * @param text - The suggestion.
-   * @returns A promise resolving once the reply is handled.
-   */
-  async function sendSuggestion(text: string): Promise<void> {
-    await sendVisitorMessage(text)
-  }
-
   watch([messages, language], (): void => persistConversation(), { deep: true })
 
   return {
@@ -484,10 +471,43 @@ export function useAssistantConversation(
     greet,
     playExample,
     setLanguage,
-    sendSuggestion,
+    sendSuggestion: sendVisitorMessage,
     sendDraft,
-    ...booking,
-    ...photo,
-    ...leadForm,
+    bookingMode: booking.bookingMode,
+    slotsState: booking.slotsState,
+    slotDays: booking.slotDays,
+    slotTimes: booking.slotTimes,
+    hasMoreTimes: booking.hasMoreTimes,
+    hasPreviousSlotsPage: booking.hasPreviousSlotsPage,
+    appointmentKinds: booking.appointmentKinds,
+    chosenSlots: booking.chosenSlots,
+    chosenTime: booking.chosenTime,
+    chosenKind: booking.chosenKind,
+    canContinueBooking: booking.canContinueBooking,
+    pickedSummary: booking.pickedSummary,
+    isSlotPanelOpen: booking.isSlotPanelOpen,
+    openSlotPanel: booking.openSlotPanel,
+    closeSlotPanel: booking.closeSlotPanel,
+    loadFirstSlotsPage: booking.loadFirstSlotsPage,
+    showMoreTimes: booking.showMoreTimes,
+    toggleSlot: booking.toggleSlot,
+    chooseTime: booking.chooseTime,
+    chooseKind: booking.chooseKind,
+    confirmSlots: booking.confirmSlots,
+    photoPreviews: photo.photoPreviews,
+    photosRemaining: photo.photosRemaining,
+    leadNeedPrefill: photo.leadNeedPrefill,
+    isPhotoPanelOpen: photo.isPhotoPanelOpen,
+    openPhotoPanel: photo.openPhotoPanel,
+    closePhotoPanel: photo.closePhotoPanel,
+    sendPhoto: photo.sendPhoto,
+    releasePhotoPreviews: photo.releasePhotoPreviews,
+    isLeadFormOpen: leadForm.isLeadFormOpen,
+    isSubmittingLead: leadForm.isSubmittingLead,
+    leadPrefill: leadForm.leadPrefill,
+    lastLeadSummary: leadForm.lastLeadSummary,
+    openLeadForm: leadForm.openLeadForm,
+    cancelLeadForm: leadForm.cancelLeadForm,
+    submitLead: leadForm.submitLead,
   }
 }
