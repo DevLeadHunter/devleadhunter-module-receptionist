@@ -13,12 +13,13 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from PIL import Image, ImageOps
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
+from core.clock import naive_utc_now
 from enums.ai_assistant_photo import AiAssistantPhotoRejection
 from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus
 from models.ai_assistant import AiAssistant
@@ -48,11 +49,6 @@ RETENTION = timedelta(days=90)
 QUOTA_WINDOW = timedelta(hours=24)
 # How a photo shows in the conversation journal (the owner reads it in French).
 PHOTO_JOURNAL_MARKER = "Photo envoyée"
-
-
-def _utc_now() -> datetime:
-    """Current time as naive UTC, the storage convention."""
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class PhotoRejectedError(Exception):
@@ -132,7 +128,7 @@ class AiAssistantPhotoService:
         except Exception as exc:
             logger.warning("Photo %s: storage upload failed", photo.id, exc_info=True)
             photo.storage_key = None
-            photo.deleted_at = _utc_now()
+            photo.deleted_at = naive_utc_now()
             db.commit()
             raise PhotoRejectedError(
                 AiAssistantPhotoRejection.UNAVAILABLE, "Envoi de photo indisponible pour le moment."
@@ -184,7 +180,7 @@ class AiAssistantPhotoService:
         Returns:
             The number of photos counting against the quota.
         """
-        current = now or _utc_now()
+        current = now or naive_utc_now()
         open_requests = select(AiAssistantRequest.id).where(
             AiAssistantRequest.status == AiAssistantRequestStatus.NEW.value
         )
@@ -211,7 +207,7 @@ class AiAssistantPhotoService:
         """
         if not request.session_id:
             return
-        recent = _utc_now() - QUOTA_WINDOW
+        recent = naive_utc_now() - QUOTA_WINDOW
         photos = (
             db.query(AiAssistantPhoto)
             .filter(
@@ -250,7 +246,7 @@ class AiAssistantPhotoService:
         Returns:
             How many photos were forgotten (a failed storage delete is retried on the next pass).
         """
-        current = now or _utc_now()
+        current = now or naive_utc_now()
         due = (
             db.query(AiAssistantPhoto)
             .filter(
@@ -335,7 +331,7 @@ class AiAssistantPhotoService:
                 return False
         photo.storage_key = None
         photo.url = None
-        photo.deleted_at = now or _utc_now()
+        photo.deleted_at = now or naive_utc_now()
         return True
 
 

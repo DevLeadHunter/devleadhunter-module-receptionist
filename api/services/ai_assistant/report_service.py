@@ -17,12 +17,13 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import asdict, dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from core.clock import naive_utc_now
 from core.database import SessionLocal
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.ai_assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
@@ -54,11 +55,6 @@ RETRY_DELAY = timedelta(hours=1)
 # A subscriber silent for that long is flagged on the dashboard, once subscribed for that long.
 CHURN_WINDOW = timedelta(days=30)
 LOOP_INTERVAL_SECONDS = 600
-
-
-def _utc_now() -> datetime:
-    """Current time as naive UTC, the storage convention."""
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 @dataclass(frozen=True)
@@ -157,7 +153,7 @@ class AiAssistantReportService:
         Returns:
             How many reports were emailed.
         """
-        current = now or _utc_now()
+        current = now or naive_utc_now()
         local = OpeningHoursCalendar.to_business_time(current)
         if local.day > REPORT_DAYS or local.hour < SEND_FROM_HOUR:
             return 0
@@ -270,7 +266,7 @@ class AiAssistantReportService:
         """
         if status != AiAssistantStatus.DELIVERED.value or subscribed_at is None:
             return False
-        if subscribed_at > (now or _utc_now()) - CHURN_WINDOW:
+        if subscribed_at > (now or naive_utc_now()) - CHURN_WINDOW:
             return False
         return conversations_30d == 0 and requests_30d == 0
 
@@ -284,7 +280,7 @@ class AiAssistantReportService:
             or self.subscribed_at(db, assistant.id) is None
         ):
             return False
-        current = now or _utc_now()
+        current = now or naive_utc_now()
         if not self._claim_attempt(db, row, current):
             return False
         period = ReportPeriod.of_key(row.month)
