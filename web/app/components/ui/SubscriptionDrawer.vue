@@ -132,6 +132,7 @@ import type { UiSubscriptionDrawerEmits, UiSubscriptionDrawerProps } from '~/typ
 import { computed, ref } from 'vue'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { useToast } from '~/composables/useToast'
+import { SUBSCRIPTION_STATUS_LABELS } from '~/utils/aiAssistantLabels'
 import { formatEuros } from '~/utils/currency'
 import { formatShortMonthDate } from '~/utils/date'
 
@@ -154,13 +155,6 @@ const emit: EmitFn<UiSubscriptionDrawerEmits> = defineEmits<UiSubscriptionDrawer
 
 const toast: UseToastReturn = useToast()
 
-const SUBSCRIPTION_STATUS_LABELS: Record<string, string> = {
-  active: 'Actif',
-  past_due: 'Paiement en retard',
-  canceled: 'Annulé',
-  incomplete: 'En attente de paiement',
-}
-
 const isBusy: Ref<boolean> = ref(false)
 const cancelConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
 const refundConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
@@ -170,8 +164,8 @@ const canManageSubscription: ComputedRef<boolean> = computed(
   (): boolean => props.subscription?.status === 'active' || props.subscription?.status === 'past_due',
 )
 
-const statusLabel: ComputedRef<string> = computed(
-  (): string => SUBSCRIPTION_STATUS_LABELS[props.subscription?.status ?? ''] ?? props.subscription?.status ?? '—',
+const statusLabel: ComputedRef<string> = computed((): string =>
+  props.subscription ? SUBSCRIPTION_STATUS_LABELS[props.subscription.status] : '—',
 )
 
 const statusBadgeClass: ComputedRef<string> = computed((): string => {

@@ -81,7 +81,7 @@ export type AssistantSubscription = {
   interval: string
   amount_cents: number
   currency: string
-  status: string
+  status: AssistantSubscriptionStatus
   current_period_end: string | null
   canceled_at: string | null
   stripe_subscription_id: string | null
@@ -89,6 +89,8 @@ export type AssistantSubscription = {
 }
 
 export type AssistantSubscriptionInterval = 'month' | 'year'
+
+export type AssistantSubscriptionStatus = 'incomplete' | 'active' | 'past_due' | 'canceled'
 
 export type AiAssistantSubscriptionLink = {
   url: string

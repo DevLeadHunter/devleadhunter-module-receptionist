@@ -45,7 +45,7 @@
             </a>
             <p v-else class="text-sm break-all text-[var(--app-ink)]">{{ request.contact }}</p>
             <p v-if="request.language" class="text-muted text-xs">
-              Langue du visiteur : {{ widgetLanguageCode(request.language).toUpperCase() }}
+              Langue du visiteur : {{ languageCodeLabel(request.language) }}
             </p>
           </section>
 
@@ -215,7 +215,7 @@ import { useToast } from '~/composables/useToast'
 import { useDrawerStackStore } from '~/stores/drawerStack'
 import { contactHref } from '~/utils/contactLink'
 import { formatShortMonthDayTime } from '~/utils/date'
-import { REQUEST_STATUS_LABELS, REQUEST_TYPE_LABELS, widgetLanguageCode } from '~/utils/aiAssistantLabels'
+import { REQUEST_STATUS_LABELS, REQUEST_TYPE_LABELS, languageCodeLabel } from '~/utils/aiAssistantLabels'
 
 const props: UiAssistantRequestDrawerProps = defineProps({
   open: {
