@@ -1,8 +1,7 @@
 """
 The page hooks the receptionist video films, as agreed with the demo host.
 
-Each hook is a ``data-capture`` attribute the demo host sets for the capture, with the element's class as a fallback:
-the capture keeps working on a demo host deployed before the attributes.
+Each hook is the ``data-capture`` attribute the demo host sets for the capture, or else the element's class.
 """
 
 LAUNCHER_SELECTOR = '[data-capture="launcher"], .ai-launcher'

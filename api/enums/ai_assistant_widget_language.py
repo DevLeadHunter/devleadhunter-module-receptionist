@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-# Codes read as another widget language: « lu » named Luxembourgish before the widget moved to BCP 47's « lb ».
+# Legacy codes read as a widget language (« lu » for Luxembourgish).
 _ALIASES: dict[str, str] = {"lu": "lb"}
 
 

@@ -25,8 +25,7 @@ from services.ai_assistant.visitor_contact import VisitorContact
 # 8 to 15 digits with the separators people type, « + » or « 00 » before them or not (the widget reads the same).
 _PHONES_IN_TEXT = re.compile(r"(?:\+|00)?\d(?:[\s.()/-]*\d){7,14}")
 _EMAILS_IN_TEXT = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]{2,}")
-# « 01/10/2026 », « 1.10.26 », « 14h », « 9 h 30 », « 14:30 »: their figures would otherwise read as a phone number.
-# A date has three groups only (« 06.12.34.56.78 » is a phone), an hour's « h » ends its word (« 78 hier » is not one).
+# Dates of three groups (« 06.12.34.56.78 » is a phone) and hours whose « h » ends the word (« 14h », « 9 h 30 »).
 _DATES_AND_HOURS = re.compile(
     r"(?<![\d/.-])\d{1,2}([/.-])\d{1,2}\1\d{2,4}(?![/.-]?\d)|\b\d{1,2}\s?h(?![^\W\d_])(?:\s?\d{2}\b)?|\b\d{1,2}:\d{2}\b",
     re.IGNORECASE,

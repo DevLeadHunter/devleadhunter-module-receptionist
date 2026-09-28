@@ -197,7 +197,7 @@ class AiAssistantOpeningHoursRow(BaseModel):
 
     day: str
     hours: str
-    # The business's current weekday in its own time, for the page to point out.
+    # Whether the row is the business's current weekday, in its own time.
     is_today: bool = False
 
 
@@ -248,8 +248,7 @@ class AiAssistantPublicResponse(BaseModel):
     # How long the business is closed while its customers look for it, for the demo page; None once sold or
     # when its hours are unknown.
     closed_hours: AiAssistantClosedHours | None = None
-    # The business's card (phone, address, hours) for the page its customers reach once the receptionist is sold;
-    # None for a demo.
+    # Phone, address and hours of a sold receptionist's business; None for a demo.
     business: AiAssistantPublicBusiness | None = None
 
 
@@ -284,7 +283,7 @@ class AiAssistantChatRequest(BaseModel):
     language: WidgetLanguageCode = Field(default=None, max_length=8)
     # Set by the widget on a « ?internal=1 » visit (the operator testing): journaled, out of the counts.
     internal: bool = False
-    # The name the widget read in the conversation: it names the request a phone number typed in the chat opens.
+    # The visitor's name, as the widget read it in the conversation.
     visitor_name: str | None = Field(default=None, max_length=LABEL_MAX_CHARS)
 
 
@@ -303,14 +302,14 @@ class AiAssistantChatResponse(BaseModel):
     offer_booking: bool = False
     # Questions the visitor may want to ask next, offered as chips under the reply.
     follow_ups: list[str] = Field(default_factory=list)
-    # The assistant answered its visitor messages of the day: a fixed reply, and the widget offers the contact form.
+    # Whether the daily cap of visitor messages is reached: the reply is then the fixed one.
     daily_limit_reached: bool = False
-    # The visitor's message held their phone number or email: the widget confirms the request like the form does.
+    # The contact the visitor's message held, filed as their request; None when it held none.
     captured_contact: AiAssistantCapturedContact | None = None
 
 
 class AiAssistantRefusal(BaseModel):
-    """A refusal the widget recognises by its code (it words it for the visitor); the message is for a reader."""
+    """A refusal: the code of its reason, and a sentence that states it."""
 
     code: AiAssistantWidgetRefusalCode
     message: str
