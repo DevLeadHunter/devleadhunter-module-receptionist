@@ -1,22 +1,24 @@
 """
-Google Calendar for a sold assistant: the client's consent, its tokens, and the two calls booking needs.
+Google Calendar for a sold assistant: the client's consent, its tokens, and the calls booking needs.
 
 The client connects their own Google account from the client space. The scopes are their address (to show
 which account is connected), their events (to create the appointment) and their availability (the free/busy
-query does not accept the events scope). Every call is a plain HTTPS request (httpx), mocked in tests.
+query does not accept the events scope). The OAuth steps are those of every Google integration
+(``google_oauth_client``); every call is a plain HTTPS request (httpx), mocked in tests.
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any, ClassVar
-from urllib.parse import quote, urlencode
+from urllib.parse import quote
 
 import httpx
 
 from core.config import settings
+from services.google_oauth_client import GoogleOAuthError, GoogleTokens, google_oauth_client
 
 logger = logging.getLogger(__name__)
 
@@ -37,16 +39,6 @@ class GoogleCalendarError(Exception):
         super().__init__(message)
         self.needs_reconnect = needs_reconnect
         self.status_code = status_code
-
-
-@dataclass(frozen=True)
-class GoogleTokens:
-    """Tokens of a Google account; ``expires_at`` is naive UTC."""
-
-    access_token: str
-    refresh_token: str | None
-    expires_at: datetime
-    scopes: frozenset[str]
 
 
 @dataclass(frozen=True)
@@ -81,9 +73,6 @@ class CalendarEventDraft:
 class GoogleCalendarClient:
     """OAuth and Calendar API calls for the assistants' agendas (one shared Google OAuth client)."""
 
-    AUTHORIZATION_URL: ClassVar[str] = "https://accounts.google.com/o/oauth2/v2/auth"
-    TOKEN_URL: ClassVar[str] = "https://oauth2.googleapis.com/token"
-    USERINFO_URL: ClassVar[str] = "https://www.googleapis.com/oauth2/v2/userinfo"
     FREEBUSY_URL: ClassVar[str] = "https://www.googleapis.com/calendar/v3/freeBusy"
     EVENTS_URL: ClassVar[str] = "https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events"
     EVENT_URL: ClassVar[str] = "https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events/{event_id}"
@@ -92,7 +81,7 @@ class GoogleCalendarClient:
     @property
     def is_configured(self) -> bool:
         """Whether the Google OAuth client is configured on the server."""
-        return bool(settings.google_client_id and settings.google_client_secret)
+        return google_oauth_client.is_configured
 
     @staticmethod
     def authorization_url(state: str) -> str:
@@ -105,20 +94,12 @@ class GoogleCalendarClient:
         Returns:
             The URL to open in the client's browser (offline access, consent shown every time).
         """
-        query = urlencode(
-            {
-                "client_id": settings.google_client_id,
-                "redirect_uri": settings.google_calendar_redirect_uri,
-                "response_type": "code",
-                "scope": " ".join(GOOGLE_CALENDAR_SCOPES),
-                "access_type": "offline",
-                "prompt": "consent",
-                "include_granted_scopes": "true",
-                "state": state,
-            },
-            quote_via=quote,
+        return google_oauth_client.authorization_url(
+            scopes=GOOGLE_CALENDAR_SCOPES,
+            redirect_uri=settings.google_calendar_redirect_uri,
+            state=state,
+            include_granted_scopes=True,
         )
-        return f"{GoogleCalendarClient.AUTHORIZATION_URL}?{query}"
 
     async def exchange_code(self, code: str) -> GoogleTokens:
         """
@@ -133,16 +114,12 @@ class GoogleCalendarClient:
         Raises:
             GoogleCalendarError: When Google refuses the code.
         """
-        payload = await self._token_request(
-            {
-                "code": code,
-                "client_id": settings.google_client_id,
-                "client_secret": settings.google_client_secret,
-                "redirect_uri": settings.google_calendar_redirect_uri,
-                "grant_type": "authorization_code",
-            }
-        )
-        return self._tokens(payload, refresh_token=payload.get("refresh_token"))
+        try:
+            return await google_oauth_client.exchange_code(
+                code, redirect_uri=settings.google_calendar_redirect_uri, timeout_seconds=self.TIMEOUT_SECONDS
+            )
+        except GoogleOAuthError as exc:
+            raise GoogleCalendarError(str(exc), needs_reconnect=exc.is_access_lost) from exc
 
     async def refresh(self, refresh_token: str) -> GoogleTokens:
         """
@@ -157,15 +134,10 @@ class GoogleCalendarClient:
         Raises:
             GoogleCalendarError: ``needs_reconnect`` when the access was revoked or has expired.
         """
-        payload = await self._token_request(
-            {
-                "refresh_token": refresh_token,
-                "client_id": settings.google_client_id,
-                "client_secret": settings.google_client_secret,
-                "grant_type": "refresh_token",
-            }
-        )
-        return self._tokens(payload, refresh_token=payload.get("refresh_token") or refresh_token)
+        try:
+            return await google_oauth_client.refresh(refresh_token, timeout_seconds=self.TIMEOUT_SECONDS)
+        except GoogleOAuthError as exc:
+            raise GoogleCalendarError(str(exc), needs_reconnect=exc.is_access_lost) from exc
 
     async def account_email(self, access_token: str) -> str | None:
         """
@@ -176,10 +148,22 @@ class GoogleCalendarClient:
 
         Returns:
             The address, or None when Google does not vouch for it.
+
+        Raises:
+            GoogleCalendarError: When Google refuses the token or does not answer.
         """
-        payload = await self._call("GET", self.USERINFO_URL, access_token=access_token)
-        email = payload.get("email")
-        return str(email) if email and payload.get("verified_email") else None
+        try:
+            profile = await google_oauth_client.user_info(access_token, timeout_seconds=self.TIMEOUT_SECONDS)
+        except GoogleOAuthError as exc:
+            if exc.status_code is None:
+                raise GoogleCalendarError("Google Agenda injoignable") from exc
+            raise GoogleCalendarError(
+                f"Google Agenda a refusé l'appel ({exc.status_code})",
+                needs_reconnect=exc.status_code == 401,
+                status_code=exc.status_code,
+            ) from exc
+        email = profile.get("email")
+        return str(email) if email and profile.get("verified_email") else None
 
     async def busy_periods(
         self, access_token: str, calendar_id: str, *, start: datetime, end: datetime
@@ -287,22 +271,6 @@ class GoogleCalendarClient:
         start = self._parse(str(start_value)) if start_value else None
         return CalendarEventState(cancelled=payload.get("status") == "cancelled", start=start)
 
-    async def _token_request(self, form: dict[str, str]) -> dict[str, Any]:
-        """POST to the token endpoint; an ``invalid_grant`` means the client must connect again."""
-        try:
-            async with httpx.AsyncClient(timeout=self.TIMEOUT_SECONDS) as client:
-                response = await client.post(self.TOKEN_URL, data=form)
-        except httpx.HTTPError as exc:
-            raise GoogleCalendarError("Google injoignable") from exc
-        if response.status_code >= 400:
-            error = self._json(response).get("error")
-            logger.warning("Google token endpoint refused (%s): %s", response.status_code, error)
-            raise GoogleCalendarError(
-                f"Google a refusé l'accès ({error or response.status_code})",
-                needs_reconnect=error in ("invalid_grant", "unauthorized_client"),
-            )
-        return self._json(response)
-
     async def _call(
         self, method: str, url: str, *, access_token: str, json_body: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -326,20 +294,6 @@ class GoogleCalendarClient:
                 status_code=response.status_code,
             )
         return self._json(response)
-
-    @staticmethod
-    def _tokens(payload: dict[str, Any], *, refresh_token: str | None) -> GoogleTokens:
-        """Tokens read from a token-endpoint answer."""
-        access_token = payload.get("access_token")
-        if not access_token:
-            raise GoogleCalendarError("Réponse de Google sans jeton d'accès")
-        expires_in = int(payload.get("expires_in") or 3600)
-        return GoogleTokens(
-            access_token=str(access_token),
-            refresh_token=str(refresh_token) if refresh_token else None,
-            expires_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=expires_in),
-            scopes=frozenset(str(payload.get("scope") or "").split()),
-        )
 
     @staticmethod
     def _json(response: httpx.Response) -> dict[str, Any]:
