@@ -27,6 +27,7 @@ from enums.ai_assistant_status import AiAssistantStatus
 from enums.demo_video_status import DemoVideoStatus
 from models.ai_assistant import AiAssistant
 from services import video_montage
+from services.ai_assistant.assistant_service import ai_assistant_service
 from services.assistant_space_chapter import AssistantSpaceChapter
 from services.assistant_widget_scene import EXAMPLE_NOT_PLAYED_MESSAGE, AssistantWidgetScene
 from services.capture_page import CapturePage
@@ -53,11 +54,6 @@ def thumbnail_object_key(slug: str) -> str:
 def video_page_url(slug: str) -> str:
     """Public player page for the assistant's video."""
     return f"{settings.demo_host_base_url.rstrip('/')}/va/{slug}"
-
-
-def demo_page_url(slug: str) -> str:
-    """The assistant's demo page, the one its video films."""
-    return f"{settings.demo_host_base_url.rstrip('/')}/ia/{slug}"
 
 
 def public_video_file_url(slug: str) -> str:
@@ -165,7 +161,7 @@ class AssistantVideoService(ProspectionVideoService[AiAssistant]):
         """
         self._guard_capture_memory()
         return await asyncio.to_thread(
-            self._capture_assistant_sync, demo_page_url(assistant.slug), middle_seconds, work_dir
+            self._capture_assistant_sync, ai_assistant_service.page_url(assistant.slug), middle_seconds, work_dir
         )
 
     @staticmethod

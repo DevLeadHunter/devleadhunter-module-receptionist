@@ -9,7 +9,6 @@ from fastapi import HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from core.config import settings
 from models.ai_assistant import AiAssistant
 from schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantFaqResponse, AiAssistantUnansweredEntry
 from services.ai_assistant.assistant_service import ai_assistant_service
@@ -28,11 +27,6 @@ def client_ip(request: Request) -> str:
     if forwarded:
         return forwarded.rsplit(",", 1)[-1].strip()
     return request.client.host if request.client else "unknown"
-
-
-def demo_url(slug: str) -> str:
-    """The demo page of an assistant, on the demo host."""
-    return f"{settings.demo_host_base_url.rstrip('/')}/ia/{slug}"
 
 
 def public_assistant_or_404(db: Session, slug: str) -> AiAssistant:

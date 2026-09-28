@@ -8,10 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from api.v1.routes.ai_assistant_common import (
-    demo_url,
-    owned_assistant_or_404,
-)
+from api.v1.routes.ai_assistant_common import owned_assistant_or_404
 from core.clock import naive_utc_now
 from core.database import get_db
 from enums.ai_assistant_request import AiAssistantRequestType
@@ -79,7 +76,7 @@ def _to_owner_response(
         accent_color=ai_assistant_service.accent_color(assistant),
         use_brand_color=assistant.use_brand_color,
         status=assistant.status,
-        demo_url=demo_url(assistant.slug),
+        demo_url=ai_assistant_service.page_url(assistant.slug),
         embed_snippet=AiAssistantEmbedSnippet.render(assistant.slug),
         demo_link_sent_at=assistant.demo_link_sent_at,
         expires_at=assistant.expires_at,
@@ -365,7 +362,7 @@ async def get_assistant_video_context(
         first_name = resolved_first or None
     return {
         "slug": assistant.slug,
-        "demo_url": demo_url(assistant.slug),
+        "demo_url": ai_assistant_service.page_url(assistant.slug),
         "first_name": first_name,
         "presenter_duration": presenter.duration_seconds,
         "presenter_intro": presenter.intro_seconds,

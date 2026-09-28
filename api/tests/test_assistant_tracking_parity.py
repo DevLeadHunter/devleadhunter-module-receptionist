@@ -41,9 +41,9 @@ def _assistant(db: Session, prospect: ProspectDB) -> AiAssistant:
 
 def _stub_receptionist_pages(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        EmailVariables, "active_assistant", staticmethod(lambda db, prospect_id, user_id: _RECEPTIONIST)
+        ai_assistant_service, "get_active_for_prospect", lambda db, *, prospect_id, user_id: _RECEPTIONIST
     )
-    monkeypatch.setattr(EmailVariables, "assistant_page_url", staticmethod(lambda assistant: _DEMO_PAGE))
+    monkeypatch.setattr(ai_assistant_service, "page_url", lambda slug: _DEMO_PAGE)
     monkeypatch.setattr(
         EmailVariables,
         "assistant_video_urls",

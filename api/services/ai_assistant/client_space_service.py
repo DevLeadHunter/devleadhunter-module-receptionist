@@ -19,7 +19,6 @@ from typing import Any, ClassVar
 import segno
 from sqlalchemy.orm import Session
 
-from core.config import settings
 from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestStatus
 from enums.ai_assistant_status import AiAssistantStatus
 from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
@@ -171,22 +170,9 @@ class AiAssistantClientSpaceService:
         )
 
     @staticmethod
-    def page_url(assistant: AiAssistant) -> str:
-        """
-        The receptionist's own page on the demo host: the address the business hands out.
-
-        Args:
-            assistant: The assistant.
-
-        Returns:
-            An absolute URL.
-        """
-        return f"{settings.demo_host_base_url.rstrip('/')}/ia/{assistant.slug}"
-
-    @classmethod
-    def page_short_link(cls, assistant: AiAssistant) -> str:
+    def page_short_link(assistant: AiAssistant) -> str:
         """The receptionist's page without its scheme, as it is read on a voicemail or printed."""
-        return cls.page_url(assistant).split("://", 1)[-1]
+        return ai_assistant_service.page_url(assistant.slug).split("://", 1)[-1]
 
     @staticmethod
     def qr_svg(url: str) -> str:
