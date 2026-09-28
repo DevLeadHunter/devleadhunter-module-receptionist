@@ -55,8 +55,7 @@ export function useClientSpaceLink(): UseClientSpaceLinkReturn {
   }
 
   /**
-   * Move to the fresh link the API issued: the URL, and the browser's memory of it, so the link kept on the home
-   * screen keeps opening the space month after month.
+   * Move the URL and the browser's memory to the fresh link, so the icon on the home screen keeps opening the space.
    * @param fresh - The fresh token.
    */
   function adoptFreshToken(fresh: string): void {

@@ -189,11 +189,11 @@
                     <template v-if="periodLine"><br />{{ periodLine }}</template>
                   </p>
                   <div v-if="space.subscription.can_manage && !isExample" class="cs-screen__actions">
-                    <button type="button" class="cs-btn" :disabled="isOpeningPortal" @click="openPortal">
+                    <button type="button" class="cs-btn" :disabled="isOpeningBillingPortal" @click="openBillingPortal">
                       <ClientSpaceIcon name="external-link" />
-                      {{ isOpeningPortal ? 'Ouverture…' : 'Factures, carte bancaire, résiliation' }}
+                      {{ isOpeningBillingPortal ? 'Ouverture…' : 'Factures, carte bancaire, résiliation' }}
                     </button>
-                    <p v-if="portalError" class="cs-notice cs-notice--error">{{ portalError }}</p>
+                    <p v-if="billingPortalError" class="cs-notice cs-notice--error">{{ billingPortalError }}</p>
                   </div>
                 </template>
               </div>
@@ -238,8 +238,8 @@
                   <input
                     type="checkbox"
                     :checked="space.google_profile.is_linked"
-                    :disabled="isSavingGoogle || isExample"
-                    @change="setGoogleLinked(($event.target as HTMLInputElement).checked)"
+                    :disabled="isSavingGoogleProfile || isExample"
+                    @change="setGoogleProfileLinked(($event.target as HTMLInputElement).checked)"
                   />
                   <span>
                     <b>C’est fait, l’adresse est sur ma fiche</b>
@@ -250,7 +250,7 @@
                     }}</span>
                   </span>
                 </label>
-                <p v-if="googleError" class="cs-notice cs-notice--error">{{ googleError }}</p>
+                <p v-if="googleProfileError" class="cs-notice cs-notice--error">{{ googleProfileError }}</p>
               </div>
               <p class="cs-sec">Votre messagerie vocale</p>
               <div class="cs-block">
@@ -372,74 +372,31 @@
 import type { ComputedRef, Ref } from 'vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type {
-  AiAssistantClientCalendar,
-  AiAssistantClientCalendarConnect,
-  AiAssistantClientCalendarUpdate,
-  AiAssistantClientGoogleProfile,
-  AiAssistantClientLimit,
-  AiAssistantClientLimitUpdate,
-  AiAssistantClientPortal,
   AiAssistantClientRequest,
-  AiAssistantClientSettings,
-  AiAssistantClientSettingsUpdate,
-  AiAssistantClientSpace,
   AiAssistantClientSpaceLoad,
   AiAssistantClientSubscription,
   AiAssistantClientSubscriptionStatus,
-  AiAssistantClientTestSms,
-  AiAssistantClientTestSmsState,
   AiAssistantClientUnansweredEntry,
 } from '~/types/AiAssistantClientSpace'
 import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
 import type { ClientSpaceSettingsScreen } from '~/types/ClientSpaceNavigation'
-import type { ClientSpaceCopyKey } from '~/types/ClientSpacePage'
+import type { UseClientSpaceCalendarReturn } from '~/types/UseClientSpaceCalendar'
+import type { UseClientSpaceClipboardReturn } from '~/types/UseClientSpaceClipboard'
 import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
 import type { UseClientSpaceRequestsReturn } from '~/types/UseClientSpaceRequests'
+import type { UseClientSpaceSettingsReturn } from '~/types/UseClientSpaceSettings'
+import { useClientSpaceCalendar } from '~/composables/useClientSpaceCalendar'
+import { useClientSpaceClipboard } from '~/composables/useClientSpaceClipboard'
 import { useClientSpaceLink } from '~/composables/useClientSpaceLink'
 import { useClientSpaceNavigation } from '~/composables/useClientSpaceNavigation'
 import { useClientSpaceRequests } from '~/composables/useClientSpaceRequests'
+import { useClientSpaceSettings } from '~/composables/useClientSpaceSettings'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { AssistantAvatarUtils } from '~/utils/AssistantAvatarUtils'
 
-const SUBSCRIPTION_LABELS: Record<AiAssistantClientSubscriptionStatus, string> = {
-  incomplete: 'en attente',
-  active: 'actif',
-  past_due: 'paiement en attente',
-  canceled: 'résilié',
-}
-
-const SETTINGS_TITLES: Record<ClientSpaceSettingsScreen, string> = {
-  assistant: 'Votre réceptionniste',
-  alerts: 'Vous prévenir',
-  learned: 'Ce que vous lui avez appris',
-  report: 'Rapport du mois',
-  subscription: 'Abonnement',
-  limits: 'Prix, délais, garanties',
-  google: 'Votre fiche Google',
-  install: 'Sur votre site',
-  help: 'Aide',
-}
-
-/** From this width, the sidebar replaces the tab bar and a request opens beside the list. */
-const WIDE_QUERY: string = '(min-width: 1024px)'
-
-/** The tag the line to paste goes before, shown as text (a template cannot carry it as markup). */
-const BODY_END_TAG: string = '</body>'
-
 const route: ReturnType<typeof useRoute> = useRoute()
 const link: UseClientSpaceLinkReturn = useClientSpaceLink()
-const {
-  token,
-  endpoint,
-  state,
-  space,
-  renewState,
-  fetchSpace,
-  setLoadResult,
-  showExpiredOnUnauthorized,
-  failureMessage,
-  renewLink,
-}: UseClientSpaceLinkReturn = link
+const { token, state, space, renewState, fetchSpace, setLoadResult, renewLink }: UseClientSpaceLinkReturn = link
 
 const { data: load }: Awaited<ReturnType<typeof useAsyncData<AiAssistantClientSpaceLoad | undefined>>> =
   await useAsyncData<AiAssistantClientSpaceLoad>(
@@ -471,26 +428,74 @@ const {
   dismissQuestion,
 }: UseClientSpaceRequestsReturn = useClientSpaceRequests(link)
 
-const isWide: Ref<boolean> = ref(false)
-const isSavingSettings: Ref<boolean> = ref(false)
-const settingsError: Ref<string | null> = ref(null)
-const hasSavedSettings: Ref<boolean> = ref(false)
-const isOpeningPortal: Ref<boolean> = ref(false)
-const portalError: Ref<string | null> = ref(null)
-const isCalendarBusy: Ref<boolean> = ref(false)
-const calendarError: Ref<string | null> = ref(null)
-const hasSavedCalendar: Ref<boolean> = ref(false)
-const copiedKey: Ref<ClientSpaceCopyKey | null> = ref(null)
-const isSavingGoogle: Ref<boolean> = ref(false)
-const isSavingLimits: Ref<boolean> = ref(false)
-const limitsError: Ref<string | null> = ref(null)
-const hasSavedLimits: Ref<boolean> = ref(false)
-const testSmsState: Ref<AiAssistantClientTestSmsState> = ref('idle')
-const testSmsMessage: Ref<string | null> = ref(null)
-const googleError: Ref<string | null> = ref(null)
-// Google opened in another tab: the space reloads when the client comes back to this one.
-const isAwaitingCalendar: Ref<boolean> = ref(false)
+const {
+  isSavingSettings,
+  settingsError,
+  hasSavedSettings,
+  testSmsState,
+  testSmsMessage,
+  isSavingLimits,
+  limitsError,
+  hasSavedLimits,
+  isSavingGoogleProfile,
+  googleProfileError,
+  isOpeningBillingPortal,
+  billingPortalError,
+  saveSettings,
+  sendTestSms,
+  saveLimits,
+  setGoogleProfileLinked,
+  openBillingPortal,
+  clearScreenFeedback,
+}: UseClientSpaceSettingsReturn = useClientSpaceSettings(link)
+
+const {
+  isCalendarBusy,
+  calendarError,
+  hasSavedCalendar,
+  connectCalendar,
+  saveCalendar,
+  disconnectCalendar,
+}: UseClientSpaceCalendarReturn = useClientSpaceCalendar(link)
+
+const { copiedKey, copyText }: UseClientSpaceClipboardReturn = useClientSpaceClipboard()
+
+useHead({
+  title: computed((): string => (space.value ? `Espace client · ${space.value.business_name}` : 'Espace client')),
+  meta: [
+    { name: 'robots', content: 'noindex, nofollow' },
+    { name: 'referrer', content: 'no-referrer' },
+  ],
+})
+
+const SUBSCRIPTION_LABELS: Record<AiAssistantClientSubscriptionStatus, string> = {
+  incomplete: 'en attente',
+  active: 'actif',
+  past_due: 'paiement en attente',
+  canceled: 'résilié',
+}
+
+const SETTINGS_TITLES: Record<ClientSpaceSettingsScreen, string> = {
+  assistant: 'Votre réceptionniste',
+  alerts: 'Vous prévenir',
+  learned: 'Ce que vous lui avez appris',
+  report: 'Rapport du mois',
+  subscription: 'Abonnement',
+  limits: 'Prix, délais, garanties',
+  google: 'Votre fiche Google',
+  install: 'Sur votre site',
+  help: 'Aide',
+}
+
+/** From this width, the sidebar replaces the tab bar and a request opens beside the list. */
+const WIDE_QUERY: string = '(min-width: 1024px)'
+
+/** The tag the line to paste goes before, shown as text (a template cannot carry it as markup). */
+const BODY_END_TAG: string = '</body>'
+
 let wideQuery: MediaQueryList | null = null
+
+const isWide: Ref<boolean> = ref(false)
 
 /** The receptionist's portrait, as the widget shows it (the gender is unknown here: a casting name has its own). */
 const portraitUrl: ComputedRef<string> = computed((): string =>
@@ -592,31 +597,8 @@ const snippetMailto: ComputedRef<string> = computed((): string => {
 })
 
 /**
- * Text the saved alert mobile once, so the client sees the alerts arrive.
- * @returns A promise resolved once the API answered.
- */
-async function sendTestSms(): Promise<void> {
-  if (testSmsState.value === 'sending') return
-  testSmsState.value = 'sending'
-  testSmsMessage.value = null
-  try {
-    const answer: AiAssistantClientTestSms = await $fetch<AiAssistantClientTestSms>(
-      `${endpoint.value}/alerts/test-sms`,
-      {
-        method: 'POST',
-      },
-    )
-    testSmsState.value = answer.sent ? 'sent' : 'failed'
-    testSmsMessage.value = answer.sent ? `SMS envoyé au ${answer.to_label ?? 'mobile enregistré'}.` : answer.reason
-  } catch (error: unknown) {
-    testSmsState.value = 'failed'
-    testSmsMessage.value = failureMessage(error, 'Envoi impossible pour le moment.')
-  }
-}
-
-/**
  * Answer the question that is open, then go back to the list.
- * @param answer The answer to give from now on.
+ * @param answer - The answer to give from now on.
  * @returns A promise resolved once the API answered.
  */
 async function answerOpenedQuestion(answer: string): Promise<void> {
@@ -635,212 +617,6 @@ async function dismissOpenedQuestion(): Promise<void> {
   if (await dismissQuestion(index)) closeDetail()
 }
 
-/**
- * Save the settings the client changed.
- * @param update The changed fields only.
- * @returns A promise resolved once the API answered.
- */
-async function saveSettings(update: AiAssistantClientSettingsUpdate): Promise<void> {
-  const current: AiAssistantClientSpace | null = space.value
-  if (!current || isSavingSettings.value) return
-  isSavingSettings.value = true
-  settingsError.value = null
-  hasSavedSettings.value = false
-  try {
-    current.settings = await $fetch<AiAssistantClientSettings>(`${endpoint.value}/settings`, {
-      method: 'PATCH',
-      body: update,
-    })
-    if (update.assistant_name) current.assistant_name = current.settings.assistant_name
-    hasSavedSettings.value = true
-  } catch (error: unknown) {
-    settingsError.value = failureMessage(error, 'Enregistrement impossible, réessayez dans un instant.')
-  } finally {
-    isSavingSettings.value = false
-  }
-}
-
-/**
- * Keep the business's edits of what the receptionist says on prices, delays, warranties.
- * @param updates Every subject, as edited.
- * @returns A promise resolved once the API answered.
- */
-async function saveLimits(updates: AiAssistantClientLimitUpdate[]): Promise<void> {
-  const current: AiAssistantClientSpace | null = space.value
-  if (!current || isSavingLimits.value) return
-  isSavingLimits.value = true
-  limitsError.value = null
-  hasSavedLimits.value = false
-  try {
-    current.limits = await $fetch<AiAssistantClientLimit[]>(`${endpoint.value}/limits`, {
-      method: 'PATCH',
-      body: { limits: updates },
-    })
-    hasSavedLimits.value = true
-  } catch (error: unknown) {
-    limitsError.value = failureMessage(error, 'Enregistrement impossible, réessayez dans un instant.')
-  } finally {
-    isSavingLimits.value = false
-  }
-}
-
-/**
- * Open the Stripe billing portal of the client's subscription.
- * @returns A promise resolved once redirected, or once the failure is shown.
- */
-async function openPortal(): Promise<void> {
-  if (isOpeningPortal.value) return
-  isOpeningPortal.value = true
-  portalError.value = null
-  try {
-    const portal: AiAssistantClientPortal = await $fetch<AiAssistantClientPortal>(`${endpoint.value}/billing-portal`, {
-      method: 'POST',
-    })
-    window.location.assign(portal.url)
-  } catch (error: unknown) {
-    portalError.value = failureMessage(error, 'Ouverture impossible, réessayez dans un instant.')
-    isOpeningPortal.value = false
-  }
-}
-
-/**
- * Copy a text (the address, the voicemail, the line to paste); its button says so for a moment.
- * @param text What to copy.
- * @param key Which button said it.
- * @returns A promise resolved once the clipboard answered.
- */
-async function copyText(text: string, key: ClientSpaceCopyKey): Promise<void> {
-  if (!text) return
-  try {
-    await navigator.clipboard.writeText(text)
-    copiedKey.value = key
-    window.setTimeout((): void => {
-      if (copiedKey.value === key) copiedKey.value = null
-    }, 2500)
-  } catch {
-    window.prompt('Copiez ce texte :', text)
-  }
-}
-
-/**
- * Tell the API whether the receptionist's address is on the business's Google profile.
- * @param linked True when the client ticked the box.
- * @returns A promise resolved once the API answered.
- */
-async function setGoogleLinked(linked: boolean): Promise<void> {
-  const current: AiAssistantClientSpace | null = space.value
-  if (!current?.google_profile || isSavingGoogle.value) return
-  isSavingGoogle.value = true
-  googleError.value = null
-  try {
-    current.google_profile = await $fetch<AiAssistantClientGoogleProfile>(`${endpoint.value}/google-profile`, {
-      method: 'POST',
-      body: { linked },
-    })
-  } catch (error: unknown) {
-    googleError.value = failureMessage(error, 'Enregistrement impossible, réessayez dans un instant.')
-  } finally {
-    isSavingGoogle.value = false
-  }
-}
-
-/**
- * Open Google's consent page in a new tab to connect the client's agenda.
- * @returns A promise resolved once the tab is on its way to Google, or once the failure is shown.
- */
-async function connectCalendar(): Promise<void> {
-  if (!space.value || isCalendarBusy.value) return
-  calendarError.value = null
-  // Opened before the call: a tab opened after an await is blocked as a pop-up. It never sees this page.
-  const tab: Window | null = window.open('about:blank', '_blank')
-  if (tab) tab.opener = null
-  isCalendarBusy.value = true
-  try {
-    const consent: AiAssistantClientCalendarConnect = await $fetch<AiAssistantClientCalendarConnect>(
-      `${endpoint.value}/calendar/connect`,
-      { method: 'POST' },
-    )
-    isAwaitingCalendar.value = true
-    if (tab) tab.location.href = consent.url
-    else window.location.assign(consent.url)
-  } catch (error: unknown) {
-    tab?.close()
-    calendarError.value = failureMessage(error, 'Connexion indisponible, réessayez dans un instant.')
-  } finally {
-    isCalendarBusy.value = false
-  }
-}
-
-/**
- * Save the booking settings the client changed.
- * @param update The changed settings only.
- * @returns A promise resolved once the API answered.
- */
-async function saveCalendar(update: AiAssistantClientCalendarUpdate): Promise<void> {
-  const current: AiAssistantClientSpace | null = space.value
-  if (!current || isCalendarBusy.value) return
-  isCalendarBusy.value = true
-  calendarError.value = null
-  hasSavedCalendar.value = false
-  try {
-    current.calendar = await $fetch<AiAssistantClientCalendar>(`${endpoint.value}/calendar`, {
-      method: 'PATCH',
-      body: update,
-    })
-    hasSavedCalendar.value = true
-  } catch (error: unknown) {
-    calendarError.value = failureMessage(error, 'Enregistrement impossible, réessayez dans un instant.')
-  } finally {
-    isCalendarBusy.value = false
-  }
-}
-
-/**
- * Disconnect the agenda after a confirmation: appointments go back to requests the client confirms.
- * @returns A promise resolved once the API answered.
- */
-async function disconnectCalendar(): Promise<void> {
-  const current: AiAssistantClientSpace | null = space.value
-  if (!current || isCalendarBusy.value) return
-  const confirmed: boolean = window.confirm(
-    'Déconnecter votre agenda ? Les visiteurs choisiront des demi-journées et vous confirmerez vous-même.',
-  )
-  if (!confirmed) return
-  isCalendarBusy.value = true
-  calendarError.value = null
-  // « Enregistré. » belonged to the agenda that goes away.
-  hasSavedCalendar.value = false
-  try {
-    current.calendar = await $fetch<AiAssistantClientCalendar>(`${endpoint.value}/calendar`, { method: 'DELETE' })
-  } catch (error: unknown) {
-    calendarError.value = failureMessage(error, 'Déconnexion impossible, réessayez dans un instant.')
-  } finally {
-    isCalendarBusy.value = false
-  }
-}
-
-/** Reload the agenda's state when the client comes back from the Google tab; unsaved settings stay as typed. */
-async function onVisibilityChange(): Promise<void> {
-  const current: AiAssistantClientSpace | null = space.value
-  if (document.visibilityState !== 'visible' || !isAwaitingCalendar.value || !current) return
-  try {
-    const fresh: AiAssistantClientSpace = await $fetch<AiAssistantClientSpace>(endpoint.value)
-    current.calendar = fresh.calendar
-    current.appointments = fresh.appointments
-    if (fresh.calendar.status === 'connected') isAwaitingCalendar.value = false
-  } catch (error: unknown) {
-    showExpiredOnUnauthorized(error)
-  }
-}
-
-/**
- * Unlock the portal button when the browser restores this page from its back-forward cache.
- * @param event - The page-show event.
- */
-function onPageShow(event: PageTransitionEvent): void {
-  if (event.persisted) isOpeningPortal.value = false
-}
-
 /** Follow the screen's width: the sidebar and the split view above 1024 px, the tab bar below. */
 function onWideChange(): void {
   isWide.value = wideQuery?.matches === true
@@ -854,39 +630,16 @@ watch(
   { immediate: true },
 )
 
-// A new screen starts clean: no stale « Enregistré. » nor error from the previous one.
-watch(
-  (): ClientSpaceSettingsScreen | null => location.value.settingsScreen,
-  (): void => {
-    hasSavedSettings.value = false
-    settingsError.value = null
-    testSmsState.value = 'idle'
-    testSmsMessage.value = null
-    hasSavedLimits.value = false
-    limitsError.value = null
-  },
-)
+watch((): ClientSpaceSettingsScreen | null => location.value.settingsScreen, clearScreenFeedback)
 
 onMounted((): void => {
   wideQuery = window.matchMedia(WIDE_QUERY)
   onWideChange()
   wideQuery.addEventListener('change', onWideChange)
-  window.addEventListener('pageshow', onPageShow)
-  document.addEventListener('visibilitychange', onVisibilityChange)
 })
 
 onBeforeUnmount((): void => {
   wideQuery?.removeEventListener('change', onWideChange)
-  window.removeEventListener('pageshow', onPageShow)
-  document.removeEventListener('visibilitychange', onVisibilityChange)
-})
-
-useHead({
-  title: computed((): string => (space.value ? `Espace client · ${space.value.business_name}` : 'Espace client')),
-  meta: [
-    { name: 'robots', content: 'noindex, nofollow' },
-    { name: 'referrer', content: 'no-referrer' },
-  ],
 })
 </script>
 

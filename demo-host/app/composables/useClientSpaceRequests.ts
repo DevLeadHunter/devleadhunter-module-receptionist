@@ -11,8 +11,7 @@ import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
 import type { ClientSpaceRequestAction, UseClientSpaceRequestsReturn } from '~/types/UseClientSpaceRequests'
 
 /**
- * The requests section's actions: a request called back, set aside or given its outcome, a question of the
- * receptionist answered or dismissed.
+ * The requests section's actions: requests called back, set aside or given an outcome, questions answered.
  * @param link - The client's link: the space to update and the API to call.
  * @returns What is in flight, what failed, and the actions.
  */
