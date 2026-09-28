@@ -23,6 +23,7 @@ import services.ai_assistant.request_analyzer as analyzer_module
 import services.ai_assistant.request_follow_up as follow_up_module
 import services.email_sending_service as email_sending_module
 import services.sms_service as sms_module
+from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from enums.ai_assistant_request import AiAssistantDayPeriod, AiAssistantRequestType
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_request import AiAssistantRequest
@@ -347,6 +348,7 @@ def test_the_email_lists_the_wished_half_days() -> None:
         RequestEmailContent(
             business_name="Plomberie Roux",
             assistant_name="Léa",
+            persona_gender=AiAssistantPersonaGender.FEMININE,
             request_type=AiAssistantRequestType.APPOINTMENT,
             visitor_name="Julie <Roux>",
             contact="06 11 22 33 44",

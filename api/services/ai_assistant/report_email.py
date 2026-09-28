@@ -114,10 +114,6 @@ class AiAssistantReportEmail:
     MAX_LANGUAGES_LISTED: ClassVar[int] = 3
     _HEX_COLOR: ClassVar[re.Pattern[str]] = re.compile(r"^#(?:[0-9a-fA-F]{3}){1,2}$")
     _HOST: ClassVar[re.Pattern[str]] = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9-]+)*\.[a-z]{2,}$")
-    _RECEPTIONIST: ClassVar[dict[AiAssistantPersonaGender, str]] = {
-        AiAssistantPersonaGender.FEMININE: "votre réceptionniste virtuelle",
-        AiAssistantPersonaGender.MASCULINE: "votre réceptionniste virtuel",
-    }
 
     @classmethod
     def render(cls, content: ReportEmailContent) -> RenderedEmail:
@@ -270,7 +266,7 @@ class AiAssistantReportEmail:
     def _figures_body(cls, content: ReportEmailContent, accent: str) -> str:
         """The month's figures, then the languages, the handling and the most asked questions."""
         stats = content.stats
-        receptionist = cls._RECEPTIONIST[content.persona_gender]
+        receptionist = AiAssistantRequestEmail.RECEPTIONIST_BY_GENDER[content.persona_gender]
         intro = (
             f"Voici ce que <strong>{html.escape(content.assistant_name)}</strong>, {receptionist}, a fait pour "
             f"<strong>{html.escape(content.business_name)}</strong> en "

@@ -11,6 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from enums.ai_assistant_request import AiAssistantRequestType
 from models.ai_assistant_appointment import AiAssistantAppointment
 from services.ai_assistant.alert_sms import AlertSms
@@ -308,6 +309,7 @@ def test_the_owner_is_told_the_appointment_is_already_in_the_agenda() -> None:
         RequestEmailContent(
             business_name="Garage Morel",
             assistant_name="Léa",
+            persona_gender=AiAssistantPersonaGender.FEMININE,
             request_type=AiAssistantRequestType.APPOINTMENT,
             visitor_name="Julie Roux",
             contact="06 11 22 33 44",

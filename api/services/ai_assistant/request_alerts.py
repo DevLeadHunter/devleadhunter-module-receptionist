@@ -30,6 +30,7 @@ from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
 from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
 from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
 from services.ai_assistant.client_links import AiAssistantClientLinks
+from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.message_delivery import AiAssistantMessageDelivery
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_analyzer import TranscriptLine, ai_assistant_request_analyzer
@@ -372,6 +373,7 @@ class AiAssistantRequestAlerts:
                 RequestEmailContent(
                     business_name=assistant.business_name,
                     assistant_name=assistant.assistant_name,
+                    persona_gender=ai_assistant_config_builder.resolve_persona_gender(assistant.assistant_name),
                     request_type=AiAssistantRequestType(request.type),
                     visitor_name=request.name,
                     contact=request.contact,

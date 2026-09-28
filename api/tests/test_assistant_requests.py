@@ -7,6 +7,7 @@ operator). Everything runs on in-memory SQLite with the model, the email and the
 """
 
 import asyncio
+from dataclasses import replace
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -18,6 +19,7 @@ import migrations.add_ai_assistant_requests_table as requests_migration
 import services.ai_assistant.request_analyzer as analyzer_module
 import services.ai_assistant.request_follow_up as follow_up_module
 import services.email_sending_service as email_sending_module
+from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_lead import AiAssistantLead
@@ -412,6 +414,7 @@ def test_the_summary_email_escapes_visitor_text_and_links_the_contact() -> None:
         RequestEmailContent(
             business_name="Toitures Morel",
             assistant_name="Léa",
+            persona_gender=AiAssistantPersonaGender.FEMININE,
             request_type=AiAssistantRequestType.URGENT,
             visitor_name="<b>Claire</b>",
             contact="06 12 34 56 78",
@@ -433,3 +436,24 @@ def test_the_summary_email_escapes_visitor_text_and_links_the_contact() -> None:
     assert "Ça goutte &lt;vite&gt;" in rendered.html
     assert "https://api.example/handled?exp=1&amp;token=abc" in rendered.html
     assert "Photo 1" in rendered.html
+
+
+def test_the_summary_email_agrees_the_receptionist_with_the_persona_gender() -> None:
+    content = RequestEmailContent(
+        business_name="Couverture Petit",
+        assistant_name="Hugo",
+        persona_gender=AiAssistantPersonaGender.MASCULINE,
+        request_type=AiAssistantRequestType.QUOTE,
+        visitor_name="Julie",
+        contact="06 12 34 56 78",
+        need=None,
+        need_summary="Fuite sur le toit.",
+        received_at=datetime(2026, 9, 28, 10, 0),
+        received_outside_hours=False,
+        transcript=[],
+        handled_url="https://api.example/handled",
+    )
+    feminine = replace(content, assistant_name="Léa", persona_gender=AiAssistantPersonaGender.FEMININE)
+
+    assert "votre réceptionniste virtuel, a noté" in AiAssistantRequestEmail.render(content).html
+    assert "votre réceptionniste virtuelle, a noté" in AiAssistantRequestEmail.render(feminine).html

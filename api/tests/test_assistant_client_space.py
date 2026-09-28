@@ -24,6 +24,7 @@ import services.ai_assistant.message_delivery as delivery_module
 import services.ai_assistant.start_reminders as start_reminders_module
 import services.email_sending_service as email_sending_module
 from core.config import settings
+from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestType
 from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
 from models.ai_assistant import AiAssistant
@@ -505,6 +506,7 @@ def test_the_summary_email_opens_the_client_space_and_warns_against_forwarding()
         RequestEmailContent(
             business_name="Toitures Morel",
             assistant_name="Sofia",
+            persona_gender=AiAssistantPersonaGender.FEMININE,
             request_type=AiAssistantRequestType.QUOTE,
             visitor_name="Marc",
             contact="06 98 76 54 32",

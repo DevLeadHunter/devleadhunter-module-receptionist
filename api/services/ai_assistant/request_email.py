@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import ClassVar
 
+from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from enums.ai_assistant_request import AiAssistantRequestType
 from services.ai_assistant.request_analyzer import TranscriptLine
 from services.ai_assistant.visitor_contact import VisitorContact
@@ -25,6 +26,7 @@ class RequestEmailContent:
 
     business_name: str
     assistant_name: str
+    persona_gender: AiAssistantPersonaGender
     request_type: AiAssistantRequestType
     visitor_name: str
     contact: str
@@ -63,6 +65,10 @@ class AiAssistantRequestEmail:
         AiAssistantRequestType.URGENT: "Urgence",
         AiAssistantRequestType.OTHER: "Nouvelle demande",
     }
+    RECEPTIONIST_BY_GENDER: ClassVar[dict[AiAssistantPersonaGender, str]] = {
+        AiAssistantPersonaGender.FEMININE: "votre réceptionniste virtuelle",
+        AiAssistantPersonaGender.MASCULINE: "votre réceptionniste virtuel",
+    }
 
     @classmethod
     def type_label(cls, request_type: AiAssistantRequestType) -> str:
@@ -97,7 +103,8 @@ class AiAssistantRequestEmail:
         intro = (
             f"Cette demande pour <strong>{html.escape(content.business_name)}</strong> attend toujours une réponse."
             if content.is_reminder
-            else f"<strong>{html.escape(content.assistant_name)}</strong>, votre réceptionniste virtuelle, a noté une "
+            else f"<strong>{html.escape(content.assistant_name)}</strong>, "
+            f"{cls.RECEPTIONIST_BY_GENDER[content.persona_gender]}, a noté une "
             f"demande pour <strong>{html.escape(content.business_name)}</strong>."
         )
         sections: list[str] = [
