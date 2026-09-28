@@ -9,6 +9,7 @@ import type {
 } from '~/types/AiAssistantClientSpace'
 import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
 import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
+import { ClientSpaceLanguageUtils } from '~/utils/ClientSpaceLanguageUtils'
 
 /** Where the browser keeps the latest link of a space, so an icon on the home screen outlives the link it saved. */
 const STORED_LINK_PREFIX: string = 'client-space-link:'
@@ -95,12 +96,12 @@ export function useClientSpaceLink(): UseClientSpaceLinkReturn {
   }
 
   /**
-   * Show what a load gave, and move to the fresh link it carries.
+   * Show what a load gave (the legacy language codes read as the offered ones), and move to the fresh link it carries.
    * @param load - The load's state, and the space when it opened.
    */
   function setLoadResult(load: AiAssistantClientSpaceLoad): void {
     state.value = load.state
-    space.value = load.space
+    space.value = load.space ? ClientSpaceLanguageUtils.spaceWithOfferedLanguages(load.space) : null
     if (load.state === 'ready' && load.space?.fresh_token) adoptFreshToken(load.space.fresh_token)
   }
 

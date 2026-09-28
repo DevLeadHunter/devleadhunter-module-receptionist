@@ -13,6 +13,7 @@ import type {
 } from '~/types/AiAssistantClientSpace'
 import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
 import type { UseClientSpaceSettingsReturn } from '~/types/UseClientSpaceSettings'
+import { ClientSpaceLanguageUtils } from '~/utils/ClientSpaceLanguageUtils'
 
 /**
  * The settings section's saves: receptionist, alerts, test SMS, imposed answers, Google profile, billing portal.
@@ -45,10 +46,11 @@ export function useClientSpaceSettings(link: UseClientSpaceLinkReturn): UseClien
     settingsError.value = null
     hasSavedSettings.value = false
     try {
-      current.settings = await $fetch<AiAssistantClientSettings>(`${link.endpoint.value}/settings`, {
-        method: 'PATCH',
-        body: update,
-      })
+      const saved: AiAssistantClientSettings = await $fetch<AiAssistantClientSettings>(
+        `${link.endpoint.value}/settings`,
+        { method: 'PATCH', body: update },
+      )
+      current.settings = ClientSpaceLanguageUtils.withOfferedLanguages(saved, current.language_options)
       if (update.assistant_name) current.assistant_name = current.settings.assistant_name
       hasSavedSettings.value = true
     } catch (error: unknown) {
