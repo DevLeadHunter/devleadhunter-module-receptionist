@@ -37,7 +37,7 @@
           </button>
         </header>
 
-        <p v-if="isExample && location.section === 'home'" class="cs-example">
+        <p v-if="isExample && location.section === 'home'" class="cs-example" data-capture="example-banner">
           Exemple d’espace client, avec des données fictives : le vôtre arrive avec votre réceptionniste. Elle se
           présente toujours comme réceptionniste IA et ne donne jamais un prix à votre place : elle note, vous décidez.
           <NuxtLink v-if="demoSlug" :to="`/ia/${demoSlug}`" class="cs-example__link">Revenir à ma démo</NuxtLink>

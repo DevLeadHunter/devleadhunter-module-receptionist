@@ -1,5 +1,5 @@
 <template>
-  <div class="cs-home">
+  <div class="cs-home" data-capture="client-home">
     <ClientSpaceAssistantLine
       :name="`${props.space.assistant_name}, votre réceptionniste`"
       :portrait-url="props.portraitUrl"
@@ -66,6 +66,7 @@
         v-for="item in latest"
         :key="item.id"
         :request="item"
+        data-capture="request-row"
         @select="emit('open-request', item.id)"
       />
       <p v-if="latest.length === 0" class="cs-text cs-text--dim">
