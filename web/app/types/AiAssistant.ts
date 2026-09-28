@@ -233,6 +233,7 @@ export type AiAssistantConversation = {
   session_id: string
   language: string | null
   message_count: number
+  is_test: boolean
   started_at: string
   last_message_at: string
   messages: AiAssistantConversationMessage[]

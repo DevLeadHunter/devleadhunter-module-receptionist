@@ -92,6 +92,7 @@ async def list_assistant_conversations(
                 session_id=conversation.session_id,
                 language=conversation.language,
                 message_count=conversation.message_count,
+                is_test=bool(conversation.is_test),
                 started_at=conversation.started_at,
                 last_message_at=conversation.last_message_at,
                 messages=[

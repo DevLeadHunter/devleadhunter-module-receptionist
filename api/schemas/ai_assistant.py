@@ -498,6 +498,7 @@ class AiAssistantConversationItem(BaseModel):
     session_id: str
     language: str | None = None
     message_count: int
+    is_test: bool = False
     started_at: datetime
     last_message_at: datetime
     messages: list[AiAssistantConversationMessageItem] = Field(default_factory=list)

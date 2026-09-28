@@ -1,11 +1,14 @@
 """Every chat turn is journaled per widget session; the owner reads the latest ones and old ones are purged."""
 
+import asyncio
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from api.v1.routes.ai_assistant_requests import list_assistant_conversations
 from core.database import Base
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_conversation import AiAssistantConversation
@@ -129,3 +132,18 @@ def test_purge_old_deletes_quiet_conversations_with_their_messages(db) -> None:
     assert ai_assistant_conversation_service.purge_old(db) == 1
     assert db.query(AiAssistantConversation).count() == 1
     assert db.query(AiAssistantMessage).count() == 2
+
+
+def test_the_journal_marks_the_operator_test_visits(db) -> None:
+    """A conversation held on ``?internal=1`` reads as a test in the owner's journal."""
+    assistant = _assistant(db)
+    ai_assistant_conversation_service.record_turn(
+        db, assistant=assistant, session_id="real", language="fr", visitor_message="a", reply="b"
+    )
+    ai_assistant_conversation_service.record_turn(
+        db, assistant=assistant, session_id="test", language="fr", visitor_message="c", reply="d", is_test=True
+    )
+
+    journal = asyncio.run(list_assistant_conversations(assistant.id, SimpleNamespace(id=1), db))
+
+    assert {item.session_id: item.is_test for item in journal.conversations} == {"real": False, "test": True}

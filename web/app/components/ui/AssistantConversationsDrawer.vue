@@ -24,9 +24,14 @@
             <header
               class="flex items-center justify-between gap-3 border-b border-[var(--app-line-soft)] px-4 py-2 text-xs"
             >
-              <span class="text-[var(--app-ink)] tabular-nums">{{
-                formatNumericDateTime(conversation.started_at)
-              }}</span>
+              <span class="flex items-center gap-2">
+                <span class="text-[var(--app-ink)] tabular-nums">{{
+                  formatNumericDateTime(conversation.started_at)
+                }}</span>
+                <span v-if="conversation.is_test" class="app-badge" title="Pendant une visite de test de l'opérateur">
+                  Test
+                </span>
+              </span>
               <span class="text-muted tabular-nums">{{ conversationMetaLabel(conversation) }}</span>
             </header>
             <ul class="space-y-2 px-4 py-3">
