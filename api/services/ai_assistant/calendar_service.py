@@ -363,7 +363,7 @@ class AiAssistantCalendarService:
             db.query(AiAssistantAppointment.starts_at, AiAssistantAppointment.ends_at)
             .filter(
                 AiAssistantAppointment.assistant_id == assistant.id,
-                AiAssistantAppointment.google_event_id.isnot(None),
+                AiAssistantAppointment.google_event_id.is_not(None),
                 AiAssistantAppointment.ends_at > OpeningHoursCalendar.to_utc(local_now),
             )
             .all()

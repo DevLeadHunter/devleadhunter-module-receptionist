@@ -22,6 +22,7 @@ from models.ai_assistant_calendar import AiAssistantCalendar
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
 from services.ai_assistant.calendar_settings import CalendarSettings
 from services.ai_assistant.calendar_slot_grid import AiAssistantCalendarSlotGrid
+from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
 from services.ai_assistant.google_calendar_client import BusyPeriod, GoogleCalendarError, google_calendar_client
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.encryption_service import encryption_service
@@ -192,7 +193,7 @@ class AiAssistantCalendarAccess:
         if row is None:
             return
         moment = OpeningHoursCalendar.business_now()
-        message = f"{moment:%d/%m à %H:%M} : {self._failure_message(exc)}"[:255]
+        message = f"{moment:%d/%m à %H:%M} : {self._failure_message(exc)}"[:SHORT_TEXT_MAX_CHARS]
         if not exc.needs_reconnect:
             row.last_error = message
             db.commit()

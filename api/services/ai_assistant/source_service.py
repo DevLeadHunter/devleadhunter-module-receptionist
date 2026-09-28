@@ -20,7 +20,7 @@ from enums.ai_assistant_status import AiAssistantStatus
 from models.ai_assistant import AiAssistant
 from models.prospect_db import ProspectDB
 from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.knowledge_builder import SourceToggles
+from services.ai_assistant.knowledge_sources import SourceToggles
 from services.ai_assistant.website_sync import AiAssistantWebsiteSync
 
 logger = logging.getLogger(__name__)
@@ -97,7 +97,7 @@ class AiAssistantSourceService:
         db.refresh(assistant)
         knowledge = dict(assistant.knowledge_json or {})
         previous = knowledge.get("website") if isinstance(knowledge.get("website"), dict) else None
-        if crawl is not None and not force and AiAssistantWebsiteSync.shrank(previous, crawl):
+        if crawl is not None and not force and AiAssistantWebsiteSync.has_shrunk(previous, crawl):
             sync = AiAssistantWebsiteSync.incomplete(previous, at=_utc_now())
         else:
             sync = AiAssistantWebsiteSync.record(previous, crawl, at=_utc_now())
@@ -127,7 +127,7 @@ class AiAssistantSourceService:
             .filter(
                 AiAssistant.status == AiAssistantStatus.DELIVERED.value,
                 AiAssistant.deleted_at.is_(None),
-                ProspectDB.website.isnot(None),
+                ProspectDB.website.is_not(None),
                 ProspectDB.website != "",
             )
             .order_by(AiAssistant.id.asc())

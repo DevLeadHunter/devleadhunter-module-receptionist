@@ -15,6 +15,12 @@ from enums.ai_assistant_request import (
 from enums.ai_assistant_start_step import AiAssistantStartStep
 from enums.assistant_booking_mode import AssistantBookingMode
 from enums.assistant_visitor_channel import AssistantVisitorChannel
+from services.ai_assistant.field_limits import (
+    LABEL_MAX_CHARS,
+    LONG_TEXT_MAX_CHARS,
+    SESSION_ID_MAX_CHARS,
+    SHORT_TEXT_MAX_CHARS,
+)
 
 # The years an appointment or an offer page may name: anything else overflows the timezone arithmetic.
 BOOKABLE_YEAR_MIN = 2020
@@ -30,14 +36,14 @@ class AiAssistantCreateRequest(BaseModel):
 class AiAssistantUpdateRequest(BaseModel):
     """Owner edits to an assistant's branding, persona and alerts (all optional, partial update)."""
 
-    assistant_name: str | None = Field(default=None, max_length=64)
-    business_name: str | None = Field(default=None, max_length=255)
+    assistant_name: str | None = Field(default=None, max_length=LABEL_MAX_CHARS)
+    business_name: str | None = Field(default=None, max_length=SHORT_TEXT_MAX_CHARS)
     languages: list[str] | None = Field(default=None, max_length=10)
-    tone: str | None = Field(default=None, max_length=255)
+    tone: str | None = Field(default=None, max_length=SHORT_TEXT_MAX_CHARS)
     use_brand_color: bool | None = None
     accent_color: str | None = Field(default=None, max_length=32)
     # Where the business's alerts, reports and client-space links go (empty clears it).
-    email: str | None = Field(default=None, max_length=255)
+    email: str | None = Field(default=None, max_length=SHORT_TEXT_MAX_CHARS)
     # The business owner's mobile for the alerts, as typed (empty clears it).
     alert_phone: str | None = Field(default=None, max_length=32)
     alert_sms_enabled: bool | None = None
@@ -239,7 +245,7 @@ class AiAssistantInstalledPing(BaseModel):
 class AiAssistantInterestRequest(BaseModel):
     """A prospect raising their hand from the assistant sales page (« me contacter » banner)."""
 
-    message: str | None = Field(None, max_length=2000)
+    message: str | None = Field(None, max_length=LONG_TEXT_MAX_CHARS)
 
 
 class AiAssistantChatMessage(BaseModel):
@@ -257,7 +263,7 @@ class AiAssistantChatRequest(BaseModel):
     # The widget sends its last 40 turns; the margin covers an older widget still in a page.
     messages: list[AiAssistantChatMessage] = Field(default_factory=list, max_length=100)
     # Random id the widget keeps with the visitor's conversation, so the journal groups its turns.
-    session_id: str | None = Field(default=None, max_length=64)
+    session_id: str | None = Field(default=None, max_length=SESSION_ID_MAX_CHARS)
     language: str | None = Field(default=None, max_length=8)
     # Set by the widget on a « ?internal=1 » visit (the operator testing): journaled, out of the counts.
     internal: bool = False
@@ -311,7 +317,7 @@ class AiAssistantBookingChoice(BaseModel):
     """A free slot of the agenda the visitor picked, and its kind."""
 
     start: datetime
-    type: str | None = Field(default=None, max_length=64)
+    type: str | None = Field(default=None, max_length=LABEL_MAX_CHARS)
 
     @field_validator("start")
     @classmethod
@@ -325,12 +331,12 @@ class AiAssistantBookingChoice(BaseModel):
 class AiAssistantLeadRequest(BaseModel):
     """A visitor's details submitted through the assistant widget — it becomes a request."""
 
-    name: str = Field(..., max_length=255)
-    contact: str = Field(..., max_length=255)
-    need: str | None = Field(default=None, max_length=2000)
+    name: str = Field(..., max_length=SHORT_TEXT_MAX_CHARS)
+    contact: str = Field(..., max_length=SHORT_TEXT_MAX_CHARS)
+    need: str | None = Field(default=None, max_length=LONG_TEXT_MAX_CHARS)
     language: str | None = Field(default=None, max_length=8)
     # The widget session, so the request links the conversation and a resubmission updates it.
-    session_id: str | None = Field(default=None, max_length=64)
+    session_id: str | None = Field(default=None, max_length=SESSION_ID_MAX_CHARS)
     # Set by the widget on a « ?internal=1 » visit (the operator testing): recorded, never announced.
     internal: bool = False
     # Half-days picked for an appointment: the request becomes an appointment request.
@@ -435,7 +441,7 @@ class AiAssistantRequestUpdateRequest(BaseModel):
     """Owner changes to a request (partial)."""
 
     status: AiAssistantRequestStatus | None = None
-    owner_note: str | None = Field(default=None, max_length=2000)
+    owner_note: str | None = Field(default=None, max_length=LONG_TEXT_MAX_CHARS)
 
 
 class AiAssistantConversationMessageItem(BaseModel):

@@ -62,6 +62,37 @@ def test_create_persists_active_assistant_with_unique_slug(db) -> None:
     assert first.status == "active"
 
 
+def test_a_long_business_name_gives_a_short_slug_cut_between_two_words(db) -> None:
+    """The slug stays within 40 characters so its SMS link fits one segment; a suffix never breaks the limit."""
+    name = "Garage de la Grande Place et des Environs de Charleville-Mézières"
+
+    first = ai_assistant_service.create(
+        db, user_id=1, business_name=name, enrichment=_ENRICHMENT, use_brand_color=False
+    )
+    second = ai_assistant_service.create(
+        db, user_id=1, business_name=name, enrichment=_ENRICHMENT, use_brand_color=False
+    )
+    single_word = ai_assistant_service.create(
+        db, user_id=1, business_name="Boulangeriepatisseriedelagrandeplacedecharleville", use_brand_color=False
+    )
+
+    assert first.slug == "garage-de-la-grande-place-et-des"
+    assert second.slug == "garage-de-la-grande-place-et-des-2"
+    assert single_word.slug == "boulangeriepatisseriedelagrandeplacedech"
+    assert all(len(assistant.slug) <= 40 for assistant in (first, second, single_word))
+
+
+def test_a_suffix_shortens_a_slug_already_at_the_limit(db) -> None:
+    """A name that nearly fills the 40 characters is cut one word earlier when it needs a suffix."""
+    name = "Électricité Générale Dépannages Rapides Paris"
+
+    first = ai_assistant_service.create(db, user_id=1, business_name=name, use_brand_color=False)
+    second = ai_assistant_service.create(db, user_id=1, business_name=name, use_brand_color=False)
+
+    assert first.slug == "electricite-generale-depannages-rapides"
+    assert second.slug == "electricite-generale-depannages-2"
+
+
 def test_get_public_by_slug_returns_active_or_delivered_only(db) -> None:
     """The public lookup serves a demo and a sold assistant, never an unknown, expired or deleted one."""
     created = ai_assistant_service.create(

@@ -24,6 +24,7 @@ from enums.ai_assistant_status import AiAssistantStatus
 from enums.assistant_subscription_status import AssistantSubscriptionStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_subscription import AiAssistantSubscription
+from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
 from services.assistant_pricing_service import AssistantPricingService
 
 logger = logging.getLogger(__name__)
@@ -246,7 +247,7 @@ class AssistantSubscriptionService:
             assistant.status = AiAssistantStatus.DELIVERED.value
             assistant.delivered_at = assistant.delivered_at or datetime.now(UTC).replace(tzinfo=None)
         if not (assistant.email or "").strip() and client_email and client_email.strip():
-            assistant.email = client_email.strip()[:255]
+            assistant.email = client_email.strip()[:SHORT_TEXT_MAX_CHARS]
 
     def update_from_stripe_subscription(self, db: Session, sub_obj: dict) -> None:
         """

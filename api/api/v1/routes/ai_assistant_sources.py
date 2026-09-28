@@ -149,7 +149,7 @@ async def upload_assistant_document(
     finally:
         await form.close()
     try:
-        document = await ai_assistant_document_service.add(db, assistant, filename=filename, data=data)
+        document = await ai_assistant_document_service.add(db, assistant, filename=filename, pdf_bytes=data)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     except RuntimeError as exc:

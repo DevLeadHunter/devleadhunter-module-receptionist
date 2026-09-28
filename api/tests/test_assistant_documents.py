@@ -74,7 +74,7 @@ def test_the_text_of_a_pdf_is_read_page_after_page() -> None:
 
     assert document.pages == 2
     assert document.text == "Tarifs 2026 du garage\nVidange : 89 euros\n\nContrôle technique : 75 euros"
-    assert not document.truncated
+    assert not document.is_truncated
 
 
 def test_the_cleaning_joins_hyphenated_breaks_and_collapses_blank_runs() -> None:
@@ -138,7 +138,7 @@ def test_a_pdf_is_read_in_a_separate_process_stopped_when_too_long_and_one_at_a_
         AiAssistantDocumentText._READING.release()
 
     assert document.text == "Tarifs 2026 du garage\nVidange : 89 euros\nPneus : 60 euros la pose"
-    assert document.pages == 1 and not document.truncated
+    assert document.pages == 1 and not document.is_truncated
 
 
 def _source(kind: AssistantKnowledgeSource, title: str, text: str, url: str | None = None) -> KnowledgeSourceText:
@@ -283,7 +283,7 @@ def test_a_document_is_read_stored_and_given_to_the_assistant_while_enabled(db: 
     assistant = _assistant(db)
     service = AiAssistantDocumentService()
 
-    document = asyncio.run(service.add(db, assistant, filename="C:\\Mes docs\\Tarifs 2026.pdf", data=_PRICES))
+    document = asyncio.run(service.add(db, assistant, filename="C:\\Mes docs\\Tarifs 2026.pdf", pdf_bytes=_PRICES))
 
     assert document.name == "Tarifs 2026.pdf"
     assert storage.files[document.storage_key] == _PRICES
@@ -305,10 +305,10 @@ def test_documents_are_bounded_in_number_and_scoped_to_their_assistant(
     other = _assistant(db, user_id=8)
     service = AiAssistantDocumentService()
     monkeypatch.setattr(AiAssistantDocumentService, "MAX_DOCUMENTS", 1)
-    document = asyncio.run(service.add(db, assistant, filename="Tarifs.pdf", data=_PRICES))
+    document = asyncio.run(service.add(db, assistant, filename="Tarifs.pdf", pdf_bytes=_PRICES))
 
     with pytest.raises(ValueError, match="1 documents au plus"):
-        asyncio.run(service.add(db, assistant, filename="CGV.pdf", data=_PRICES))
+        asyncio.run(service.add(db, assistant, filename="CGV.pdf", pdf_bytes=_PRICES))
     assert service.set_enabled(db, other, document.id, enabled=False) is None
     assert not asyncio.run(service.delete(db, other, document.id))
 
@@ -515,7 +515,7 @@ def test_a_switched_off_listing_or_website_leaves_the_prompt() -> None:
 def test_a_disabled_document_leaves_the_prompt(db: Session, storage: _Storage) -> None:
     assistant = _assistant(db)
     service = AiAssistantDocumentService()
-    document = asyncio.run(service.add(db, assistant, filename="Tarifs 2026.pdf", data=_PRICES))
+    document = asyncio.run(service.add(db, assistant, filename="Tarifs 2026.pdf", pdf_bytes=_PRICES))
 
     def prompt() -> str:
         return ai_assistant_knowledge_builder.render_system_prompt(assistant.knowledge_json, assistant_name="Sofia")
@@ -643,7 +643,7 @@ def test_a_document_that_cannot_be_saved_leaves_no_file(
     monkeypatch.setattr(service, "sync_knowledge", broken)
 
     with pytest.raises(RuntimeError, match="database gone"):
-        asyncio.run(service.add(db, assistant, filename="Tarifs.pdf", data=_PRICES))
+        asyncio.run(service.add(db, assistant, filename="Tarifs.pdf", pdf_bytes=_PRICES))
 
     assert storage.files == {}
     assert db.query(AiAssistantDocument).count() == 0
@@ -759,7 +759,7 @@ def test_a_failed_upload_or_an_eleventh_document_leaves_no_file(
 
     monkeypatch.setattr(storage, "upload_bytes_async", broken_upload)
     with pytest.raises(RuntimeError, match="Stockage des fichiers indisponible"):
-        asyncio.run(service.add(db, assistant, filename="Tarifs.pdf", data=_PRICES))
+        asyncio.run(service.add(db, assistant, filename="Tarifs.pdf", pdf_bytes=_PRICES))
     monkeypatch.undo()
     monkeypatch.setattr(document_module, "r2_storage", storage)
     monkeypatch.setattr(AiAssistantDocumentService, "MAX_DOCUMENTS", 1)
@@ -778,7 +778,7 @@ def test_a_failed_upload_or_an_eleventh_document_leaves_no_file(
 
     monkeypatch.setattr(AiAssistantDocumentText, "read", read_while_another_lands)
     with pytest.raises(ValueError, match="1 documents au plus"):
-        asyncio.run(service.add(db, assistant, filename="Tarifs.pdf", data=_PRICES))
+        asyncio.run(service.add(db, assistant, filename="Tarifs.pdf", pdf_bytes=_PRICES))
     other.close()
 
     assert storage.files == {}
