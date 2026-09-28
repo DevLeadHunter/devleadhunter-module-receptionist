@@ -86,6 +86,7 @@ class GoogleCalendarClient:
     USERINFO_URL: ClassVar[str] = "https://www.googleapis.com/oauth2/v2/userinfo"
     FREEBUSY_URL: ClassVar[str] = "https://www.googleapis.com/calendar/v3/freeBusy"
     EVENTS_URL: ClassVar[str] = "https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events"
+    EVENT_URL: ClassVar[str] = "https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events/{event_id}"
     TIMEOUT_SECONDS: ClassVar[float] = 15.0
 
     @property
