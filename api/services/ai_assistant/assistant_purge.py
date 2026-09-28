@@ -53,7 +53,7 @@ class AssistantPurgeReport:
 
     file_count: int
     row_count: int
-    is_complete: bool
+    has_erased_files: bool
 
 
 class AiAssistantPurgeService:
@@ -89,7 +89,7 @@ class AiAssistantPurgeService:
             assistant: The soft-deleted assistant.
 
         Returns:
-            What was erased; ``is_complete`` is False when storage or the database failed.
+            What was erased; ``has_erased_files`` is False when storage or the database failed.
 
         Raises:
             ValueError: When the assistant is not deleted (it would keep serving without its data).
@@ -109,15 +109,14 @@ class AiAssistantPurgeService:
         except SQLAlchemyError:
             logger.warning("Assistant %s: the visitors' data could not be erased", assistant.id, exc_info=True)
             db.rollback()
-            return AssistantPurgeReport(file_count=deleted_files or 0, row_count=0, is_complete=False)
+            return AssistantPurgeReport(file_count=deleted_files or 0, row_count=0, has_erased_files=False)
         return AssistantPurgeReport(
-            file_count=deleted_files or 0, row_count=row_count, is_complete=deleted_files is not None
+            file_count=deleted_files or 0, row_count=row_count, has_erased_files=deleted_files is not None
         )
 
     async def purge_leftovers(self, db: Session) -> int:
         """
-        Finish the purge of the deleted assistants that still hold visitors' data (deleted before the purge existed,
-        or whose storage failed at the deletion).
+        Finish erasing the deleted assistants that still hold visitors' data or file rows.
 
         Args:
             db: Active database session.
@@ -135,7 +134,7 @@ class AiAssistantPurgeService:
         purged = 0
         for assistant in leftovers:
             report = await self.purge(db, assistant)
-            purged += int(report.is_complete)
+            purged += int(report.has_erased_files)
         return purged
 
     @staticmethod
@@ -166,7 +165,7 @@ class AiAssistantPurgeService:
         documents_folder = f"{r2_storage.DOCUMENTS_ASSISTANT_PREFIX}/{assistant.id}/"
         try:
             orphans = await asyncio.to_thread(r2_storage.list_objects, documents_folder)
-            every_key = list(dict.fromkeys([*keys, *(str(item["key"]) for item in orphans)]))
+            every_key = list(dict.fromkeys([*keys, *(str(orphan["key"]) for orphan in orphans)]))
             await asyncio.to_thread(r2_storage.delete_many, every_key)
         except Exception:
             logger.warning("Assistant %s: its files could not be deleted from storage", assistant.id, exc_info=True)

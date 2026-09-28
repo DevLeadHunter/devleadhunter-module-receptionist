@@ -283,7 +283,7 @@ class GoogleCalendarClient:
         except httpx.HTTPError as exc:
             raise GoogleCalendarError("Google Agenda injoignable") from exc
         if response.status_code >= 400:
-            error = self._json(response).get("error")
+            error = google_oauth_client.json_object(response).get("error")
             details = error if isinstance(error, dict) else {}
             reasons = {str(item.get("reason")) for item in details.get("errors") or [] if isinstance(item, dict)}
             logger.warning("Google Calendar call refused (%s): %s", response.status_code, details.get("message"))
@@ -293,16 +293,7 @@ class GoogleCalendarClient:
                 needs_reconnect=response.status_code == 401 or "insufficientPermissions" in reasons,
                 status_code=response.status_code,
             )
-        return self._json(response)
-
-    @staticmethod
-    def _json(response: httpx.Response) -> dict[str, Any]:
-        """A response's JSON object (empty when it has none)."""
-        try:
-            payload = response.json()
-        except ValueError:
-            return {}
-        return payload if isinstance(payload, dict) else {}
+        return google_oauth_client.json_object(response)
 
     @staticmethod
     def _rfc3339(moment: datetime) -> str:

@@ -34,7 +34,8 @@ from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.chat_service import ChatAnswer, ChatDelta, ai_assistant_chat_service
 from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.llm_router import AssistantLlmRouter
-from services.llm_service import LLMService, LlmStreamUsage, read_chat_stream_line
+from services.llm_completion import LlmStreamUsage, read_chat_stream_line
+from services.llm_service import LLMService
 from services.mistral_service import MistralRequestRejectedError, MistralService
 from services.rate_limiter import SlidingWindowRateLimiter
 from tests.assistant_fakes import VISITOR_REQUEST

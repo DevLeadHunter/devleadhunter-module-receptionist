@@ -182,7 +182,7 @@ def _to_subscription(subscription: AiAssistantSubscription) -> AiAssistantClient
 
 
 def _to_google_profile(assistant: AiAssistant) -> AiAssistantClientGoogleProfile:
-    url = ai_assistant_client_space_service.page_url(assistant)
+    url = ai_assistant_service.page_url(assistant.slug)
     linked_at = assistant.google_profile_linked_at
     return AiAssistantClientGoogleProfile(
         page_url=url,

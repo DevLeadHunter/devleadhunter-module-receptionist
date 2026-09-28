@@ -482,7 +482,7 @@ de bout en bout, et **ajouter les événements** `customer.subscription.updated`
 elle, passe par le compte **connecté** de l'utilisateur (Stripe Connect).
 
 Fichiers : `api/services/assistant_subscription_service.py`, `api/models/ai_assistant_subscription.py`,
-`api/enums/assistant_subscription_status.py`, `api/services/assistant_pricing_service.py`.
+`api/enums/ai_assistant_subscription_status.py`, `api/services/assistant_pricing_service.py`.
 
 ## Après-vente
 

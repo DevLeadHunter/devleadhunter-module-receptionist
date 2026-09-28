@@ -247,11 +247,9 @@ class OpeningHoursCalendar:
             # A public holiday's row describes that day only, never the weekday's usual hours.
             if not isinstance(row, dict) or row.get("holiday"):
                 continue
-            day = cls._normalize(str(row.get("day") or ""))
-            for weekday, names in enumerate(cls.WEEKDAY_NAMES):
-                if day.startswith(names) and weekday not in hours_by_weekday:
-                    hours_by_weekday[weekday] = cls._normalize(str(row.get("hours") or ""))
-                    break
+            weekday = cls.weekday_of(str(row.get("day") or ""))
+            if weekday is not None and weekday not in hours_by_weekday:
+                hours_by_weekday[weekday] = cls._normalize(str(row.get("hours") or ""))
         return hours_by_weekday
 
     @classmethod

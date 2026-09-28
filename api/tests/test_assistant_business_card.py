@@ -18,6 +18,7 @@ from sqlalchemy.pool import StaticPool
 
 from core.database import Base
 from models.prospect_db import ProspectDB
+from services.ai_assistant.appointment_texts import BusinessCard
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.business_card import AiAssistantBusinessCard
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
@@ -34,7 +35,7 @@ _A_SUNDAY = datetime(2026, 9, 27, 10, 0)
 
 
 def _sold_assistant(phone: str | None = None, **knowledge_changes: Any) -> SimpleNamespace:
-    """A sold assistant as the card reads it: its dashboard phone and its knowledge."""
+    """A sold assistant as the cards read it: its name, its dashboard phone and its knowledge."""
     knowledge: dict[str, Any] = {
         "identity": {
             "business_name": "Toitures Morel",
@@ -44,7 +45,7 @@ def _sold_assistant(phone: str | None = None, **knowledge_changes: Any) -> Simpl
         "opening_hours": _HOURS,
     }
     knowledge.update(knowledge_changes)
-    return SimpleNamespace(phone=phone, knowledge_json=knowledge)
+    return SimpleNamespace(business_name="Toitures Morel - Couvreur à Rennes", phone=phone, knowledge_json=knowledge)
 
 
 def test_the_fixed_days_are_the_weekdays_they_claim() -> None:
@@ -103,6 +104,20 @@ def test_a_listing_switched_off_leaves_only_the_dashboard_phone() -> None:
     assert card.opening_hours == []
     assert card.is_open_now is None
     assert card.google_rating is None
+
+
+def test_the_appointment_texts_give_the_contact_the_page_shows() -> None:
+    listed = BusinessCard.of(_sold_assistant(phone="06 11 22 33 44"))
+    unlisted = BusinessCard.of(_sold_assistant(phone="06 11 22 33 44", sources={"listing": False}))
+    without_dashboard_phone = BusinessCard.of(_sold_assistant())
+
+    assert (listed.name, listed.phone, listed.address) == (
+        "Toitures Morel",
+        "06 11 22 33 44",
+        "12 rue des Lilas, 35000 Rennes",
+    )
+    assert (unlisted.phone, unlisted.email, unlisted.address) == ("06 11 22 33 44", None, None)
+    assert without_dashboard_phone.phone == "02 99 12 34 56"
 
 
 def test_unreadable_rows_stay_out_of_the_hours() -> None:

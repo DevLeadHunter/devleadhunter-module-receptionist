@@ -25,8 +25,7 @@ from services.ai_assistant.visitor_contact import VisitorContact
 # 8 to 15 digits with the separators people type, « + » or « 00 » before them or not (the widget reads the same).
 _PHONES_IN_TEXT = re.compile(r"(?:\+|00)?\d(?:[\s.()/-]*\d){7,14}")
 _EMAILS_IN_TEXT = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]{2,}")
-# « 01/10/2026 », « 1.10.26 », « 14h », « 9 h 30 », « 14:30 »: their figures would otherwise read as a phone number.
-# A date has three groups only (« 06.12.34.56.78 » is a phone), an hour's « h » ends its word (« 78 hier » is not one).
+# Dates of three groups (« 06.12.34.56.78 » is a phone) and hours whose « h » ends the word (« 14h », « 9 h 30 »).
 _DATES_AND_HOURS = re.compile(
     r"(?<![\d/.-])\d{1,2}([/.-])\d{1,2}\1\d{2,4}(?![/.-]?\d)|\b\d{1,2}\s?h(?![^\W\d_])(?:\s?\d{2}\b)?|\b\d{1,2}:\d{2}\b",
     re.IGNORECASE,
@@ -49,7 +48,6 @@ class AiAssistantChatContactCapture:
     """Reads a visitor's phone number or email in their chat message and files it as the session's request."""
 
     FALLBACK_NAME: ClassVar[str] = "Visiteur"
-    NAME_MAX_CHARS: ClassVar[int] = 64
 
     @classmethod
     def contact_in(cls, text: str, *, business_contacts: tuple[str, ...] = ()) -> str | None:
@@ -132,7 +130,7 @@ class AiAssistantChatContactCapture:
     @classmethod
     def _name(cls, db: Session, *, assistant_id: int, session_id: str, visitor_name: str | None) -> str:
         """The name the visitor gave in the chat, else the one their session's last request carries."""
-        given = " ".join((visitor_name or "").split())[: cls.NAME_MAX_CHARS]
+        given = " ".join((visitor_name or "").split())
         if given:
             return given
         previous: str | None = (
@@ -147,7 +145,8 @@ class AiAssistantChatContactCapture:
     @staticmethod
     def _business_contacts(assistant: AiAssistant) -> tuple[str, ...]:
         """The business's own phone numbers and emails: its listing's, and the ones set on the assistant."""
-        identity = (assistant.knowledge_json or {}).get("identity") or {}
+        identity = (assistant.knowledge_json or {}).get("identity")
+        identity = identity if isinstance(identity, dict) else {}
         candidates = (assistant.phone, assistant.email, identity.get("phone"), identity.get("email"))
         return tuple(value for value in candidates if isinstance(value, str) and value.strip())
 

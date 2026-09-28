@@ -18,7 +18,7 @@ import services.mistral_service as mistral_module
 from enums.ai_assistant_llm import AiAssistantLlmUsage
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.llm_router import AssistantLlmRouter
-from services.llm_service import LlmCompletion
+from services.llm_completion import LlmCompletion
 from services.mistral_service import MistralRequestRejectedError, MistralService
 
 _MESSAGES = [{"role": "user", "content": "Quels sont vos horaires ?"}]

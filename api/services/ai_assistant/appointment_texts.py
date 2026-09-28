@@ -17,6 +17,7 @@ from typing import ClassVar
 from core.clock import naive_utc_now
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
+from services.ai_assistant.business_card import AiAssistantBusinessCard
 from services.ai_assistant.request_email import AiAssistantRequestEmail, RenderedEmail
 from services.french_date_formatter import FrenchDateFormatter
 from services.sms.gsm_segments import segment_count, to_strict_gsm7
@@ -34,7 +35,7 @@ class BusinessCard:
     @classmethod
     def of(cls, assistant: AiAssistant) -> BusinessCard:
         """
-        Read the business's card from its knowledge.
+        Read the business's card from its dashboard phone and its Google listing.
 
         Args:
             assistant: The assistant.
@@ -42,20 +43,14 @@ class BusinessCard:
         Returns:
             The card; the name is cut before a « - » or « | » tagline and kept under 32 characters.
         """
-        identity = (assistant.knowledge_json or {}).get("identity")
-        identity = identity if isinstance(identity, dict) else {}
+        contact = AiAssistantBusinessCard.contact_of(assistant)
         name = re.split(r"\s+[-–—|]\s+", assistant.business_name.strip())[0][:32].strip()
         return cls(
             name=name or assistant.business_name[:32],
-            phone=cls._text(identity.get("phone")),
-            email=cls._text(identity.get("email")),
-            address=cls._text(identity.get("address")),
+            phone=contact.phone,
+            email=contact.email,
+            address=contact.address,
         )
-
-    @staticmethod
-    def _text(value: object) -> str | None:
-        """A trimmed string, or None."""
-        return " ".join(value.split()) or None if isinstance(value, str) else None
 
 
 class AppointmentTexts:

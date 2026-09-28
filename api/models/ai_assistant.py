@@ -89,7 +89,7 @@ class AiAssistant(Base):
     # The « Pour démarrer » reminders emailed 3 and 14 days after the sale (set even when nothing was left).
     start_reminder_j3_sent_at: Mapped[datetime | None] = mapped_column(nullable=True)
     start_reminder_j14_sent_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    # Signs its client-space links from 1 on; « Couper les anciens liens » bumps it and every older link stops opening.
+    # Version the client-space links are signed with; « Couper les anciens liens » bumps it, older links stop opening.
     client_link_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     # The business day (Paris) its operator was told the daily cap of visitor messages was reached: once a day.
     message_cap_alerted_on: Mapped[date | None] = mapped_column(Date, nullable=True)

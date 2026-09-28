@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 
 from api.v1.routes.ai_assistant_common import (
     client_ip,
-    demo_url,
     owned_assistant_or_404,
 )
 from core.database import get_db
@@ -167,8 +166,9 @@ async def subscribe_to_assistant(
         AiAssistantStatus.DELIVERED.value,
     ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
+    page_url = ai_assistant_service.page_url(assistant.slug)
     if assistant.status == AiAssistantStatus.DELIVERED.value:
-        return RedirectResponse(url=demo_url(assistant.slug), status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=page_url, status_code=status.HTTP_303_SEE_OTHER)
     if interval not in ("month", "year"):
         interval = "month"
     try:
@@ -177,8 +177,8 @@ async def subscribe_to_assistant(
             user_id=assistant.user_id,
             assistant=assistant,
             interval=interval,
-            success_url=f"{demo_url(assistant.slug)}?subscribed=1",
-            cancel_url=demo_url(assistant.slug),
+            success_url=f"{page_url}?subscribed=1",
+            cancel_url=page_url,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

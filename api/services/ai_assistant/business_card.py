@@ -10,17 +10,50 @@ switched off as a source, it keeps the phone set in the dashboard and nothing fr
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
 from models.ai_assistant import AiAssistant
 from schemas.ai_assistant import AiAssistantOpeningHoursRow, AiAssistantPublicBusiness
-from services.ai_assistant.knowledge_builder import SourceToggles
+from services.ai_assistant.knowledge_sources import SourceToggles
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
+
+
+@dataclass(frozen=True)
+class BusinessContact:
+    """How the business's customers reach it, as its receptionist may say it (None when unknown)."""
+
+    phone: str | None
+    email: str | None
+    address: str | None
 
 
 class AiAssistantBusinessCard:
     """Builds the public card of a sold receptionist's business: phone, address, hours, rating."""
+
+    @classmethod
+    def contact_of(cls, assistant: AiAssistant) -> BusinessContact:
+        """
+        The business's phone, email and address, as its receptionist may give them.
+
+        Args:
+            assistant: The assistant.
+
+        Returns:
+            The phone set in the dashboard, else the listing's; the email and the address come from the listing, and
+            nothing does once the listing is switched off as a source.
+        """
+        knowledge: dict[str, Any] = assistant.knowledge_json or {}
+        dashboard_phone = cls._text(assistant.phone)
+        if not SourceToggles.of(knowledge).listing:
+            return BusinessContact(phone=dashboard_phone, email=None, address=None)
+        identity = knowledge.get("identity") if isinstance(knowledge.get("identity"), dict) else {}
+        return BusinessContact(
+            phone=dashboard_phone or cls._text(identity.get("phone")),
+            email=cls._text(identity.get("email")),
+            address=cls._text(identity.get("address")),
+        )
 
     @classmethod
     def of(
@@ -44,15 +77,14 @@ class AiAssistantBusinessCard:
             The card; only the dashboard phone when the listing is switched off as a source.
         """
         knowledge: dict[str, Any] = assistant.knowledge_json or {}
-        dashboard_phone = cls._text(assistant.phone)
+        contact = cls.contact_of(assistant)
         if not SourceToggles.of(knowledge).listing:
-            return AiAssistantPublicBusiness(phone=dashboard_phone)
-        identity = knowledge.get("identity") if isinstance(knowledge.get("identity"), dict) else {}
+            return AiAssistantPublicBusiness(phone=contact.phone)
         rows = [row for row in knowledge.get("opening_hours") or [] if isinstance(row, dict)]
         moment = now or OpeningHoursCalendar.business_now()
         return AiAssistantPublicBusiness(
-            phone=dashboard_phone or cls._text(identity.get("phone")),
-            address=cls._text(identity.get("address")),
+            phone=contact.phone,
+            address=contact.address,
             opening_hours=cls._hours(rows, today=moment.weekday()),
             is_open_now=OpeningHoursCalendar.is_open_at(rows, moment) if rows else None,
             google_rating=google_rating,
@@ -76,5 +108,5 @@ class AiAssistantBusinessCard:
 
     @staticmethod
     def _text(value: Any) -> str | None:
-        """A stored text, trimmed, or None when empty or not a text."""
-        return (value.strip() or None) if isinstance(value, str) else None
+        """A stored text on one line, or None when empty or not a text."""
+        return (" ".join(value.split()) or None) if isinstance(value, str) else None

@@ -221,6 +221,12 @@ def test_the_capped_reply_speaks_the_widget_language() -> None:
     assert reply(assistant, "it") == reply(assistant, None) == reply(assistant, "fr")
 
 
+def test_the_capped_reply_names_the_business_as_its_appointment_texts_do() -> None:
+    assistant = AiAssistant(business_name="Garage Martin | Carrosserie à Nancy", assistant_name="Hugo")
+
+    assert ai_assistant_daily_message_cap.capped_reply(assistant, "fr").endswith(", Garage Martin vous rappelle.")
+
+
 def test_the_migration_adds_the_alert_column_once(monkeypatch: pytest.MonkeyPatch) -> None:
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     with engine.connect() as conn:

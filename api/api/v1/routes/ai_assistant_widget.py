@@ -478,7 +478,7 @@ async def get_assistant_appointment_slots(
 
 
 def _slot_refusal(code: AiAssistantWidgetRefusalCode, error: Exception) -> HTTPException:
-    """A 409 the widget reads by its code: it tells the visitor in their language and offers the slots again."""
+    """A 409 carrying the refusal's code and its sentence."""
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail=AiAssistantRefusal(code=code, message=str(error)).model_dump(mode="json"),

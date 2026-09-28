@@ -439,6 +439,19 @@ class AiAssistantService:
         return accent if isinstance(accent, str) else None
 
     @staticmethod
+    def page_url(slug: str) -> str:
+        """
+        The receptionist's page on the demo host: its demo, then the business's own page once sold.
+
+        Args:
+            slug: The assistant's public slug.
+
+        Returns:
+            The absolute ``<demo host>/ia/{slug}`` URL.
+        """
+        return f"{settings.demo_host_base_url.rstrip('/')}/ia/{slug}"
+
+    @staticmethod
     def body_contains_assistant_link(assistant: AiAssistant, body: str) -> bool:
         """Whether a rendered email or SMS body carries this assistant's demo page or its video page (which leads to it)."""
         text = body or ""
