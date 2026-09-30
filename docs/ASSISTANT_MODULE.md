@@ -486,8 +486,8 @@ Fichiers : `api/services/assistant_subscription_service.py`, `api/models/ai_assi
 
 ## Après-vente
 
-Ce que l'assistant fait de ses visiteurs : conversations gardées, demandes, photos de devis et
-rendez-vous.
+Ce que l'assistant fait de ses visiteurs : conversations gardées, demandes, photos de devis,
+rendez-vous et réponses aux emails.
 
 ### Journal des conversations (`services/ai_assistant/conversation_service.py`)
 
@@ -667,6 +667,94 @@ widget y réserve les rendez-vous. Sans agenda utilisable, tout retombe sur les 
   tant que l'application Google n'est pas vérifiée, l'écran de consentement affiche un avertissement et, en
   mode « Test », les jetons expirent au bout de 7 jours.
 
+### Boîte mail Gmail, bêta (`services/ai_assistant/mailbox_*.py`, `mail_*.py`, `gmail_*.py`)
+
+Pour une réceptionniste **vendue** dont l'opérateur a activé la boîte mail : son client connecte son Gmail depuis
+l'espace client et, à chaque email d'un client, la réceptionniste prépare la réponse et la laisse en **brouillon** dans
+la conversation Gmail. Le commerçant la relit et l'envoie lui-même : rien ne part automatiquement.
+
+- **Activation** : interrupteur « Préparer les réponses aux emails » de la rubrique « Boîte mail Gmail (bêta) »,
+  onglet Configuration de la page de détail (`ai_assistants.mailbox_enabled`, éteint par défaut). L'écran « Votre
+  boîte mail » de l'espace client n'existe que si l'interrupteur est allumé **et** que `GOOGLE_MAILBOX_REDIRECT_URI`
+  est configurée ; sans elle, l'activation est refusée (422 « Boîte mail Gmail impossible… »). Éteindre
+  l'interrupteur déconnecte la boîte. Le résumé de la page de détail porte une ligne « Boîte mail » : non activée,
+  non configurée sur le serveur, en attente de connexion, connectée (avec l'adresse) ou à reconnecter.
+- **Connexion** (`gmail_client.py`, `mailbox_service.py`) : « Connecter mon Gmail » ouvre le consentement Google dans
+  un nouvel onglet (la page d'origine se recharge au retour). Accès demandés : `openid`, l'adresse du compte,
+  `gmail.readonly` (lire les emails) et `gmail.compose` (écrire des brouillons), hors ligne. Le `state` est signé comme
+  celui de l'agenda (HMAC de `SECRET_KEY`, 15 min) mais pour son propre usage : un `state` d'agenda n'ouvre pas une
+  boîte, et inversement. Un consentement sans les deux accès Gmail, sans accès durable ou d'un compte sans Gmail
+  n'enregistre rien. Jetons chiffrés (`encryption_service`) dans `ai_assistant_mailboxes`, une ligne par
+  réceptionniste, rafraîchis deux minutes avant leur expiration (`mailbox_access.py`). La lecture part de
+  l'identifiant d'historique Gmail du moment de la connexion : un email plus ancien n'est jamais lu. Chaque connexion
+  est annoncée par email au commerçant et inscrite au journal d'activité de l'owner.
+- **Déconnexion** : jetons effacés ici et accès **révoqué** chez Google, sauf quand le même compte Google sert encore
+  ici (un agenda, une autre boîte, un compte d'envoi Gmail, Postmaster) : une révocation couvre tous les accès du
+  compte. Les identifiants des emails déjà lus restent jusqu'à leur purge.
+- **Lecture** (`mailbox_sync.py`, boucle de 3 min lancée au démarrage de l'API, aucune requête tant que Gmail n'est
+  pas configuré) : pour chaque boîte connectée d'une réceptionniste vendue et activée, l'historique Gmail depuis le
+  dernier identifiant (`history.list`, messages et libellés ajoutés) ; identifiant trop vieux, ou plus de 10 pages de
+  retard : les emails de la boîte de réception du dernier jour (`in:inbox newer_than:1d`). 50 emails au plus par
+  passage ; l'identifiant n'avance qu'une fois tout le lot lu, écarté ou abandonné.
+- **Tri sans modèle** (`mail_filter.py`) : sont écartés avant tout appel au modèle le spam et la corbeille, les
+  messages envoyés et les brouillons, ce qui n'est pas dans la boîte de réception, les onglets Promotions, Réseaux
+  sociaux, Notifications et Forums, les emails reçus avant la connexion, `List-Unsubscribe` ou `List-Id`,
+  `Precedence: bulk | list | junk`, les réponses automatiques (`Auto-Submitted`, `X-Autoreply`, objets
+  « absence »), les expéditeurs automatiques (no-reply, ne-pas-repondre, mailer-daemon, postmaster, notifications,
+  newsletter…), les messages du commerçant lui-même, les invitations d'agenda (`text/calendar`, `.ics`) et les emails
+  vides. Un formulaire de site (expéditeur technique, client en `Reply-To`) est répondu au client.
+- **Modèle** (`llm_router.py` : Mistral d'abord, Groq en secours, « IA hébergée en Europe » respecté) : un appel de tri
+  (`mail_triage.py`, usage `assistant_mail_triage`) dit si l'email est la demande d'un client, son type (`question`,
+  `quote`, `appointment`, `urgent`, `other`), sa langue, le nom du client et un résumé en français. Seul l'email d'un
+  client reçoit un second appel (`mail_reply_writer.py`, usage `assistant_mail_draft`) : la réponse, dans la langue du
+  client, au nom de l'entreprise, à partir de la connaissance de la réceptionniste (fiche, site, documents, FAQ :
+  `knowledge_builder.knowledge_lines`) et de ses réponses imposées (`limits.py`) ; jamais un prix, un délai ou une
+  date hors de cette connaissance, ce qui la dépasse est renvoyé à l'entreprise. L'email du client est encadré comme
+  une donnée. Sans réponse du modèle, ou si Gmail refuse le brouillon, l'email est relu aux passages suivants, puis
+  abandonné après 3 essais.
+- **Brouillon** (`mail_draft_builder.py`) : message RFC 822 en UTF-8 (`email.message.EmailMessage`, encodé en
+  base64url) avec `Re:` de l'objet, `In-Reply-To` et `References` de l'email du client, créé dans sa conversation
+  (`threadId`) ; l'email du client est cité dessous (« Le …, X a écrit : »). Les en-têtes repris de l'email du client
+  tiennent chacun sur une ligne : un email piégé ne peut pas ajouter d'en-tête.
+- **Demande** : l'email d'un client devient une demande `channel = email` (session `gmail:{threadId}` : un second email
+  du même fil dans la journée met à jour la demande en attente, sans nouvelle alerte), typée et résumée par le tri,
+  annoncée comme une demande du widget : push à l'owner (« Demande de devis par email »), alertes au commerçant qui
+  disent qu'elle est arrivée par email et que la réponse attend dans les brouillons Gmail. Une réponse envoyée depuis
+  Gmail dans le fil (message `SENT` de l'historique) marque la demande traitée : ni rappel J+1 ni signal 48 h pour un
+  email déjà répondu. Un fil auquel le commerçant répond pendant le même passage n'a pas de brouillon.
+- **Plafonds** : par boîte et par jour (heure de Paris), 60 emails lus par le modèle et 30 brouillons ; au-delà, les
+  emails suivants n'ont pas de brouillon avant le lendemain (l'espace client le dit, le journal d'activité de l'owner
+  le note une fois par jour).
+- **Accès perdu** : un 401 est rejoué une fois avec un jeton rafraîchi ; un second refus, un `invalid_grant`, des
+  permissions manquantes ou une politique de domaine passent la boîte « à reconnecter » (journal d'activité, espace
+  client). Toute autre panne de Gmail laisse les emails au passage suivant.
+- **Données gardées** : les identifiants des emails lus et ce qu'il en est advenu (`ai_assistant_mailbox_messages`,
+  oubliés au bout de 90 jours par la boucle horaire de nettoyage) et, sur la demande, les mots du client et le résumé.
+  Aucun contenu d'email n'est journalisé. La suppression d'une réceptionniste révoque l'accès et efface sa boîte et
+  les identifiants lus.
+- **Espace client** : écran « Votre boîte mail » (Réglages, rubrique Connexions) : ce que fait la réceptionniste,
+  « Connecter mon Gmail », puis l'adresse connectée, « N brouillons préparés ce mois-ci », « Ouvrir mes brouillons
+  Gmail » et « Déconnecter ». Une ligne « Votre boîte mail » s'ajoute à « À faire » tant que la boîte n'est pas
+  connectée ou que son accès est perdu. Une demande arrivée par email porte « par email » dans la liste ; son détail
+  dit que la réponse attend dans les brouillons Gmail, et son bouton principal les ouvre.
+- **Vérification Google** : `gmail.readonly` et `gmail.compose` sont des accès **restreints**. Tant que l'application
+  Google n'est pas vérifiée (vérification de l'application et évaluation de sécurité CASA), seuls les comptes déclarés
+  comme utilisateurs de test de l'écran de consentement peuvent se connecter, et en mode « Test » les jetons expirent
+  au bout de 7 jours (la boîte passe alors « à reconnecter »).
+
+**Configuration dans Google Cloud** (le projet du client OAuth `GOOGLE_CLIENT_ID`) :
+
+1. API et services : activer l'API Gmail.
+2. Écran de consentement, accès aux données : ajouter `.../auth/gmail.readonly` et `.../auth/gmail.compose` (en plus
+   de `openid` et `.../auth/userinfo.email`).
+3. Identifiants, client OAuth : ajouter l'URI de redirection
+   `https://api.devleadhunter.dibodev.fr/api/v1/ai-assistants/mailbox/google/callback` (et
+   `http://localhost:8000/api/v1/ai-assistants/mailbox/google/callback` pour le local). Côté serveur, la même adresse
+   est `GOOGLE_MAILBOX_REDIRECT_URI` (posée par `deploy-api.yml` en production).
+4. Écran de consentement, audience : ajouter chaque adresse Gmail autorisée à se connecter comme utilisateur de test.
+5. Pour qu'un compte non déclaré puisse se connecter : demander la vérification de l'application en justifiant les deux
+   accès Gmail, puis passer l'évaluation de sécurité CASA exigée pour les accès restreints.
+
 ## Alertes et rapports
 
 Ce que reçoivent le commerçant d'un assistant vendu et l'owner.
@@ -695,7 +783,9 @@ Seulement pour un assistant **vendu** (`delivered`) ; une démo n'alerte que l'o
   d'espace (`AiAssistantBusinessMailer.is_muted`, vérifié à chaque envoi) ; l'assistant, lui, reste servi.
 - **Urgence tardive** : une photo qui rend urgente une demande déjà annoncée déclenche le SMS (tout de suite,
   ou à la fin de la plage de nuit) si le type urgent en mérite un et qu'aucun SMS n'est parti.
-- **Email** : toutes les demandes (l'email de résumé, voir « Demandes »), à toute heure.
+- **Email** : toutes les demandes (l'email de résumé, voir « Demandes »), à toute heure. Celui d'une demande
+  arrivée par email le dit (« Demande de devis par email — … »), montre l'email du client et ouvre sur « Votre réponse
+  est prête » avec le bouton « Ouvrir mes brouillons Gmail » ; « Marquer comme traitée » y devient un lien discret.
 - **SMS** : 1 segment GSM-7, sans mention STOP et sans la liste STOP de prospection (un STOP répondu à un SMS
   froid ne coupe pas les alertes qu'un client paie, ni la confirmation qu'un visiteur vient de demander).
   Texte : « Nouvelle demande de devis (photo) de Marc, 06… : résumé.
@@ -734,7 +824,8 @@ de 8 h, heure de Paris. Une démo ou un client résilié n'en reçoit jamais, re
   7 derniers jours du mois, son premier rapport est celui du mois suivant.
 - **Chiffres** (`stats_json`, visites et demandes de test exclues) : conversations où un visiteur a écrit
   dans le mois (un visiteur qui revient compte dans chaque mois où il écrit), demandes, devis,
-  rendez-vous, urgences, demandes avec photo, demandes marquées traitées et délai moyen avant
+  rendez-vous, urgences, demandes avec photo, demandes arrivées par email (`email_requests`, case « par email »
+  de l'email et de l'espace client quand il y en a), demandes marquées traitées et délai moyen avant
   « traitée », % hors horaires parmi les demandes aux horaires connus, langues des conversations
   (`fr-FR` compté `fr`), et les 3 questions les plus posées : le modèle (usage `assistant_report`, réglage
   « IA hébergée en Europe » respecté, 30 s maximum) regroupe le premier message du mois de chaque conversation, à partir de 3
@@ -785,7 +876,7 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
   dashboard), l'abonnement (prix figé, statut, fin de période, résiliation programmée) avec le portail
   Stripe Billing (`billing_portal.Session.create`, retour sur l'espace ; ses options se règlent dans
   Stripe, Settings → Billing → Customer portal), les prochains rendez-vous réservés et la section
-  Connexions (voir « Rendez-vous dans Google Agenda »).
+  Connexions (voir « Rendez-vous dans Google Agenda » et « Boîte mail Gmail, bêta »).
 - **Mobile d'alerte** : depuis l'espace, seulement un mobile de France, Belgique, Luxembourg, Suisse ou
   Allemagne ; tout changement est annoncé par email à l'adresse du commerçant (que l'espace ne modifie
   pas, seuls les 2 derniers chiffres y figurent) et inscrit au journal d'activité de l'owner.
@@ -810,13 +901,13 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
 | `GET` | `/ai-assistants/leads` | Anciens contacts captés (lecture seule, historique) |
 | `GET` | `/ai-assistants/requests` | Lister les demandes (`?assistant_id=`, `?status=`) + `pending_count` |
 | `PATCH` | `/ai-assistants/requests/{id}` | Changer le statut (`new` / `handled` / `dropped`) ou la note d'une demande |
-| `PATCH` | `/ai-assistants/{id}` | Personnaliser (nom, persona, langues, accent, alertes au commerçant, IA hébergée en Europe) |
+| `PATCH` | `/ai-assistants/{id}` | Personnaliser (nom, persona, langues, accent, alertes au commerçant, IA hébergée en Europe, boîte mail : l'éteindre la déconnecte) |
 | `POST` | `/ai-assistants/{id}/regenerate` | Régénérer la connaissance (garde marque + slug) |
 | `POST` | `/ai-assistants/{id}/video` | Générer la vidéo de prospection (fond serveur / VPS) |
 | `GET` | `/ai-assistants/{id}/video-context` | Contexte pour le build desktop (sidecar) |
 | `POST` | `/ai-assistants/{id}/video-final` | Recevoir la vidéo montée sur le PC → R2 |
 | `DELETE` | `/ai-assistants/{id}/video` | Supprimer la vidéo générée |
-| `DELETE` | `/ai-assistants/{id}` | Supprimer : 409 tant qu'un abonnement court ; sinon soft-delete et purge des fichiers R2 et des données des visiteurs (conversations, demandes, photos, documents, rendez-vous), l'historique de vente reste |
+| `DELETE` | `/ai-assistants/{id}` | Supprimer : 409 tant qu'un abonnement court ; sinon soft-delete et purge des fichiers R2 et des données des visiteurs (conversations, demandes, photos, documents, rendez-vous, boîte mail et emails lus, accès Gmail révoqué), l'historique de vente reste |
 | `GET` | `/ai-assistants/{id}/conversations` | Les 20 dernières conversations d'un assistant (journal) |
 | `GET` | `/ai-assistants/subscriptions` | Lister ses abonnements + abonnés actifs et revenu mensuel |
 | `GET` | `/ai-assistants/{id}/subscription/link` | Lien d'abonnement permanent (`?interval=month\|year`) |
@@ -833,7 +924,7 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
 | `GET` | `/ai-assistants/public/{slug}/subscribe` | Lien d'abonnement : Checkout Session Stripe fraîche, puis redirection |
 | `POST` | `/ai-assistants/{id}/client-link` | Lien de l'espace client d'un assistant vendu (`send` : l'envoyer par email au commerçant) |
 | `POST` | `/ai-assistants/{id}/client-link/revoke` | Couper tous les liens d'espace client envoyés (version de signature +1 ; un ancien lien répond comme un lien invalide) |
-| `GET` | `/ai-assistants/client/{token}` | Espace client : demandes, rapport, réglages, abonnement, agenda ; renvoie aussi `fresh_token` (lien prolongé), `website_url` et `embed_snippet` |
+| `GET` | `/ai-assistants/client/{token}` | Espace client : demandes, rapport, réglages, abonnement, agenda, boîte mail (`mailbox`, `null` tant qu'elle n'est pas activée) ; renvoie aussi `fresh_token` (lien prolongé), `website_url` et `embed_snippet` |
 | `POST` | `/ai-assistants/client/{token}/requests/{id}/handled` | Marquer traitée une demande depuis l'espace client |
 | `POST` | `/ai-assistants/client/{token}/requests/{id}/dropped` | Mettre de côté une fausse demande (test, spam, doublon) depuis l'espace client |
 | `PATCH` | `/ai-assistants/client/{token}/settings` | Prénom, langues, mobile d'alerte, SMS / email oui-non |
@@ -848,6 +939,9 @@ passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a 
 | `PATCH` | `/ai-assistants/client/{token}/calendar` | Réglages de réservation : durée, délai minimum, types de rendez-vous, agenda |
 | `DELETE` | `/ai-assistants/client/{token}/calendar` | Déconnecter l'agenda (jetons effacés ici ; l'accès se retire depuis le compte Google) |
 | `GET` | `/ai-assistants/calendar/google/callback` | Retour de Google : l'agenda est enregistré, puis une page « fermez cet onglet » |
+| `POST` | `/ai-assistants/client/{token}/mailbox/connect` | Page de consentement Google de la boîte Gmail (404 si la boîte n'est pas activée, 503 si Gmail n'est pas configuré) |
+| `DELETE` | `/ai-assistants/client/{token}/mailbox` | Déconnecter la boîte Gmail (jetons effacés, accès révoqué sauf compte Google encore utilisé ici) |
+| `GET` | `/ai-assistants/mailbox/google/callback` | Retour de Google : la boîte est enregistrée, puis une page « fermez cet onglet » |
 | `GET` | `/ai-assistants/{id}/sources` | Ce que l'assistant lit : pages du site, dernière lecture, fiche Google, documents |
 | `PATCH` | `/ai-assistants/{id}/sources` | Couper ou rallumer le site (`site_enabled`) ou la fiche Google (`listing_enabled`) |
 | `POST` | `/ai-assistants/{id}/sources/refresh` | Relire le site maintenant (« Mettre à jour ») et dire ce qui a changé |
@@ -948,7 +1042,7 @@ dashboard (non instrumenté).
 | Page espace client | `demo-host/app/pages/client/[token].vue` (routage), `demo-host/app/components/ClientSpace*.vue`, `demo-host/app/composables/useClientSpace*.ts` (lien, demandes, réglages, agenda, copie), `demo-host/app/assets/css/client-space.css` |
 | Devis par photo (réception, vision, rattachement, purge) | `api/services/ai_assistant/photo_service.py`, `photo_vision.py` |
 | Routage des modèles (Mistral, secours Groq, IA hébergée en Europe, coûts) | `api/services/ai_assistant/llm_router.py`, `api/services/mistral_service.py`, `api/services/llm_completion.py` (protocole commun) |
-| OAuth Google commun (agenda, Gmail, Postmaster) | `api/services/google_oauth_client.py` |
+| OAuth Google commun (agenda, boîte mail, envoi Gmail, Postmaster ; consentement, jetons, révocation) | `api/services/google_oauth_client.py`, `api/services/ai_assistant/google_token_access.py` (jetons des réceptionnistes), `oauth_state.py` (`state` signé) |
 | Bench des modèles | `api/scripts/bench_assistant_llm.py` |
 | Alertes au commerçant (email, SMS, rappel, signal 48 h) | `api/services/ai_assistant/request_alerts.py`, `alert_settings.py`, `alert_sms.py` |
 | Envoi unique, SMS de service, journal d'activité (commun aux messages sortants) | `api/services/ai_assistant/message_delivery.py` |
@@ -957,6 +1051,8 @@ dashboard (non instrumenté).
 | Google Agenda (connexion, créneaux libres, réservation) | `api/services/ai_assistant/calendar_service.py`, `calendar_slot_grid.py`, `calendar_access.py`, `calendar_booking.py`, `calendar_settings.py`, `google_calendar_client.py`, `api/models/ai_assistant_calendar.py`, `ai_assistant_appointment.py` |
 | Confirmation et rappel J-1 au visiteur | `api/services/ai_assistant/appointment_notices.py`, `appointment_texts.py` (SMS, email, .ics), `appointment_reminder.py` (fenêtre J-1) |
 | Agenda et rendez-vous dans l'espace client | `demo-host/app/components/ClientSpaceCalendar.vue`, `ClientSpaceAppointments.vue` |
+| Boîte mail Gmail (connexion, jetons, lecture, tri, réponse, brouillon) | `api/services/ai_assistant/mailbox_service.py`, `mailbox_access.py`, `mailbox_sync.py`, `mail_filter.py`, `mail_triage.py`, `mail_reply_writer.py`, `mail_draft_builder.py`, `gmail_client.py`, `gmail_payload.py`, `api/models/ai_assistant_mailbox.py`, `ai_assistant_mailbox_message.py`, `api/enums/ai_assistant_mailbox.py` |
+| Boîte mail dans l'espace client et le dashboard | `demo-host/app/components/ClientSpaceMailbox.vue`, `demo-host/app/composables/useClientSpaceMailbox.ts`, `web/app/components/ai-assistants/AssistantSettingsForm.vue` (interrupteur), `AssistantSummaryCard.vue` (ligne « Boîte mail ») |
 | Service génération / edit / régé | `api/services/ai_assistant/assistant_service.py` |
 | Config (accent, langues, persona) | `api/services/ai_assistant/config_builder.py` |
 | Fiche de connaissance | `api/services/ai_assistant/knowledge_builder.py`, `knowledge_sources.py` (site, documents, interrupteurs) |
