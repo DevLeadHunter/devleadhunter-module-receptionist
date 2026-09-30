@@ -18,7 +18,7 @@ from urllib.parse import quote
 import httpx
 
 from core.config import settings
-from services.google_oauth_client import GoogleOAuthError, GoogleTokens, google_oauth_client
+from services.google_oauth_client import GoogleApiError, GoogleOAuthError, GoogleTokens, google_oauth_client
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +32,8 @@ GOOGLE_CALENDAR_SCOPES: tuple[str, ...] = (
 )
 
 
-class GoogleCalendarError(Exception):
+class GoogleCalendarError(GoogleApiError):
     """A Google call that failed; ``needs_reconnect`` when the client must connect their agenda again."""
-
-    def __init__(self, message: str, *, needs_reconnect: bool = False, status_code: int | None = None) -> None:
-        super().__init__(message)
-        self.needs_reconnect = needs_reconnect
-        self.status_code = status_code
 
 
 @dataclass(frozen=True)
