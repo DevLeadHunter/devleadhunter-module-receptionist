@@ -10,7 +10,13 @@ from sqlalchemy.orm import Session
 
 from api.v1.routes.ai_assistant_common import client_ip, confirmation_response, faq_response
 from core.database import get_db
-from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestStatus, AiAssistantRequestType
+from enums.ai_assistant_mailbox import AiAssistantMailboxConnection
+from enums.ai_assistant_request import (
+    AiAssistantRequestChannel,
+    AiAssistantRequestOutcome,
+    AiAssistantRequestStatus,
+    AiAssistantRequestType,
+)
 from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
 from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
 from models.ai_assistant import AiAssistant
@@ -30,6 +36,8 @@ from schemas.ai_assistant_client_space import (
     AiAssistantClientLanguageOption,
     AiAssistantClientLimit,
     AiAssistantClientLimitsUpdate,
+    AiAssistantClientMailbox,
+    AiAssistantClientMailboxConnect,
     AiAssistantClientPortalResponse,
     AiAssistantClientRenewResponse,
     AiAssistantClientReport,
@@ -54,9 +62,12 @@ from services.ai_assistant.client_space_example import EXAMPLE_TOKEN, ai_assista
 from services.ai_assistant.client_space_service import ClientSpaceAccessError, ai_assistant_client_space_service
 from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.faq_service import ai_assistant_faq_service
+from services.ai_assistant.gmail_client import GmailClient, GmailError
 from services.ai_assistant.google_calendar_client import GoogleCalendarError
 from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
 from services.ai_assistant.limits import AiAssistantLimits, AssistantLimit
+from services.ai_assistant.mailbox_access import ai_assistant_mailbox_access
+from services.ai_assistant.mailbox_service import ai_assistant_mailbox_service
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.report_email import AiAssistantReportEmail, MonthlyStats
 from services.ai_assistant.report_service import ReportPeriod
@@ -106,6 +117,7 @@ def _to_request_item(record: AiAssistantRequest, booked: str | None = None) -> A
         id=record.id,
         type=AiAssistantRequestType(record.type),
         status=AiAssistantRequestStatus(record.status),
+        channel=AiAssistantRequestChannel(record.channel),
         name=record.name,
         contact=record.contact,
         summary=(record.need_summary or record.need or "").strip() or None,
@@ -137,6 +149,22 @@ def _to_calendar(db: Session, assistant: AiAssistant) -> AiAssistantClientCalend
     )
 
 
+def _to_mailbox(db: Session, assistant: AiAssistant) -> AiAssistantClientMailbox | None:
+    """The Gmail section, only once the operator switched the mailbox on and Gmail is configured on the server."""
+    mailbox = ai_assistant_mailbox_access.mailbox_of(db, assistant)
+    view = ai_assistant_mailbox_service.view(assistant, mailbox)
+    if view.connection in (AiAssistantMailboxConnection.DISABLED, AiAssistantMailboxConnection.UNAVAILABLE):
+        return None
+    return AiAssistantClientMailbox(
+        status=view.connection,
+        account_email=view.account_email,
+        drafts_this_month=ai_assistant_mailbox_service.drafts_this_month(db, assistant),
+        last_error=view.last_error,
+        has_reached_daily_cap=view.has_reached_daily_cap,
+        drafts_url=GmailClient.drafts_url(view.account_email),
+    )
+
+
 def _to_appointment(
     appointment: AiAssistantAppointment, record: AiAssistantRequest
 ) -> AiAssistantClientAppointmentItem:
@@ -165,6 +193,7 @@ def _to_report(report: AiAssistantReport, assistant_name: str) -> AiAssistantCli
         top_questions=list(stats.top_questions),
         won=stats.won,
         won_line=AiAssistantReportEmail.won_line(stats, assistant_name),
+        email_requests=stats.email_requests,
     )
 
 
@@ -272,6 +301,7 @@ async def get_client_space(
             _to_appointment(appointment, record)
             for appointment, record in ai_assistant_calendar_booking.upcoming(db, assistant)
         ],
+        mailbox=_to_mailbox(db, assistant),
         faq=faq.faq,
         unanswered=faq.unanswered,
         fresh_token=fresh_token,
@@ -515,4 +545,76 @@ async def google_calendar_callback(
         "Google Agenda est connecté",
         f"{assistant.assistant_name} réservera désormais les rendez-vous de {assistant.business_name} dans cet "
         f"agenda{account}. Vous pouvez fermer cet onglet et revenir à votre espace.",
+    )
+
+
+def _enabled_mailbox_assistant(db: Session, token: str, request: Request) -> AiAssistant:
+    """The assistant a client-space link opens, when its mailbox is switched on (404 otherwise)."""
+    assistant, _link = _open_client_space(db, token, request)
+    if not assistant.mailbox_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Boîte mail non activée")
+    return assistant
+
+
+@router.post("/client/{token}/mailbox/connect", response_model=AiAssistantClientMailboxConnect)
+async def connect_client_mailbox(
+    token: str, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantClientMailboxConnect:
+    """The Google consent page that connects the client's Gmail (the page opens it in a new tab)."""
+    assistant = _enabled_mailbox_assistant(db, token, request)
+    try:
+        url = ai_assistant_mailbox_service.authorization_url(assistant)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    return AiAssistantClientMailboxConnect(url=url)
+
+
+@router.delete("/client/{token}/mailbox", response_model=AiAssistantClientMailbox)
+async def disconnect_client_mailbox(
+    token: str, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantClientMailbox:
+    """Disconnect the client's Gmail: its tokens are deleted and its access revoked at Google."""
+    assistant = _enabled_mailbox_assistant(db, token, request)
+    await ai_assistant_mailbox_service.disconnect(db, assistant)
+    mailbox = _to_mailbox(db, assistant)
+    if mailbox is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Gmail n'est plus configuré")
+    return mailbox
+
+
+@router.get("/mailbox/google/callback", response_class=HTMLResponse)
+async def google_mailbox_callback(
+    request: Request,
+    code: str = Query(default=""),
+    state: str = Query(default=""),
+    error: str = Query(default=""),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Where Google sends the client back: the mailbox is stored, then a page to close (it carries no link)."""
+    if not assistant_client_limiter.allow(f"client:{client_ip(request)}"):
+        return confirmation_response(
+            "Trop de tentatives", "Réessayez dans quelques minutes.", status_code=status.HTTP_429_TOO_MANY_REQUESTS
+        )
+    if error or not code:
+        return confirmation_response(
+            "Connexion annulée", "Gmail n'est pas connecté. Fermez cet onglet et recommencez depuis votre espace."
+        )
+    try:
+        assistant, mailbox = await ai_assistant_mailbox_service.connect(db, code=code, state=state)
+    except ValueError as exc:
+        return confirmation_response(
+            "Connexion impossible", f"{exc}. Fermez cet onglet et recommencez depuis votre espace."
+        )
+    except GmailError:
+        logger.warning("Google refused a mailbox consent code", exc_info=True)
+        return confirmation_response(
+            "Connexion impossible",
+            "Google n'a pas confirmé la connexion. Fermez cet onglet et recommencez depuis votre espace.",
+        )
+    await ai_assistant_client_space_service.announce_mailbox_connected(db, assistant, mailbox.account_email)
+    return confirmation_response(
+        "Gmail est connecté",
+        f"{assistant.assistant_name} prépare désormais une réponse à chaque email d'un client de "
+        f"{assistant.business_name} ({mailbox.account_email}) : elle vous attend dans vos brouillons Gmail, vous la "
+        "relisez et l'envoyez. Vous pouvez fermer cet onglet et revenir à votre espace.",
     )

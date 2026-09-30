@@ -6,7 +6,13 @@ from typing import Annotated
 from pydantic import BaseModel, Field, StringConstraints
 
 from enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
-from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestStatus, AiAssistantRequestType
+from enums.ai_assistant_mailbox import AiAssistantMailboxConnection
+from enums.ai_assistant_request import (
+    AiAssistantRequestChannel,
+    AiAssistantRequestOutcome,
+    AiAssistantRequestStatus,
+    AiAssistantRequestType,
+)
 from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
 from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
 from schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantUnansweredEntry
@@ -28,6 +34,8 @@ class AiAssistantClientRequestItem(BaseModel):
     id: int
     type: AiAssistantRequestType
     status: AiAssistantRequestStatus
+    # « email »: a customer's email, whose reply waits as a draft in the business's Gmail.
+    channel: AiAssistantRequestChannel = AiAssistantRequestChannel.SITE
     name: str
     contact: str
     summary: str | None = None
@@ -103,6 +111,8 @@ class AiAssistantClientReport(BaseModel):
     # Requests the business marked « client gagné », and the sentence that says it.
     won: int = 0
     won_line: str | None = None
+    # Requests that came by email, each answered by a draft in Gmail.
+    email_requests: int = 0
 
 
 class AiAssistantClientSubscription(BaseModel):
@@ -154,6 +164,27 @@ class AiAssistantClientCalendar(BaseModel):
     last_error: str | None = None
     duration_choices: list[int] = Field(default_factory=list)
     min_notice_choices: list[int] = Field(default_factory=list)
+
+
+class AiAssistantClientMailbox(BaseModel):
+    """The Gmail section: its connection, the address read, the reply drafts of the month."""
+
+    status: AiAssistantMailboxConnection
+    account_email: str | None = None
+    # Reply drafts prepared since the first of the month (Paris).
+    drafts_this_month: int = 0
+    # Why the mailbox must be connected again (« 01/10 à 10:05 : l'accès… »), when it must.
+    last_error: str | None = None
+    # The daily cap stopped the reading today: the next emails get no draft before tomorrow.
+    has_reached_daily_cap: bool = False
+    # The Gmail drafts of the connected account.
+    drafts_url: str
+
+
+class AiAssistantClientMailboxConnect(BaseModel):
+    """The Google consent page that connects the client's Gmail, to open in a new tab."""
+
+    url: str
 
 
 class AiAssistantClientAppointmentItem(BaseModel):
@@ -215,6 +246,8 @@ class AiAssistantClientSpaceResponse(BaseModel):
     subscription: AiAssistantClientSubscription | None = None
     calendar: AiAssistantClientCalendar
     appointments: list[AiAssistantClientAppointmentItem] = Field(default_factory=list)
+    # The Gmail mailbox; None until the operator switches it on (and while Gmail is not configured on the server).
+    mailbox: AiAssistantClientMailbox | None = None
     # The answers the business wrote, and the questions its assistant could not answer.
     faq: list[AiAssistantFaqEntry] = Field(default_factory=list)
     unanswered: list[AiAssistantUnansweredEntry] = Field(default_factory=list)

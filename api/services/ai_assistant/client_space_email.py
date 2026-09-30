@@ -1,6 +1,6 @@
 """
 The emails of the client space: the welcome at the sale, its link (from the dashboard or an expired link), and the
-notices of a changed alert mobile or a connected agenda.
+notices of a changed alert mobile, a connected agenda or a connected mailbox.
 """
 
 from __future__ import annotations
@@ -253,6 +253,37 @@ class AiAssistantClientSpaceEmail:
             ]
         )
         return RenderedEmail(subject="Votre agenda Google est connecté", html=AiAssistantRequestEmail.document(body))
+
+    @staticmethod
+    def render_mailbox_connected(
+        *, assistant_name: str, business_name: str, account_email: str | None
+    ) -> RenderedEmail:
+        """
+        Render the notice sent to the business address when a Gmail mailbox is connected from the client space.
+
+        Args:
+            assistant_name: The assistant's first name.
+            business_name: The business.
+            account_email: The connected Gmail address.
+
+        Returns:
+            Subject and HTML body; every stored text is HTML-escaped.
+        """
+        name = html.escape(assistant_name)
+        account = f" (<strong>{html.escape(account_email)}</strong>)" if account_email else ""
+        body = "".join(
+            [
+                AiAssistantRequestEmail.paragraph(
+                    f"La boîte Gmail{account} vient d'être connectée à <strong>{name}</strong>, la réceptionniste de "
+                    f"<strong>{html.escape(business_name)}</strong>. À chaque email d'un client, {name} prépare une "
+                    "réponse et la laisse dans vos brouillons Gmail : rien ne part sans vous."
+                ),
+                AiAssistantRequestEmail.paragraph(
+                    "Si ce n'est pas vous, répondez tout de suite à cet email : nous déconnecterons cette boîte.",
+                ),
+            ]
+        )
+        return RenderedEmail(subject="Votre boîte Gmail est connectée", html=AiAssistantRequestEmail.document(body))
 
     @staticmethod
     def render_alert_phone_changed(*, assistant_name: str, new_phone: str | None) -> RenderedEmail:

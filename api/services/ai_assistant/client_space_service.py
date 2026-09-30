@@ -567,6 +567,22 @@ class AiAssistantClientSpaceService:
         if send_error:
             logger.warning("Agenda notice of assistant %s not sent: %s", assistant.id, send_error)
 
+    async def announce_mailbox_connected(self, db: Session, assistant: AiAssistant, account_email: str | None) -> None:
+        """
+        Tell the business, by email, that a Gmail mailbox was connected to its assistant.
+
+        Args:
+            db: Active database session.
+            assistant: The sold assistant.
+            account_email: The connected Gmail address.
+        """
+        rendered = AiAssistantClientSpaceEmail.render_mailbox_connected(
+            assistant_name=assistant.assistant_name, business_name=assistant.business_name, account_email=account_email
+        )
+        _recipient, send_error = await self._email_business(db, assistant, rendered)
+        if send_error:
+            logger.warning("Mailbox notice of assistant %s not sent: %s", assistant.id, send_error)
+
     @staticmethod
     async def _email_business(
         db: Session, assistant: AiAssistant, rendered: RenderedEmail

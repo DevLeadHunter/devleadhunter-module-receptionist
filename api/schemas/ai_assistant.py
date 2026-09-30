@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, BaseModel, Field, field_validator
 
 from enums.ai_assistant_booking_mode import AiAssistantBookingMode
+from enums.ai_assistant_mailbox import AiAssistantMailboxConnection
 from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
 from enums.ai_assistant_request import (
     AiAssistantDayPeriod,
@@ -64,6 +65,8 @@ class AiAssistantUpdateRequest(BaseModel):
     alert_quiet_end_hour: int | None = Field(default=None, ge=0, le=23)
     # The client requires its visitors' data to stay with Mistral: no Groq fallback.
     eu_only: bool | None = None
+    # The Gmail mailbox switch; off disconnects the mailbox connected.
+    mailbox_enabled: bool | None = None
 
     @field_validator("languages")
     @classmethod
@@ -129,6 +132,10 @@ class AiAssistantResponse(BaseModel):
     unanswered_count: int = 0
     alerts: AiAssistantAlertSettings
     eu_only: bool = False
+    # The Gmail mailbox switch, where the mailbox stands and the address it reads.
+    mailbox_enabled: bool = False
+    mailbox_status: AiAssistantMailboxConnection = AiAssistantMailboxConnection.DISABLED
+    mailbox_address: str | None = None
     # Once sold: the sale date, where the widget was last seen on the business's site, the Google link step.
     delivered_at: datetime | None = None
     installed_at: datetime | None = None
