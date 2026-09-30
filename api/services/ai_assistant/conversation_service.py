@@ -107,7 +107,7 @@ class AiAssistantConversationService:
             db.query(AiAssistantConversation)
             .options(selectinload(AiAssistantConversation.messages))
             .filter(AiAssistantConversation.assistant_id == assistant_id)
-            .order_by(AiAssistantConversation.last_message_at.desc())
+            .order_by(AiAssistantConversation.last_message_at.desc(), AiAssistantConversation.id.desc())
             .limit(RECENT_CONVERSATIONS_LIMIT)
             .all()
         )
