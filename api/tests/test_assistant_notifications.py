@@ -19,6 +19,7 @@ from tests.assistant_fakes import AsyncCallRecorder
 # The receptionist's notifications about a subscriber or a demo, with what each one needs besides the prospect.
 _ASSISTANT_NOTIFICATIONS: list[tuple[str, dict[str, Any]]] = [
     ("notify_assistant_subscription", {"amount_cents": 7900, "interval": "month"}),
+    ("notify_assistant_payment_failed", {"invoice_id": "in_october"}),
     ("notify_assistant_lead", {"lead_name": "Julie Roux", "need": "Fuite sous l'évier"}),
     ("notify_assistant_requests_waiting", {"waiting_count": 2}),
     ("notify_assistant_inactive", {"month_label": "septembre 2026"}),

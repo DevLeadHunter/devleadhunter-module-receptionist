@@ -49,6 +49,8 @@ class AiAssistantSubscription(Base):
     # When the first payment activated it (naive UTC): the start of the service. NULL on rows activated
     # before the column existed — ``created_at`` (the checkout) stands in.
     activated_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # The last Stripe invoice whose failed payment the operator was told about.
+    payment_failed_invoice_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Buyer identity, denormalised (from the Stripe Checkout customer).
     client_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
