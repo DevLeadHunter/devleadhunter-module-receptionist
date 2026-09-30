@@ -391,7 +391,7 @@ async def update_client_settings(
             db, assistant, payload.model_dump(exclude_unset=True, mode="json")
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
     return _to_settings(updated)
 
 
@@ -466,7 +466,7 @@ async def update_client_calendar(
     try:
         await ai_assistant_calendar_service.update_settings(db, calendar, payload.model_dump(exclude_unset=True))
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
     return _to_calendar(db, assistant)
 
 

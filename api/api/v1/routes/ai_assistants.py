@@ -214,7 +214,7 @@ async def update_assistant(
     try:
         updated = ai_assistant_service.update(db, assistant, payload.model_dump(exclude_unset=True))
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
     return _to_full_owner_response(db, updated)
 
 
@@ -325,7 +325,7 @@ async def generate_assistant_video(
     try:
         assistant_video_service.request_generation(db, assistant, user.id)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
     return _to_full_owner_response(db, assistant)
 
 

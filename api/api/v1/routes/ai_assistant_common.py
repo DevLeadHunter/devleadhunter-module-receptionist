@@ -134,4 +134,4 @@ def require_declared_length(request: Request, *, max_bytes: int, unknown_detail:
     if not declared_length.isdigit():
         raise HTTPException(status_code=status.HTTP_411_LENGTH_REQUIRED, detail=unknown_detail)
     if int(declared_length) > max_bytes:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=too_large_detail)
+        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail=too_large_detail)

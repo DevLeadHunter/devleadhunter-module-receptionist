@@ -458,7 +458,7 @@ async def get_assistant_appointment_slots(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Trop de demandes, réessayez plus tard"
         )
     if after is not None and not BOOKABLE_YEAR_MIN <= after.year <= BOOKABLE_YEAR_MAX:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_INVALID_REQUEST)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=_INVALID_REQUEST)
     assistant = public_assistant_or_404(db, slug)
     offer = await ai_assistant_calendar_service.offer(db, assistant, after=after)
     if offer.slots is not None and offer.settings is not None:
@@ -502,11 +502,11 @@ async def submit_assistant_lead(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name and contact are required")
     if not VisitorContact.is_reachable(payload.contact):
         language = AiAssistantWidgetLanguage.from_code(payload.language) or AiAssistantWidgetLanguage.FR
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_UNREACHABLE_CONTACT[language])
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=_UNREACHABLE_CONTACT[language])
     if payload.booking is not None and payload.internal:
         # A test visit is never announced: booking silently in a client's agenda (and texting the visitor) would be
         # an abuse path. The operator tests a real booking on their own test assistant, without « ?internal=1 ».
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_TEST_BOOKING_REFUSED)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=_TEST_BOOKING_REFUSED)
 
     try:
         captured, _created = ai_assistant_request_service.capture(
@@ -525,11 +525,11 @@ async def submit_assistant_lead(
         raise _slot_refusal(AiAssistantWidgetRefusalCode.SLOT_WITHDRAWN, exc) from exc
     except AppointmentRefused as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
     except ValueError as exc:
         db.rollback()
         logger.warning("Assistant request of slug %s refused: %s", slug, exc)
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_INVALID_REQUEST) from exc
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=_INVALID_REQUEST) from exc
     except Exception as exc:
         # Losing the durable row must not swallow the strongest signal — still notify the owner.
         db.rollback()
@@ -558,10 +558,10 @@ async def submit_assistant_lead(
         except SlotNoLongerOffered as exc:
             raise _slot_refusal(AiAssistantWidgetRefusalCode.SLOT_WITHDRAWN, exc) from exc
         except AppointmentRefused as exc:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
         except (ValueError, OverflowError) as exc:
             logger.warning("Booking of slug %s refused: %s", slug, exc)
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_INVALID_REQUEST) from exc
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=_INVALID_REQUEST) from exc
         if outcome.appointment is not None:
             ai_assistant_appointment_notices.schedule_confirmation(outcome.appointment.id)
             booked_start = OpeningHoursCalendar.to_business_time(outcome.appointment.starts_at)
@@ -590,7 +590,7 @@ def _photo_language(raw_language: object) -> str | None:
 def _photo_rejection_status(reason: AiAssistantPhotoRejection) -> int:
     """HTTP status of a refused photo."""
     if reason is AiAssistantPhotoRejection.TOO_LARGE:
-        return status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+        return status.HTTP_413_CONTENT_TOO_LARGE
     if reason is AiAssistantPhotoRejection.UNREADABLE:
         return status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
     if reason is AiAssistantPhotoRejection.QUOTA:
