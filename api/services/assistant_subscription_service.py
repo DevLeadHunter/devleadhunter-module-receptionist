@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from core.config import settings
 from enums.ai_assistant_status import AiAssistantStatus
-from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
+from enums.ai_assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES, AiAssistantSubscriptionStatus
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_subscription import AiAssistantSubscription
 from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
@@ -273,6 +273,46 @@ class AssistantSubscriptionService:
             # client-space link is issued any more.
             self._retire_assistant(db, record.ai_assistant_id)
         db.commit()
+
+    def record_payment_failure(self, db: Session, invoice_obj: dict) -> AiAssistantSubscription | None:
+        """
+        Webhook ``invoice.payment_failed``: the subscription of a paying client goes ``past_due`` at once.
+
+        Each invoice is taken once: a replay, or another failed attempt of the same invoice, changes nothing. An invoice
+        of another product, or of a subscription neither active nor past due, is left alone.
+
+        Args:
+            db: Active database session.
+            invoice_obj: The Stripe Invoice payload.
+
+        Returns:
+            The subscription when this call took the invoice, else None.
+        """
+        invoice_id = invoice_obj.get("id")
+        stripe_subscription_id = self._invoice_subscription_id(invoice_obj)
+        if not invoice_id or not stripe_subscription_id:
+            return None
+        record = (
+            db.query(AiAssistantSubscription)
+            .filter(AiAssistantSubscription.stripe_subscription_id == stripe_subscription_id)
+            .first()
+        )
+        if record is None or record.status not in LIVE_SUBSCRIPTION_STATUSES:
+            return None
+        if record.payment_failed_invoice_id == invoice_id:
+            return None
+        record.payment_failed_invoice_id = invoice_id
+        record.status = AiAssistantSubscriptionStatus.PAST_DUE.value
+        db.commit()
+        logger.info("[AssistantSub] Invoice %s of subscription record %s failed", invoice_id, record.id)
+        return record
+
+    @classmethod
+    def _invoice_subscription_id(cls, invoice_obj: dict) -> str | None:
+        """The subscription an invoice bills (under ``parent`` since the 2025-03-31 Stripe API, on itself before)."""
+        subscription_details = (invoice_obj.get("parent") or {}).get("subscription_details") or {}
+        parent_subscription_id = cls._object_id(subscription_details.get("subscription"))
+        return parent_subscription_id or cls._object_id(invoice_obj.get("subscription"))
 
     @staticmethod
     def _current_period_end(sub_obj: dict) -> int | None:

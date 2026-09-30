@@ -294,13 +294,41 @@ class AiAssistantCalendarService:
             The connection state and the agenda row, if any.
         """
         calendar = ai_assistant_calendar_access.calendar_of(db, assistant)
+        return self._connection_state(calendar.status if calendar is not None else None), calendar
+
+    def connection_states(self, db: Session, assistant_ids: list[int]) -> dict[int, AiAssistantCalendarConnection]:
+        """
+        Where the agenda of each of several assistants stands.
+
+        Args:
+            db: Active database session.
+            assistant_ids: The assistants.
+
+        Returns:
+            Each assistant's connection state (see :meth:`connection`), keyed by its id.
+        """
+        if not assistant_ids:
+            return {}
+        calendar_status_by_assistant_id: dict[int, str] = dict(
+            db.query(AiAssistantCalendar.assistant_id, AiAssistantCalendar.status)
+            .filter(AiAssistantCalendar.assistant_id.in_(assistant_ids))
+            .all()
+        )
+        return {
+            assistant_id: self._connection_state(calendar_status_by_assistant_id.get(assistant_id))
+            for assistant_id in assistant_ids
+        }
+
+    @staticmethod
+    def _connection_state(calendar_status: str | None) -> AiAssistantCalendarConnection:
+        """The state of an agenda from the status of its row (None: the assistant has no agenda row)."""
         if not google_calendar_client.is_configured:
-            return AiAssistantCalendarConnection.UNAVAILABLE, calendar
-        if calendar is None:
-            return AiAssistantCalendarConnection.DISCONNECTED, None
-        if calendar.status == AiAssistantCalendarStatus.ERROR.value:
-            return AiAssistantCalendarConnection.ERROR, calendar
-        return AiAssistantCalendarConnection.CONNECTED, calendar
+            return AiAssistantCalendarConnection.UNAVAILABLE
+        if calendar_status is None:
+            return AiAssistantCalendarConnection.DISCONNECTED
+        if calendar_status == AiAssistantCalendarStatus.ERROR.value:
+            return AiAssistantCalendarConnection.ERROR
+        return AiAssistantCalendarConnection.CONNECTED
 
     async def offer(self, db: Session, assistant: AiAssistant, *, after: datetime | None = None) -> AppointmentOffer:
         """
