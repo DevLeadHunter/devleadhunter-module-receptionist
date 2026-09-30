@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
 from enums.ai_assistant_start_step import AiAssistantStartStep
 from enums.ai_assistant_status import AiAssistantStatus
 from models.ai_assistant import AiAssistant
@@ -39,8 +40,8 @@ _CLIENT_WORDING: dict[AiAssistantStartStep, str] = {
 class AiAssistantStartReminders:
     """Emails the steps left to start, at J+3 and J+14 after the sale, and flags who still needs a call after that."""
 
-    @staticmethod
-    def missing_steps(db: Session, assistant: AiAssistant) -> list[AiAssistantStartStep]:
+    @classmethod
+    def missing_steps(cls, db: Session, assistant: AiAssistant) -> list[AiAssistantStartStep]:
         """
         What keeps the receptionist from serving: the « Pour démarrer » steps not done yet.
 
@@ -51,13 +52,40 @@ class AiAssistantStartReminders:
         Returns:
             The steps, in the order the client takes them; empty when everything is in place.
         """
+        agenda_state, _calendar = ai_assistant_calendar_service.connection(db, assistant)
+        return cls._missing_steps_given_agenda_state(assistant, agenda_state)
+
+    @classmethod
+    def missing_steps_by_assistant_id(
+        cls, db: Session, assistants: list[AiAssistant]
+    ) -> dict[int, list[AiAssistantStartStep]]:
+        """
+        The « Pour démarrer » steps each of several sold assistants has not done yet.
+
+        Args:
+            db: Active database session.
+            assistants: Sold assistants.
+
+        Returns:
+            Each assistant's missing steps (see :meth:`missing_steps`), keyed by its id.
+        """
+        agenda_states = ai_assistant_calendar_service.connection_states(db, [assistant.id for assistant in assistants])
+        return {
+            assistant.id: cls._missing_steps_given_agenda_state(assistant, agenda_states[assistant.id])
+            for assistant in assistants
+        }
+
+    @staticmethod
+    def _missing_steps_given_agenda_state(
+        assistant: AiAssistant, agenda_state: AiAssistantCalendarConnection
+    ) -> list[AiAssistantStartStep]:
+        """The steps missing among the alert mobile, the Google profile or site line, and the agenda, in that order."""
         steps: list[AiAssistantStartStep] = []
         if not assistant.alert_phone_e164:
             steps.append(AiAssistantStartStep.ALERT_PHONE)
         if assistant.installed_at is None and assistant.google_profile_linked_at is None:
             steps.append(AiAssistantStartStep.GOOGLE_PROFILE_OR_WEBSITE)
-        state, _calendar = ai_assistant_calendar_service.connection(db, assistant)
-        if str(getattr(state, "value", state)) in _AGENDA_MISSING_STATES:
+        if str(getattr(agenda_state, "value", agenda_state)) in _AGENDA_MISSING_STATES:
             steps.append(AiAssistantStartStep.GOOGLE_CALENDAR)
         return steps
 

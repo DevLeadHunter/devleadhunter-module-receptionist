@@ -120,6 +120,12 @@ def _start_steps_of(db: Session, assistant: AiAssistant) -> list[AiAssistantStar
     return ai_assistant_start_reminders.missing_steps(db, assistant)
 
 
+def _start_steps_by_assistant_id(db: Session, assistants: list[AiAssistant]) -> dict[int, list[AiAssistantStartStep]]:
+    """The « Pour démarrer » steps each sold assistant of a list still misses, keyed by its id (a demo has none)."""
+    sold = [assistant for assistant in assistants if assistant.status == AiAssistantStatus.DELIVERED.value]
+    return ai_assistant_start_reminders.missing_steps_by_assistant_id(db, sold)
+
+
 def _to_full_owner_response(db: Session, assistant: AiAssistant) -> AiAssistantResponse:
     """One assistant as the list shows it (subscription, counts and start steps included), after an edit."""
     return _to_owner_response(
@@ -171,6 +177,7 @@ async def list_assistants(
     subscriptions = assistant_subscription_service.active_by_assistant_ids(db, [a.id for a in assistants])
     conversation_counts = ai_assistant_conversation_service.counts_for_assistants(db, [a.id for a in assistants])
     request_counts = ai_assistant_request_service.counts_for_assistants(db, [a.id for a in assistants])
+    missing_start_steps = _start_steps_by_assistant_id(db, assistants)
     return AiAssistantListResponse(
         assistants=[
             _to_owner_response(
@@ -178,7 +185,7 @@ async def list_assistants(
                 subscriptions.get(assistant.id),
                 conversation_counts.get(assistant.id),
                 request_counts.get(assistant.id),
-                _start_steps_of(db, assistant),
+                missing_start_steps.get(assistant.id),
             )
             for assistant in assistants
         ]
