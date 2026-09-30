@@ -275,12 +275,14 @@ function requestSummary(request: AiAssistantRequestItem): string {
 }
 
 /**
- * The marks worth a glance in the list: slot wished or booked, photos, outside hours, test.
+ * The marks worth a glance in the list: came by email, slot wished or booked, photos, outside hours, test.
  * @param request - The request.
  * @returns The icons to show, each with its label.
  */
 function requestFlags(request: AiAssistantRequestItem): AiAssistantRequestFlag[] {
   const flags: AiAssistantRequestFlag[] = []
+  if (request.channel === 'email')
+    flags.push({ icon: 'i-lucide-mail', label: 'Arrivée par email, réponse en brouillon' })
   if (request.appointment_booked) flags.push({ icon: 'i-lucide-calendar-check', label: 'Rendez-vous réservé' })
   else if (request.appointment_slots.length > 0) {
     flags.push({ icon: 'i-lucide-calendar-days', label: 'Créneaux souhaités' })

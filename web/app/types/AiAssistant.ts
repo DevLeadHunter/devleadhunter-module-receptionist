@@ -38,6 +38,9 @@ export type AiAssistantSummary = {
   unanswered_count: number
   alerts: AiAssistantAlertSettings
   eu_only: boolean
+  mailbox_enabled: boolean
+  mailbox_status: AiAssistantMailboxConnection
+  mailbox_address: string | null
   /** Once sold: the sale date, where the widget was last seen on the client's site, the Google link step. */
   delivered_at: string | null
   installed_at: string | null
@@ -49,6 +52,8 @@ export type AiAssistantSummary = {
 }
 
 export type AiAssistantStartStep = 'alert_phone' | 'google_profile_or_website' | 'google_calendar'
+
+export type AiAssistantMailboxConnection = 'disabled' | 'unavailable' | 'disconnected' | 'connected' | 'error'
 
 /**
  * How the business owner is alerted of the requests once the assistant is sold, defaults applied:
@@ -136,6 +141,7 @@ export type AiAssistantUpdatePayload = {
   alert_quiet_start_hour?: number
   alert_quiet_end_hour?: number
   eu_only?: boolean
+  mailbox_enabled?: boolean
 }
 
 /** The assistant customization form state (all fields present for v-model). */
@@ -153,6 +159,7 @@ export type AiAssistantEditForm = {
   alert_quiet_start_hour: number
   alert_quiet_end_hour: number
   eu_only: boolean
+  mailbox_enabled: boolean
 }
 
 /** What a visitor wants — drives the owner's triage. */

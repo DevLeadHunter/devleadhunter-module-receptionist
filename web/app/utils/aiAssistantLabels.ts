@@ -1,4 +1,5 @@
 import type {
+  AiAssistantMailboxConnection,
   AiAssistantRequestStatus,
   AiAssistantRequestType,
   AiAssistantStartStep,
@@ -41,6 +42,14 @@ export const SUBSCRIPTION_STATUS_LABELS: Record<AssistantSubscriptionStatus, str
   canceled: 'Annulé',
 }
 
+const MAILBOX_STATUS_LABELS: Record<AiAssistantMailboxConnection, string> = {
+  disabled: 'Non activée',
+  unavailable: 'Non configurée sur le serveur',
+  disconnected: 'En attente de connexion',
+  connected: 'Connectée',
+  error: 'À reconnecter',
+}
+
 /** Each « Pour démarrer » step as the seller names it when calling the business. */
 const START_STEP_LABELS: Record<AiAssistantStartStep, string> = {
   alert_phone: "Mobile d'alerte",
@@ -67,6 +76,19 @@ export function assistantLifetimeLabel(assistant: AiAssistantSummary): string {
   if (assistant.status !== 'active') return assistantStatusLabel(assistant.status)
   if (!assistant.demo_link_sent_at || !assistant.expires_at) return "En attente d'envoi"
   return `Expire dans ${daysUntil(assistant.expires_at)} j`
+}
+
+/**
+ * Where a receptionist's Gmail mailbox stands, with the connected address (« Connectée : garage@gmail.com »).
+ * @param assistant - The receptionist.
+ * @returns A short French label.
+ */
+export function mailboxStatusLabel(assistant: AiAssistantSummary): string {
+  const label: string = MAILBOX_STATUS_LABELS[assistant.mailbox_status]
+  if (assistant.mailbox_status === 'connected' && assistant.mailbox_address) {
+    return `${label} : ${assistant.mailbox_address}`
+  }
+  return label
 }
 
 /**
