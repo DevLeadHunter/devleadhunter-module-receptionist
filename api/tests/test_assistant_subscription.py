@@ -178,15 +178,19 @@ def test_is_active_for_assistant(db: Session) -> None:
     db.add(
         AiAssistantSubscription(user_id=1, ai_assistant_id=8, interval="month", amount_cents=2900, status="canceled")
     )
+    db.add(
+        AiAssistantSubscription(user_id=1, ai_assistant_id=9, interval="year", amount_cents=29000, status="past_due")
+    )
     db.commit()
     assert service.is_active_for_assistant(db, 7) is True
     assert service.is_active_for_assistant(db, 8) is False
     assert service.is_active_for_assistant(db, 99) is False
 
-    by_id = service.active_by_assistant_ids(db, [7, 8, 99])
-    assert set(by_id) == {7}  # only the active one, keyed by assistant id
+    by_id = service.live_by_assistant_ids(db, [7, 8, 9, 99])
+    assert set(by_id) == {7, 9}  # running and past due, keyed by assistant id
     assert by_id[7].amount_cents == 2900
-    assert service.active_by_assistant_ids(db, []) == {}
+    assert by_id[9].status == "past_due"
+    assert service.live_by_assistant_ids(db, []) == {}
 
 
 def test_stats_normalizes_annual_to_monthly_mrr(db: Session) -> None:

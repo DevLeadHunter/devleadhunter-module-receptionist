@@ -346,15 +346,15 @@ class AssistantSubscriptionService:
             is not None
         )
 
-    def active_by_assistant_ids(self, db: Session, assistant_ids: list[int]) -> dict[int, AiAssistantSubscription]:
-        """Active subscriptions for the given assistants, keyed by assistant id (for the dashboard list)."""
+    def live_by_assistant_ids(self, db: Session, assistant_ids: list[int]) -> dict[int, AiAssistantSubscription]:
+        """Running or past-due subscriptions for the given assistants, keyed by assistant id (for the dashboard)."""
         if not assistant_ids:
             return {}
         rows = (
             db.query(AiAssistantSubscription)
             .filter(
                 AiAssistantSubscription.ai_assistant_id.in_(assistant_ids),
-                AiAssistantSubscription.status == AiAssistantSubscriptionStatus.ACTIVE.value,
+                AiAssistantSubscription.status.in_(LIVE_SUBSCRIPTION_STATUSES),
             )
             .all()
         )

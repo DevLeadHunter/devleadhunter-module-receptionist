@@ -130,7 +130,7 @@ def _to_full_owner_response(db: Session, assistant: AiAssistant) -> AiAssistantR
     """One assistant as the list shows it (subscription, counts and start steps included), after an edit."""
     return _to_owner_response(
         assistant,
-        assistant_subscription_service.active_by_assistant_ids(db, [assistant.id]).get(assistant.id),
+        assistant_subscription_service.live_by_assistant_ids(db, [assistant.id]).get(assistant.id),
         ai_assistant_conversation_service.counts_for_assistants(db, [assistant.id]).get(assistant.id),
         ai_assistant_request_service.counts_for_assistants(db, [assistant.id]).get(assistant.id),
         _start_steps_of(db, assistant),
@@ -174,7 +174,7 @@ async def list_assistants(
     if prospect_id is not None:
         query = query.filter(AiAssistant.prospect_id == prospect_id)
     assistants = query.order_by(AiAssistant.created_at.desc()).all()
-    subscriptions = assistant_subscription_service.active_by_assistant_ids(db, [a.id for a in assistants])
+    subscriptions = assistant_subscription_service.live_by_assistant_ids(db, [a.id for a in assistants])
     conversation_counts = ai_assistant_conversation_service.counts_for_assistants(db, [a.id for a in assistants])
     request_counts = ai_assistant_request_service.counts_for_assistants(db, [a.id for a in assistants])
     missing_start_steps = _start_steps_by_assistant_id(db, assistants)
