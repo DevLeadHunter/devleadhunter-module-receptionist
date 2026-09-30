@@ -6,7 +6,7 @@
       </p>
       <h1 class="ia__title">Votre réceptionniste répond à vos clients<span class="ia__dot">.</span></h1>
       <p class="ia__lede">
-        Ce soir, 21h40, un client cherche « {{ searchPhrase }} » et ouvre votre site. Vous êtes à table.
+        Ce soir, 21h40, un client cherche « {{ searchPhrase }} » et {{ arrivalPhrase }}. Vous êtes à table.
         {{ props.assistant.assistant_name }} répond, note sa demande et vous la transmet.
         <strong class="ia__lede-emphasis">Essayez, comme ce client le ferait.</strong>
       </p>
@@ -56,8 +56,8 @@
             proposée.
           </li>
           <li class="ia__never-item">
-            Promettre une intervention à votre place, ni se faire passer pour une personne : réceptionniste IA dès le
-            premier message.
+            Promettre une intervention à votre place ou se faire passer pour une personne :
+            {{ props.assistant.assistant_name }} se présente comme réceptionniste IA dès le premier message.
           </li>
           <li class="ia__never-item">Garder les photos au-delà du devis.</li>
         </ul>
@@ -169,6 +169,11 @@ const searchPhrase: ComputedRef<string> = computed((): string => {
   return city ? `${trade} ${city}` : trade
 })
 
+/** How the customer reaches the business tonight: its website, or its Google listing when it has none. */
+const arrivalPhrase: ComputedRef<string> = computed((): string =>
+  props.assistant.has_website === false ? 'tombe sur votre fiche Google' : 'ouvre votre site',
+)
+
 /** The SMS on the business's phone: the example of the trade, then the visitor's own request. */
 const alertText: ComputedRef<string> = computed((): string =>
   receivedLead.value
@@ -180,7 +185,9 @@ const feedHintText: ComputedRef<string> = computed((): string => {
   if (!receivedLead.value && exampleArrivals.value > 0) {
     return 'Voilà ce que vous auriez reçu. À vous : écrivez dans la conversation comme ce client le ferait.'
   }
-  if (!receivedLead.value) return 'Terminez la conversation à gauche : ce SMS devient le vôtre.'
+  if (!receivedLead.value) {
+    return `Terminez la conversation avec ${props.assistant.assistant_name} : ce SMS devient le vôtre.`
+  }
   const stored: string = receivedLead.value.hasPhoto ? 'La fiche complète et la photo sont' : 'La fiche complète est'
   return `Reçu à 21h43. ${stored} dans votre espace.`
 })

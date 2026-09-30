@@ -173,3 +173,27 @@ def test_the_public_config_carries_the_card_only_once_sold() -> None:
     assert sold.business.address == "12 rue des Lilas"
     assert len(sold.business.opening_hours) == len(_HOURS)
     assert (sold.business.google_rating, sold.business.google_reviews_count) == (4.8, 57)
+
+
+def test_the_public_config_says_whether_the_business_has_a_live_website() -> None:
+    from api.v1.routes.ai_assistant_widget import get_public_assistant
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    db: Session = sessionmaker(bind=engine)()
+    websites = {"Toitures Morel": ("https://toitures-morel.fr", None), "Charpente Roux": (None, None)}
+    websites["Carrosserie Blanc"] = ("https://carrosserie-blanc.fr", "dead")
+    slugs: dict[str, str] = {}
+    for name, (website, website_status) in websites.items():
+        prospect = ProspectDB(name=name, category="Couvreur", source="google", confidence=2, user_id=7, website=website)
+        prospect.website_status = website_status
+        db.add(prospect)
+        db.commit()
+        assistant = ai_assistant_service.create(
+            db, user_id=7, business_name=name, prospect_id=prospect.id, country="FR", use_brand_color=False
+        )
+        slugs[name] = assistant.slug
+
+    has_website = {name: asyncio.run(get_public_assistant(slug, db)).has_website for name, slug in slugs.items()}
+
+    assert has_website == {"Toitures Morel": True, "Charpente Roux": False, "Carrosserie Blanc": False}

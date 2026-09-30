@@ -233,6 +233,7 @@ class AiAssistantPublicResponse(BaseModel):
     trade_label: str | None = None
     google_rating: float | None = None
     google_reviews_count: int | None = None
+    has_website: bool | None = None
     # Owner contact, shown in the « me contacter » banner so the prospect can reach the seller.
     owner_name: str | None = None
     owner_profile_photo_url: str | None = None

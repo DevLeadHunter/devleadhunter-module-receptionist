@@ -38,6 +38,7 @@ export type AiAssistantConfig = {
   trade_label?: string | null
   google_rating?: number | null
   google_reviews_count?: number | null
+  has_website?: boolean | null
   owner_name?: string | null
   owner_profile_photo_url?: string | null
   owner_contact_phone?: string | null

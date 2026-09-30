@@ -122,12 +122,13 @@ _TEST_BOOKING_REFUSED = (
 )
 
 
-def _listing_public_fields(db: Session, assistant: AiAssistant) -> dict[str, str | float | int | None]:
-    """The business as its Google listing shows it (city, trade, rating), for the demo page's scene."""
+def _listing_public_fields(db: Session, assistant: AiAssistant) -> dict[str, str | float | int | bool | None]:
+    """The business as its Google listing shows it (city, trade, rating, website), for the demo page's scene."""
     city = assistant.city
     trade_label: str | None = None
     rating: float | None = None
     reviews_count: int | None = None
+    has_website: bool | None = None
     if assistant.prospect_id is not None:
         prospect = db.get(ProspectDB, assistant.prospect_id)
         if prospect is not None:
@@ -135,11 +136,13 @@ def _listing_public_fields(db: Session, assistant: AiAssistant) -> dict[str, str
             trade_label = prospect.category or None
             rating = prospect.google_rating
             reviews_count = prospect.google_reviews_count
+            has_website = ai_assistant_service.has_readable_website(prospect)
     return {
         "city": city or None,
         "trade_label": trade_label,
         "google_rating": rating,
         "google_reviews_count": reviews_count,
+        "has_website": has_website,
     }
 
 
