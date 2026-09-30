@@ -54,11 +54,13 @@ class AiAssistantRequestVolume:
             ("porte", "portail", "fenetre", "volet"),
             TradeVolume(label="une entreprise du bâtiment", monthly_requests=15),
         ),
+        (("carross",), TradeVolume(label="une carrosserie", monthly_requests=30)),
         (
-            ("garag", "mecani", "automobile", "carross", "pneu"),
+            ("garag", "mecani", "automobile", "pneu"),
             TradeVolume(label="un garage", monthly_requests=30),
         ),
-        (("couvr", "toiture", "charpent", "zingu"), TradeVolume(label="un couvreur", monthly_requests=15)),
+        (("charpent",), TradeVolume(label="un charpentier", monthly_requests=15)),
+        (("couvr", "toiture", "zingu"), TradeVolume(label="un couvreur", monthly_requests=15)),
         (("menuis", "ebenist"), TradeVolume(label="un menuisier", monthly_requests=15)),
         (("peintre", "peinture"), TradeVolume(label="un peintre", monthly_requests=15)),
         (

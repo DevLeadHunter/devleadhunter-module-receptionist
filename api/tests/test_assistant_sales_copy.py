@@ -301,6 +301,9 @@ def test_a_demo_page_estimates_the_closed_hours_from_the_google_hours(monkeypatc
     [
         ("Plombier chauffagiste", "un plombier"),
         ("Garage automobile", "un garage"),
+        ("Atelier de carrosserie automobile", "une carrosserie"),
+        ("Couvreur", "un couvreur"),
+        ("Charpentier couvreur", "un charpentier"),
         ("Kinésithérapeute", "un cabinet de santé"),
         ("Esthéticienne", "un institut de beauté"),
         ("Barbier", "un salon de coiffure"),

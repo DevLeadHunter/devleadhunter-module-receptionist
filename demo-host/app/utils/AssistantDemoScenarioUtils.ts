@@ -31,7 +31,17 @@ const TRADE_EXAMPLES: TradeExample[] = [
     isEvent: true,
   },
   {
-    keywords: ['couvreur', 'toiture', 'charpent', 'zingu'],
+    keywords: ['charpent'],
+    need: 'extension en ossature bois de 20 m², devis',
+    opening:
+      "Bonjour, nous voulons agrandir avec une extension en ossature bois d'environ 20 m². Vous faites les devis ?",
+    kind: 'quote',
+    hasPhoto: false,
+    photo: null,
+    slots: '',
+  },
+  {
+    keywords: ['couvreur', 'toiture', 'zingu'],
     need: 'fuite après la tempête, tuiles déplacées côté rue',
     opening:
       "Bonjour, j'ai une fuite depuis la tempête, des tuiles ont bougé côté rue. Vous pouvez passer cette semaine ?",
@@ -271,6 +281,21 @@ export class AssistantDemoScenarioUtils {
         {
           role: 'assistant',
           content: `C'est noté. Je transmets à ${businessName}, qui vous confirme l'heure. Vous pouvez aussi réserver directement ci-dessous.`,
+        },
+      ]
+    }
+    if (language === 'fr' && match.kind === 'quote' && !match.hasPhoto) {
+      const firstName: string = EXAMPLE_NAME.split(' ')[0] ?? EXAMPLE_NAME
+      return [
+        { role: 'user', content: opening },
+        {
+          role: 'assistant',
+          content: `Avec plaisir. ${businessName} vous rappelle pour en parler. À quel numéro peut-on vous joindre ?`,
+        },
+        { role: 'user', content: `${EXAMPLE_CONTACT}, ${EXAMPLE_NAME}` },
+        {
+          role: 'assistant',
+          content: `Merci ${firstName}, votre projet est transmis à ${businessName}. On vous rappelle au plus vite.`,
         },
       ]
     }
