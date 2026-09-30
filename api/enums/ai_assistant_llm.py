@@ -10,6 +10,8 @@ class AiAssistantLlmUsage(str, Enum):
     VISION = "assistant_vision"
     REQUEST = "assistant_request"
     REPORT = "assistant_report"
+    MAIL_TRIAGE = "assistant_mail_triage"
+    MAIL_DRAFT = "assistant_mail_draft"
 
 
 class LlmProvider(str, Enum):

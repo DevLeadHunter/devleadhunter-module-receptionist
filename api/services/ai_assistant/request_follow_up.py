@@ -4,8 +4,9 @@ The follow-up of a captured request: typed and summarized in the background, the
 The visitor is answered at once; the model then reads the conversation (question, quote, appointment, urgent)
 and writes the summary. The request is announced once: a push to the operator and, when the assistant is sold,
 the owner's alerts (``request_alerts``: summary email, SMS); a demo never writes to the prospect. A visit flagged
-internal (the operator testing) is typed but never announced. An announcement lost to a restart is picked up
-again by the runner.
+internal (the operator testing) is typed but never announced. A request that came by email is typed by the mailbox
+that read it (``mailbox_sync``) and only announced here. An announcement lost to a restart is picked up again by the
+runner.
 """
 
 from __future__ import annotations
@@ -19,12 +20,12 @@ from sqlalchemy.orm import Session
 
 from core.clock import naive_utc_now
 from core.database import SessionLocal
-from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
+from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus, AiAssistantRequestType
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
 from models.ai_assistant_request import AiAssistantRequest
 from services.ai_assistant.request_alerts import ai_assistant_request_alerts
-from services.ai_assistant.request_analyzer import RequestAnalysis, ai_assistant_request_analyzer
+from services.ai_assistant.request_analyzer import RequestAnalysis, TranscriptLine, ai_assistant_request_analyzer
 from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
 from services.ai_assistant.request_email import AiAssistantRequestEmail
 from services.notification_service import notification_service
@@ -58,11 +59,16 @@ class AiAssistantRequestFollowUp:
         """
         Type and summarize a request from its conversation, then announce it if not done yet.
 
+        A request that came by email was typed and summarized when its mailbox read it: it is only announced.
+
         Args:
             db: Active database session (committed).
             request: The captured request.
             assistant: Its assistant.
         """
+        if request.channel == AiAssistantRequestChannel.EMAIL.value:
+            await self.announce(db, request, assistant, [])
+            return
         transcript = AiAssistantRequestAttachments.transcript(db, request)
         business_name = assistant.business_name
         need = request.need
@@ -100,8 +106,25 @@ class AiAssistantRequestFollowUp:
         request.need_summary = analysis.summary or request.need
         request.event_json = asdict(analysis.event) if analysis.event is not None else None
         db.commit()
+        await self.announce(db, request, assistant, transcript)
+
+    async def announce(
+        self, db: Session, request: AiAssistantRequest, assistant: AiAssistant, transcript: list[TranscriptLine]
+    ) -> None:
+        """
+        Announce a typed request once: a push to the operator, then the business's alerts when the assistant is sold.
+
+        Args:
+            db: Active database session (committed).
+            request: The typed request.
+            assistant: Its assistant.
+            transcript: The conversation it came out of (empty for an email), for the alert email.
+        """
         if request.is_test or not self._claim_announcement(db, request):
             return
+        label = AiAssistantRequestEmail.type_label(AiAssistantRequestType(request.type))
+        if request.channel == AiAssistantRequestChannel.EMAIL.value:
+            label = f"{label} par email"
         await notification_service.notify_assistant_lead(
             db,
             user_id=assistant.user_id,
@@ -109,7 +132,7 @@ class AiAssistantRequestFollowUp:
             fallback_name=assistant.business_name,
             lead_name=request.name,
             need=request.need_summary or request.need or "",
-            request_label=AiAssistantRequestEmail.type_label(request_type),
+            request_label=label,
             received_outside_hours=request.received_outside_hours,
         )
         await ai_assistant_request_alerts.alert_owner(db, request, assistant, transcript)

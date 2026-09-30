@@ -1,8 +1,8 @@
 """
 The figures of an assistant over a period: what it brought its client, as the monthly report shows them.
 
-Conversations, requests by type, requests with a photo, languages, the share received outside opening hours, the
-handling delay, the clients won and the questions visitors ask the most (read by the model from each
+Conversations, requests by type, requests with a photo or by email, languages, the share received outside opening
+hours, the handling delay, the clients won and the questions visitors ask the most (read by the model from each
 conversation's first message). The operator's own test visits and requests are left out.
 """
 
@@ -124,6 +124,7 @@ class AiAssistantReportStats:
             average_handling_hours=(round(sum(handling_hours) / len(handling_hours), 1) if handling_hours else None),
             top_questions=await cls._top_questions(db, assistant, visitor_turns),
             won=sum(1 for row in requests if row.outcome == AiAssistantRequestOutcome.WON.value),
+            email_requests=sum(1 for row in requests if row.channel == AiAssistantRequestChannel.EMAIL.value),
         )
 
     @staticmethod

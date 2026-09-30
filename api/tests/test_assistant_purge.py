@@ -18,12 +18,15 @@ from sqlalchemy.orm import Session, sessionmaker
 import api.v1.routes.ai_assistant_requests as request_routes
 import api.v1.routes.ai_assistants as owner_routes
 import services.ai_assistant.assistant_purge as purge_module
+import services.ai_assistant.gmail_client as gmail_module
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
 from models.ai_assistant_calendar import AiAssistantCalendar
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_document import AiAssistantDocument
 from models.ai_assistant_lead import AiAssistantLead
+from models.ai_assistant_mailbox import AiAssistantMailbox
+from models.ai_assistant_mailbox_message import AiAssistantMailboxMessage
 from models.ai_assistant_message import AiAssistantMessage
 from models.ai_assistant_photo import AiAssistantPhoto
 from models.ai_assistant_report import AiAssistantReport
@@ -33,6 +36,7 @@ from models.prospect_db import ProspectDB
 from models.user import User
 from services.ai_assistant.assistant_purge import ai_assistant_purge_service
 from services.ai_assistant.assistant_service import ai_assistant_service
+from services.encryption_service import encryption_service
 from services.r2_storage_service import R2StorageService
 
 _OPERATOR = SimpleNamespace(id=7, email="operateur@dibodev.fr")
@@ -42,6 +46,8 @@ _ERASED_MODELS: tuple[type, ...] = (
     AiAssistantRequest,
     AiAssistantAppointment,
     AiAssistantCalendar,
+    AiAssistantMailbox,
+    AiAssistantMailboxMessage,
     AiAssistantLead,
     AiAssistantReport,
     AiAssistantDocument,
@@ -102,6 +108,19 @@ def bucket(monkeypatch: pytest.MonkeyPatch) -> FakeBucket:
     return fake
 
 
+@pytest.fixture(autouse=True)
+def revoked_grants(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """The Gmail grants Google was asked to revoke (no call leaves the process)."""
+    revoked: list[str] = []
+
+    async def revoke(token: str) -> bool:
+        revoked.append(token)
+        return True
+
+    monkeypatch.setattr(gmail_module.gmail_client, "revoke", revoke)
+    return revoked
+
+
 def _assistant_with_visitors(db: Session, bucket: FakeBucket, business_name: str) -> AiAssistant:
     """A receptionist with a document, a photo, a conversation, a request, a booking, an agenda, a lead and a video."""
     prospect = ProspectDB(name=business_name, category="Couvreur", source="google", confidence=2, user_id=7)
@@ -147,6 +166,15 @@ def _assistant_with_visitors(db: Session, bucket: FakeBucket, business_name: str
                 visitor_email="marc@example.fr",
             ),
             AiAssistantCalendar(user_id=7, assistant_id=assistant.id, refresh_token_encrypted="jeton-chiffre"),
+            AiAssistantMailbox(
+                user_id=7,
+                assistant_id=assistant.id,
+                account_email=f"{assistant.slug}@gmail.com",
+                refresh_token_encrypted=encryption_service.encrypt(f"jeton-gmail-{assistant.slug}"),
+            ),
+            AiAssistantMailboxMessage(
+                user_id=7, assistant_id=assistant.id, gmail_message_id="m1", gmail_thread_id="t1", request_id=request.id
+            ),
             AiAssistantLead(user_id=7, assistant_id=assistant.id, name="Julie", contact="julie@example.fr"),
             AiAssistantReport(user_id=7, assistant_id=assistant.id, month="2026-08", stats_json={"requests": 3}),
         ]
@@ -184,7 +212,7 @@ def _keys_of(bucket: FakeBucket, assistant: AiAssistant) -> set[str]:
 
 
 def test_deleting_erases_the_files_and_the_visitors_data_and_keeps_the_sales_history(
-    db: Session, bucket: FakeBucket
+    db: Session, bucket: FakeBucket, revoked_grants: list[str]
 ) -> None:
     deleted = _assistant_with_visitors(db, bucket, "Toitures Morel")
     kept = _assistant_with_visitors(db, bucket, "Couverture Petit")
@@ -203,6 +231,7 @@ def test_deleting_erases_the_files_and_the_visitors_data_and_keeps_the_sales_his
     assert db.get(AiAssistantSubscription, ended.id) is not None
     assert set(_rows_of(db, kept).values()) == {1}
     assert len(_keys_of(bucket, kept)) == 6
+    assert revoked_grants == [f"jeton-gmail-{deleted.slug}"]
 
 
 def test_a_receptionist_still_paid_for_cannot_be_deleted(db: Session, bucket: FakeBucket) -> None:

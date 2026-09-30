@@ -50,6 +50,8 @@ class MonthlyStats:
     top_questions: tuple[str, ...]
     # Requests the owner marked « client gagné » (a field the older reports do not have).
     won: int = 0
+    # Requests that came by email, each answered by a draft in Gmail (a field the older reports do not have).
+    email_requests: int = 0
 
     @property
     def is_empty(self) -> bool:
@@ -78,6 +80,7 @@ class MonthlyStats:
             photo_requests=int(stats_json.get("photo_requests") or 0),
             handled=int(stats_json.get("handled") or 0),
             won=int(stats_json.get("won") or 0),
+            email_requests=int(stats_json.get("email_requests") or 0),
             outside_hours_pct=int(outside_hours) if outside_hours is not None else None,
             languages=tuple(
                 LanguageShare(code=str(share["code"]), share_pct=int(share["share_pct"]))
@@ -280,6 +283,8 @@ class AiAssistantReportEmail:
         ]
         if stats.photo_requests:
             cells.append((str(stats.photo_requests), "avec photo"))
+        if stats.email_requests:
+            cells.append((str(stats.email_requests), "par email"))
         if stats.urgent:
             cells.append((str(stats.urgent), cls._noun(stats.urgent, "urgence")))
         if stats.outside_hours_pct is not None:

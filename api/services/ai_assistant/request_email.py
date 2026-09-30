@@ -3,7 +3,8 @@ The summary email a business receives for each request its assistant captured.
 
 One glance must be enough: what the visitor wants, how to reach them (tap-to-call / tap-to-mail),
 whether it came in outside opening hours, the conversation for context, and a one-click
-« marquer traitée ». Plain black-on-white HTML with inline styles, readable in any mail client.
+« marquer traitée ». A request that came by email opens on its reply, waiting as a draft in Gmail.
+Plain black-on-white HTML with inline styles, readable in any mail client.
 """
 
 from __future__ import annotations
@@ -45,6 +46,9 @@ class RequestEmailContent:
     appointment_slots: tuple[str, ...] = ()
     # The appointment booked in the business's agenda (« mar. 29/09 à 14:30 (Révision) »).
     appointment_booked: str | None = None
+    # The request came by email: its reply waits as a draft in the business's Gmail, whose drafts this link opens.
+    is_email_request: bool = False
+    gmail_drafts_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -89,7 +93,11 @@ class AiAssistantRequestEmail:
         label = cls.type_label(content.request_type)
         if content.appointment_booked and content.request_type != AiAssistantRequestType.URGENT:
             label = "Rendez-vous réservé"
-        subject = f"{label} — {content.visitor_name}"
+        subject = (
+            f"{label} par email — {content.visitor_name}"
+            if content.is_email_request
+            else f"{label} — {content.visitor_name}"
+        )
         if content.received_outside_hours:
             subject += " (hors horaires)"
         if content.is_reminder:
@@ -100,13 +108,14 @@ class AiAssistantRequestEmail:
         summary = (content.need_summary or content.need or "").strip()
         own_words = (content.need or "").strip()
 
-        intro = (
-            f"Cette demande pour <strong>{html.escape(content.business_name)}</strong> attend toujours une réponse."
-            if content.is_reminder
-            else f"<strong>{html.escape(content.assistant_name)}</strong>, "
-            f"{cls.RECEPTIONIST_BY_GENDER[content.persona_gender]}, a noté une "
-            f"demande pour <strong>{html.escape(content.business_name)}</strong>."
-        )
+        receptionist = f"<strong>{html.escape(content.assistant_name)}</strong>, {cls.RECEPTIONIST_BY_GENDER[content.persona_gender]}"
+        business = f"<strong>{html.escape(content.business_name)}</strong>"
+        if content.is_reminder:
+            intro = f"Cette demande pour {business} attend toujours une réponse."
+        elif content.is_email_request:
+            intro = f"{receptionist}, a lu l'email d'un client de {business} et en a préparé la réponse."
+        else:
+            intro = f"{receptionist}, a noté une demande pour {business}."
         sections: list[str] = [
             cls.paragraph(intro),
             cls._heading(label),
@@ -114,6 +123,14 @@ class AiAssistantRequestEmail:
         ]
         if summary:
             sections.append(cls._block("Ce qu'il faut savoir", html.escape(summary)))
+        if content.is_email_request:
+            sections.append(
+                cls._block(
+                    "Votre réponse est prête",
+                    "Elle vous attend dans vos brouillons Gmail, dans la conversation de ce client : relisez-la, "
+                    "corrigez-la si besoin, puis envoyez-la.",
+                )
+            )
         if content.appointment_booked:
             sections.append(
                 cls._block(
@@ -127,7 +144,9 @@ class AiAssistantRequestEmail:
             wished = "<br/>".join(html.escape(label) for label in content.appointment_slots)
             sections.append(cls._block("Créneaux souhaités (à confirmer)", wished))
         sections.append(cls._block("Coordonnées", cls._contact_html(content.visitor_name, content.contact)))
-        if own_words and own_words != summary:
+        if own_words and own_words != summary and content.is_email_request:
+            sections.append(cls._block("Son email", html.escape(own_words).replace("\n", "<br/>")))
+        elif own_words and own_words != summary:
             sections.append(cls._block("Ses mots", html.escape(own_words)))
         if content.photo_urls:
             links = "<br/>".join(
@@ -137,14 +156,25 @@ class AiAssistantRequestEmail:
             sections.append(cls._block("Photos envoyées", links))
         if content.transcript:
             sections.append(cls._block("La conversation", cls._transcript_html(content)))
-        sections.append(cls.button("Marquer comme traitée", content.handled_url))
-        sections.append(
-            cls.paragraph(
-                "Répondez-lui directement avec les coordonnées ci-dessus. Ce lien marque la demande comme "
-                "traitée pour qu'elle ne vous soit plus rappelée.",
-                muted=True,
+        if content.is_email_request and content.gmail_drafts_url:
+            sections.append(cls.button("Ouvrir mes brouillons Gmail", content.gmail_drafts_url))
+            sections.append(
+                cls.paragraph(
+                    "Envoyée depuis Gmail, la réponse marque la demande traitée. Vous lui avez répondu autrement ? "
+                    f'<a href="{html.escape(content.handled_url, quote=True)}" style="color:#666">Marquer comme '
+                    "traitée</a>.",
+                    muted=True,
+                )
             )
-        )
+        else:
+            sections.append(cls.button("Marquer comme traitée", content.handled_url))
+            sections.append(
+                cls.paragraph(
+                    "Répondez-lui directement avec les coordonnées ci-dessus. Ce lien marque la demande comme "
+                    "traitée pour qu'elle ne vous soit plus rappelée.",
+                    muted=True,
+                )
+            )
         if content.client_space_url:
             sections.append(cls.client_space_note(content.client_space_url))
         return RenderedEmail(subject=subject, html=cls.document("".join(sections)))
