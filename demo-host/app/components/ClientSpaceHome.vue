@@ -260,7 +260,7 @@ const todos: ComputedRef<ClientSpaceHomeTask[]> = computed((): ClientSpaceHomeTa
       icon: 'mail',
       tone: 'amber',
       title: 'Votre boîte mail',
-      detail: mailbox.status === 'error' ? 'accès perdu, à reconnecter' : 'pour préparer vos réponses aux emails',
+      detail: mailbox.status === 'error' ? 'accès perdu, à reconnecter' : 'pour préparer vos réponses aux e-mails',
       action: mailbox.status === 'error' ? 'Reconnecter' : 'Connecter',
     })
   }
