@@ -6,7 +6,10 @@
     <div class="av__content">
       <p class="av__kicker">Réceptionniste en ligne</p>
       <h1 class="av__title">
-        {{ receptionistLabel }} de <em>{{ shortBusinessName }}</em> vous répond<span class="av__accent-dot">.</span>
+        {{ receptionistLabel }} {{ businessNamePreposition }}<em>{{ shortBusinessName }}</em> vous répond<span
+          class="av__accent-dot"
+          >.</span
+        >
       </h1>
       <p class="av__lede">
         <template v-if="videoDurationSeconds">
@@ -107,7 +110,7 @@
             <path d="m13 6 6 6-6 6" />
           </svg>
         </a>
-        <p class="av__cta-note">En ligne 24h/24 — parlez-lui vous-même.</p>
+        <p class="av__cta-note">En ligne 24h/24 : parlez-lui vous-même.</p>
       </div>
 
       <AssistantContactBanner
@@ -165,12 +168,17 @@ const shortBusinessName: ComputedRef<string> = computed((): string =>
   BusinessNameUtils.short(assistant.value?.business_name ?? ''),
 )
 
+/** « de » or « d' » before the business name in the title. */
+const businessNamePreposition: ComputedRef<string> = computed((): string =>
+  BusinessNameUtils.preposition(shortBusinessName.value),
+)
+
 const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<string, string> => ({
   '--av-accent': assistant.value?.accent_color || AssistantAccentUtils.FALLBACK_ACCENT,
 }))
 
 const playLabelDurationSuffix: ComputedRef<string> = computed((): string =>
-  videoDurationSeconds.value ? ` — ${videoDurationSeconds.value} s` : '',
+  videoDurationSeconds.value ? ` · ${videoDurationSeconds.value} s` : '',
 )
 
 const abVariant: ComputedRef<string | null> = computed((): string | null =>
