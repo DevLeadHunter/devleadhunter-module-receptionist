@@ -25,7 +25,7 @@
         aussi répondre à l’un de nos emails : on l’installe avec vous.
       </p>
       <div class="cs-screen__actions">
-        <a class="cs-btn" :href="snippetMailto"><ClientSpaceIcon name="mail" />Envoyer par email</a>
+        <a class="cs-btn" :href="snippetMailto"><ClientSpaceIcon name="mail" />Envoyer par e-mail</a>
       </div>
     </div>
     <p class="cs-sec">Vérifier</p>

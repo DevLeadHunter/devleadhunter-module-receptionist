@@ -118,7 +118,7 @@ const groups: ComputedRef<ClientSpaceSettingsGroup[]> = computed((): ClientSpace
         },
         {
           key: 'email',
-          label: 'Email à chaque demande',
+          label: 'E-mail à chaque demande',
           value: settings.alert_email_enabled ? 'Oui' : 'Non',
           tone: 'plain',
           screen: 'alerts',

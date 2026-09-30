@@ -51,7 +51,7 @@
     </div>
     <div v-else class="cs-block">
       <p class="cs-text cs-text--dim">
-        Le premier rapport de {{ props.space.assistant_name }} arrive au début du mois prochain, par email et ici.
+        Le premier rapport de {{ props.space.assistant_name }} arrive au début du mois prochain, par e-mail et ici.
       </p>
     </div>
 

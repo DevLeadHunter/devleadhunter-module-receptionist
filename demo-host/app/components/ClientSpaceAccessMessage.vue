@@ -9,7 +9,7 @@
       Pour protéger vos demandes, un lien qui n’a pas été ouvert depuis {{ LINK_LIFETIME_DAYS }} jours expire.
     </p>
     <button v-if="props.renewState === 'idle'" type="button" class="cs-btn cs-btn--primary" @click="emit('renew')">
-      Recevoir un nouveau lien par email
+      Recevoir un nouveau lien par e-mail
     </button>
     <p v-else-if="props.renewState === 'sending'" class="cs-muted">Envoi…</p>
     <p v-else-if="props.renewState === 'sent'" class="cs-notice">
@@ -26,7 +26,7 @@
       {{
         props.state === 'unavailable'
           ? 'Réessayez dans quelques minutes.'
-          : 'Ce lien n’ouvre aucun espace. Utilisez le dernier lien reçu par email ou par SMS.'
+          : 'Ce lien n’ouvre aucun espace. Utilisez le dernier lien reçu par e-mail ou par SMS.'
       }}
     </p>
   </main>

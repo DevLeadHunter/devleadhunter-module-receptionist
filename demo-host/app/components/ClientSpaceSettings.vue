@@ -80,15 +80,15 @@
                 {{ option.label }}
               </label>
             </div>
-            <span class="cs-hint">Les autres demandes arrivent par email seulement.</span>
+            <span class="cs-hint">Les autres demandes arrivent par e-mail seulement.</span>
           </template>
         </div>
 
-        <p class="cs-sec">Par email</p>
+        <p class="cs-sec">Par e-mail</p>
         <div class="cs-block cs-settings__block">
           <label class="cs-settings__switch">
             <span>
-              <b>Chaque demande par email</b>
+              <b>Chaque demande par e-mail</b>
               <span>À l’adresse de votre entreprise, avec le message et les photos.</span>
             </span>
             <input v-model="emailEnabled" type="checkbox" />

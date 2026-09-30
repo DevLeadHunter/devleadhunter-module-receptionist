@@ -14,7 +14,7 @@
         <template v-else>
           Ce lien personnel se prolonge à chaque ouverture : tant que vous l’ouvrez au moins une fois par mois, il reste
           valable (pour l’instant jusqu’au {{ props.linkExpiresLabel }}). Il donne accès à vos demandes : ne le
-          transférez pas. S’il expire, vous en recevez un nouveau par email.
+          transférez pas. S’il expire, vous en recevez un nouveau par e-mail.
         </template>
       </p>
     </div>

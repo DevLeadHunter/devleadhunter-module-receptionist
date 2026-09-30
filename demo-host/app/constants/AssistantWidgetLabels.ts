@@ -347,7 +347,7 @@ export const APPOINTMENT_LABELS: Record<AssistantWidgetLanguage, AssistantAppoin
     appointment: 'Rendez-vous',
     booked: 'C’est réservé : {slots}.',
     bookedSms: ' Vous recevez une confirmation par SMS.',
-    bookedEmail: ' Vous recevez une confirmation par email.',
+    bookedEmail: ' Vous recevez une confirmation par e-mail.',
     first: 'Premiers créneaux',
     taken: 'Ce créneau vient d’être pris. Choisissez-en un autre.',
     periods: { morning: 'Matin', afternoon: 'Après-midi' },

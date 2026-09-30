@@ -80,7 +80,7 @@
 
     <div v-if="!props.readOnly" class="cs-actions">
       <a v-if="contactHref" class="cs-btn cs-btn--primary" :href="contactHref">
-        <ClientSpaceIcon :name="isPhone ? 'phone' : 'mail'" />{{ isPhone ? 'Appeler' : 'Écrire un email' }}
+        <ClientSpaceIcon :name="isPhone ? 'phone' : 'mail'" />{{ isPhone ? 'Appeler' : 'Écrire un e-mail' }}
       </a>
       <button
         v-if="isPending"

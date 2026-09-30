@@ -4,7 +4,7 @@
       <p class="cs-sec">Rapport du mois</p>
       <div class="cs-block">
         <p class="cs-text cs-text--dim">
-          Le premier rapport de {{ props.assistantName }} arrive au début du mois prochain, par email et ici.
+          Le premier rapport de {{ props.assistantName }} arrive au début du mois prochain, par e-mail et ici.
         </p>
       </div>
     </template>
