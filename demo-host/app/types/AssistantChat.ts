@@ -22,6 +22,9 @@ export type AssistantLeadSummary = {
   hasPhoto: boolean
 }
 
+/** The widget action a suggestion chip can name: it then opens that action instead of being sent. */
+export type AssistantSuggestionAction = 'callback' | 'appointment' | 'photo'
+
 /** Events the widget emits; `example-played` once the demo page's scripted conversation has run. */
 export type AssistantChatEmits = {
   'lead-sent': [summary: AssistantLeadSummary]

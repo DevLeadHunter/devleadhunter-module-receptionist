@@ -26,7 +26,7 @@ export type UseAssistantConversationReturn = {
   greet: () => Promise<void>
   playExample: (steps: AssistantDemoScriptStep[]) => Promise<void>
   setLanguage: (language: AssistantWidgetLanguage) => void
-  sendSuggestion: (text: string) => Promise<boolean>
+  sendSuggestion: (text: string) => Promise<void>
   sendDraft: () => Promise<void>
 } & Pick<
   UseAssistantBookingReturn,

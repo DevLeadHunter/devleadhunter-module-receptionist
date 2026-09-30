@@ -8,6 +8,7 @@ import type {
   AssistantThreadMessage,
   AssistantWidgetLanguage,
 } from '~/types/AiAssistant'
+import type { AssistantSuggestionAction } from '~/types/AssistantChat'
 import type { AssistantDemoScriptStep, AssistantHostPage } from '~/types/AssistantDemoScript'
 import type { AssistantReplyOutcome, AssistantRequestFailure, AssistantStreamOutcome } from '~/types/AssistantRequest'
 import type {
@@ -31,6 +32,7 @@ import { AssistantHostPageUtils } from '~/utils/AssistantHostPageUtils'
 import { AssistantLanguageUtils } from '~/utils/AssistantLanguageUtils'
 import { AssistantRequestUtils } from '~/utils/AssistantRequestUtils'
 import { AssistantStreamUtils } from '~/utils/AssistantStreamUtils'
+import { AssistantSuggestionUtils } from '~/utils/AssistantSuggestionUtils'
 import { AssistantThreadUtils } from '~/utils/AssistantThreadUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
@@ -131,16 +133,20 @@ export function useAssistantConversation(
   /** The questions the last reply offers next, as chips under it, until the visitor goes on. */
   const followUps: ComputedRef<string[]> = computed((): string[] => {
     const last: AssistantThreadMessage | undefined = messages.value[messages.value.length - 1]
-    return endsOnReply.value && last?.follow_ups?.length ? last.follow_ups : []
+    return endsOnReply.value && last?.follow_ups?.length ? AssistantSuggestionUtils.onePerAction(last.follow_ups) : []
   })
   /** A reply without questions still offers the two actions (photo, appointment), so the visitor can click on. */
   const shouldShowActionChips: ComputedRef<boolean> = computed(
     (): boolean =>
       endsOnReply.value && followUps.value.length === 0 && (photo.photosRemaining.value > 0 || !hasSentLead.value),
   )
-  /** A slim way to leave one's details stays above the composer, from the greeting until the request is sent. */
+  /** A slim way to leave one's details stays above the composer until the request is sent, unless a chip offers it. */
   const shouldShowCallbackBar: ComputedRef<boolean> = computed(
-    (): boolean => !hasSentLead.value && openPanel.value === null && !isAssistantUnavailable.value,
+    (): boolean =>
+      !hasSentLead.value &&
+      openPanel.value === null &&
+      !isAssistantUnavailable.value &&
+      !followUps.value.some((chip: string): boolean => AssistantSuggestionUtils.actionOf(chip) === 'callback'),
   )
 
   /**
@@ -436,6 +442,28 @@ export function useAssistantConversation(
   }
 
   /**
+   * Act on a suggestion chip: one naming a widget action opens it, any other goes as the visitor's message.
+   * @param text - The chip's text.
+   * @returns A promise resolved once the action is open or the reply is in.
+   */
+  async function pickSuggestion(text: string): Promise<void> {
+    const action: AssistantSuggestionAction | null = AssistantSuggestionUtils.actionOf(text)
+    if (action === 'callback' && !hasSentLead.value) {
+      leadForm.openLeadForm()
+      return
+    }
+    if (action === 'appointment' && !hasSentLead.value) {
+      await booking.openSlotPanel()
+      return
+    }
+    if (action === 'photo' && photo.photosRemaining.value > 0) {
+      photo.openPhotoPanel()
+      return
+    }
+    await sendVisitorMessage(text)
+  }
+
+  /**
    * Send the draft as the visitor's message; the field empties at once and gets the text back if it did not go.
    * @returns A promise resolving once the reply is handled.
    */
@@ -471,7 +499,7 @@ export function useAssistantConversation(
     greet,
     playExample,
     setLanguage,
-    sendSuggestion: sendVisitorMessage,
+    sendSuggestion: pickSuggestion,
     sendDraft,
     bookingMode: booking.bookingMode,
     slotsState: booking.slotsState,
