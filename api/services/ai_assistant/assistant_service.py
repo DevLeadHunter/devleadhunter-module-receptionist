@@ -22,6 +22,7 @@ from models.demo_site import DemoSite
 from models.prospect_db import ProspectDB
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
+from services.ai_assistant.gmail_client import gmail_client
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.website_crawler import ai_assistant_website_crawler
 from services.ai_assistant.website_sync import AiAssistantWebsiteSync
@@ -112,7 +113,7 @@ class AiAssistantService:
         }
 
     def update(self, db: Session, assistant: AiAssistant, fields: dict[str, Any]) -> AiAssistant:
-        """Apply owner edits (branding/persona/alerts/EU only) to an assistant, then persist.
+        """Apply owner edits (branding/persona/alerts/EU only/mailbox switch) to an assistant, then persist.
 
         Only keys present in ``fields`` are touched, so a partial edit never wipes the rest.
         The accent lives in ``knowledge_json['palette']``, reassigned as a new dict so SQLAlchemy
@@ -128,12 +129,17 @@ class AiAssistantService:
             The refreshed assistant row.
 
         Raises:
-            ValueError: When the alert number cannot receive an SMS, or « EU only » is asked without a
-                Mistral key (nothing is saved).
+            ValueError: When the alert number cannot receive an SMS, « EU only » is asked without a Mistral key,
+                or the mailbox is switched on while Gmail is not configured on the server (nothing is saved).
         """
         if fields.get("eu_only") and not mistral_service.is_configured:
             raise ValueError(
                 "« IA hébergée en Europe » impossible : la clé Mistral n'est pas configurée sur le serveur"
+            )
+        if fields.get("mailbox_enabled") and not gmail_client.is_configured:
+            raise ValueError(
+                "Boîte mail Gmail impossible : la connexion Gmail n'est pas configurée sur le serveur "
+                "(GOOGLE_MAILBOX_REDIRECT_URI)"
             )
         if "alert_phone" in fields:
             raw_phone = (fields["alert_phone"] or "").strip()
@@ -155,6 +161,8 @@ class AiAssistantService:
                 setattr(assistant, hour, int(fields[hour]))
         if "eu_only" in fields and fields["eu_only"] is not None:
             assistant.eu_only = bool(fields["eu_only"])
+        if "mailbox_enabled" in fields and fields["mailbox_enabled"] is not None:
+            assistant.mailbox_enabled = bool(fields["mailbox_enabled"])
         if "email" in fields:
             raw_email = " ".join((fields["email"] or "").split()).lower()
             if raw_email and not _EMAIL_PATTERN.match(raw_email):

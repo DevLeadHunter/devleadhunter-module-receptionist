@@ -125,6 +125,16 @@
     </section>
 
     <section class="flex flex-col gap-2 border-t border-[var(--app-line-soft)] pt-5">
+      <h3 class="app-label !text-[0.6rem]">Boîte mail Gmail (bêta)</h3>
+      <UiSwitch id="assistant-mailbox" v-model="form.mailbox_enabled" label="Préparer les réponses aux emails" />
+      <p class="text-muted text-xs leading-relaxed">
+        Le client connecte son Gmail depuis son espace : chaque email d'un client y reçoit une réponse en brouillon,
+        qu'il relit puis envoie. Tant que Google n'a pas validé l'application, seuls les comptes déclarés comme testeurs
+        dans la console Google peuvent se connecter. Désactiver déconnecte sa boîte.
+      </p>
+    </section>
+
+    <section class="flex flex-col gap-2 border-t border-[var(--app-line-soft)] pt-5">
       <h3 class="app-label !text-[0.6rem]">Modèle</h3>
       <UiSwitch id="assistant-eu-only" v-model="form.eu_only" label="IA hébergée en Europe (Mistral)" />
       <p class="text-muted text-xs leading-relaxed">
@@ -181,7 +191,7 @@ const emit: EmitFn<AssistantSettingsFormEmits> = defineEmits<AssistantSettingsFo
 const toast: UseToastReturn = useToast()
 
 /** Starts of the API refusals worth showing as they are. */
-const SAVE_REFUSALS: string[] = ["Numéro d'alerte", 'Adresse email', '« IA hébergée en Europe »']
+const SAVE_REFUSALS: string[] = ["Numéro d'alerte", 'Adresse email', '« IA hébergée en Europe »', 'Boîte mail Gmail']
 
 /** Request types the owner can have texted at once, the ones that cannot wait first. */
 const ALERT_TYPE_OPTIONS: SelectFieldOption<AiAssistantRequestType>[] = [
@@ -260,6 +270,7 @@ function formOf(assistant: AiAssistantSummary): AiAssistantEditForm {
     alert_quiet_start_hour: assistant.alerts.quiet_start_hour,
     alert_quiet_end_hour: assistant.alerts.quiet_end_hour,
     eu_only: assistant.eu_only,
+    mailbox_enabled: assistant.mailbox_enabled,
   }
 }
 
@@ -307,12 +318,13 @@ async function save(): Promise<void> {
       ...(form.value.email.trim() !== (target.email ?? '') ? { email: form.value.email.trim() } : {}),
       ...changedAlertFields(target.alerts, form.value),
       ...(form.value.eu_only !== target.eu_only ? { eu_only: form.value.eu_only } : {}),
+      ...(form.value.mailbox_enabled !== target.mailbox_enabled ? { mailbox_enabled: form.value.mailbox_enabled } : {}),
     }
     const updated: AiAssistantSummary = await AiAssistantService.update(target.id, payload)
     toast.success('Réceptionniste personnalisée.')
     emit('saved', updated)
   } catch (error: unknown) {
-    // The API explains what it refused (alert number, email, Europe-hosted AI without Mistral); anything else stays generic.
+    // The API explains what it refused (alert number, email, Europe-hosted AI without Mistral, Gmail); anything else stays generic.
     const detail: string = error instanceof Error ? error.message : ''
     const explained: boolean = SAVE_REFUSALS.some((prefix: string): boolean => detail.startsWith(prefix))
     toast.error(explained ? detail : 'Enregistrement impossible pour le moment.')

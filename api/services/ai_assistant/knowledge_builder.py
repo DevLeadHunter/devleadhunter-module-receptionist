@@ -212,14 +212,37 @@ class AiAssistantKnowledgeBuilder:
             lines.append("")
             lines.extend(AiAssistantEventIntake.prompt_lines(event_intake))
 
+        lines.append("")
+        lines.extend(self.knowledge_lines(knowledge, now=now, question=question))
+
+        lines.append("")
+        lines.append(
+            "Tu accueilles maintenant un visiteur du site. Rappel : toute ta réponse, y compris la "
+            "dernière phrase, est écrite dans la langue de son message, et elle se termine par la ligne "
+            "« §SUITE: » avec 2 ou 3 suggestions qui suivent exactement ce que tu viens de dire."
+        )
+        return "\n".join(lines)
+
+    def knowledge_lines(
+        self, knowledge: dict[str, Any], *, now: datetime | None = None, question: str | None = None
+    ) -> list[str]:
+        """The prompt lines of what the business's knowledge says, from its identity to its website and documents.
+
+        Args:
+            knowledge: The knowledge base from :meth:`build_knowledge`, with the enabled documents (``documents``)
+                and the source switches (``sources``) when set.
+            now: The business's current local time; defaults to the clock in the business timezone.
+            question: What the customer wrote last: when the website and the documents exceed the prompt's budget,
+                the passages closest to it are kept.
+
+        Returns:
+            The lines, the listing's and the website's left out when their source is switched off.
+        """
         # The Google listing (and the site prepared from it) and the website can be switched off; a document has
         # its own switch and only the enabled ones are in ``documents``.
         toggles = SourceToggles.of(knowledge)
         listing_on = toggles.listing
-        site_on = toggles.site
-
-        lines.append("")
-        lines.extend(self._identity_lines(identity, with_listing=listing_on))
+        lines = self._identity_lines(knowledge.get("identity", {}), with_listing=listing_on)
         lines.extend(self._faq_lines(ai_assistant_faq_service.faq_of(knowledge)))
         rating_line = self._rating_line(knowledge.get("rating")) if listing_on else None
         if rating_line:
@@ -232,17 +255,23 @@ class AiAssistantKnowledgeBuilder:
             lines.extend(self._generated_site_lines(knowledge.get("generated_site")))
         lines.extend(
             AiAssistantKnowledgeSources.prompt_lines(
-                knowledge.get("website") if site_on else None, knowledge.get("documents"), question=question
+                knowledge.get("website") if toggles.site else None, knowledge.get("documents"), question=question
             )
         )
+        return lines
 
-        lines.append("")
-        lines.append(
-            "Tu accueilles maintenant un visiteur du site. Rappel : toute ta réponse, y compris la "
-            "dernière phrase, est écrite dans la langue de son message, et elle se termine par la ligne "
-            "« §SUITE: » avec 2 ou 3 suggestions qui suivent exactement ce que tu viens de dire."
-        )
-        return "\n".join(lines)
+    @staticmethod
+    def persona_role(assistant_name: str) -> str:
+        """
+        What the persona is, in words agreed with its first name (« la réceptionniste IA », « le réceptionniste IA »).
+
+        Args:
+            assistant_name: The receptionist's first name.
+
+        Returns:
+            The role, with its article.
+        """
+        return _WORDING_BY_GENDER[ai_assistant_config_builder.resolve_persona_gender(assistant_name)]["role"]
 
     def _today_line(self, moment: datetime) -> str:
         return (

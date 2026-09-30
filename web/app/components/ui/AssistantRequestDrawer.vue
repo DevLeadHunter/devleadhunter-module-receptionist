@@ -24,6 +24,10 @@
               {{ REQUEST_TYPE_LABELS[request.type] }}
             </span>
             <span class="app-badge" :class="statusBadgeClass">{{ REQUEST_STATUS_LABELS[request.status] }}</span>
+            <span v-if="isEmailRequest" class="app-badge">
+              <UIcon name="i-lucide-mail" class="h-3 w-3" />
+              Par email
+            </span>
             <span v-if="request.received_outside_hours" class="app-badge">
               <UIcon name="i-lucide-moon" class="h-3 w-3" />
               Hors horaires
@@ -95,7 +99,15 @@
             </div>
           </section>
 
-          <section class="flex flex-col gap-2 border-t border-[var(--app-line-soft)] pt-4">
+          <section v-if="isEmailRequest" class="flex flex-col gap-2 border-t border-[var(--app-line-soft)] pt-4">
+            <h3 class="app-label !text-[0.6rem]">Réponse</h3>
+            <p class="text-sm leading-relaxed text-[var(--app-ink)]">
+              Arrivée par email : la réceptionniste a préparé la réponse dans les brouillons Gmail du client, qui la
+              relit puis l'envoie. Envoyée depuis Gmail, la demande passe en traitée.
+            </p>
+          </section>
+
+          <section v-else class="flex flex-col gap-2 border-t border-[var(--app-line-soft)] pt-4">
             <h3 class="app-label !text-[0.6rem]">Conversation</h3>
             <p v-if="isLoadingTranscript" class="text-muted text-sm">Chargement…</p>
             <p v-else-if="transcript.length === 0" class="text-muted text-sm">
@@ -263,6 +275,8 @@ const lightboxPhotos: ComputedRef<string[]> = computed((): string[] => {
 })
 
 const isLoadingTranscript: ComputedRef<boolean> = computed((): boolean => loadingRequestId.value !== null)
+
+const isEmailRequest: ComputedRef<boolean> = computed((): boolean => props.request?.channel === 'email')
 
 const typeIcon: ComputedRef<string> = computed(
   (): string => TYPE_ICONS[props.request?.type ?? 'other'] ?? 'i-lucide-inbox',

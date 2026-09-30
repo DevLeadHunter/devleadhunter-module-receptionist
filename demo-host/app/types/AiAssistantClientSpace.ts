@@ -9,6 +9,8 @@ export type AiAssistantClientRequestStatus = 'new' | 'handled' | 'dropped'
 /** What became of a request once called back: a client won, or not. */
 export type AiAssistantClientRequestOutcome = 'won' | 'lost'
 
+export type AiAssistantClientRequestChannel = 'site' | 'email' | 'photo'
+
 export type AiAssistantClientRequestOutcomeUpdate = {
   outcome: AiAssistantClientRequestOutcome | null
 }
@@ -22,6 +24,7 @@ export type AiAssistantClientRequest = {
   id: number
   type: AiAssistantClientRequestType
   status: AiAssistantClientRequestStatus
+  channel: AiAssistantClientRequestChannel
   name: string
   contact: string
   summary: string | null
@@ -63,6 +66,7 @@ export type AiAssistantClientReport = {
   /** Requests the business marked « client gagné », and the sentence that says it. */
   won: number
   won_line: string | null
+  email_requests: number
 }
 
 /** Whether the test SMS left for the client's alert mobile. */
@@ -139,6 +143,21 @@ export type AiAssistantClientCalendarConnect = {
   url: string
 }
 
+export type AiAssistantClientMailboxStatus = 'disconnected' | 'connected' | 'error'
+
+export type AiAssistantClientMailbox = {
+  status: AiAssistantClientMailboxStatus
+  account_email: string | null
+  drafts_this_month: number
+  last_error: string | null
+  has_reached_daily_cap: boolean
+  drafts_url: string
+}
+
+export type AiAssistantClientMailboxConnect = {
+  url: string
+}
+
 /** An upcoming appointment the assistant booked; `start_label` is in business time (« mar. 29/09 à 14:30 »). */
 export type AiAssistantClientAppointment = {
   id: number
@@ -164,6 +183,7 @@ export type AiAssistantClientSpace = {
   subscription: AiAssistantClientSubscription | null
   calendar: AiAssistantClientCalendar
   appointments: AiAssistantClientAppointment[]
+  mailbox: AiAssistantClientMailbox | null
   faq: AiAssistantClientFaqEntry[]
   unanswered: AiAssistantClientUnansweredEntry[]
   /** A fresh 30-day token for a valid link (null for the example): the page moves its URL to it. */

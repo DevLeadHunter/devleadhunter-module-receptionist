@@ -34,6 +34,7 @@ from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ConversationCounts, ai_assistant_conversation_service
 from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.faq_service import ai_assistant_faq_service
+from services.ai_assistant.mailbox_service import MailboxView, ai_assistant_mailbox_service
 from services.ai_assistant.report_service import ai_assistant_report_service
 from services.ai_assistant.request_service import RequestCounts, ai_assistant_request_service
 from services.ai_assistant.start_reminders import ai_assistant_start_reminders
@@ -61,8 +62,10 @@ def _to_owner_response(
     conversations: ConversationCounts | None = None,
     requests: RequestCounts | None = None,
     start_steps: list[AiAssistantStartStep] | None = None,
+    mailbox: MailboxView | None = None,
 ) -> AiAssistantResponse:
     missing_start_steps = start_steps or []
+    mailbox_view = mailbox or ai_assistant_mailbox_service.view(assistant, None)
     return AiAssistantResponse(
         id=assistant.id,
         slug=assistant.slug,
@@ -102,6 +105,9 @@ def _to_owner_response(
         ),
         alerts=_alert_settings(assistant),
         eu_only=bool(assistant.eu_only),
+        mailbox_enabled=bool(assistant.mailbox_enabled),
+        mailbox_status=mailbox_view.connection,
+        mailbox_address=mailbox_view.account_email,
         delivered_at=assistant.delivered_at,
         installed_at=assistant.installed_at,
         installed_host=assistant.installed_host,
@@ -127,13 +133,14 @@ def _start_steps_by_assistant_id(db: Session, assistants: list[AiAssistant]) -> 
 
 
 def _to_full_owner_response(db: Session, assistant: AiAssistant) -> AiAssistantResponse:
-    """One assistant as the list shows it (subscription, counts and start steps included), after an edit."""
+    """One assistant as the list shows it (subscription, counts, start steps and mailbox included), after an edit."""
     return _to_owner_response(
         assistant,
         assistant_subscription_service.live_by_assistant_ids(db, [assistant.id]).get(assistant.id),
         ai_assistant_conversation_service.counts_for_assistants(db, [assistant.id]).get(assistant.id),
         ai_assistant_request_service.counts_for_assistants(db, [assistant.id]).get(assistant.id),
         _start_steps_of(db, assistant),
+        ai_assistant_mailbox_service.views_for_assistants(db, [assistant]).get(assistant.id),
     )
 
 
@@ -178,6 +185,7 @@ async def list_assistants(
     conversation_counts = ai_assistant_conversation_service.counts_for_assistants(db, [a.id for a in assistants])
     request_counts = ai_assistant_request_service.counts_for_assistants(db, [a.id for a in assistants])
     missing_start_steps = _start_steps_by_assistant_id(db, assistants)
+    mailboxes = ai_assistant_mailbox_service.views_for_assistants(db, assistants)
     return AiAssistantListResponse(
         assistants=[
             _to_owner_response(
@@ -186,6 +194,7 @@ async def list_assistants(
                 conversation_counts.get(assistant.id),
                 request_counts.get(assistant.id),
                 missing_start_steps.get(assistant.id),
+                mailboxes.get(assistant.id),
             )
             for assistant in assistants
         ]
@@ -210,7 +219,11 @@ async def update_assistant(
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> AiAssistantResponse:
-    """Edit one of the caller's assistants (name, persona, languages, accent, owner alerts, EU only)."""
+    """
+    Edit one of the caller's assistants (name, persona, languages, accent, owner alerts, EU only, mailbox switch).
+
+    Switching the mailbox off disconnects the Gmail its client connected.
+    """
     assistant = (
         db.query(AiAssistant)
         .filter(AiAssistant.id == assistant_id, AiAssistant.user_id == user.id, AiAssistant.deleted_at.is_(None))
@@ -218,10 +231,13 @@ async def update_assistant(
     )
     if not assistant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
+    was_mailbox_enabled = bool(assistant.mailbox_enabled)
     try:
         updated = ai_assistant_service.update(db, assistant, payload.model_dump(exclude_unset=True))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
+    if was_mailbox_enabled and not updated.mailbox_enabled:
+        await ai_assistant_mailbox_service.disconnect(db, updated)
     return _to_full_owner_response(db, updated)
 
 

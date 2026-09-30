@@ -30,6 +30,16 @@
         <p class="cs-text">{{ props.request.summary || 'Le visiteur n’a pas laissé de message.' }}</p>
       </div>
 
+      <template v-if="isEmailRequest">
+        <p class="cs-sec">Réponse préparée</p>
+        <div class="cs-block">
+          <p class="cs-text">
+            Ce client vous a écrit par e-mail. Une réponse vous attend dans vos brouillons Gmail, dans sa conversation :
+            relisez-la, puis envoyez-la.
+          </p>
+        </div>
+      </template>
+
       <template v-if="eventRows.length > 0">
         <p class="cs-sec">Événement</p>
         <div class="cs-block">
@@ -79,7 +89,16 @@
     </div>
 
     <div v-if="!props.readOnly" class="cs-actions">
-      <a v-if="contactHref" class="cs-btn cs-btn--primary" :href="contactHref">
+      <a
+        v-if="isEmailRequest && props.gmailDraftsUrl"
+        class="cs-btn cs-btn--primary"
+        :href="props.gmailDraftsUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <ClientSpaceIcon name="mail" />Ouvrir mes brouillons Gmail
+      </a>
+      <a v-else-if="contactHref" class="cs-btn cs-btn--primary" :href="contactHref">
         <ClientSpaceIcon :name="isPhone ? 'phone' : 'mail'" />{{ isPhone ? 'Appeler' : 'Écrire un e-mail' }}
       </a>
       <button
@@ -154,13 +173,15 @@ import { ContactLinkUtils } from '~/utils/ContactLinkUtils'
 
 /**
  * One request in full: the visitor, its contact as the first thing to tap, its message, its appointment or wished
- * half-days, its photos in full width. One main button (call or write), « Rappelé » second, and a quiet way to set a
- * false request aside. Once called back, the business says what became of it: a client won, or not.
+ * half-days, its photos in full width. One main button (call, write, or open the Gmail drafts), « Rappelé » second,
+ * and a quiet way to set a false request aside. Once called back, the business says what became of it: a client won,
+ * or not.
  * @param request The request.
  * @param isBusy A call about this request is in flight.
  * @param errorMessage Why the last call was refused, if it was.
  * @param readOnly The example space: shown, never changed.
  * @param showBack On a phone, the detail replaces the list and shows a way back.
+ * @param gmailDraftsUrl The Gmail drafts where the reply to an email request waits (null without a mailbox).
  */
 const props: ClientSpaceRequestDetailProps = defineProps({
   request: { type: Object as PropType<AiAssistantClientRequest>, required: true },
@@ -168,6 +189,7 @@ const props: ClientSpaceRequestDetailProps = defineProps({
   errorMessage: { type: String as PropType<string | null>, default: null },
   readOnly: { type: Boolean, default: false },
   showBack: { type: Boolean, default: true },
+  gmailDraftsUrl: { type: String as PropType<string | null>, default: null },
 })
 
 const emit: EmitFn<ClientSpaceRequestDetailEmits> = defineEmits<ClientSpaceRequestDetailEmits>()
@@ -179,6 +201,8 @@ const status: ComputedRef<ClientSpaceRequestStatus> = computed((): ClientSpaceRe
 )
 
 const isPending: ComputedRef<boolean> = computed((): boolean => props.request.status === 'new')
+
+const isEmailRequest: ComputedRef<boolean> = computed((): boolean => props.request.channel === 'email')
 
 const contactHref: ComputedRef<string | null> = computed((): string | null =>
   ContactLinkUtils.href(props.request.contact),

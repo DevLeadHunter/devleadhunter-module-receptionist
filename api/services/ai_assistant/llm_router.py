@@ -1,8 +1,8 @@
 """
 Model routing of the AI assistant module: Mistral first, Groq as a logged fallback.
 
-The visitors' conversations, their quote photos and the analysis of their requests go to Mistral
-(La Plateforme). When Mistral is down the call falls back to Groq, with a warning in the log and an
+The visitors' conversations, their quote photos, the analysis of their requests and the customer emails a
+receptionist's mailbox reads go to Mistral (La Plateforme). When Mistral is down the call falls back to Groq, with a warning in the log and an
 admin notification sent in the background (at most one per usage and kind of outage every 30
 minutes) — never silently. An assistant flagged « EU only » never falls back: its call returns None
 and the caller keeps its own safe answer. Each served call logs its provider, model, total latency,
@@ -34,6 +34,8 @@ _USAGE_LABELS: dict[AiAssistantLlmUsage, str] = {
     AiAssistantLlmUsage.VISION: "photos de devis",
     AiAssistantLlmUsage.REQUEST: "analyse des demandes",
     AiAssistantLlmUsage.REPORT: "rapport mensuel",
+    AiAssistantLlmUsage.MAIL_TRIAGE: "tri des emails",
+    AiAssistantLlmUsage.MAIL_DRAFT: "brouillons d'email",
 }
 _OUTAGE_MESSAGES: dict[AiAssistantLlmOutage, str] = {
     AiAssistantLlmOutage.FALLBACK: "Mistral indisponible : {usage} basculé sur Groq",

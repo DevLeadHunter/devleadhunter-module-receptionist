@@ -88,6 +88,7 @@ import { computed } from 'vue'
 import type {
   AiAssistantClientGoogleProfile,
   AiAssistantClientInstalled,
+  AiAssistantClientMailbox,
   AiAssistantClientReport,
   AiAssistantClientRequest,
   AiAssistantClientSettings,
@@ -211,7 +212,7 @@ const steps: ComputedRef<ClientSpaceHomeTask[]> = computed((): ClientSpaceHomeTa
   return list
 })
 
-/** What there is to do once the space lives: people to call back, questions, the agenda. */
+/** What there is to do once the space lives: people to call back, questions, the agenda, the mailbox. */
 const todos: ComputedRef<ClientSpaceHomeTask[]> = computed((): ClientSpaceHomeTask[] => {
   const list: ClientSpaceHomeTask[] = []
   const pending: number = props.space.pending_count
@@ -250,6 +251,17 @@ const todos: ComputedRef<ClientSpaceHomeTask[]> = computed((): ClientSpaceHomeTa
       title: 'Agenda Google',
       detail: props.space.calendar.status === 'error' ? 'accès perdu, à reconnecter' : 'pas encore connecté',
       action: props.space.calendar.status === 'error' ? 'Reconnecter' : 'Connecter',
+    })
+  }
+  const mailbox: AiAssistantClientMailbox | null = props.space.mailbox
+  if (mailbox && mailbox.status !== 'connected') {
+    list.push({
+      key: 'mailbox',
+      icon: 'mail',
+      tone: 'amber',
+      title: 'Votre boîte mail',
+      detail: mailbox.status === 'error' ? 'accès perdu, à reconnecter' : 'pour préparer vos réponses aux emails',
+      action: mailbox.status === 'error' ? 'Reconnecter' : 'Connecter',
     })
   }
   return list
@@ -292,6 +304,7 @@ function act(task: ClientSpaceHomeTask): void {
   else if (task.key === 'sms') emit('open-settings-screen', 'alerts')
   else if (task.key === 'google') emit('open-settings-screen', 'google')
   else if (task.key === 'install') emit('open-settings-screen', 'install')
+  else if (task.key === 'mailbox') emit('open-settings-screen', 'mailbox')
   else emit('open-agenda')
 }
 </script>

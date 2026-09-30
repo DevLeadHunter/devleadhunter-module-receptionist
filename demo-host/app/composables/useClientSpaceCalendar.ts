@@ -8,6 +8,7 @@ import type {
 } from '~/types/AiAssistantClientSpace'
 import type { UseClientSpaceCalendarReturn } from '~/types/UseClientSpaceCalendar'
 import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
+import { ConsentTabUtils } from '~/utils/ConsentTabUtils'
 
 /**
  * The client's Google agenda: connected in a Google tab, its booking settings saved, disconnected.
@@ -27,20 +28,17 @@ export function useClientSpaceCalendar(link: UseClientSpaceLinkReturn): UseClien
   async function connectCalendar(): Promise<void> {
     if (!link.space.value || isCalendarBusy.value) return
     calendarError.value = null
-    // Opened before the call: a tab opened after an await is blocked as a pop-up. It never sees this page.
-    const tab: Window | null = window.open('about:blank', '_blank')
-    if (tab) tab.opener = null
     isCalendarBusy.value = true
     try {
-      const consent: AiAssistantClientCalendarConnect = await $fetch<AiAssistantClientCalendarConnect>(
-        `${link.endpoint.value}/calendar/connect`,
-        { method: 'POST' },
-      )
+      await ConsentTabUtils.open(async (): Promise<string> => {
+        const consent: AiAssistantClientCalendarConnect = await $fetch<AiAssistantClientCalendarConnect>(
+          `${link.endpoint.value}/calendar/connect`,
+          { method: 'POST' },
+        )
+        return consent.url
+      })
       isAwaitingGoogleConsent = true
-      if (tab) tab.location.href = consent.url
-      else window.location.assign(consent.url)
     } catch (error: unknown) {
-      tab?.close()
       calendarError.value = link.failureMessage(error, 'Connexion indisponible, réessayez dans un instant.')
     } finally {
       isCalendarBusy.value = false

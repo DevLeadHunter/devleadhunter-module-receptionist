@@ -20,9 +20,10 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from core.clock import naive_utc_now
 from core.database import SessionLocal
-from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
+from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus, AiAssistantRequestType
 from enums.ai_assistant_status import AiAssistantStatus
 from models.ai_assistant import AiAssistant
+from models.ai_assistant_mailbox import AiAssistantMailbox
 from models.ai_assistant_request import AiAssistantRequest
 from services.ai_assistant.alert_settings import AlertSettings, QuietHours
 from services.ai_assistant.alert_sms import AlertSms
@@ -31,6 +32,7 @@ from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
 from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
 from services.ai_assistant.client_links import AiAssistantClientLinks
 from services.ai_assistant.config_builder import ai_assistant_config_builder
+from services.ai_assistant.gmail_client import GmailClient
 from services.ai_assistant.message_delivery import AiAssistantMessageDelivery
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.request_analyzer import TranscriptLine, ai_assistant_request_analyzer
@@ -189,6 +191,7 @@ class AiAssistantRequestAlerts:
                     received_local=OpeningHoursCalendar.to_business_time(request.created_at),
                     link=AiAssistantClientLinks.sms_link(assistant, request_id=request.id),
                     slots=self._sms_slots(db, request),
+                    is_email_request=self._is_email_request(request),
                 )
                 await self._send_sms(db, assistant, settings.phone_e164, text)
         return reminded
@@ -308,8 +311,22 @@ class AiAssistantRequestAlerts:
             link=AiAssistantClientLinks.sms_link(assistant, request_id=request.id),
             slots=tuple(AiAssistantAppointmentSlots.short_labels(request.appointment_slots_json)),
             booked=ai_assistant_calendar_booking.booked_labels(db, [request.id]).get(request.id),
+            is_email_request=self._is_email_request(request),
         )
         return await self._send_sms(db, assistant, settings.phone_e164, text)
+
+    @staticmethod
+    def _is_email_request(request: AiAssistantRequest) -> bool:
+        """Whether the request is a customer's email, answered by a draft in the business's Gmail."""
+        return request.channel == AiAssistantRequestChannel.EMAIL.value
+
+    @staticmethod
+    def _gmail_drafts_url(db: Session, assistant: AiAssistant) -> str:
+        """The drafts of the business's connected Gmail (a generic Gmail address when it was disconnected since)."""
+        account_email = (
+            db.query(AiAssistantMailbox.account_email).filter(AiAssistantMailbox.assistant_id == assistant.id).scalar()
+        )
+        return GmailClient.drafts_url(account_email)
 
     @staticmethod
     def _sms_slots(db: Session, request: AiAssistantRequest) -> tuple[str, ...]:
@@ -388,6 +405,8 @@ class AiAssistantRequestAlerts:
                     client_space_url=AiAssistantClientLinks.url(assistant, request_id=request.id),
                     appointment_slots=tuple(AiAssistantAppointmentSlots.labels(request.appointment_slots_json)),
                     appointment_booked=ai_assistant_calendar_booking.booked_labels(db, [request.id]).get(request.id),
+                    is_email_request=self._is_email_request(request),
+                    gmail_drafts_url=self._gmail_drafts_url(db, assistant) if self._is_email_request(request) else None,
                 )
             )
         except Exception:

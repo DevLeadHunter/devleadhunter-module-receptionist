@@ -1,8 +1,9 @@
 """
 What a deleted receptionist leaves behind is erased: its files on R2 (documents, visitors' photos, prospecting video)
 and the rows that hold its visitors' data (conversations and their messages, requests, photos, appointments, reports,
-the agenda's Google tokens, documents). The assistant row itself stays, soft-deleted, for its orders and
-subscriptions; a receptionist still paid for is never deleted.
+the agenda's and the mailbox's Google tokens, the ids of the emails read, documents). The mailbox's Google grant is
+revoked first. The assistant row itself stays, soft-deleted, for its orders and subscriptions; a receptionist still
+paid for is never deleted.
 """
 
 from __future__ import annotations
@@ -22,11 +23,14 @@ from models.ai_assistant_calendar import AiAssistantCalendar
 from models.ai_assistant_conversation import AiAssistantConversation
 from models.ai_assistant_document import AiAssistantDocument
 from models.ai_assistant_lead import AiAssistantLead
+from models.ai_assistant_mailbox import AiAssistantMailbox
+from models.ai_assistant_mailbox_message import AiAssistantMailboxMessage
 from models.ai_assistant_message import AiAssistantMessage
 from models.ai_assistant_photo import AiAssistantPhoto
 from models.ai_assistant_report import AiAssistantReport
 from models.ai_assistant_request import AiAssistantRequest
 from models.ai_assistant_subscription import AiAssistantSubscription
+from services.ai_assistant.mailbox_service import ai_assistant_mailbox_service
 from services.assistant_video_service import assistant_video_service
 from services.r2_storage_service import r2_storage
 
@@ -34,12 +38,14 @@ logger = logging.getLogger(__name__)
 
 # Tables whose rows carry a file key: kept until storage confirms the files are gone, so a later pass can retry.
 _FILE_ROW_MODELS: tuple[type, ...] = (AiAssistantDocument, AiAssistantPhoto)
-# Tables holding what visitors said, left or booked, and the business's agenda tokens.
+# Tables holding what visitors said, left or booked, the business's agenda and mailbox tokens, the emails read.
 _VISITOR_ROW_MODELS: tuple[type, ...] = (
     AiAssistantConversation,
     AiAssistantRequest,
     AiAssistantAppointment,
     AiAssistantCalendar,
+    AiAssistantMailbox,
+    AiAssistantMailboxMessage,
     AiAssistantLead,
     AiAssistantReport,
 )
@@ -99,6 +105,7 @@ class AiAssistantPurgeService:
         documents = db.query(AiAssistantDocument).filter(AiAssistantDocument.assistant_id == assistant.id).all()
         photos = db.query(AiAssistantPhoto).filter(AiAssistantPhoto.assistant_id == assistant.id).all()
         deleted_files = await self._delete_files(assistant, self._file_keys(assistant, documents, photos))
+        await ai_assistant_mailbox_service.revoke_for_erased_assistant(db, assistant)
         try:
             row_count = self._delete_visitor_rows(db, assistant)
             if deleted_files is not None:

@@ -79,6 +79,8 @@ class AiAssistant(Base):
     limits_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
     # The client requires its visitors' data to stay with Mistral (EU): no Groq fallback. NULL = False.
     eu_only: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # The operator switched the Gmail mailbox on for this receptionist.
+    mailbox_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     # Once sold: when the assistant became the business's (subscription webhook, or « vendu hors Stripe »).
     delivered_at: Mapped[datetime | None] = mapped_column(nullable=True)
     # The widget's loader saw itself on the business's own website: the host, and the last sighting.

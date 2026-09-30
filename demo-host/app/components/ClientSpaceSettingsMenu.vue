@@ -24,6 +24,7 @@ import type {
   AiAssistantClientCalendar,
   AiAssistantClientLanguageOption,
   AiAssistantClientLimit,
+  AiAssistantClientMailbox,
   AiAssistantClientSettings,
   AiAssistantClientSpace,
   AiAssistantClientSubscription,
@@ -68,6 +69,7 @@ const limitsLabel: ComputedRef<string> = computed((): string => {
 const groups: ComputedRef<ClientSpaceSettingsGroup[]> = computed((): ClientSpaceSettingsGroup[] => {
   const settings: AiAssistantClientSettings = props.space.settings
   const calendar: AiAssistantClientCalendar = props.space.calendar
+  const mailbox: AiAssistantClientMailbox | null = props.space.mailbox
   const questions: number = props.space.unanswered.length
   const learned: number = props.space.faq.length
   const subscription: AiAssistantClientSubscription | null = props.space.subscription
@@ -161,6 +163,16 @@ const groups: ComputedRef<ClientSpaceSettingsGroup[]> = computed((): ClientSpace
         calendar.status === 'connected' ? 'Connecté' : calendar.status === 'error' ? 'À reconnecter' : 'À connecter',
       tone: calendar.status === 'connected' ? 'green' : 'amber',
       screen: 'agenda',
+    })
+  }
+  if (mailbox) {
+    connections.push({
+      key: 'mailbox',
+      label: 'Votre boîte mail',
+      value:
+        mailbox.status === 'connected' ? 'Connectée' : mailbox.status === 'error' ? 'À reconnecter' : 'À connecter',
+      tone: mailbox.status === 'connected' ? 'green' : 'amber',
+      screen: 'mailbox',
     })
   }
   list.push({ title: 'Connexions', entries: connections })

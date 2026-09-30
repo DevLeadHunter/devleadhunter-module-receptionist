@@ -8,9 +8,7 @@ Without a usable agenda the widget falls back on the half-day wishes of ``appoin
 
 from __future__ import annotations
 
-import hmac
 import logging
-import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar
@@ -41,8 +39,8 @@ from services.ai_assistant.google_calendar_client import (
     GoogleCalendarError,
     google_calendar_client,
 )
+from services.ai_assistant.oauth_state import AiAssistantOAuthState
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.signed_token import SignedToken
 from services.encryption_service import encryption_service
 
 logger = logging.getLogger(__name__)
@@ -58,58 +56,10 @@ class AppointmentOffer:
     days: list[AppointmentDay]
 
 
-class AiAssistantCalendarState:
-    """The OAuth ``state`` of an agenda connection: the assistant, an expiry and an HMAC of both."""
+class AiAssistantCalendarState(AiAssistantOAuthState):
+    """The OAuth ``state`` of an agenda connection."""
 
-    TTL_MINUTES: ClassVar[int] = 15
     _PURPOSE: ClassVar[str] = "assistant-calendar-oauth"
-    _PATTERN: ClassVar[re.Pattern[str]] = re.compile(
-        r"([1-9][0-9]{0,11})\.([0-9]{1,12})\.([A-Za-z0-9_-]{22})", re.ASCII
-    )
-
-    @classmethod
-    def sign(cls, assistant_id: int, *, now: datetime | None = None) -> str:
-        """
-        A state for one consent, valid ``TTL_MINUTES`` minutes.
-
-        Args:
-            assistant_id: The assistant whose agenda is being connected.
-            now: Current time, naive UTC (tests); defaults to now.
-
-        Returns:
-            ``<id>.<expiry epoch>.<signature>``.
-        """
-        moment = now or datetime.now(UTC).replace(tzinfo=None)
-        expiry = str(int((moment + timedelta(minutes=cls.TTL_MINUTES)).replace(tzinfo=UTC).timestamp()))
-        return f"{assistant_id}.{expiry}.{cls._signature(assistant_id, expiry)}"
-
-    @classmethod
-    def read(cls, state: str, *, now: datetime | None = None) -> int | None:
-        """
-        The assistant of a state that is authentic and still valid.
-
-        Args:
-            state: The ``state`` Google sent back.
-            now: Current time, naive UTC (tests); defaults to now.
-
-        Returns:
-            The assistant id, or None when the state is forged, malformed or expired.
-        """
-        match = cls._PATTERN.fullmatch(state or "")
-        if match is None:
-            return None
-        assistant_id, expiry, signature = int(match.group(1)), match.group(2), match.group(3)
-        if not hmac.compare_digest(signature, cls._signature(assistant_id, expiry)):
-            return None
-        moment = now or datetime.now(UTC).replace(tzinfo=None)
-        if int(expiry) <= int(moment.replace(tzinfo=UTC).timestamp()):
-            return None
-        return assistant_id
-
-    @classmethod
-    def _signature(cls, assistant_id: int, expiry: str) -> str:
-        """Truncated HMAC-SHA256 (128 bits) of the assistant and expiry, base64url without padding."""
-        return SignedToken.short(cls._PURPOSE, assistant_id, expiry, length=16)
 
 
 class AiAssistantCalendarService:

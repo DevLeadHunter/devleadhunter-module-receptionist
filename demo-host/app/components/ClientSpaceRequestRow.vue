@@ -13,6 +13,7 @@
       </span>
       <span class="cs-row__meta">
         <span><ClientSpaceIcon name="clock" />{{ timeLabel }}</span>
+        <span v-if="props.request.channel === 'email'"><ClientSpaceIcon name="mail" />par e-mail</span>
         <span v-if="props.request.received_outside_hours">hors horaires</span>
         <span v-if="props.request.photo_urls.length > 0"><ClientSpaceIcon name="camera" />{{ photosLabel }}</span>
         <span v-if="appointmentLabel"><ClientSpaceIcon name="calendar" />{{ appointmentLabel }}</span>
