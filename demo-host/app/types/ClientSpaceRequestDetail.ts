@@ -10,6 +10,7 @@ export type ClientSpaceRequestDetailProps = {
   readOnly: boolean
   /** On a phone, the detail replaces the list and shows a way back. */
   showBack: boolean
+  gmailDraftsUrl: string | null
 }
 
 /** One line of the event block: what the visitor said of the date, the place, the guests or the budget. */

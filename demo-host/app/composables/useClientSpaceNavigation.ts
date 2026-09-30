@@ -20,6 +20,7 @@ const SETTINGS_HASHES: Record<ClientSpaceSettingsScreen, string> = {
   limits: 'limites',
   google: 'fiche-google',
   install: 'installation',
+  mailbox: 'boite-mail',
   help: 'aide',
 }
 

@@ -77,6 +77,7 @@
               :error-message="requestError"
               :read-only="isExample"
               :show-back="!isWide"
+              :gmail-drafts-url="space.mailbox?.drafts_url ?? null"
               @handled="markHandled"
               @dropped="markDropped"
               @outcome="setOutcome"
@@ -198,6 +199,17 @@
               :business-name="space.business_name"
             />
 
+            <ClientSpaceMailbox
+              v-else-if="location.settingsScreen === 'mailbox' && space.mailbox"
+              :mailbox="space.mailbox"
+              :assistant-name="space.assistant_name"
+              :is-busy="isMailboxBusy"
+              :error-message="mailboxError"
+              :read-only="isExample"
+              @connect="connectMailbox"
+              @disconnect="disconnectMailbox"
+            />
+
             <ClientSpaceHelp v-else :is-example="isExample" :link-expires-label="space.link_expires_label" />
           </div>
         </template>
@@ -226,10 +238,12 @@ import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
 import type { ClientSpaceSection, ClientSpaceSettingsScreen } from '~/types/ClientSpaceNavigation'
 import type { UseClientSpaceCalendarReturn } from '~/types/UseClientSpaceCalendar'
 import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
+import type { UseClientSpaceMailboxReturn } from '~/types/UseClientSpaceMailbox'
 import type { UseClientSpaceRequestsReturn } from '~/types/UseClientSpaceRequests'
 import type { UseClientSpaceSettingsReturn } from '~/types/UseClientSpaceSettings'
 import { useClientSpaceCalendar } from '~/composables/useClientSpaceCalendar'
 import { useClientSpaceLink } from '~/composables/useClientSpaceLink'
+import { useClientSpaceMailbox } from '~/composables/useClientSpaceMailbox'
 import { useClientSpaceNavigation } from '~/composables/useClientSpaceNavigation'
 import { useClientSpaceRequests } from '~/composables/useClientSpaceRequests'
 import { useClientSpaceSettings } from '~/composables/useClientSpaceSettings'
@@ -301,6 +315,14 @@ const {
   clearCalendarFeedback,
 }: UseClientSpaceCalendarReturn = useClientSpaceCalendar(link)
 
+const {
+  isMailboxBusy,
+  mailboxError,
+  connectMailbox,
+  disconnectMailbox,
+  clearMailboxFeedback,
+}: UseClientSpaceMailboxReturn = useClientSpaceMailbox(link)
+
 useHead({
   title: computed((): string => (space.value ? `Espace client · ${space.value.business_name}` : 'Espace client')),
   meta: [
@@ -318,6 +340,7 @@ const SETTINGS_TITLES: Record<ClientSpaceSettingsScreen, string> = {
   limits: 'Prix, délais, garanties',
   google: 'Votre fiche Google',
   install: 'Sur votre site',
+  mailbox: 'Votre boîte mail',
   help: 'Aide',
 }
 
@@ -430,7 +453,13 @@ watch(
   { immediate: true },
 )
 
-watch((): ClientSpaceSettingsScreen | null => location.value.settingsScreen, clearScreenFeedback)
+watch(
+  (): ClientSpaceSettingsScreen | null => location.value.settingsScreen,
+  (): void => {
+    clearScreenFeedback()
+    clearMailboxFeedback()
+  },
+)
 
 watch((): ClientSpaceSection => location.value.section, clearCalendarFeedback)
 

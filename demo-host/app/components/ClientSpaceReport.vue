@@ -68,6 +68,7 @@ const figures: ComputedRef<ClientSpaceReportFigure[]> = computed((): ClientSpace
     { value: String(report.quotes), label: 'devis' },
   ]
   if (report.photo_requests > 0) shown.push({ value: String(report.photo_requests), label: 'avec photo' })
+  if (report.email_requests > 0) shown.push({ value: String(report.email_requests), label: 'par email' })
   if (report.urgent > 0) shown.push({ value: String(report.urgent), label: plural(report.urgent, 'urgence') })
   if (report.outside_hours_pct !== null) shown.push({ value: `${report.outside_hours_pct} %`, label: 'hors horaires' })
   if (report.won > 0)

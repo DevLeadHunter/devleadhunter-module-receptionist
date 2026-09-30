@@ -3,7 +3,7 @@ export type ClientSpaceSection = 'home' | 'requests' | 'agenda' | 'settings'
 
 /** The screens of the settings section, each opened on top of the settings menu. */
 export type ClientSpaceSettingsScreen =
-  'assistant' | 'alerts' | 'learned' | 'report' | 'subscription' | 'limits' | 'google' | 'install' | 'help'
+  'assistant' | 'alerts' | 'learned' | 'report' | 'subscription' | 'limits' | 'google' | 'install' | 'mailbox' | 'help'
 
 /**
  * Where the client space is: a section, and at most one thing opened on top of it (a request, one of the
