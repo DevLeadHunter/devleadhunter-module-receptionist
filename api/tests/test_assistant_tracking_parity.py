@@ -23,7 +23,7 @@ from services.sms_variables import SmsVariables
 
 _DEMO_PAGE = "https://demo.dibodev.fr/ia/garage-martin"
 _VIDEO_PAGE = "https://demo.dibodev.fr/va/garage-martin"
-_RECEPTIONIST = SimpleNamespace(slug="garage-martin", demo_link_sent_at=None, expires_at=None)
+_RECEPTIONIST = SimpleNamespace(slug="garage-martin", assistant_name="Hugo", demo_link_sent_at=None, expires_at=None)
 
 
 def _prospect(db: Session, *, name: str = "Garage Martin") -> ProspectDB:

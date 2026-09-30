@@ -361,7 +361,8 @@ d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprim
   motif « Pas d'assistant IA actif »), campagne SMS, relance SMS et composeur SMS. Un assistant généré
   après coup rejoint la file des campagnes actives (`enqueue_ready_prospect`), comme une démo.
 - **Module** — une campagne est « assistant » dès qu'un de ses templates, J1, A/B **ou relance**, utilise
-  une variable assistant, `{prix_assistant}` compris. La mise en file réserve le prospect pour ce module, chaque
+  une variable assistant, `{prix_assistant}` et `{prenom_receptionniste}` compris. La mise en file réserve le
+  prospect pour ce module, chaque
   message envoyé (email ou SMS de campagne, relance SMS manuelle ou automatique) repousse la réservation, et l'autre
   module attend **45 j** après ce dernier message (`services/contact_lock_service.py`) ; l'envoi revérifie le verrou
   (« Réservé par un autre module »). Les messages écrits à la main (composeurs email et SMS) restent libres, la
@@ -376,6 +377,9 @@ d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprim
 **Modèles de prospection** : 6 emails (`seeders/email_template_seeder.py`, « Assistant IA - … » : réponses
 24/7, devis par photo, multilingue, vidéo, relance, le prix cash) et 7 SMS (`services/sms/templates.py`, clés
 `assistant-*`, dont la relance vidéo « la vidéo de mon email : … Votre réceptionniste, {prix_assistant}/mois »), écrits autour de la demande restée sans réponse (le soir, une photo, la langue du client).
+`{prenom_receptionniste}` donne le prénom de la réceptionniste (« Sofia ») dans un email ou un SMS ; il compte
+comme variable assistant (pas d'envoi sans réceptionniste active). Les SMS disent « votre réceptionniste »,
+invariable, jamais « elle » ni un accord qui dépendrait du prénom.
 Chaque message mène à la démo (`{lien_assistant}`), sauf les modèles « vidéo » qui mènent à la vidéo
 (`{vignette_video_assistant}` / `{lien_video_assistant}`) ; les trois premiers emails (24/7, photo, multilingue)
 ajoutent la vignette de la vidéo sous le lien, vide tant qu'elle n'existe pas, comme `{vignette_video}` côté site

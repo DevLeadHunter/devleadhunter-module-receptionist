@@ -214,6 +214,7 @@ def test_every_assistant_sms_fits_one_segment_with_a_47_character_link() -> None
         "lien_assistant": "demo.dibodev.fr/s/ia/plomberie-chauffage-dupont",
         "lien_video_assistant": "demo.dibodev.fr/s/va/plomberie-chauffage-dupont",
         "prix_assistant": "79 €",
+        "prenom_receptionniste": "Nathan",
         "signature": "Léo",
     }
     assert len(variables["lien_assistant"]) == len(variables["lien_video_assistant"]) == 47
