@@ -43,8 +43,8 @@ QUESTION_MESSAGES = 3
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 _FALLBACK_REPLY = (
-    "Je rencontre un souci technique momentané. Laissez-moi votre nom et un moyen de vous recontacter, "
-    "et un conseiller reviendra vers vous rapidement."
+    "Je n'arrive pas à répondre pour le moment. Laissez-moi votre prénom et un téléphone ou un e-mail : "
+    "l'entreprise vous recontacte rapidement."
 )
 
 

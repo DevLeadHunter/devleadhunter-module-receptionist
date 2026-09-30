@@ -97,7 +97,7 @@ async def test_fallback_reply_when_model_unavailable(monkeypatch) -> None:
         knowledge=_KB, assistant_name="Sofia", history=[{"role": "user", "content": "Bonjour"}]
     )
 
-    assert "conseiller" in reply.reply
+    assert "recontacte" in reply.reply
 
 
 @pytest.mark.asyncio
@@ -134,7 +134,7 @@ async def test_a_conversation_not_ending_on_the_visitor_never_reaches_a_model(mo
         knowledge=_KB, assistant_name="Sofia", history=[{"role": "assistant", "content": "Bonjour"}]
     )
 
-    assert "conseiller" in reply.reply
+    assert "recontacte" in reply.reply
     assert calls == []
 
 

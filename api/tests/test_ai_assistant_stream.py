@@ -152,9 +152,9 @@ def test_the_streamed_answer_yields_cleaned_deltas_then_the_whole_answer(monkeyp
         ChatDelta(text="le samedi."),
         ChatDelta(final=ChatAnswer(reply="Oui, le samedi.")),
     ]
-    assert len(silent) == 2 and "conseiller" in silent[0].text and silent[1].final is not None
+    assert len(silent) == 2 and "recontacte" in silent[0].text and silent[1].final is not None
     assert silent[1].final.reply == silent[0].text and silent[1].final.unanswered_question is None
-    assert len(refused) == 2 and "conseiller" in refused[0].text and calls == []
+    assert len(refused) == 2 and "recontacte" in refused[0].text and calls == []
 
 
 def test_the_router_streams_from_mistral_first_then_groq_with_the_same_alerts(
@@ -397,7 +397,7 @@ def test_the_stream_route_falls_back_and_refuses_what_the_chat_route_refuses(
         ]
     )
 
-    assert len(frames) == 2 and "conseiller" in json.loads(frames[0][len("data: ") :])["delta"]
+    assert len(frames) == 2 and "recontacte" in json.loads(frames[0][len("data: ") :])["delta"]
     assert json.loads(frames[1][len("data: ") :])["done"] is True
     assert db.query(AiAssistantConversation).one().is_test is True
     with pytest.raises(HTTPException) as refused:
