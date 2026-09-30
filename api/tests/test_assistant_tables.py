@@ -18,6 +18,8 @@ from core.database import Base
         "ai_assistant_calendars",
         "ai_assistant_appointments",
         "ai_assistant_documents",
+        "ai_assistant_mailboxes",
+        "ai_assistant_mailbox_messages",
     ],
 )
 def test_the_table_is_created_in_utf8mb4(table: str) -> None:
