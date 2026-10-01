@@ -65,6 +65,7 @@ from services.ai_assistant.chat_service import ChatAnswer, ai_assistant_chat_ser
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
 from services.ai_assistant.daily_message_cap import ai_assistant_daily_message_cap
+from services.ai_assistant.demo_space_service import ai_assistant_demo_space_service
 from services.ai_assistant.event_intake import ai_assistant_event_intake
 from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.field_limits import SESSION_ID_MAX_CHARS
@@ -81,6 +82,7 @@ from services.ai_assistant.photo_service import (
 from services.ai_assistant.request_follow_up import ai_assistant_request_follow_up
 from services.ai_assistant.request_service import ai_assistant_request_service
 from services.ai_assistant.request_volume import AiAssistantRequestVolume
+from services.ai_assistant.suggested_questions import AiAssistantSuggestedQuestions
 from services.ai_assistant.visitor_contact import VisitorContact
 from services.assistant_pricing_service import AssistantPricingService
 from services.assistant_video_service import (
@@ -179,6 +181,10 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
     video_ready = has_ready_video(assistant)
     is_sold = assistant.status == AiAssistantStatus.DELIVERED.value
     listing = _listing_public_fields(db, assistant)
+    category = listing.get("trade_label")
+    opening = AiAssistantSuggestedQuestions.opening(
+        assistant.knowledge_json, category if isinstance(category, str) else None
+    )
     return AiAssistantPublicResponse(
         slug=assistant.slug,
         business_name=assistant.business_name,
@@ -199,6 +205,10 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
             else None
         ),
         closed_hours=_closed_hours(db, assistant) if assistant.status == AiAssistantStatus.ACTIVE.value else None,
+        has_demo_space=ai_assistant_demo_space_service.is_open(assistant),
+        suggested_questions=list(opening.questions),
+        offers_photo_quote=opening.offers_photo_quote,
+        offers_appointment=opening.offers_appointment,
     )
 
 

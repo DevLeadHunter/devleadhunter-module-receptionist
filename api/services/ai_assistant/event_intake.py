@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 import time as clock
-import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
@@ -15,6 +14,7 @@ from typing import ClassVar
 
 from sqlalchemy.orm import Session
 
+from enums.ai_assistant_trade import AiAssistantTrade
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_calendar import AiAssistantCalendar
 from models.prospect_db import ProspectDB
@@ -22,21 +22,14 @@ from services.ai_assistant.calendar_access import ai_assistant_calendar_access
 from services.ai_assistant.calendar_settings import CalendarSettings
 from services.ai_assistant.google_calendar_client import GoogleCalendarError, google_calendar_client
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from services.ai_assistant.trade_resolver import AiAssistantTradeResolver
 from services.french_date_formatter import FrenchDateFormatter
 
 logger = logging.getLogger(__name__)
 
-# Accent-free word starts of the Google categories that live on events (« Salle de réception », « Traiteur »).
-EVENT_TRADE_WORDS: tuple[str, ...] = (
-    "mariage",
-    "wedding",
-    "banquet",
-    "recept",
-    "traiteur",
-    "evenement",
-    "seminaire",
-    "orchestre",
-    "photographe",
+# The trades that live on events (« Salle de réception », « Traiteur », « Photographe »).
+EVENT_TRADES: frozenset[AiAssistantTrade] = frozenset(
+    {AiAssistantTrade.CATERER, AiAssistantTrade.EVENT_VENUE, AiAssistantTrade.EVENT_SERVICE}
 )
 # A day is taken when the agenda is busy this long on it (an all-day event covers it whole).
 TAKEN_HOURS = 6
@@ -69,9 +62,7 @@ class AiAssistantEventIntake:
         Returns:
             True for an event trade.
         """
-        folded = unicodedata.normalize("NFKD", (category or "").lower()).encode("ascii", "ignore").decode()
-        words = [word for word in folded.replace("-", " ").split() if word]
-        return any(word.startswith(start) for word in words for start in EVENT_TRADE_WORDS)
+        return AiAssistantTradeResolver.of_category(category) in EVENT_TRADES
 
     @classmethod
     async def context(cls, db: Session, assistant: AiAssistant) -> EventIntakeContext | None:

@@ -1,87 +1,62 @@
-"""Client space routes: the magic-link page of a sold assistant (its link is issued from the owner routes)."""
+"""
+Client space routes: the magic-link page of a sold assistant (its link is issued from the owner routes), and the
+read-only demo space a prospect opens from its demo page.
+"""
 
 import logging
-from datetime import UTC, datetime
 
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from api.v1.routes.ai_assistant_common import client_ip, confirmation_response, faq_response
+from api.v1.routes.ai_assistant_common import client_ip, confirmation_response
 from core.database import get_db
-from enums.ai_assistant_mailbox import AiAssistantMailboxConnection
-from enums.ai_assistant_request import (
-    AiAssistantRequestChannel,
-    AiAssistantRequestOutcome,
-    AiAssistantRequestStatus,
-    AiAssistantRequestType,
-)
-from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
-from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
 from models.ai_assistant import AiAssistant
-from models.ai_assistant_appointment import AiAssistantAppointment
-from models.ai_assistant_report import AiAssistantReport
-from models.ai_assistant_request import AiAssistantRequest
-from models.ai_assistant_subscription import AiAssistantSubscription
 from schemas.ai_assistant_client_space import (
-    AiAssistantClientAppointmentItem,
     AiAssistantClientCalendar,
     AiAssistantClientCalendarConnect,
     AiAssistantClientCalendarUpdate,
-    AiAssistantClientEvent,
     AiAssistantClientGoogleProfile,
     AiAssistantClientGoogleProfileUpdate,
-    AiAssistantClientInstalled,
-    AiAssistantClientLanguageOption,
     AiAssistantClientLimit,
     AiAssistantClientLimitsUpdate,
     AiAssistantClientMailbox,
     AiAssistantClientMailboxConnect,
     AiAssistantClientPortalResponse,
     AiAssistantClientRenewResponse,
-    AiAssistantClientReport,
     AiAssistantClientRequestItem,
     AiAssistantClientRequestOutcomeUpdate,
     AiAssistantClientSettings,
     AiAssistantClientSettingsUpdate,
     AiAssistantClientSpaceResponse,
-    AiAssistantClientSubscription,
     AiAssistantClientTestSms,
 )
+from schemas.ai_assistant_demo_space import AiAssistantDemoSpaceRequest, AiAssistantDemoSpaceResponse
 from schemas.ai_assistant_faq import AiAssistantFaqEntryRequest, AiAssistantFaqResponse
-from services.ai_assistant.alert_settings import AlertSettings
-from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.calendar_access import ai_assistant_calendar_access
 from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
 from services.ai_assistant.calendar_service import ai_assistant_calendar_service
-from services.ai_assistant.calendar_settings import DURATION_CHOICES, MIN_NOTICE_CHOICES, CalendarSettings
 from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
 from services.ai_assistant.client_space_activity import AiAssistantClientActivity
 from services.ai_assistant.client_space_example import EXAMPLE_TOKEN, ai_assistant_client_space_example
+from services.ai_assistant.client_space_payload import ai_assistant_client_space_payload
 from services.ai_assistant.client_space_service import ClientSpaceAccessError, ai_assistant_client_space_service
+from services.ai_assistant.demo_space_service import ai_assistant_demo_space_service
 from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.faq_service import ai_assistant_faq_service
-from services.ai_assistant.gmail_client import GmailClient, GmailError
+from services.ai_assistant.gmail_client import GmailError
 from services.ai_assistant.google_calendar_client import GoogleCalendarError
-from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
-from services.ai_assistant.limits import AiAssistantLimits, AssistantLimit
-from services.ai_assistant.mailbox_access import ai_assistant_mailbox_access
+from services.ai_assistant.limits import AiAssistantLimits
 from services.ai_assistant.mailbox_service import ai_assistant_mailbox_service
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.report_email import AiAssistantReportEmail, MonthlyStats
-from services.ai_assistant.report_service import ReportPeriod
 from services.ai_assistant.request_alerts import ai_assistant_request_alerts
-from services.ai_assistant.request_analyzer import AiAssistantRequestAnalyzer
-from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
-from services.assistant_pricing_service import AssistantPricingService
-from services.french_date_formatter import FrenchDateFormatter
 from services.rate_limiter import (
     assistant_client_limiter,
     assistant_client_renew_daily_limiter,
     assistant_client_renew_limiter,
     assistant_client_test_sms_limiter,
+    assistant_demo_space_limiter,
 )
 
 logger = logging.getLogger(__name__)
@@ -89,12 +64,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai-assistants", tags=["ai-assistant-client-space"])
 
 _TOO_MANY = "Trop de requêtes, réessayez dans quelques minutes"
-
-
-def _business_label(moment: datetime, pattern: str) -> str:
-    """A stored UTC moment (naive or aware) as business-time text."""
-    naive_utc = moment.astimezone(UTC).replace(tzinfo=None) if moment.tzinfo else moment
-    return OpeningHoursCalendar.to_business_time(naive_utc).strftime(pattern)
 
 
 def _open_client_space(
@@ -113,160 +82,6 @@ def _open_client_space(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ce lien n'ouvre aucun espace.") from exc
 
 
-def _to_request_item(record: AiAssistantRequest, booked: str | None = None) -> AiAssistantClientRequestItem:
-    return AiAssistantClientRequestItem(
-        id=record.id,
-        type=AiAssistantRequestType(record.type),
-        status=AiAssistantRequestStatus(record.status),
-        channel=AiAssistantRequestChannel(record.channel),
-        name=record.name,
-        contact=record.contact,
-        summary=(record.need_summary or record.need or "").strip() or None,
-        received_label=_business_label(record.created_at, "%d/%m à %H:%M"),
-        received_day=_business_label(record.created_at, "%Y-%m-%d"),
-        received_time=_business_label(record.created_at, "%H:%M"),
-        received_outside_hours=record.received_outside_hours,
-        photo_urls=AiAssistantRequestAttachments.photo_urls(record),
-        appointment_slots=AiAssistantAppointmentSlots.labels(record.appointment_slots_json),
-        appointment_booked=booked,
-        outcome=AiAssistantRequestOutcome(record.outcome) if record.outcome else None,
-        event=_to_event(record.event_json),
-    )
-
-
-def _to_calendar(db: Session, assistant: AiAssistant) -> AiAssistantClientCalendar:
-    state, calendar = ai_assistant_calendar_service.connection(db, assistant)
-    booking = CalendarSettings.of(calendar) if calendar is not None else CalendarSettings.defaults()
-    return AiAssistantClientCalendar(
-        status=state,
-        account_email=calendar.account_email if calendar is not None else None,
-        calendar_id=booking.calendar_id,
-        duration_minutes=booking.duration_minutes,
-        min_notice_hours=booking.min_notice_hours,
-        appointment_types=list(booking.appointment_types),
-        last_error=calendar.last_error if calendar is not None else None,
-        duration_choices=list(DURATION_CHOICES),
-        min_notice_choices=list(MIN_NOTICE_CHOICES),
-    )
-
-
-def _to_mailbox(db: Session, assistant: AiAssistant) -> AiAssistantClientMailbox | None:
-    """The Gmail section, only once the operator switched the mailbox on and Gmail is configured on the server."""
-    mailbox = ai_assistant_mailbox_access.mailbox_of(db, assistant)
-    view = ai_assistant_mailbox_service.view(assistant, mailbox)
-    if view.connection in (AiAssistantMailboxConnection.DISABLED, AiAssistantMailboxConnection.UNAVAILABLE):
-        return None
-    return AiAssistantClientMailbox(
-        status=view.connection,
-        account_email=view.account_email,
-        drafts_this_month=ai_assistant_mailbox_service.drafts_this_month(db, assistant),
-        last_error=view.last_error,
-        has_reached_daily_cap=view.has_reached_daily_cap,
-        drafts_url=GmailClient.drafts_url(view.account_email),
-    )
-
-
-def _to_appointment(
-    appointment: AiAssistantAppointment, record: AiAssistantRequest
-) -> AiAssistantClientAppointmentItem:
-    return AiAssistantClientAppointmentItem(
-        id=appointment.id,
-        start_label=ai_assistant_calendar_booking.start_label(appointment),
-        type_label=appointment.type_label,
-        name=record.name,
-        contact=record.contact,
-    )
-
-
-def _to_report(report: AiAssistantReport, assistant_name: str) -> AiAssistantClientReport:
-    stats = MonthlyStats.from_json(report.stats_json or {})
-    return AiAssistantClientReport(
-        month_label=FrenchDateFormatter.month_year(ReportPeriod.of_key(report.month).first_day),
-        conversations=stats.conversations,
-        requests=stats.requests,
-        quotes=stats.quotes,
-        appointments=stats.appointments,
-        urgent=stats.urgent,
-        photo_requests=stats.photo_requests,
-        outside_hours_pct=stats.outside_hours_pct,
-        languages_line=AiAssistantReportEmail.language_line(stats.languages),
-        handling_line=AiAssistantReportEmail.handling_line(stats),
-        top_questions=list(stats.top_questions),
-        won=stats.won,
-        won_line=AiAssistantReportEmail.won_line(stats, assistant_name),
-        email_requests=stats.email_requests,
-    )
-
-
-def _to_subscription(subscription: AiAssistantSubscription) -> AiAssistantClientSubscription:
-    per = "/an" if subscription.interval == "year" else "/mois"
-    return AiAssistantClientSubscription(
-        status=AiAssistantSubscriptionStatus(subscription.status),
-        price_label=f"{AssistantPricingService.format_price(subscription.amount_cents)}{per}",
-        period_end_label=(
-            _business_label(subscription.current_period_end, "%d/%m/%Y") if subscription.current_period_end else None
-        ),
-        cancel_scheduled=bool(subscription.cancel_at_period_end),
-        can_manage=bool(subscription.stripe_customer_id),
-    )
-
-
-def _to_google_profile(assistant: AiAssistant) -> AiAssistantClientGoogleProfile:
-    url = ai_assistant_service.page_url(assistant.slug)
-    linked_at = assistant.google_profile_linked_at
-    return AiAssistantClientGoogleProfile(
-        page_url=url,
-        short_link=ai_assistant_client_space_service.page_short_link(assistant),
-        qr_svg=ai_assistant_client_space_service.qr_svg(url),
-        voicemail_text=ai_assistant_client_space_service.voicemail_text(assistant),
-        linked_at_label=_business_label(linked_at, "%d/%m/%Y") if linked_at is not None else None,
-        is_linked=linked_at is not None,
-    )
-
-
-def _to_limits(limits: list[AssistantLimit]) -> list[AiAssistantClientLimit]:
-    return [
-        AiAssistantClientLimit(key=limit.key, topic=limit.topic, answer=limit.answer, enabled=limit.enabled)
-        for limit in limits
-    ]
-
-
-def _to_event(event_json: object) -> AiAssistantClientEvent | None:
-    if not isinstance(event_json, dict):
-        return None
-    guests = event_json.get("guests")
-    event = AiAssistantClientEvent(
-        date=AiAssistantRequestAnalyzer.date_text(event_json.get("date")),
-        place=str(event_json.get("place")) if event_json.get("place") else None,
-        guests=int(guests) if isinstance(guests, int) and not isinstance(guests, bool) else None,
-        budget=str(event_json.get("budget")) if event_json.get("budget") else None,
-    )
-    return event if any((event.date, event.place, event.guests, event.budget)) else None
-
-
-def _to_installed(assistant: AiAssistant) -> AiAssistantClientInstalled | None:
-    if assistant.installed_at is None or not assistant.installed_host:
-        return None
-    return AiAssistantClientInstalled(
-        host=assistant.installed_host, seen_label=_business_label(assistant.installed_at, "%d/%m à %H:%M")
-    )
-
-
-def _to_settings(assistant: AiAssistant) -> AiAssistantClientSettings:
-    alerts = AlertSettings.of(assistant)
-    offered = {language.value for language in AiAssistantWidgetLanguage}
-    return AiAssistantClientSettings(
-        assistant_name=assistant.assistant_name,
-        languages=[AiAssistantWidgetLanguage(code) for code in (assistant.languages or []) if code in offered],
-        alert_phone=alerts.phone_e164,
-        alert_sms_enabled=alerts.sms_enabled,
-        alert_email_enabled=alerts.email_enabled,
-        alert_sms_types=[item for item in AiAssistantRequestType if item in alerts.sms_types],
-        alert_quiet_start_hour=alerts.quiet_start_hour,
-        alert_quiet_end_hour=alerts.quiet_end_hour,
-    )
-
-
 @router.get("/client/{token}", response_model=AiAssistantClientSpaceResponse)
 async def get_client_space(
     token: str, request: Request, db: Session = Depends(get_db)
@@ -282,38 +97,56 @@ async def get_client_space(
     subscription = ai_assistant_client_space_service.current_subscription(db, assistant)
     records = ai_assistant_client_space_service.recent_requests(db, assistant)
     booked = ai_assistant_calendar_booking.booked_labels(db, [record.id for record in records])
-    faq = faq_response(assistant)
+    faq = ai_assistant_faq_service.faq_and_unanswered(assistant)
     return AiAssistantClientSpaceResponse(
         business_name=assistant.business_name,
         assistant_name=assistant.assistant_name,
         accent_color=ai_assistant_service.accent_color(assistant),
-        link_expires_label=_business_label(fresh_link.expires_at, "%d/%m/%Y"),
+        link_expires_label=ai_assistant_client_space_payload.business_label(fresh_link.expires_at, "%d/%m/%Y"),
         pending_count=ai_assistant_client_space_service.pending_count(db, assistant),
-        requests=[_to_request_item(record, booked.get(record.id)) for record in records],
-        report=_to_report(report, assistant.assistant_name) if report is not None else None,
+        requests=[ai_assistant_client_space_payload.request_item(record, booked.get(record.id)) for record in records],
+        report=(
+            ai_assistant_client_space_payload.report(report, assistant.assistant_name) if report is not None else None
+        ),
         recent=AiAssistantClientActivity.recent_figures(db, assistant),
         activity=AiAssistantClientActivity.by_day(db, assistant),
-        settings=_to_settings(assistant),
-        language_options=[
-            AiAssistantClientLanguageOption(code=language, label=LANGUAGE_NAMES.get(language.value, language.value))
-            for language in AiAssistantWidgetLanguage
-        ],
-        subscription=_to_subscription(subscription) if subscription is not None else None,
-        calendar=_to_calendar(db, assistant),
+        settings=ai_assistant_client_space_payload.settings(assistant),
+        language_options=ai_assistant_client_space_payload.language_options(),
+        subscription=ai_assistant_client_space_payload.subscription(subscription) if subscription is not None else None,
+        calendar=ai_assistant_client_space_payload.calendar(db, assistant),
         appointments=[
-            _to_appointment(appointment, record)
+            ai_assistant_client_space_payload.appointment(appointment, record)
             for appointment, record in ai_assistant_calendar_booking.upcoming(db, assistant)
         ],
-        mailbox=_to_mailbox(db, assistant),
+        mailbox=ai_assistant_client_space_payload.mailbox(db, assistant),
         faq=faq.faq,
         unanswered=faq.unanswered,
         fresh_token=fresh_token,
         website_url=ai_assistant_client_space_service.website_url(db, assistant),
         embed_snippet=AiAssistantEmbedSnippet.render(assistant.slug),
-        google_profile=_to_google_profile(assistant),
-        installed=_to_installed(assistant),
-        limits=_to_limits(AiAssistantLimits.effective(assistant)),
+        google_profile=ai_assistant_client_space_payload.google_profile(assistant),
+        installed=ai_assistant_client_space_payload.installed(assistant),
+        limits=ai_assistant_client_space_payload.limits(AiAssistantLimits.effective(assistant)),
     )
+
+
+@router.post("/public/{slug}/space", response_model=AiAssistantDemoSpaceResponse)
+async def read_demo_space(
+    slug: str, payload: AiAssistantDemoSpaceRequest, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantDemoSpaceResponse:
+    """
+    The space a prospect opens from its demo page: its own receptionist as the client space shows it once sold, with
+    the requests left from the visitor's widget sessions only (examples of the trade below two of them).
+
+    A POST so the session ids stay out of addresses and server logs; it saves, counts and announces nothing. A sold,
+    expired or deleted receptionist has none (404).
+    """
+    if not assistant_demo_space_limiter.allow(f"demo-space:{client_ip(request)}"):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=_TOO_MANY)
+    assistant = ai_assistant_demo_space_service.open_demo(db, slug)
+    if assistant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucun espace de démonstration ici.")
+    return ai_assistant_demo_space_service.build(db, assistant, payload.session_ids)
 
 
 @router.post("/client/{token}/faq", response_model=AiAssistantFaqResponse, status_code=status.HTTP_201_CREATED)
@@ -326,7 +159,7 @@ async def add_client_faq_entry(
         ai_assistant_faq_service.add_faq(db, assistant, payload.question, payload.answer)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return faq_response(assistant)
+    return ai_assistant_faq_service.faq_and_unanswered(assistant)
 
 
 @router.delete("/client/{token}/unanswered/{index}", status_code=status.HTTP_204_NO_CONTENT)
@@ -351,7 +184,9 @@ async def mark_client_request_handled(
     record = ai_assistant_client_space_service.mark_handled(db, assistant, request_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demande introuvable")
-    return _to_request_item(record, ai_assistant_calendar_booking.booked_labels(db, [record.id]).get(record.id))
+    return ai_assistant_client_space_payload.request_item(
+        record, ai_assistant_calendar_booking.booked_labels(db, [record.id]).get(record.id)
+    )
 
 
 @router.post("/client/{token}/requests/{request_id}/dropped", response_model=AiAssistantClientRequestItem)
@@ -363,7 +198,9 @@ async def mark_client_request_dropped(
     record = ai_assistant_client_space_service.mark_dropped(db, assistant, request_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demande introuvable")
-    return _to_request_item(record, ai_assistant_calendar_booking.booked_labels(db, [record.id]).get(record.id))
+    return ai_assistant_client_space_payload.request_item(
+        record, ai_assistant_calendar_booking.booked_labels(db, [record.id]).get(record.id)
+    )
 
 
 @router.post("/client/{token}/requests/{request_id}/outcome", response_model=AiAssistantClientRequestItem)
@@ -379,7 +216,9 @@ async def set_client_request_outcome(
     record = ai_assistant_client_space_service.set_outcome(db, assistant, request_id, payload.outcome)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demande introuvable")
-    return _to_request_item(record, ai_assistant_calendar_booking.booked_labels(db, [record.id]).get(record.id))
+    return ai_assistant_client_space_payload.request_item(
+        record, ai_assistant_calendar_booking.booked_labels(db, [record.id]).get(record.id)
+    )
 
 
 @router.post("/client/{token}/alerts/test-sms", response_model=AiAssistantClientTestSms)
@@ -410,7 +249,7 @@ async def update_client_limits(
     """The business edits what its receptionist says on prices, delays, warranties… or switches a subject off."""
     assistant, _link = _open_client_space(db, token, request)
     limits = ai_assistant_client_space_service.set_limits(db, assistant, [item.model_dump() for item in payload.limits])
-    return _to_limits(limits)
+    return ai_assistant_client_space_payload.limits(limits)
 
 
 @router.patch("/client/{token}/settings", response_model=AiAssistantClientSettings)
@@ -425,7 +264,7 @@ async def update_client_settings(
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
-    return _to_settings(updated)
+    return ai_assistant_client_space_payload.settings(updated)
 
 
 @router.post("/client/{token}/google-profile", response_model=AiAssistantClientGoogleProfile)
@@ -435,7 +274,7 @@ async def update_client_google_profile(
     """The business says whether the receptionist's address is on its Google profile (a « Pour démarrer » step)."""
     assistant, _link = _open_client_space(db, token, request)
     ai_assistant_client_space_service.set_google_profile_linked(db, assistant, payload.linked)
-    return _to_google_profile(assistant)
+    return ai_assistant_client_space_payload.google_profile(assistant)
 
 
 @router.post("/client/{token}/billing-portal", response_model=AiAssistantClientPortalResponse)
@@ -500,7 +339,7 @@ async def update_client_calendar(
         await ai_assistant_calendar_service.update_settings(db, calendar, payload.model_dump(exclude_unset=True))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
-    return _to_calendar(db, assistant)
+    return ai_assistant_client_space_payload.calendar(db, assistant)
 
 
 @router.delete("/client/{token}/calendar", response_model=AiAssistantClientCalendar)
@@ -510,7 +349,7 @@ async def disconnect_client_calendar(
     """Disconnect the agenda (its tokens are deleted); appointments go back to wished half-days."""
     assistant, _link = _open_client_space(db, token, request)
     ai_assistant_calendar_service.disconnect(db, assistant)
-    return _to_calendar(db, assistant)
+    return ai_assistant_client_space_payload.calendar(db, assistant)
 
 
 @router.get("/calendar/google/callback", response_class=HTMLResponse)
@@ -579,7 +418,7 @@ async def disconnect_client_mailbox(
     """Disconnect the client's Gmail: its tokens are deleted and its access revoked at Google."""
     assistant = _enabled_mailbox_assistant(db, token, request)
     await ai_assistant_mailbox_service.disconnect(db, assistant)
-    mailbox = _to_mailbox(db, assistant)
+    mailbox = ai_assistant_client_space_payload.mailbox(db, assistant)
     if mailbox is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Gmail n'est plus configuré")
     return mailbox

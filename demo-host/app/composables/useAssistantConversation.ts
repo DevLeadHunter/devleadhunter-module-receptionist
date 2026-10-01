@@ -26,7 +26,7 @@ import { useAssistantPhotoUpload } from '~/composables/useAssistantPhotoUpload'
 import { postHostPersist } from '~/composables/useAssistantWidgetFrame'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
 import { ERROR_LABELS, GREETING_FOLLOW_UPS, GREETING_INTROS, SUGGESTIONS } from '~/constants/AssistantWidgetLabels'
-import { ASSISTANT_STORED_MESSAGES_MAX } from '~/constants/AssistantWidgetLimits'
+import { ASSISTANT_OPENING_CHIPS_MAX, ASSISTANT_STORED_MESSAGES_MAX } from '~/constants/AssistantWidgetLimits'
 import { AssistantConversationStorageUtils } from '~/utils/AssistantConversationStorageUtils'
 import { AssistantHostPageUtils } from '~/utils/AssistantHostPageUtils'
 import { AssistantLanguageUtils } from '~/utils/AssistantLanguageUtils'
@@ -47,6 +47,9 @@ const EXAMPLE_REPLY_DELAY_MS: number = 1500
 
 /** A sold receptionist answers a business's own customers: the demo page's played example is a sales pitch. */
 const DELIVERED_STATUS: string = 'delivered'
+
+/** The language the API writes a business's own opening questions in. */
+const BUSINESS_QUESTIONS_LANGUAGE: AssistantWidgetLanguage = 'fr'
 
 /**
  * A pause, for the typed greeting and the played example.
@@ -110,10 +113,34 @@ export function useAssistantConversation(
   const offeredLanguages: ComputedRef<AssistantWidgetLanguage[]> = computed((): AssistantWidgetLanguage[] =>
     AssistantLanguageUtils.offered(assistant.languages),
   )
-  const suggestions: ComputedRef<string[]> = computed((): string[] => SUGGESTIONS[language.value])
   const canPlayExample: ComputedRef<boolean> = computed(
     (): boolean => inline && !hasPlayedExample.value && assistant.status !== DELIVERED_STATUS,
   )
+  /** The business's trade quotes from a photo, and the visitor may still send one. */
+  const canOfferPhotoChip: ComputedRef<boolean> = computed(
+    (): boolean => (assistant.offers_photo_quote ?? true) && photo.photosRemaining.value > 0,
+  )
+  /** The business's trade takes appointments, and the visitor has not left a request yet. */
+  const canOfferAppointmentChip: ComputedRef<boolean> = computed(
+    (): boolean => (assistant.offers_appointment ?? true) && !hasSentLead.value,
+  )
+  /**
+   * The questions under the greeting, after the example and action chips and within the chips a phone shows: the
+   * business's own in their language, the generic one in the others.
+   */
+  const suggestions: ComputedRef<string[]> = computed((): string[] => {
+    const businessQuestions: string[] = assistant.suggested_questions ?? []
+    const questions: string[] =
+      language.value === BUSINESS_QUESTIONS_LANGUAGE && businessQuestions.length > 0
+        ? businessQuestions
+        : SUGGESTIONS[language.value]
+    const actionChipCount: number = [
+      canPlayExample.value,
+      canOfferPhotoChip.value,
+      canOfferAppointmentChip.value,
+    ].filter((isShown: boolean): boolean => isShown).length
+    return questions.slice(0, Math.max(0, ASSISTANT_OPENING_CHIPS_MAX - actionChipCount))
+  })
   /** The opening chips show under the greeting only, until the visitor writes or opens a panel. */
   const shouldShowOpeningChips: ComputedRef<boolean> = computed(
     (): boolean => messages.value.length <= 1 && openPanel.value === null && !isAssistantUnavailable.value,
@@ -135,10 +162,10 @@ export function useAssistantConversation(
     const last: AssistantThreadMessage | undefined = messages.value[messages.value.length - 1]
     return endsOnReply.value && last?.follow_ups?.length ? AssistantSuggestionUtils.onePerAction(last.follow_ups) : []
   })
-  /** A reply without questions still offers the two actions (photo, appointment), so the visitor can click on. */
+  /** A reply without questions still offers the trade's actions (photo, appointment), so the visitor can click on. */
   const shouldShowActionChips: ComputedRef<boolean> = computed(
     (): boolean =>
-      endsOnReply.value && followUps.value.length === 0 && (photo.photosRemaining.value > 0 || !hasSentLead.value),
+      endsOnReply.value && followUps.value.length === 0 && (canOfferPhotoChip.value || canOfferAppointmentChip.value),
   )
   /** A slim way to leave one's details stays above the composer until the request is sent, unless a chip offers it. */
   const shouldShowCallbackBar: ComputedRef<boolean> = computed(
@@ -490,6 +517,8 @@ export function useAssistantConversation(
     hasSentLead,
     isAssistantUnavailable,
     canPlayExample,
+    canOfferPhotoChip,
+    canOfferAppointmentChip,
     shouldShowOpeningChips,
     followUps,
     shouldShowActionChips,

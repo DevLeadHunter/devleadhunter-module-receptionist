@@ -224,7 +224,12 @@ class AiAssistantKnowledgeBuilder:
         return "\n".join(lines)
 
     def knowledge_lines(
-        self, knowledge: dict[str, Any], *, now: datetime | None = None, question: str | None = None
+        self,
+        knowledge: dict[str, Any],
+        *,
+        now: datetime | None = None,
+        question: str | None = None,
+        max_chars: int | None = None,
     ) -> list[str]:
         """The prompt lines of what the business's knowledge says, from its identity to its website and documents.
 
@@ -234,6 +239,7 @@ class AiAssistantKnowledgeBuilder:
             now: The business's current local time; defaults to the clock in the business timezone.
             question: What the customer wrote last: when the website and the documents exceed the prompt's budget,
                 the passages closest to it are kept.
+            max_chars: The budget of the website pages and the documents; the chat prompt's by default.
 
         Returns:
             The lines, the listing's and the website's left out when their source is switched off.
@@ -255,7 +261,10 @@ class AiAssistantKnowledgeBuilder:
             lines.extend(self._generated_site_lines(knowledge.get("generated_site")))
         lines.extend(
             AiAssistantKnowledgeSources.prompt_lines(
-                knowledge.get("website") if toggles.site else None, knowledge.get("documents"), question=question
+                knowledge.get("website") if toggles.site else None,
+                knowledge.get("documents"),
+                question=question,
+                max_chars=max_chars,
             )
         )
         return lines

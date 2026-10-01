@@ -24,6 +24,7 @@ from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
 from services.ai_assistant.gmail_client import gmail_client
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
+from services.ai_assistant.suggested_questions import ai_assistant_suggested_questions
 from services.ai_assistant.website_crawler import ai_assistant_website_crawler
 from services.ai_assistant.website_sync import AiAssistantWebsiteSync
 from services.demo_slug_guard import DemoSlugGuard
@@ -265,11 +266,14 @@ class AiAssistantService:
         return assistant
 
     async def create_for_prospect(self, db: Session, *, user_id: int, prospect: ProspectDB) -> AiAssistant:
-        """Generate an assistant for a prospect: enrichment, their own website and the site generated for them."""
+        """
+        Generate an assistant for a prospect: enrichment, their own website and the site generated for them, then the
+        questions its widget opens with (its trade's stand in when the model fails).
+        """
         enrichment = enrichment_service.to_dict(await enrichment_service.ensure_enriched(db, user_id, prospect))
         website = await self.crawl_prospect_website(prospect)
         generated_site = self._generated_site_content(db, user_id=user_id, prospect_id=prospect.id)
-        return self.create(
+        assistant = self.create(
             db,
             user_id=user_id,
             prospect_id=prospect.id,
@@ -284,6 +288,8 @@ class AiAssistantService:
             website=website,
             generated_site=generated_site,
         )
+        await ai_assistant_suggested_questions.refresh(db, assistant, category=prospect.category)
+        return assistant
 
     def regenerate(
         self,
@@ -329,9 +335,9 @@ class AiAssistantService:
         )
         knowledge = fields["knowledge_json"]
         knowledge["palette"] = {"accent": existing_accent}
-        # What was set up on the assistant survives: its documents and its source switches.
+        # Kept through the rebuild: the documents, the source switches, the suggested questions until new ones come.
         previous = assistant.knowledge_json or {}
-        for key in ("documents", "sources"):
+        for key in ("documents", "sources", ai_assistant_suggested_questions.STORAGE_KEY):
             if key in previous:
                 knowledge[key] = previous[key]
         previous_site = previous.get("website") if isinstance(previous.get("website"), dict) else None
@@ -354,7 +360,10 @@ class AiAssistantService:
     async def regenerate_for_prospect(
         self, db: Session, *, assistant: AiAssistant, prospect: ProspectDB
     ) -> AiAssistant:
-        """Re-enrich the prospect and re-crawl their site, then rebuild the knowledge (keeps branding)."""
+        """
+        Re-enrich the prospect and re-crawl their site, rebuild the knowledge (keeps branding), then write the
+        questions its widget opens with again (the previous ones stay when the model fails).
+        """
         enrichment = enrichment_service.to_dict(
             await enrichment_service.ensure_enriched(db, assistant.user_id, prospect)
         )
@@ -363,7 +372,7 @@ class AiAssistantService:
         # The enrichment and the read take seconds: take the assistant as it is now (a document added meanwhile).
         db.commit()
         db.refresh(assistant)
-        return self.regenerate(
+        regenerated = self.regenerate(
             db,
             assistant=assistant,
             prospect=prospect,
@@ -371,6 +380,8 @@ class AiAssistantService:
             website=website,
             generated_site=generated_site,
         )
+        await ai_assistant_suggested_questions.refresh(db, regenerated, category=prospect.category)
+        return regenerated
 
     @staticmethod
     def has_readable_website(prospect: Any) -> bool:

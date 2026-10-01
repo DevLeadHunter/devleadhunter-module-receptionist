@@ -36,6 +36,7 @@ _USAGE_LABELS: dict[AiAssistantLlmUsage, str] = {
     AiAssistantLlmUsage.REPORT: "rapport mensuel",
     AiAssistantLlmUsage.MAIL_TRIAGE: "tri des emails",
     AiAssistantLlmUsage.MAIL_DRAFT: "brouillons d'email",
+    AiAssistantLlmUsage.SUGGESTIONS: "questions suggérées",
 }
 _OUTAGE_MESSAGES: dict[AiAssistantLlmOutage, str] = {
     AiAssistantLlmOutage.FALLBACK: "Mistral indisponible : {usage} basculé sur Groq",

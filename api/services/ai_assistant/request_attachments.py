@@ -13,6 +13,7 @@ from enums.ai_assistant_photo import AiAssistantPhotoUrgency
 from enums.ai_assistant_request import AiAssistantRequestType
 from models.ai_assistant_message import AiAssistantMessage
 from models.ai_assistant_request import AiAssistantRequest
+from schemas.ai_assistant import AiAssistantTranscriptLine
 from services.ai_assistant.request_analyzer import TranscriptLine
 
 
@@ -42,6 +43,25 @@ class AiAssistantRequestAttachments:
         return [
             TranscriptLine(role=message.role, content=message.content, photo_url=message.photo_url)
             for message in messages
+        ]
+
+    @classmethod
+    def conversation(cls, db: Session, request: AiAssistantRequest) -> list[AiAssistantTranscriptLine]:
+        """
+        The conversation of the request's widget session as the business reads it: the visitor's and the
+        receptionist's turns, oldest first.
+
+        Args:
+            db: Active database session.
+            request: The request.
+
+        Returns:
+            The turns (empty when the visitor wrote nothing before leaving details).
+        """
+        return [
+            AiAssistantTranscriptLine(role=line.role, content=line.content, photo_url=line.photo_url)
+            for line in cls.transcript(db, request)
+            if line.role in ("user", "assistant")
         ]
 
     @staticmethod

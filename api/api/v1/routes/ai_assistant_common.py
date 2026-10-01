@@ -1,6 +1,6 @@
 """
 Helpers shared by the assistant route modules: the visitor's address, the assistant a route reads, the small HTML
-pages of the signed links, the declared size of an upload, and the FAQ as the owner and the client both read it.
+pages of the signed links and the declared size of an upload.
 """
 
 from __future__ import annotations
@@ -10,9 +10,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from models.ai_assistant import AiAssistant
-from schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantFaqResponse, AiAssistantUnansweredEntry
 from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.request_email import AiAssistantRequestEmail
 
 
@@ -68,31 +66,6 @@ def owned_assistant_or_404(db: Session, assistant_id: int, user_id: int) -> AiAs
     if assistant is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found")
     return assistant
-
-
-def faq_response(assistant: AiAssistant) -> AiAssistantFaqResponse:
-    """
-    The FAQ and the unanswered questions of an assistant, as its owner and its client both read them.
-
-    Args:
-        assistant: The assistant.
-
-    Returns:
-        Both lists, in their stored order.
-    """
-    knowledge = assistant.knowledge_json
-    return AiAssistantFaqResponse(
-        faq=[
-            AiAssistantFaqEntry(question=entry.question, answer=entry.answer, created_at=entry.created_at)
-            for entry in ai_assistant_faq_service.faq_of(knowledge)
-        ],
-        unanswered=[
-            AiAssistantUnansweredEntry(
-                question=entry.question, count=entry.count, first_seen=entry.first_seen, last_seen=entry.last_seen
-            )
-            for entry in ai_assistant_faq_service.unanswered_of(knowledge)
-        ],
-    )
 
 
 def confirmation_response(

@@ -258,6 +258,13 @@ class AiAssistantPublicResponse(BaseModel):
     closed_hours: AiAssistantClosedHours | None = None
     # Phone, address and hours of a sold receptionist's business; None for a demo.
     business: AiAssistantPublicBusiness | None = None
+    # A live demo opens a demo space (« /ia/{slug}/espace »): the prospect's own receptionist, read-only.
+    has_demo_space: bool = False
+    # The questions the widget opens with, in French: the business's own once written, else its trade's.
+    suggested_questions: list[str] = Field(default_factory=list)
+    # Whether the business's trade gets the photo-for-a-quote chip and the appointment chip.
+    offers_photo_quote: bool = True
+    offers_appointment: bool = True
 
 
 class AiAssistantInstalledPing(BaseModel):

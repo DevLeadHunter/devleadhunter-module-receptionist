@@ -269,6 +269,15 @@ class AiAssistantCalendarService:
             for assistant_id in assistant_ids
         }
 
+    def state_before_connection(self) -> AiAssistantCalendarConnection:
+        """
+        Where an agenda stands before its business connects one.
+
+        Returns:
+            To connect, or unavailable while Google Calendar is not configured on the server.
+        """
+        return self._connection_state(None)
+
     @staticmethod
     def _connection_state(calendar_status: str | None) -> AiAssistantCalendarConnection:
         """The state of an agenda from the status of its row (None: the assistant has no agenda row)."""

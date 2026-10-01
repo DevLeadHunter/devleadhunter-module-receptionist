@@ -35,11 +35,13 @@ def _assistant(db: Session) -> AiAssistant:
     )
 
 
-def _conversation(db: Session, assistant: AiAssistant, *visitor_turns: datetime, is_test: bool = False) -> None:
+def _conversation(
+    db: Session, assistant: AiAssistant, *visitor_turns: datetime, is_test: bool = False, session_id: str = ""
+) -> None:
     conversation = AiAssistantConversation(
         user_id=assistant.user_id,
         assistant_id=assistant.id,
-        session_id=f"session-{next(_SESSIONS)}",
+        session_id=session_id or f"session-{next(_SESSIONS)}",
         language="fr",
         message_count=2 * len(visitor_turns),
         is_test=is_test,
@@ -115,3 +117,23 @@ def test_the_example_space_has_a_month_of_activity_ending_today() -> None:
     assert space.activity[-1].day == "2026-10-01"
     assert space.recent.requests == sum(day.requests for day in space.activity)
     assert space.recent.conversations == sum(day.conversations for day in space.activity)
+
+
+def test_a_demo_space_counts_the_visitor_own_sessions_only_their_tests_included(db: Session) -> None:
+    assistant = _assistant(db)
+    _conversation(db, assistant, datetime(2026, 9, 29, 9, 0), session_id="visitor-session-1")
+    _conversation(db, assistant, datetime(2026, 9, 30, 9, 0), is_test=True, session_id="visitor-session-2")
+    _conversation(db, assistant, datetime(2026, 9, 30, 10, 0), session_id="someone-else-session")
+    _request(db, assistant, datetime(2026, 9, 29, 9, 5), session_id="visitor-session-1", received_outside_hours=True)
+    _request(db, assistant, datetime(2026, 9, 30, 10, 5), session_id="someone-else-session")
+    sessions = ["visitor-session-1", "visitor-session-2"]
+
+    figures = AiAssistantClientActivity.session_figures(db, assistant, sessions, now=_NOW)
+    by_day = {
+        entry.day: (entry.conversations, entry.requests)
+        for entry in AiAssistantClientActivity.by_day(db, assistant, session_ids=sessions, now=_NOW)
+    }
+
+    assert (figures.conversations, figures.requests, figures.outside_hours_pct) == (2, 1, 100)
+    assert by_day["2026-09-29"] == (1, 1) and by_day["2026-09-30"] == (1, 0)
+    assert AiAssistantClientActivity.session_figures(db, assistant, [], now=_NOW).conversations == 0

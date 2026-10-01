@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from core.clock import naive_utc_now
 from models.ai_assistant import AiAssistant
+from schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantFaqResponse, AiAssistantUnansweredEntry
 from services.text_normalizer import TextNormalizer
 
 MAX_FAQ_ENTRIES = 50
@@ -82,6 +83,30 @@ class AiAssistantFaqService:
             )
             for entry in AiAssistantFaqService._stored_unanswered(knowledge)
         ]
+
+    def faq_and_unanswered(self, assistant: AiAssistant) -> AiAssistantFaqResponse:
+        """
+        The FAQ and the unanswered questions of an assistant, as its owner and its client both read them.
+
+        Args:
+            assistant: The assistant.
+
+        Returns:
+            Both lists, in their stored order.
+        """
+        knowledge = assistant.knowledge_json
+        return AiAssistantFaqResponse(
+            faq=[
+                AiAssistantFaqEntry(question=entry.question, answer=entry.answer, created_at=entry.created_at)
+                for entry in self.faq_of(knowledge)
+            ],
+            unanswered=[
+                AiAssistantUnansweredEntry(
+                    question=entry.question, count=entry.count, first_seen=entry.first_seen, last_seen=entry.last_seen
+                )
+                for entry in self.unanswered_of(knowledge)
+            ],
+        )
 
     def record_unanswered(self, db: Session, assistant: AiAssistant, question: str) -> None:
         """
