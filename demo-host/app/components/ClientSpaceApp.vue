@@ -62,6 +62,7 @@
               v-if="space.subscribe_url"
               :href="space.subscribe_url"
               class="cs-example__link cs-example__link--primary"
+              @click="onSubscribeClick"
             >
               Je garde {{ space.assistant_name
               }}<template v-if="space.monthly_price_label">, {{ space.monthly_price_label }} par mois</template>
@@ -257,7 +258,9 @@ import type { ComputedRef, Ref } from 'vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type {
   AiAssistantClientRequest,
+  AiAssistantClientSpace,
   AiAssistantClientSpaceLoad,
+  AiAssistantClientSpaceState,
   AiAssistantClientUnansweredEntry,
 } from '~/types/AiAssistantClientSpace'
 import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
@@ -274,6 +277,7 @@ import { useClientSpaceMailbox } from '~/composables/useClientSpaceMailbox'
 import { useClientSpaceNavigation } from '~/composables/useClientSpaceNavigation'
 import { useClientSpaceRequests } from '~/composables/useClientSpaceRequests'
 import { useClientSpaceSettings } from '~/composables/useClientSpaceSettings'
+import { captureDemoEvent, useDemoTracking } from '~/composables/useDemoTracking'
 import { useDemoSpaceLink } from '~/composables/useDemoSpaceLink'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { AssistantAvatarUtils } from '~/utils/AssistantAvatarUtils'
@@ -283,6 +287,7 @@ const props: ClientSpaceAppProps = defineProps({
 })
 
 const route: ReturnType<typeof useRoute> = useRoute()
+const { initForOwnEvents }: ReturnType<typeof useDemoTracking> = useDemoTracking()
 const link: UseClientSpaceLinkReturn = props.isDemo ? useDemoSpaceLink() : useClientSpaceLink()
 const { token, state, space, renewState, fetchSpace, setLoadResult, renewLink }: UseClientSpaceLinkReturn = link
 
@@ -489,6 +494,28 @@ async function dismissOpenedQuestion(): Promise<void> {
   if (await dismissQuestion(index)) closeDetail()
 }
 
+/**
+ * Count the prospect's visit of its own space once it opened, with how many requests are its own.
+ * @returns A promise resolved once the visit is counted.
+ */
+async function trackDemoSpaceView(): Promise<void> {
+  const opened: AiAssistantClientSpace | null = space.value
+  if (!isDemoSpace.value || !opened) return
+  await initForOwnEvents(demoSlug.value, 'assistant')
+  const ownRequestCount: number = opened.requests.filter(
+    (item: AiAssistantClientRequest): boolean => !item.is_example,
+  ).length
+  captureDemoEvent('assistant_demo_space_viewed', {
+    own_requests: ownRequestCount,
+    example_requests: opened.requests.length - ownRequestCount,
+  })
+}
+
+/** The prospect clicks « Je garde … » from its own space: the strongest sign of all. */
+function onSubscribeClick(): void {
+  captureDemoEvent('assistant_demo_space_subscribe_clicked')
+}
+
 /** Follow the screen's width: the sidebar and the split view above 1024 px, the tab bar below. */
 function onWideChange(): void {
   isWide.value = wideQuery?.matches === true
@@ -511,6 +538,10 @@ watch(
 )
 
 watch((): ClientSpaceSection => location.value.section, clearCalendarFeedback)
+
+watch(state, async (value: AiAssistantClientSpaceState): Promise<void> => {
+  if (value === 'ready') await trackDemoSpaceView()
+})
 
 onMounted((): void => {
   wideQuery = window.matchMedia(WIDE_QUERY)

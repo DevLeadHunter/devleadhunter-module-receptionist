@@ -1044,7 +1044,10 @@ l'assistant depuis un prospect selon le module actif.
 Émis par le widget : `assistant_opened`, `assistant_message_sent`, `assistant_lead_submitted`,
 `assistant_photo_sent`, `assistant_suggestion_action` (une puce de suite qui ouvre le rappel, le calendrier ou la
 photo, propriété `action`) ; la page de démo émet `assistant_demo_space_opened` au clic vers l'espace du prospect
-(`assistant_space_example_opened` quand l'API ne sert pas encore d'espace démo et que le lien mène à l'exemple) ; la page vidéo `/va/{slug}` émet les events vidéo du site sous le préfixe
+(`assistant_space_example_opened` quand l'API ne sert pas encore d'espace démo et que le lien mène à l'exemple) ;
+l'espace démo émet `assistant_demo_space_viewed` à l'ouverture (propriétés `own_requests`, `example_requests`) et
+`assistant_demo_space_subscribe_clicked` au clic sur « Je garde … », sans balise ni écouteur générique
+(`useDemoTracking.initForOwnEvents`) ; la page vidéo `/va/{slug}` émet les events vidéo du site sous le préfixe
 `assistant_video_*` (`_play`, `_resume`, `_pause`, `_replay`, `_progress`, `_complete`, `_watch_time`, `_seek`,
 `_fullscreen`, `_mute`, `_cta_click`, `_endcard_shown`). Tous portent la super-propriété **`surface: 'assistant'`** (le site porte
 `surface: 'demo'`), pour distinguer les modules dans le même projet PostHog. `useDemoTracking.init` accepte
