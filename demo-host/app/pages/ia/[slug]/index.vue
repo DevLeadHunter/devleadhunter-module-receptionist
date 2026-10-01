@@ -1,6 +1,10 @@
 <template>
   <div class="ia-page" :style="accentStyle">
     <p v-if="pending" class="ia-page__message">Chargement…</p>
+    <div v-else-if="loadError" class="ia-page__message">
+      <p>La page ne s'est pas chargée.</p>
+      <button type="button" class="ia-page__retry" @click="refresh()">Réessayer</button>
+    </div>
     <p v-else-if="!assistant" class="ia-page__message ia-page__message--error">Cette page n'est plus disponible.</p>
     <template v-else>
       <p v-if="isJustSubscribed" class="ia-page__notice" role="status">
@@ -21,6 +25,7 @@ import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
 import { computed, onMounted, ref } from 'vue'
 import AssistantBusinessPage from '~/components/AssistantBusinessPage.vue'
 import AssistantDemoPage from '~/components/AssistantDemoPage.vue'
+import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 
@@ -28,17 +33,23 @@ const route: ReturnType<typeof useRoute> = useRoute()
 const router: ReturnType<typeof useRouter> = useRouter()
 const config: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
 
-const { data: assistant, pending }: Awaited<ReturnType<typeof useAsyncData<AiAssistantConfig | null>>> =
-  await useAsyncData(
-    (): string => `assistant-${routeSlug()}`,
-    async (): Promise<AiAssistantConfig | null> => {
-      try {
-        return await $fetch<AiAssistantConfig>(`${config.public.apiBase}/api/v1/ai-assistants/public/${routeSlug()}`)
-      } catch {
-        return null
-      }
-    },
-  )
+const {
+  data: assistant,
+  pending,
+  error: loadError,
+  refresh,
+}: Awaited<ReturnType<typeof useAsyncData<AiAssistantConfig | null>>> = await useAsyncData(
+  (): string => `assistant-${routeSlug()}`,
+  async (): Promise<AiAssistantConfig | null> => {
+    try {
+      return await $fetch<AiAssistantConfig>(`${config.public.apiBase}/api/v1/ai-assistants/public/${routeSlug()}`)
+    } catch (error: unknown) {
+      // Only an unknown or removed receptionist is gone; a passing failure (a deploy, the network) is tried again.
+      if (ApiRefusalUtils.status(error) === 404) return null
+      throw error
+    }
+  },
+)
 
 /** Back from the checkout: the thanks show once, and the address loses the marker before anyone copies it. */
 const isJustSubscribed: Ref<boolean> = ref(route.query.subscribed === '1')
@@ -80,6 +91,8 @@ function routeSlug(): string {
 }
 
 onMounted(async (): Promise<void> => {
+  // Rendered on the server while the API was briefly down: one more try from the visitor's browser.
+  if (loadError.value) await refresh()
   if (!isJustSubscribed.value) return
   const query: LocationQuery = { ...route.query }
   delete query.subscribed
@@ -128,8 +141,20 @@ useSeoMeta({
 .ia-page__message {
   margin: auto;
   color: var(--ia-ink-dim);
+  text-align: center;
 }
 .ia-page__message--error {
   color: #9f3a2f;
+}
+.ia-page__retry {
+  margin-top: 10px;
+  padding: 10px 18px;
+  border: 1px solid var(--ia-line);
+  border-radius: 999px;
+  background: var(--ia-card);
+  font: inherit;
+  font-weight: 600;
+  color: var(--ia-ink);
+  cursor: pointer;
 }
 </style>
