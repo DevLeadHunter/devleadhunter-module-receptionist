@@ -1,4 +1,4 @@
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
+import type { AiAssistantPersonaGender, AssistantWidgetLanguage } from '~/types/AiAssistant'
 
 /** What a visitor asked for, as the API types a request. */
 export type AiAssistantClientRequestType = 'question' | 'quote' | 'appointment' | 'urgent' | 'other'
@@ -40,6 +40,15 @@ export type AiAssistantClientRequest = {
   outcome: AiAssistantClientRequestOutcome | null
   /** The event described, for a wedding, a reception, a catering request; null otherwise. */
   event: AiAssistantClientEvent | null
+  is_example?: boolean
+  conversation?: AiAssistantClientConversationLine[]
+}
+
+/** One turn of the conversation a request came out of; `photo_url` when the visitor's turn was a photo. */
+export type AiAssistantClientConversationLine = {
+  role: 'user' | 'assistant'
+  content: string
+  photo_url: string | null
 }
 
 /** What an event request said of the event; each field null until the visitor gave it. */
@@ -67,6 +76,7 @@ export type AiAssistantClientReport = {
   won: number
   won_line: string | null
   email_requests: number
+  is_example?: boolean
 }
 
 /** The last days' figures, counted live like the monthly report. */
@@ -193,11 +203,14 @@ export type AiAssistantClientSpace = {
   pending_count: number
   requests: AiAssistantClientRequest[]
   report: AiAssistantClientReport | null
-  /** The last 30 days in all, and day by day (oldest first): the home's figures and chart. Absent on an older API. */
   recent?: AiAssistantClientRecentFigures | null
   activity?: AiAssistantClientActivityDay[]
   /** The example space a prospect opens from its demo page: fictional data, nothing to save. */
   is_example: boolean
+  is_demo?: boolean
+  subscribe_url?: string
+  monthly_price_label?: string
+  assistant_gender?: AiAssistantPersonaGender
   settings: AiAssistantClientSettings
   language_options: AiAssistantClientLanguageOption[]
   subscription: AiAssistantClientSubscription | null

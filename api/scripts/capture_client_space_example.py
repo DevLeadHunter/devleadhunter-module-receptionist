@@ -2,7 +2,7 @@
 Capture the example client space for the demo page's « Vous gardez la main » figure.
 
 Run it with the demo host and the API up (``python scripts/capture_client_space_example.py``): it opens
-``<demo host>/client/exemple`` on a wide screen, with a request open beside the list, and writes the WebP the
+``<demo host>/client/exemple`` on a wide screen, on its home dashboard, and writes the WebP the
 demo page shows (``demo-host/public/showroom/espace-client.webp``). Run it again whenever the space changes.
 """
 
@@ -18,18 +18,16 @@ from playwright.sync_api import sync_playwright
 
 _ROOT = Path(__file__).resolve().parent.parent
 _OUTPUT = _ROOT.parent / "demo-host" / "public" / "showroom" / "espace-client.webp"
-# The wide layout (rubrics, list, detail) at the proportions the demo page reserves for the figure (1400 × 875).
+# The wide layout (sections, figures, chart, panels) at the proportions the demo page reserves for it (1400 × 875).
 _VIEWPORT_WIDTH = 1280
 _VIEWPORT_HEIGHT = 800
 _OUTPUT_WIDTH = 1400
 _WEBP_QUALITY = 84
-# The request opened beside the list: the appointment request, with its wished half-days.
-_OPENED_REQUEST_ID = 2
 
 
 def capture(demo_host_base_url: str, output: Path) -> Path:
     """
-    Screenshot the example space on a wide screen at 2x, a request open beside the list, and write it as a WebP.
+    Screenshot the example space's home on a wide screen at 2x, and write it as a WebP.
 
     Args:
         demo_host_base_url: The demo host serving ``/client/exemple``.
@@ -43,10 +41,8 @@ def capture(demo_host_base_url: str, output: Path) -> Path:
         page = browser.new_page(
             viewport={"width": _VIEWPORT_WIDTH, "height": _VIEWPORT_HEIGHT}, device_scale_factor=2, locale="fr-FR"
         )
-        page.goto(
-            f"{demo_host_base_url.rstrip('/')}/client/exemple#demandes/{_OPENED_REQUEST_ID}", wait_until="networkidle"
-        )
-        page.wait_for_selector(".cs-split__detail .cs-head")
+        page.goto(f"{demo_host_base_url.rstrip('/')}/client/exemple", wait_until="networkidle")
+        page.wait_for_selector(".cs-home .cs-chart")
         # The example banner is for the visitor, not for the picture; the sidebar's portrait must be loaded.
         page.add_style_tag(content=".cs-example{display:none !important}")
         page.wait_for_timeout(600)

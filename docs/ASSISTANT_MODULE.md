@@ -874,8 +874,9 @@ de 8 h, heure de Paris. Une démo ou un client résilié n'en reçoit jamais, re
 
 ## Espace client (`services/ai_assistant/client_space_service.py`)
 
-La page `/client/{token}` du demo-host (`demo-host/app/pages/client/[token].vue`), sans compte ni mot de
-passe, pour le client d'un assistant **vendu** (`delivered`) ; une démo n'en a pas.
+La page `/client/{token}` du demo-host (`demo-host/app/components/ClientSpaceApp.vue`, page
+`pages/client/[token].vue`), sans compte ni mot de passe, pour le client d'un assistant **vendu** (`delivered`).
+Une démo a son **espace démo** en lecture seule (`/ia/{slug}/espace`, voir le vingt-deuxième passage).
 
 - **Lien magique** (`client_links.py`) : `<id>.<expiration en base 36>.<signature>`, environ 28
   caractères, HMAC-SHA256 tronqué à 96 bits (clé `SECRET_KEY`) de l'assistant et de l'expiration, valable
@@ -1042,7 +1043,8 @@ l'assistant depuis un prospect selon le module actif.
 
 Émis par le widget : `assistant_opened`, `assistant_message_sent`, `assistant_lead_submitted`,
 `assistant_photo_sent`, `assistant_suggestion_action` (une puce de suite qui ouvre le rappel, le calendrier ou la
-photo, propriété `action`) ; la page vidéo `/va/{slug}` émet les events vidéo du site sous le préfixe
+photo, propriété `action`) ; la page de démo émet `assistant_demo_space_opened` au clic vers l'espace du prospect
+(`assistant_space_example_opened` quand l'API ne sert pas encore d'espace démo et que le lien mène à l'exemple) ; la page vidéo `/va/{slug}` émet les events vidéo du site sous le préfixe
 `assistant_video_*` (`_play`, `_resume`, `_pause`, `_replay`, `_progress`, `_complete`, `_watch_time`, `_seek`,
 `_fullscreen`, `_mute`, `_cta_click`, `_endcard_shown`). Tous portent la super-propriété **`surface: 'assistant'`** (le site porte
 `surface: 'demo'`), pour distinguer les modules dans le même projet PostHog. `useDemoTracking.init` accepte
@@ -1569,3 +1571,33 @@ référence, portrait de Sofia.
   requête d'agenda (`missing_steps_by_assistant_id`).
 - **Laissé en l'état** : `HTTP_413_REQUEST_ENTITY_TOO_LARGE` reste tant que la version de Starlette du serveur, qui
   doit connaître `HTTP_413_CONTENT_TOO_LARGE`, n'est pas vérifiée.
+
+## Vingt-deuxième passage — tableau de bord, espace du prospect, page de démo (01/10)
+
+- **Espace client en tableau de bord** : thème clair seulement (le mode sombre et Fraunces sont retirés de l'espace),
+  barre latérale (initiales du commerce sur sa couleur, rubriques, réceptionniste en pied), barre du haut avec
+  « {Prénom} est en ligne ». L'accueil (`ClientSpaceHome.vue`) aligne quatre chiffres (à rappeler, demandes,
+  conversations, part hors horaires), l'activité des 30 derniers jours (`ClientSpaceActivityChart.vue`, barres
+  conversations et demandes par jour), « À faire » ou « Pour démarrer », les prochains rendez-vous, les dernières
+  demandes, la réceptionniste et ses réglages, le dernier rapport. Agenda et réglages passent sur deux colonnes à
+  l'ordinateur ; la barre du haut reste affichée quand une demande est ouverte à côté de la liste.
+- **Chiffres en direct** : la réponse de l'espace porte `recent` (30 derniers jours glissants : conversations,
+  demandes, devis, clients gagnés, part hors horaires) et `activity` (un point par jour de Paris), calculés par
+  `services/ai_assistant/client_space_activity.py` avec le même comptage que le rapport mensuel
+  (`AiAssistantReportStats.figures`, sans l'appel au modèle des questions fréquentes). Fenêtre glissante : jamais
+  zéro le 1er du mois. L'espace vitrine `exemple` porte un mois d'activité fictive.
+- **Espace démo du prospect** : `POST /ai-assistants/public/{slug}/space` (`demo_space_service.py`), avec les
+  sessions du widget gardées par le navigateur (`dlh-assistant-{slug}`) : la réceptionniste du prospect telle qu'il
+  l'aura (prénom, portrait, couleur, réponses imposées et apprises, fiche Google, ligne du site, « Pour démarrer »
+  à faire), ses propres demandes avec leur conversation, complétées sous deux par des exemples de son métier marqués
+  « Exemple », un rapport d'exemple, ses chiffres et son activité sur ses seules sessions (tests compris). Rien ne
+  s'enregistre ; une démo vendue, expirée ou supprimée n'en a pas (404). La config publique porte `has_demo_space`.
+  Page `pages/ia/[slug]/espace.vue` (la démo passe en `pages/ia/[slug]/index.vue`), même écrans que l'espace client
+  (`useDemoSpaceLink.ts` remplace le lien personnel), bandeau « Votre espace, tel que vous l'aurez » avec « Revenir à
+  ma démo » et « Je garde {Prénom}, {prix} par mois ».
+- **Page de démo plus visuelle** : titre en Inter, accroche en deux phrases, trois promesses en pastilles, le
+  téléphone du patron dessiné (écran verrouillé, heure, SMS), trois cartes « ce que vous recevez », l'estimation en
+  gros chiffre, l'espace en grand avec le bouton « Découvrir votre espace » (et « Voir la demande dans votre espace »
+  sous le téléphone dès qu'une demande est partie), ce que la réceptionniste ne fait jamais en quatre lignes, l'offre
+  en carte de prix. Inter auto-hébergée est déclarée de 400 à 800 (le fichier est variable).
+- **Vitrine** : `scripts/capture_client_space_example.py` capture désormais l'accueil de l'espace exemple.

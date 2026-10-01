@@ -361,7 +361,6 @@ watch(
   padding: 0 16px;
 }
 
-/* On a wide screen: the appointments on the left, Google Agenda on the right. */
 @media (min-width: 1024px) {
   .cs-agenda {
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);

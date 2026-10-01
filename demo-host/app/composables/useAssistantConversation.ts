@@ -124,10 +124,7 @@ export function useAssistantConversation(
   const canOfferAppointmentChip: ComputedRef<boolean> = computed(
     (): boolean => (assistant.offers_appointment ?? true) && !hasSentLead.value,
   )
-  /**
-   * The questions under the greeting, after the example and action chips and within the chips a phone shows: the
-   * business's own in their language, the generic one in the others.
-   */
+  /** The questions under the greeting: the business's own in French, the generic one in the other languages. */
   const suggestions: ComputedRef<string[]> = computed((): string[] => {
     const businessQuestions: string[] = assistant.suggested_questions ?? []
     const questions: string[] =

@@ -1,8 +1,6 @@
 import type { AiAssistantClientActivityDay } from '~/types/AiAssistantClientSpace'
 
-/** Props of the client-space activity chart. */
 export type ClientSpaceActivityChartProps = {
-  /** The days to draw, oldest first. */
   days: AiAssistantClientActivityDay[]
 }
 

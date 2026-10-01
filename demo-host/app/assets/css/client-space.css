@@ -552,6 +552,16 @@
   text-overflow: ellipsis;
 }
 
+.cs-row__example {
+  flex: none;
+  padding: 1px 7px;
+  border: 1px solid var(--cs-line);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cs-dim);
+}
+
 .cs-row__status {
   flex: none;
   font-size: 10.5px;
@@ -830,6 +840,17 @@
   margin: 0;
 }
 
+.cs-example--demo {
+  border-color: var(--cs-line);
+  background: var(--cs-card);
+}
+
+.cs-example__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .cs-example__link {
   display: inline-flex;
   align-items: center;
@@ -844,6 +865,12 @@
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
+}
+
+.cs-example__link--primary {
+  border-color: var(--cs-accent-strong);
+  background: var(--cs-accent-strong);
+  color: var(--cs-on-accent);
 }
 
 /* ---- layout ---- */
@@ -1015,7 +1042,6 @@
     border-radius: 12px;
   }
 
-  /* Beside the list, the photos line up as thumbnails rather than filling the column. */
   .cs-split__detail .cs-block.cs-photos {
     display: flex;
     flex-wrap: wrap;

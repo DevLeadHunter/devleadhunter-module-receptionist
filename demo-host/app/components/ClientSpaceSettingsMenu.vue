@@ -10,7 +10,7 @@
         </button>
       </div>
     </section>
-    <p v-if="!props.space.is_example" class="cs-menu__foot">
+    <p v-if="!props.space.is_example && !props.space.is_demo" class="cs-menu__foot">
       Lien personnel : il se prolonge à chaque ouverture (valable jusqu’au {{ props.space.link_expires_label }}). Ne le
       transférez pas : il donne accès à vos demandes.
     </p>
@@ -239,7 +239,6 @@ function open(entry: ClientSpaceSettingsEntry): void {
   color: var(--cs-faint);
 }
 
-/* On a wide screen the groups flow in two columns, like a settings page of the tools the client already uses. */
 @media (min-width: 1024px) {
   .cs-menu {
     display: block;

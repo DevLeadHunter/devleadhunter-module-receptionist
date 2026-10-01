@@ -53,9 +53,8 @@ import { CLIENT_SPACE_NAV_ITEMS } from '~/constants/ClientSpaceNavItems'
 import { ClientSpaceRequestUtils } from '~/utils/ClientSpaceRequestUtils'
 
 /**
- * The left column of the client space on a wide screen, like the business tools the client already uses: the
- * business with its initials on its colour, the four sections, then the receptionist and the help entry at the
- * bottom. Same entries as the phone's tab bar.
+ * The left column of the client space on a wide screen: the business, the four sections, the receptionist and
+ * the help entry. Same entries as the phone's tab bar, laid out like Qonto's.
  * @param businessName The business.
  * @param section The current section.
  * @param pendingCount How many requests wait for a call back.

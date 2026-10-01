@@ -25,11 +25,7 @@ export type AiAssistantClosedHours = {
   estimated_requests: number
 }
 
-/**
- * Public configuration of a prospect's AI assistant, served by the API and consumed as-is. `suggested_questions` are
- * the business's own opening questions, in French (its trade's until written); `offers_photo_quote` and
- * `offers_appointment` say whether its trade gets the photo and appointment chips.
- */
+/** Public configuration of a prospect's AI assistant, served by the API and consumed as-is. */
 export type AiAssistantConfig = {
   slug: string
   business_name: string
@@ -56,6 +52,7 @@ export type AiAssistantConfig = {
   suggested_questions?: string[]
   offers_photo_quote?: boolean
   offers_appointment?: boolean
+  has_demo_space?: boolean
 }
 
 /**

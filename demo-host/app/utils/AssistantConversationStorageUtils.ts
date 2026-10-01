@@ -78,6 +78,18 @@ export class AssistantConversationStorageUtils {
   }
 
   /**
+   * The widget sessions this browser kept for an assistant: the one of its stored conversation, if any.
+   * @param slug - The assistant's public slug.
+   * @returns The session ids (none when the visitor never wrote, or storage is refused).
+   */
+  static sessionIds(slug: string): string[] {
+    const stored: AssistantStoredConversation | null = AssistantConversationStorageUtils.parse(
+      AssistantConversationStorageUtils.read(AssistantConversationStorageUtils.key(slug)),
+    )
+    return stored?.sessionId ? [stored.sessionId] : []
+  }
+
+  /**
    * A random id for a visitor's conversation (the browser's UUID when available).
    * @returns The new session id.
    */

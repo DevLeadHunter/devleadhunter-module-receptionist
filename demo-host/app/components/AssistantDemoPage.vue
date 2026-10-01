@@ -12,7 +12,7 @@
           <strong class="ia__lede-emphasis">Essayez, comme ce client.</strong>
         </p>
         <ul class="ia__proofs" aria-label="En bref">
-          <li v-for="proof in proofs" :key="proof.label" class="ia__proof">
+          <li v-for="proof in HERO_PROMISES" :key="proof.label" class="ia__proof">
             <span class="ia__proof-icon"><ClientSpaceIcon :name="proof.icon" /></span>{{ proof.label }}
           </li>
         </ul>
@@ -37,6 +37,9 @@
             :hint-text="feedHintText"
             :arrival-key="exampleArrivals"
           />
+          <a v-if="receivedLead" :href="spaceUrl" class="ia__feed-link" @click="onSpaceClick">
+            Voir la demande dans votre espace<ClientSpaceIcon name="arrow-right" />
+          </a>
         </div>
       </div>
 
@@ -68,11 +71,11 @@
               <span class="ia__check-icon"><ClientSpaceIcon :name="item.icon" /></span>{{ item.label }}
             </li>
           </ul>
-          <a :href="exampleSpaceUrl" class="ia__space-button" @click="onExampleSpaceClick">
+          <a :href="spaceUrl" class="ia__space-button" @click="onSpaceClick">
             Découvrir votre espace<ClientSpaceIcon name="arrow-right" />
           </a>
         </div>
-        <a :href="exampleSpaceUrl" class="ia__space-figure" tabindex="-1" @click="onExampleSpaceClick">
+        <a :href="spaceUrl" class="ia__space-figure" tabindex="-1" @click="onSpaceClick">
           <img
             class="ia__space-image"
             src="/showroom/espace-client.webp"
@@ -99,7 +102,7 @@
           ><span class="ia__offer-period">par mois</span>
         </p>
         <ul class="ia__offer-terms">
-          <li v-for="term in offerTerms" :key="term" class="ia__offer-term">
+          <li v-for="term in OFFER_TERMS" :key="term" class="ia__offer-term">
             <ClientSpaceIcon name="check" />{{ term }}
           </li>
         </ul>
@@ -147,23 +150,14 @@ import { AssistantDemoScenarioUtils } from '~/utils/AssistantDemoScenarioUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 
-/** The three promises under the title, read before anything else. */
-const PROOFS: AssistantDemoPagePoint[] = [
+const HERO_PROMISES: AssistantDemoPagePoint[] = [
   { icon: 'clock', label: 'Répond 24 h sur 24, 7 jours sur 7' },
   { icon: 'message-square', label: 'Vous prévient par SMS' },
   { icon: 'camera', label: 'Note la photo et le numéro' },
 ]
 
-/** The terms of the offer, under its price. */
 const OFFER_TERMS: string[] = ['Sans engagement', 'Mise en place incluse', 'Premier mois satisfait ou remboursé']
 
-/**
- * The demo page of a receptionist, for the business it was made for: a short promise, the live conversation beside
- * the SMS the business would get, what it receives, the space it keeps, what the receptionist never does and the
- * offer. Few words, each block readable at a glance.
- * @param assistant The demo receptionist, as the API serves it.
- * @param isJustSubscribed Back from the checkout: the price steps aside.
- */
 const props: AssistantDemoPageProps = defineProps({
   assistant: { type: Object as PropType<AiAssistantConfig>, required: true },
   isJustSubscribed: { type: Boolean, default: false },
@@ -172,9 +166,6 @@ const props: AssistantDemoPageProps = defineProps({
 const route: ReturnType<typeof useRoute> = useRoute()
 const config: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
 const { init: initTracking }: ReturnType<typeof useDemoTracking> = useDemoTracking()
-
-const proofs: AssistantDemoPagePoint[] = PROOFS
-const offerTerms: string[] = OFFER_TERMS
 
 /** The request the visitor sent from the conversation, once there is one. */
 const receivedLead: Ref<AssistantLeadSummary | null> = ref(null)
@@ -209,7 +200,6 @@ const arrivalPhrase: ComputedRef<string> = computed((): string =>
   props.assistant.has_website === false ? 'tombe sur votre fiche Google' : 'ouvre votre site',
 )
 
-/** What the business receives, one card each. */
 const features: ComputedRef<AssistantDemoPageFeature[]> = computed((): AssistantDemoPageFeature[] => [
   { icon: 'bell', title: 'Un SMS tout de suite', text: 'Le besoin, l’urgence, le numéro et la photo.' },
   {
@@ -224,14 +214,12 @@ const features: ComputedRef<AssistantDemoPageFeature[]> = computed((): Assistant
   },
 ])
 
-/** What the business finds in its space. */
 const spacePoints: ComputedRef<AssistantDemoPagePoint[]> = computed((): AssistantDemoPagePoint[] => [
   { icon: 'inbox', label: 'Chaque demande, avec le numéro et la photo' },
   { icon: 'chart-column', label: `L’activité de ${props.assistant.assistant_name}, jour par jour` },
   { icon: 'sliders-horizontal', label: 'Ses réponses : vos prix, vos délais, vos horaires' },
 ])
 
-/** What the receptionist never does. */
 const neverPoints: AssistantDemoPagePoint[] = [
   { icon: 'x', label: 'Donner un prix que vous n’avez pas fixé' },
   { icon: 'x', label: 'Promettre une intervention à votre place' },
@@ -267,8 +255,14 @@ const priceLabel: ComputedRef<string> = computed((): string => {
   return label
 })
 
-/** The example client space, read-only, with the way back to this demo. */
-const exampleSpaceUrl: ComputedRef<string> = computed((): string => `/client/exemple?demo=${props.assistant.slug}`)
+/** The prospect's own space, or the example space when the API offers none; an internal visit stays internal. */
+const spaceUrl: ComputedRef<string> = computed((): string => {
+  const isInternalVisit: boolean = route.query.internal === '1'
+  if (props.assistant.has_demo_space) {
+    return `/ia/${props.assistant.slug}/espace${isInternalVisit ? '?internal=1' : ''}`
+  }
+  return `/client/exemple?demo=${props.assistant.slug}${isInternalVisit ? '&internal=1' : ''}`
+})
 
 /** The permanent subscription link: each click opens a fresh Stripe Checkout. */
 const subscribeUrl: ComputedRef<string> = computed(
@@ -290,9 +284,9 @@ function onLeadSent(summary: AssistantLeadSummary): void {
   revealOwnerFeed()
 }
 
-/** The prospect opens the example space: the sign that the « after » matters to them. */
-function onExampleSpaceClick(): void {
-  captureDemoEvent('assistant_space_example_opened')
+/** The prospect opens its space (or the example): the sign that the « after » matters to them. */
+function onSpaceClick(): void {
+  captureDemoEvent(props.assistant.has_demo_space ? 'assistant_demo_space_opened' : 'assistant_space_example_opened')
 }
 
 /** The scripted conversation has run: the example SMS lands again on the business's side. */
@@ -342,7 +336,6 @@ onMounted((): void => {
   flex-direction: column;
 }
 
-/* ── Page ─────────────────────────────────────────────────────────────── */
 .ia__page {
   width: 100%;
   max-width: 1120px;
@@ -353,7 +346,6 @@ onMounted((): void => {
   flex-direction: column;
 }
 
-/* ── Hero: the promise, the scene in two sentences, three proofs ────────── */
 .ia__kicker {
   margin: 0;
   display: flex;
@@ -428,7 +420,6 @@ onMounted((): void => {
   height: 16px;
 }
 
-/* ── The scene: the live conversation, and what the business receives ──── */
 .ia__label {
   margin: 0;
   display: flex;
@@ -498,12 +489,29 @@ onMounted((): void => {
     top: 24px;
   }
 }
+.ia__feed-link {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--a-accent-strong);
+  color: #fff;
+  font-size: 14.5px;
+  font-weight: 650;
+  text-decoration: none;
+}
+.ia__feed-link .cs-icon {
+  width: 17px;
+  height: 17px;
+}
 .ia__banner--hidden :deep(.contact-banner) {
   opacity: 0;
   pointer-events: none;
 }
 
-/* ── What the business receives: three cards ───────────────────────────── */
 .ia__features {
   margin-top: clamp(36px, 6vh, 56px);
   display: grid;
@@ -553,7 +561,6 @@ onMounted((): void => {
   line-height: 1.5;
   color: var(--ia-ink-dim);
 }
-/* On a phone, each card reads as one line: the icon beside the words. */
 @media (max-width: 719px) {
   .ia__feature {
     grid-template-columns: 44px minmax(0, 1fr);
@@ -570,7 +577,6 @@ onMounted((): void => {
   }
 }
 
-/* ── The estimate: one figure ──────────────────────────────────────────── */
 .ia__estimate {
   margin-top: 16px;
   display: flex;
@@ -606,7 +612,6 @@ onMounted((): void => {
   color: #fff;
 }
 
-/* ── The space: what the business keeps in hand ────────────────────────── */
 .ia__space {
   margin-top: clamp(36px, 6vh, 56px);
   display: grid;
@@ -723,7 +728,6 @@ onMounted((): void => {
   height: auto;
 }
 
-/* ── What the receptionist never does ──────────────────────────────────── */
 .ia__never {
   margin-top: 16px;
   padding: 20px 24px;
@@ -770,7 +774,6 @@ onMounted((): void => {
   height: 14px;
 }
 
-/* ── The offer ─────────────────────────────────────────────────────────── */
 .ia__offer {
   margin-top: clamp(36px, 6vh, 56px);
   display: grid;

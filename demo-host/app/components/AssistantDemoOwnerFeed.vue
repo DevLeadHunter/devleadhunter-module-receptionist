@@ -41,16 +41,6 @@
 <script lang="ts" setup>
 import type { AssistantDemoOwnerFeedProps } from '~/types/AssistantDemoOwnerFeed'
 
-/**
- * The business's side of the demo: its phone's lock screen, where the receptionist's SMS lands, and the hint under
- * it. The example SMS of the trade first, then the visitor's own request.
- * @param timeLabel The time on the lock screen (« 21:43 »).
- * @param assistantName The receptionist's first name.
- * @param alertText The SMS.
- * @param isExample The trade's example, not yet the visitor's request.
- * @param hintText What to do next, under the phone.
- * @param arrivalKey Changes each time the SMS lands again, to replay its arrival.
- */
 const props: AssistantDemoOwnerFeedProps = defineProps({
   timeLabel: {
     type: String,

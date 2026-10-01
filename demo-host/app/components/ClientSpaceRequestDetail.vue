@@ -10,7 +10,8 @@
           <p class="cs-head__meta">
             <b :class="`cs-head__status--${status.tone}`">{{ status.label }}</b>
             · {{ props.request.received_label
-            }}<template v-if="props.request.received_outside_hours"> · hors horaires</template>
+            }}<template v-if="props.request.received_outside_hours"> · hors horaires</template
+            ><template v-if="props.request.is_example"> · exemple</template>
           </p>
         </div>
       </div>
@@ -82,6 +83,28 @@
           >
             <img :src="url" :alt="`Photo ${index + 1}`" loading="lazy" referrerpolicy="no-referrer" />
           </a>
+        </div>
+      </template>
+
+      <template v-if="conversationLines.length > 0">
+        <p class="cs-sec">La conversation</p>
+        <div class="cs-block cs-detail__conversation">
+          <p
+            v-for="(line, index) in conversationLines"
+            :key="index"
+            class="cs-detail__turn"
+            :class="`cs-detail__turn--${line.role}`"
+          >
+            <img
+              v-if="line.photo_url"
+              class="cs-detail__turn-photo"
+              :src="line.photo_url"
+              alt="Photo envoyée par le visiteur"
+              loading="lazy"
+              referrerpolicy="no-referrer"
+            />
+            <span v-else class="cs-detail__bubble">{{ line.content }}</span>
+          </p>
         </div>
       </template>
 
@@ -161,7 +184,11 @@
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType } from 'vue'
 import { computed } from 'vue'
-import type { AiAssistantClientEvent, AiAssistantClientRequest } from '~/types/AiAssistantClientSpace'
+import type {
+  AiAssistantClientConversationLine,
+  AiAssistantClientEvent,
+  AiAssistantClientRequest,
+} from '~/types/AiAssistantClientSpace'
 import type {
   ClientSpaceRequestDetailEmits,
   ClientSpaceRequestDetailProps,
@@ -212,6 +239,10 @@ const isPhone: ComputedRef<boolean> = computed((): boolean => contactHref.value?
 
 const photosLabel: ComputedRef<string> = computed((): string =>
   props.request.photo_urls.length === 1 ? 'Photo' : `${props.request.photo_urls.length} photos`,
+)
+
+const conversationLines: ComputedRef<AiAssistantClientConversationLine[]> = computed(
+  (): AiAssistantClientConversationLine[] => props.request.conversation ?? [],
 )
 
 /** The event's details as rows (date, place, guests, budget), only the ones the visitor gave. */
@@ -295,6 +326,48 @@ const outcomeLabel: ComputedRef<string> = computed(
 
 .cs-detail__error {
   padding: 12px 16px 0;
+}
+
+.cs-detail__conversation {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.cs-detail__turn {
+  display: flex;
+  margin: 0;
+}
+
+.cs-detail__turn--user {
+  justify-content: flex-end;
+}
+
+.cs-detail__bubble {
+  max-width: 85%;
+  padding: 9px 12px;
+  border-radius: 14px;
+  font-size: 14.5px;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.cs-detail__turn--assistant .cs-detail__bubble {
+  border: 1px solid var(--cs-line);
+  border-bottom-left-radius: 4px;
+  background: var(--cs-surface-2);
+}
+
+.cs-detail__turn--user .cs-detail__bubble {
+  border-bottom-right-radius: 4px;
+  background: var(--cs-accent-strong);
+  color: var(--cs-on-accent);
+}
+
+.cs-detail__turn-photo {
+  width: min(220px, 70%);
+  border-radius: 12px;
+  border: 1px solid var(--cs-line);
 }
 
 .cs-detail__done {

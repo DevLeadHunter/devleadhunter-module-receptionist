@@ -9,6 +9,7 @@
     <span class="cs-row__body">
       <span class="cs-row__top">
         <span class="cs-row__name">{{ props.request.name }}</span>
+        <span v-if="props.request.is_example" class="cs-row__example">Exemple</span>
         <span class="cs-row__status" :class="`cs-row__status--${status.tone}`">{{ status.label }}</span>
       </span>
       <span class="cs-row__meta">

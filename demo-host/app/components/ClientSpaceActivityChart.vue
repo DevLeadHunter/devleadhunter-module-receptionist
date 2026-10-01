@@ -49,11 +49,6 @@ const AXIS_LABEL_EVERY_DAYS: number = 7
 /** The scale's top values, an even number so the middle line reads a whole number. */
 const SCALE_STEPS: number[] = [2, 4, 6, 8, 10]
 
-/**
- * The activity of the last days: each day's conversations and requests side by side, on one scale, with the
- * period's totals as the legend. A day's figures read in its tooltip.
- * @param days The days to draw, oldest first.
- */
 const props: ClientSpaceActivityChartProps = defineProps({
   days: { type: Array as PropType<AiAssistantClientActivityDay[]>, required: true },
 })
@@ -80,7 +75,6 @@ const scaleMax: ComputedRef<number> = computed((): number => {
   return step * magnitude
 })
 
-/** The scale's three lines, top first. */
 const ticks: ComputedRef<number[]> = computed((): number[] => [scaleMax.value, scaleMax.value / 2, 0])
 
 const summary: ComputedRef<string> = computed(

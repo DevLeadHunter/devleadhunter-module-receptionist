@@ -11,7 +11,6 @@ export type ClientSpaceHomeTask = {
   action: string
 }
 
-/** One figure tile at the top of the home. */
 export type ClientSpaceHomeKpi = {
   key: 'pending' | 'requests' | 'conversations' | 'outside-hours'
   label: string
@@ -19,7 +18,6 @@ export type ClientSpaceHomeKpi = {
   hint: string
   icon: 'phone' | 'inbox' | 'message-square' | 'moon'
   tone: 'red' | 'accent'
-  /** A tile about the requests opens their list. */
   opensRequests: boolean
 }
 
@@ -30,7 +28,6 @@ export type ClientSpaceHomeFigure = {
   label: string
 }
 
-/** One link of the home's receptionist panel, to one of her settings screens. */
 export type ClientSpaceHomeAssistantLink = {
   screen: ClientSpaceSettingsScreen
   icon: 'message-circle' | 'ban' | 'bell'

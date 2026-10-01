@@ -129,7 +129,7 @@
           @select="emit('open-settings-screen', 'assistant')"
         />
         <button
-          v-for="link in assistantLinks"
+          v-for="link in ASSISTANT_LINKS"
           :key="link.screen"
           type="button"
           class="cs-cell cs-home__link"
@@ -147,7 +147,13 @@
             <h2 class="cs-panel__title">
               {{ props.space.report ? `Rapport de ${props.space.report.month_label}` : 'Rapport du mois' }}
             </h2>
-            <p class="cs-panel__sub">Envoyé aussi par e-mail, chaque début de mois</p>
+            <p class="cs-panel__sub">
+              {{
+                props.space.report?.is_example
+                  ? 'Exemple : le vôtre arrive chaque début de mois, par e-mail et ici'
+                  : 'Envoyé aussi par e-mail, chaque début de mois'
+              }}
+            </p>
           </div>
           <button
             v-if="props.space.report"
@@ -210,7 +216,6 @@ const LATEST_COUNT: number = 5
 /** How many upcoming appointments the home lists before « L’agenda ». */
 const NEXT_APPOINTMENTS_COUNT: number = 3
 
-/** The receptionist's settings the home leads to, beside her own screen. */
 const ASSISTANT_LINKS: ClientSpaceHomeAssistantLink[] = [
   { screen: 'learned', icon: 'message-circle', label: 'Ce que vous lui avez appris' },
   { screen: 'limits', icon: 'ban', label: 'Prix, délais, garanties' },
@@ -218,10 +223,8 @@ const ASSISTANT_LINKS: ClientSpaceHomeAssistantLink[] = [
 ]
 
 /**
- * The first screen of the client space, laid out like the business tools the client already uses: the key figures
- * of the last 30 days, the receptionist's activity day by day, what there is to do (or, before the first request,
- * the steps to start), the latest requests, the receptionist and her settings, the last monthly report. Every
- * panel leads somewhere.
+ * The first screen of the client space: the last 30 days, what there is to do (or, before the first request, the
+ * steps to start), the next appointments, the latest requests, the receptionist and the last report.
  * @param space The whole space, as served by the API.
  * @param portraitUrl The receptionist's photo.
  * @param portraitFallbackUrl The bust drawn when the photo is missing.
@@ -234,8 +237,6 @@ const props: ClientSpaceHomeProps = defineProps({
 
 const emit: EmitFn<ClientSpaceHomeEmits> = defineEmits<ClientSpaceHomeEmits>()
 
-const assistantLinks: ClientSpaceHomeAssistantLink[] = ASSISTANT_LINKS
-
 const pendingRequests: ComputedRef<AiAssistantClientRequest[]> = computed((): AiAssistantClientRequest[] =>
   props.space.requests.filter((item: AiAssistantClientRequest): boolean => item.status === 'new'),
 )
@@ -245,7 +246,6 @@ const urgentPendingCount: ComputedRef<number> = computed(
     pendingRequests.value.filter((item: AiAssistantClientRequest): boolean => item.type === 'urgent').length,
 )
 
-/** The days of the chart; none from an API that does not serve them yet. */
 const activityDays: ComputedRef<AiAssistantClientActivityDay[]> = computed(
   (): AiAssistantClientActivityDay[] => props.space.activity ?? [],
 )
@@ -255,7 +255,6 @@ const isStarting: ComputedRef<boolean> = computed(
   (): boolean => !props.space.is_example && props.space.requests.length === 0 && props.space.report === null,
 )
 
-/** The four tiles: who waits for a call back, then the last 30 days' requests, conversations and closed hours. */
 const kpis: ComputedRef<ClientSpaceHomeKpi[]> = computed((): ClientSpaceHomeKpi[] => {
   const recent: AiAssistantClientRecentFigures | null = props.space.recent ?? null
   const pending: number = props.space.pending_count
@@ -450,7 +449,6 @@ const doneStepCount: ComputedRef<number> = computed(
   (): number => steps.value.filter((step: ClientSpaceHomeTask): boolean => step.action === '').length,
 )
 
-/** The start's progress bar, in % of the steps done. */
 const startProgressWidth: ComputedRef<string> = computed(
   (): string => `${Math.round((100 * doneStepCount.value) / Math.max(1, steps.value.length))}%`,
 )
@@ -531,7 +529,6 @@ function act(task: ClientSpaceHomeTask): void {
   grid-area: activity;
 }
 
-/* Beside a taller column, the chart grows rather than leaving a blank under its axis. */
 .cs-home__activity > .cs-chart {
   flex: 1;
 }
@@ -557,7 +554,6 @@ function act(task: ClientSpaceHomeTask): void {
   min-width: 0;
 }
 
-/* Beside the chart, the column's last panel takes the height left, so both columns end together. */
 .cs-home__tasks > .cs-panel:last-child {
   flex: 1;
 }
@@ -626,7 +622,6 @@ function act(task: ClientSpaceHomeTask): void {
   margin: 0 16px;
 }
 
-/* The receptionist heads her panel: the panel draws the frame, not her line. */
 .cs-home__assistant .cs-lea {
   margin: 0;
   border: 0;
