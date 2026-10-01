@@ -9,10 +9,12 @@ always reads the same.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from typing import ClassVar
 
 from sqlalchemy.orm import Session
 
+from enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
 from enums.ai_assistant_mailbox import AiAssistantMailboxConnection
 from enums.ai_assistant_request import (
     AiAssistantRequestChannel,
@@ -24,6 +26,7 @@ from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
 from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
 from models.ai_assistant import AiAssistant
 from models.ai_assistant_appointment import AiAssistantAppointment
+from models.ai_assistant_calendar import AiAssistantCalendar
 from models.ai_assistant_report import AiAssistantReport
 from models.ai_assistant_request import AiAssistantRequest
 from models.ai_assistant_subscription import AiAssistantSubscription
@@ -52,7 +55,7 @@ from services.ai_assistant.gmail_client import GmailClient
 from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
 from services.ai_assistant.limits import AssistantLimit
 from services.ai_assistant.mailbox_access import ai_assistant_mailbox_access
-from services.ai_assistant.mailbox_service import ai_assistant_mailbox_service
+from services.ai_assistant.mailbox_service import MailboxView, ai_assistant_mailbox_service
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.report_email import AiAssistantReportEmail, MonthlyStats
 from services.ai_assistant.report_service import ReportPeriod
@@ -64,6 +67,11 @@ from services.french_date_formatter import FrenchDateFormatter
 
 class AiAssistantClientSpacePayload:
     """Builds each section of a client space from the receptionist's rows."""
+
+    # Mailbox states whose section stays hidden: switched off by the operator, or Gmail not configured on the server.
+    _HIDDEN_MAILBOX_CONNECTIONS: ClassVar[frozenset[AiAssistantMailboxConnection]] = frozenset(
+        {AiAssistantMailboxConnection.DISABLED, AiAssistantMailboxConnection.UNAVAILABLE}
+    )
 
     @staticmethod
     def business_label(moment: datetime, pattern: str) -> str:
@@ -132,8 +140,7 @@ class AiAssistantClientSpacePayload:
         )
         return event if any((event.date, event.place, event.guests, event.budget)) else None
 
-    @staticmethod
-    def calendar(db: Session, assistant: AiAssistant) -> AiAssistantClientCalendar:
+    def calendar(self, db: Session, assistant: AiAssistant) -> AiAssistantClientCalendar:
         """
         The agenda section: its connection and the booking settings, defaults applied.
 
@@ -145,6 +152,23 @@ class AiAssistantClientSpacePayload:
             The section, with the choices the page offers.
         """
         state, calendar = ai_assistant_calendar_service.connection(db, assistant)
+        return self._calendar_section(state, calendar)
+
+    def calendar_before_connection(self) -> AiAssistantClientCalendar:
+        """
+        The agenda section of a receptionist whose business has not connected an agenda yet.
+
+        Returns:
+            The section to connect (unavailable while Google Calendar is not configured on the server), defaults
+            applied.
+        """
+        return self._calendar_section(ai_assistant_calendar_service.state_before_connection(), None)
+
+    @staticmethod
+    def _calendar_section(
+        state: AiAssistantCalendarConnection, calendar: AiAssistantCalendar | None
+    ) -> AiAssistantClientCalendar:
+        """The agenda section of a connection state and of the agenda row, if any."""
         booking = CalendarSettings.of(calendar) if calendar is not None else CalendarSettings.defaults()
         return AiAssistantClientCalendar(
             status=state,
@@ -158,8 +182,7 @@ class AiAssistantClientSpacePayload:
             min_notice_choices=list(MIN_NOTICE_CHOICES),
         )
 
-    @staticmethod
-    def mailbox(db: Session, assistant: AiAssistant) -> AiAssistantClientMailbox | None:
+    def mailbox(self, db: Session, assistant: AiAssistant) -> AiAssistantClientMailbox | None:
         """
         The Gmail section, only once the operator switched the mailbox on and Gmail is configured on the server.
 
@@ -172,12 +195,33 @@ class AiAssistantClientSpacePayload:
         """
         mailbox = ai_assistant_mailbox_access.mailbox_of(db, assistant)
         view = ai_assistant_mailbox_service.view(assistant, mailbox)
-        if view.connection in (AiAssistantMailboxConnection.DISABLED, AiAssistantMailboxConnection.UNAVAILABLE):
+        if view.connection in self._HIDDEN_MAILBOX_CONNECTIONS:
             return None
+        return self._mailbox_section(view, ai_assistant_mailbox_service.drafts_this_month(db, assistant))
+
+    def mailbox_before_connection(self, assistant: AiAssistant) -> AiAssistantClientMailbox | None:
+        """
+        The Gmail section of a receptionist whose business has not connected its mailbox yet.
+
+        Args:
+            assistant: The receptionist.
+
+        Returns:
+            The section to connect, or None while the operator has not switched the mailbox on (or Gmail is not
+            configured on the server).
+        """
+        view = ai_assistant_mailbox_service.view(assistant, None)
+        if view.connection in self._HIDDEN_MAILBOX_CONNECTIONS:
+            return None
+        return self._mailbox_section(view, drafts_this_month=0)
+
+    @staticmethod
+    def _mailbox_section(view: MailboxView, drafts_this_month: int) -> AiAssistantClientMailbox:
+        """The Gmail section of a mailbox view and of the reply drafts prepared since the first of the month."""
         return AiAssistantClientMailbox(
             status=view.connection,
             account_email=view.account_email,
-            drafts_this_month=ai_assistant_mailbox_service.drafts_this_month(db, assistant),
+            drafts_this_month=drafts_this_month,
             last_error=view.last_error,
             has_reached_daily_cap=view.has_reached_daily_cap,
             drafts_url=GmailClient.drafts_url(view.account_email),
@@ -205,8 +249,7 @@ class AiAssistantClientSpacePayload:
             contact=record.contact,
         )
 
-    @staticmethod
-    def report(report: AiAssistantReport, assistant_name: str) -> AiAssistantClientReport:
+    def report(self, report: AiAssistantReport, assistant_name: str) -> AiAssistantClientReport:
         """
         A monthly report with the sentences of its email.
 
@@ -217,9 +260,25 @@ class AiAssistantClientSpacePayload:
         Returns:
             The report.
         """
-        stats = MonthlyStats.from_json(report.stats_json or {})
+        return self.report_of_figures(
+            MonthlyStats.from_json(report.stats_json or {}), ReportPeriod.of_key(report.month).first_day, assistant_name
+        )
+
+    @staticmethod
+    def report_of_figures(stats: MonthlyStats, month: date, assistant_name: str) -> AiAssistantClientReport:
+        """
+        A month's figures as its report reads them, with the sentences of the report email.
+
+        Args:
+            stats: The month's figures.
+            month: Any day of the month.
+            assistant_name: The receptionist's first name, for the clients-won sentence.
+
+        Returns:
+            The report.
+        """
         return AiAssistantClientReport(
-            month_label=FrenchDateFormatter.month_year(ReportPeriod.of_key(report.month).first_day),
+            month_label=FrenchDateFormatter.month_year(month),
             conversations=stats.conversations,
             requests=stats.requests,
             quotes=stats.quotes,

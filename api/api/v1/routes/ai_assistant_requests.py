@@ -29,7 +29,6 @@ from schemas.ai_assistant import (
     AiAssistantRequestItem,
     AiAssistantRequestsResponse,
     AiAssistantRequestUpdateRequest,
-    AiAssistantTranscriptLine,
 )
 from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
 from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
@@ -171,14 +170,9 @@ async def get_assistant_request(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
     assistant = db.get(AiAssistant, record.assistant_id)
     booked = ai_assistant_calendar_booking.booked_labels(db, [record.id]).get(record.id)
-    transcript = AiAssistantRequestAttachments.transcript(db, record)
     return AiAssistantRequestDetail(
         request=_to_request_item(record, assistant.business_name if assistant else "", booked),
-        transcript=[
-            AiAssistantTranscriptLine(role=line.role, content=line.content, photo_url=line.photo_url)
-            for line in transcript
-            if line.role in ("user", "assistant")
-        ],
+        transcript=AiAssistantRequestAttachments.conversation(db, record),
     )
 
 

@@ -1,4 +1,7 @@
-"""Client space routes: the magic-link page of a sold assistant (its link is issued from the owner routes)."""
+"""
+Client space routes: the magic-link page of a sold assistant (its link is issued from the owner routes), and the
+read-only demo space a prospect opens from its demo page.
+"""
 
 import logging
 
@@ -29,6 +32,7 @@ from schemas.ai_assistant_client_space import (
     AiAssistantClientSpaceResponse,
     AiAssistantClientTestSms,
 )
+from schemas.ai_assistant_demo_space import AiAssistantDemoSpaceRequest, AiAssistantDemoSpaceResponse
 from schemas.ai_assistant_faq import AiAssistantFaqEntryRequest, AiAssistantFaqResponse
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.calendar_access import ai_assistant_calendar_access
@@ -38,6 +42,7 @@ from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLin
 from services.ai_assistant.client_space_example import EXAMPLE_TOKEN, ai_assistant_client_space_example
 from services.ai_assistant.client_space_payload import ai_assistant_client_space_payload
 from services.ai_assistant.client_space_service import ClientSpaceAccessError, ai_assistant_client_space_service
+from services.ai_assistant.demo_space_service import ai_assistant_demo_space_service
 from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.gmail_client import GmailError
@@ -50,6 +55,7 @@ from services.rate_limiter import (
     assistant_client_renew_daily_limiter,
     assistant_client_renew_limiter,
     assistant_client_test_sms_limiter,
+    assistant_demo_space_limiter,
 )
 
 logger = logging.getLogger(__name__)
@@ -119,6 +125,25 @@ async def get_client_space(
         installed=ai_assistant_client_space_payload.installed(assistant),
         limits=ai_assistant_client_space_payload.limits(AiAssistantLimits.effective(assistant)),
     )
+
+
+@router.post("/public/{slug}/space", response_model=AiAssistantDemoSpaceResponse)
+async def read_demo_space(
+    slug: str, payload: AiAssistantDemoSpaceRequest, request: Request, db: Session = Depends(get_db)
+) -> AiAssistantDemoSpaceResponse:
+    """
+    The space a prospect opens from its demo page: its own receptionist as the client space shows it once sold, with
+    the requests left from the visitor's widget sessions only (examples of the trade below two of them).
+
+    A POST so the session ids stay out of addresses and server logs; it saves, counts and announces nothing. A sold,
+    expired or deleted receptionist has none (404).
+    """
+    if not assistant_demo_space_limiter.allow(f"demo-space:{client_ip(request)}"):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=_TOO_MANY)
+    assistant = ai_assistant_demo_space_service.open_demo(db, slug)
+    if assistant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucun espace de démonstration ici.")
+    return ai_assistant_demo_space_service.build(db, assistant, payload.session_ids)
 
 
 @router.post("/client/{token}/faq", response_model=AiAssistantFaqResponse, status_code=status.HTTP_201_CREATED)

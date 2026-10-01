@@ -13,14 +13,16 @@ import re
 from dataclasses import dataclass
 from typing import ClassVar
 
+from enums.ai_assistant_trade import AiAssistantTrade
 from services.ai_assistant.opening_hours import ClosedHoursEstimate, OpeningHoursCalendar
 from services.text_normalizer import TextNormalizer
 
 
 @dataclass(frozen=True)
 class TradeVolume:
-    """A trade as the page names it (« un plombier ») and the requests such a business receives a month."""
+    """A trade, as the page names it (« un plombier »), and the requests such a business receives a month."""
 
+    trade: AiAssistantTrade
     label: str
     monthly_requests: int
 
@@ -38,45 +40,66 @@ class ClosedHoursOffer:
 class AiAssistantRequestVolume:
     """Finds the request volume of a business from its Google Maps category."""
 
-    DEFAULT: ClassVar[TradeVolume] = TradeVolume(label="un commerce comme le vôtre", monthly_requests=20)
+    DEFAULT: ClassVar[TradeVolume] = TradeVolume(
+        trade=AiAssistantTrade.OTHER, label="un commerce comme le vôtre", monthly_requests=20
+    )
     # Accent-free word starts, checked in order: the first trade with a word of the category starting so wins.
     _TRADES: ClassVar[tuple[tuple[tuple[str, ...], TradeVolume], ...]] = (
         # First: a caterer is an event trade before being a restaurant.
         (
             ("mariage", "banquet", "recept", "traiteur", "evenement", "seminaire"),
-            TradeVolume(label="un lieu de réception", monthly_requests=25),
+            TradeVolume(trade=AiAssistantTrade.EVENT_VENUE, label="un lieu de réception", monthly_requests=25),
         ),
-        (("plomb", "chauffag", "sanitaire"), TradeVolume(label="un plombier", monthly_requests=30)),
-        (("serrur",), TradeVolume(label="un serrurier", monthly_requests=30)),
-        (("electric",), TradeVolume(label="un électricien", monthly_requests=20)),
+        (
+            ("plomb", "chauffag", "sanitaire"),
+            TradeVolume(trade=AiAssistantTrade.PLUMBER, label="un plombier", monthly_requests=30),
+        ),
+        (("serrur",), TradeVolume(trade=AiAssistantTrade.LOCKSMITH, label="un serrurier", monthly_requests=30)),
+        (("electric",), TradeVolume(trade=AiAssistantTrade.ELECTRICIAN, label="un électricien", monthly_requests=20)),
         # Before the garages: « Installateur de portes de garage » fits doors, not cars.
         (
             ("porte", "portail", "fenetre", "volet"),
-            TradeVolume(label="une entreprise du bâtiment", monthly_requests=15),
+            TradeVolume(trade=AiAssistantTrade.BUILDING, label="une entreprise du bâtiment", monthly_requests=15),
         ),
-        (("carross",), TradeVolume(label="une carrosserie", monthly_requests=30)),
+        (("carross",), TradeVolume(trade=AiAssistantTrade.BODY_SHOP, label="une carrosserie", monthly_requests=30)),
         (
             ("garag", "mecani", "automobile", "pneu"),
-            TradeVolume(label="un garage", monthly_requests=30),
+            TradeVolume(trade=AiAssistantTrade.GARAGE, label="un garage", monthly_requests=30),
         ),
-        (("charpent",), TradeVolume(label="un charpentier", monthly_requests=15)),
-        (("couvr", "toiture", "zingu"), TradeVolume(label="un couvreur", monthly_requests=15)),
-        (("menuis", "ebenist"), TradeVolume(label="un menuisier", monthly_requests=15)),
-        (("peintre", "peinture"), TradeVolume(label="un peintre", monthly_requests=15)),
+        (("charpent",), TradeVolume(trade=AiAssistantTrade.CARPENTER, label="un charpentier", monthly_requests=15)),
+        (
+            ("couvr", "toiture", "zingu"),
+            TradeVolume(trade=AiAssistantTrade.ROOFER, label="un couvreur", monthly_requests=15),
+        ),
+        (("menuis", "ebenist"), TradeVolume(trade=AiAssistantTrade.JOINER, label="un menuisier", monthly_requests=15)),
+        (("peintre", "peinture"), TradeVolume(trade=AiAssistantTrade.PAINTER, label="un peintre", monthly_requests=15)),
         (
             ("macon", "renovation", "batiment", "construction"),
-            TradeVolume(label="une entreprise du bâtiment", monthly_requests=15),
+            TradeVolume(trade=AiAssistantTrade.BUILDING, label="une entreprise du bâtiment", monthly_requests=15),
         ),
-        (("coiff", "barbier", "barber"), TradeVolume(label="un salon de coiffure", monthly_requests=40)),
-        (("esthetic", "beaute", "onglerie"), TradeVolume(label="un institut de beauté", monthly_requests=35)),
+        (
+            ("coiff", "barbier", "barber"),
+            TradeVolume(trade=AiAssistantTrade.HAIRDRESSER, label="un salon de coiffure", monthly_requests=40),
+        ),
+        (
+            ("esthetic", "beaute", "onglerie"),
+            TradeVolume(trade=AiAssistantTrade.BEAUTY, label="un institut de beauté", monthly_requests=35),
+        ),
         (
             ("restaurant", "pizzeria", "brasserie"),
-            TradeVolume(label="un restaurant", monthly_requests=40),
+            TradeVolume(trade=AiAssistantTrade.RESTAURANT, label="un restaurant", monthly_requests=40),
         ),
-        (("immobili",), TradeVolume(label="une agence immobilière", monthly_requests=25)),
+        (
+            ("foodtruck", "truck"),
+            TradeVolume(trade=AiAssistantTrade.FOOD_TRUCK, label="un food truck", monthly_requests=20),
+        ),
+        (
+            ("immobili",),
+            TradeVolume(trade=AiAssistantTrade.REAL_ESTATE, label="une agence immobilière", monthly_requests=25),
+        ),
         (
             ("dentist", "kine", "osteo", "medecin", "podolog"),
-            TradeVolume(label="un cabinet de santé", monthly_requests=40),
+            TradeVolume(trade=AiAssistantTrade.HEALTH, label="un cabinet de santé", monthly_requests=40),
         ),
     )
 

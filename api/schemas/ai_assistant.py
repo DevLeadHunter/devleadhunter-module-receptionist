@@ -258,6 +258,8 @@ class AiAssistantPublicResponse(BaseModel):
     closed_hours: AiAssistantClosedHours | None = None
     # Phone, address and hours of a sold receptionist's business; None for a demo.
     business: AiAssistantPublicBusiness | None = None
+    # A live demo opens a demo space (« /ia/{slug}/espace »): the prospect's own receptionist, read-only.
+    has_demo_space: bool = False
 
 
 class AiAssistantInstalledPing(BaseModel):

@@ -65,6 +65,7 @@ from services.ai_assistant.chat_service import ChatAnswer, ai_assistant_chat_ser
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ai_assistant_conversation_service
 from services.ai_assistant.daily_message_cap import ai_assistant_daily_message_cap
+from services.ai_assistant.demo_space_service import ai_assistant_demo_space_service
 from services.ai_assistant.event_intake import ai_assistant_event_intake
 from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.field_limits import SESSION_ID_MAX_CHARS
@@ -199,6 +200,7 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
             else None
         ),
         closed_hours=_closed_hours(db, assistant) if assistant.status == AiAssistantStatus.ACTIVE.value else None,
+        has_demo_space=ai_assistant_demo_space_service.is_open(assistant),
     )
 
 
