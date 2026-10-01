@@ -448,6 +448,7 @@ export function useAssistantConversation(
    */
   async function pickSuggestion(text: string): Promise<void> {
     const action: AssistantSuggestionAction | null = AssistantSuggestionUtils.actionOf(text)
+    if (action !== null) captureDemoEvent('assistant_suggestion_action', { action })
     if (action === 'callback' && !hasSentLead.value) {
       leadForm.openLeadForm()
       return

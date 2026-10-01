@@ -1023,7 +1023,8 @@ l'assistant depuis un prospect selon le module actif.
 ### Tracking (PostHog, côté demo-host)
 
 Émis par le widget : `assistant_opened`, `assistant_message_sent`, `assistant_lead_submitted`,
-`assistant_photo_sent` ; la page vidéo `/va/{slug}` émet les events vidéo du site sous le préfixe
+`assistant_photo_sent`, `assistant_suggestion_action` (une puce de suite qui ouvre le rappel, le calendrier ou la
+photo, propriété `action`) ; la page vidéo `/va/{slug}` émet les events vidéo du site sous le préfixe
 `assistant_video_*` (`_play`, `_resume`, `_pause`, `_replay`, `_progress`, `_complete`, `_watch_time`, `_seek`,
 `_fullscreen`, `_mute`, `_cta_click`, `_endcard_shown`). Tous portent la super-propriété **`surface: 'assistant'`** (le site porte
 `surface: 'demo'`), pour distinguer les modules dans le même projet PostHog. `useDemoTracking.init` accepte
