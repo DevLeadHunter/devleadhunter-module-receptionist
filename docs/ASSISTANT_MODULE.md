@@ -212,9 +212,9 @@ C'est le **produit** que le client colle sur son site. Il porte :
   texte sombre. Le même visage sur le lanceur, l'en-tête et à côté de la dernière réponse d'une suite de réponses.
   Panneau blanc à filet, en-tête blanc (portrait 44 px cerclé de l'accent avec point vert, prénom en Fraunces,
   « Réceptionniste IA · Nom du commerce » sur deux lignes au plus, pilule « en ligne »), bulles de l'assistante
-  blanches à filet, bulles du visiteur sur l'accent fort en texte blanc, **trois puces d'action dans le fil** avant
-  le premier échange (photo pour un devis, prendre rendez-vous, « Quels services proposez-vous ? ») et un lien
-  texte « Être rappelé » centré au-dessus de la saisie dès l'accueil, panneaux photo / créneaux / coordonnées rendus
+  blanches à filet, bulles du visiteur sur l'accent fort en texte blanc, **des puces dans le fil** avant le premier
+  échange (voir « Puces d'ouverture par commerce ») et un lien texte « Être rappelé » centré au-dessus de la saisie
+  dès l'accueil, panneaux photo / créneaux / coordonnées rendus
   **dans le fil** comme des cartes, boutons ronds dans la barre de saisie, bouton d'envoi sur l'accent fort. Palette calculée
   par `utils/AssistantAccentUtils.palette()` : `accent` (points, filets), `strong` (l'accent assombri jusqu'à ce que
   le blanc y soit lisible : le seul fond qui porte du texte), `text` (l'accent assombri jusqu'à être lisible en texte
@@ -231,6 +231,24 @@ C'est le **produit** que le client colle sur son site. Il porte :
   `AssistantChatComposer`, avec un type par composant dans `app/types/`. Les pictos passent par `AssistantIcon`
   (`camera`, `calendar`, `close`, `send`, `pencil`). Les dates des créneaux se formatent dans
   `utils/AssistantScheduleUtils.ts`.
+- **Puces d'ouverture par commerce (01/10)** : sous l'accueil, « Voir un exemple » (démo seulement), les puces
+  d'action que le métier justifie, puis les questions du commerce, 4 puces au plus (`ASSISTANT_OPENING_CHIPS_MAX`).
+  Les questions viennent d'un appel unique au modèle (`suggested_questions.py`, usage `SUGGESTIONS` du routeur :
+  Mistral puis Groq, jamais Groq en « IA hébergée en Europe ») fait à la génération, à « Régénérer depuis le
+  prospect » et à chaque relecture du site (« Mettre à jour », ou la relecture de la semaine quand des pages ont
+  changé) : les 3 questions que posent vraiment les clients de CE commerce, d'après sa fiche, son site et ses avis,
+  rangées dans `knowledge_json['suggested_questions']`. Elles sont nettoyées (45 caractères au plus, numéros et
+  guillemets retirés, doublons écartés, « ? » tenu au dernier mot par une espace insécable ; un métier sans
+  rendez-vous perd une question qui ouvrirait le calendrier) et il en faut au moins 2, sinon les précédentes restent.
+  Sans questions écrites (réceptionniste générée avant le 01/10, modèle en panne), celles du métier les remplacent à
+  la lecture (`trade_openings.py` : une liste par métier, une par défaut). Le métier se lit une seule fois dans la
+  catégorie Google (`trade_resolver.py`, commun avec l'estimation de la page de démo et l'intake événement) et décide
+  des puces d'action : pas de photo pour la restauration, l'événementiel, la coiffure, la beauté, la santé et
+  l'immobilier ; pas de rendez-vous pour le food truck, le traiteur et le restaurant. La config publique porte
+  `suggested_questions`, `offers_photo_quote` et `offers_appointment` ; le widget ne montre ces questions qu'en
+  français (les autres langues gardent la question générique de `SUGGESTIONS`), la photo et le calendrier restent
+  dans la barre de saisie et s'ouvrent quand le visiteur les demande en toutes lettres. L'exemple joué d'un food
+  truck est un anniversaire à privatiser.
 - **5 langues d'interface** (FR / NL / DE / EN / LU) : accueil, suggestions, placeholder, libellés du
   formulaire de rappel, réponse de secours — un jeu complet par langue.
 - **Ouverture dans la langue du visiteur** : au montage, la langue du navigateur est choisie si
@@ -1096,6 +1114,7 @@ dashboard (non instrumenté).
 | Démo guidée, accueil contextuel, chrome multilingue | `demo-host/app/utils/AssistantDemoScenarioUtils.ts` (`script`), `AssistantHostPageUtils.ts`, `demo-host/app/constants/AssistantWidgetLabels.ts` (`UI_LABELS`, `GREETING_*`, `EXAMPLE_LABELS`) |
 | Réponses en flux | `api/services/ai_assistant/llm_router.py` (`chat_stream`), `chat_service.py` (`answer_stream`), `api/api/v1/routes/ai_assistant_widget.py` (`/chat/stream`), `demo-host/app/utils/AssistantStreamUtils.ts` |
 | Questions sans réponse, FAQ | `api/services/ai_assistant/faq_service.py`, `missing_info_marker.py`, `api/api/v1/routes/ai_assistant_faq.py`, `web/app/components/ai-assistants/AssistantFaqCard.vue`, `demo-host/app/components/ClientSpaceFaq.vue` |
+| Puces d'ouverture (questions du commerce, métier lu dans la catégorie Google) | `api/services/ai_assistant/suggested_questions.py`, `trade_openings.py`, `trade_resolver.py`, `api/enums/ai_assistant_trade.py` |
 | Guide d'installation | `web/app/components/ai-assistants/AssistantInstallGuideCard.vue`, `web/app/constants/assistantInstallGuides.ts` |
 | Clip présentateur (réglages) | `web/app/components/settings/PresenterVideoConfig.vue` (`module="ai-assistant"`), `web/app/constants/presenterVideoWordings.ts` |
 

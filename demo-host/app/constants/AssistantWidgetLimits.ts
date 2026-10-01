@@ -9,6 +9,9 @@ export const ASSISTANT_PHOTO_RETENTION_DAYS: number = 90
 
 export const ASSISTANT_STORED_MESSAGES_MAX: number = 40
 
+/** Chips under the greeting at most (example, actions, then questions), so they stay short on a phone. */
+export const ASSISTANT_OPENING_CHIPS_MAX: number = 4
+
 /** The API's half-days a visitor wishes at most (`AiAssistantAppointmentSlots.MAX_CHOSEN`), before its offer loads. */
 export const ASSISTANT_SLOTS_MAX_CHOSEN: number = 2
 

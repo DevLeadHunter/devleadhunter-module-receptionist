@@ -9,20 +9,18 @@ and the monthly report.
 from __future__ import annotations
 
 import math
-import re
 from dataclasses import dataclass
 from typing import ClassVar
 
 from enums.ai_assistant_trade import AiAssistantTrade
 from services.ai_assistant.opening_hours import ClosedHoursEstimate, OpeningHoursCalendar
-from services.text_normalizer import TextNormalizer
+from services.ai_assistant.trade_resolver import AiAssistantTradeResolver
 
 
 @dataclass(frozen=True)
 class TradeVolume:
-    """A trade, as the page names it (« un plombier »), and the requests such a business receives a month."""
+    """A trade as the page names it (« un plombier ») and the requests such a business receives a month."""
 
-    trade: AiAssistantTrade
     label: str
     monthly_requests: int
 
@@ -40,68 +38,29 @@ class ClosedHoursOffer:
 class AiAssistantRequestVolume:
     """Finds the request volume of a business from its Google Maps category."""
 
-    DEFAULT: ClassVar[TradeVolume] = TradeVolume(
-        trade=AiAssistantTrade.OTHER, label="un commerce comme le vôtre", monthly_requests=20
-    )
-    # Accent-free word starts, checked in order: the first trade with a word of the category starting so wins.
-    _TRADES: ClassVar[tuple[tuple[tuple[str, ...], TradeVolume], ...]] = (
-        # First: a caterer is an event trade before being a restaurant.
-        (
-            ("mariage", "banquet", "recept", "traiteur", "evenement", "seminaire"),
-            TradeVolume(trade=AiAssistantTrade.EVENT_VENUE, label="un lieu de réception", monthly_requests=25),
-        ),
-        (
-            ("plomb", "chauffag", "sanitaire"),
-            TradeVolume(trade=AiAssistantTrade.PLUMBER, label="un plombier", monthly_requests=30),
-        ),
-        (("serrur",), TradeVolume(trade=AiAssistantTrade.LOCKSMITH, label="un serrurier", monthly_requests=30)),
-        (("electric",), TradeVolume(trade=AiAssistantTrade.ELECTRICIAN, label="un électricien", monthly_requests=20)),
-        # Before the garages: « Installateur de portes de garage » fits doors, not cars.
-        (
-            ("porte", "portail", "fenetre", "volet"),
-            TradeVolume(trade=AiAssistantTrade.BUILDING, label="une entreprise du bâtiment", monthly_requests=15),
-        ),
-        (("carross",), TradeVolume(trade=AiAssistantTrade.BODY_SHOP, label="une carrosserie", monthly_requests=30)),
-        (
-            ("garag", "mecani", "automobile", "pneu"),
-            TradeVolume(trade=AiAssistantTrade.GARAGE, label="un garage", monthly_requests=30),
-        ),
-        (("charpent",), TradeVolume(trade=AiAssistantTrade.CARPENTER, label="un charpentier", monthly_requests=15)),
-        (
-            ("couvr", "toiture", "zingu"),
-            TradeVolume(trade=AiAssistantTrade.ROOFER, label="un couvreur", monthly_requests=15),
-        ),
-        (("menuis", "ebenist"), TradeVolume(trade=AiAssistantTrade.JOINER, label="un menuisier", monthly_requests=15)),
-        (("peintre", "peinture"), TradeVolume(trade=AiAssistantTrade.PAINTER, label="un peintre", monthly_requests=15)),
-        (
-            ("macon", "renovation", "batiment", "construction"),
-            TradeVolume(trade=AiAssistantTrade.BUILDING, label="une entreprise du bâtiment", monthly_requests=15),
-        ),
-        (
-            ("coiff", "barbier", "barber"),
-            TradeVolume(trade=AiAssistantTrade.HAIRDRESSER, label="un salon de coiffure", monthly_requests=40),
-        ),
-        (
-            ("esthetic", "beaute", "onglerie"),
-            TradeVolume(trade=AiAssistantTrade.BEAUTY, label="un institut de beauté", monthly_requests=35),
-        ),
-        (
-            ("restaurant", "pizzeria", "brasserie"),
-            TradeVolume(trade=AiAssistantTrade.RESTAURANT, label="un restaurant", monthly_requests=40),
-        ),
-        (
-            ("foodtruck", "truck"),
-            TradeVolume(trade=AiAssistantTrade.FOOD_TRUCK, label="un food truck", monthly_requests=20),
-        ),
-        (
-            ("immobili",),
-            TradeVolume(trade=AiAssistantTrade.REAL_ESTATE, label="une agence immobilière", monthly_requests=25),
-        ),
-        (
-            ("dentist", "kine", "osteo", "medecin", "podolog"),
-            TradeVolume(trade=AiAssistantTrade.HEALTH, label="un cabinet de santé", monthly_requests=40),
-        ),
-    )
+    DEFAULT: ClassVar[TradeVolume] = TradeVolume(label="un commerce comme le vôtre", monthly_requests=20)
+    _BUILDING: ClassVar[TradeVolume] = TradeVolume(label="une entreprise du bâtiment", monthly_requests=15)
+    # The trades without a volume of their own (a food truck, a landscaper…) are estimated on ``DEFAULT``.
+    _VOLUMES: ClassVar[dict[AiAssistantTrade, TradeVolume]] = {
+        AiAssistantTrade.CATERER: TradeVolume(label="un traiteur", monthly_requests=25),
+        AiAssistantTrade.EVENT_VENUE: TradeVolume(label="un lieu de réception", monthly_requests=25),
+        AiAssistantTrade.PLUMBER: TradeVolume(label="un plombier", monthly_requests=30),
+        AiAssistantTrade.LOCKSMITH: TradeVolume(label="un serrurier", monthly_requests=30),
+        AiAssistantTrade.ELECTRICIAN: TradeVolume(label="un électricien", monthly_requests=20),
+        AiAssistantTrade.DOORS_AND_WINDOWS: _BUILDING,
+        AiAssistantTrade.BODYWORK: TradeVolume(label="une carrosserie", monthly_requests=30),
+        AiAssistantTrade.GARAGE: TradeVolume(label="un garage", monthly_requests=30),
+        AiAssistantTrade.CARPENTER: TradeVolume(label="un charpentier", monthly_requests=15),
+        AiAssistantTrade.ROOFER: TradeVolume(label="un couvreur", monthly_requests=15),
+        AiAssistantTrade.JOINER: TradeVolume(label="un menuisier", monthly_requests=15),
+        AiAssistantTrade.PAINTER: TradeVolume(label="un peintre", monthly_requests=15),
+        AiAssistantTrade.MASON: _BUILDING,
+        AiAssistantTrade.HAIRDRESSER: TradeVolume(label="un salon de coiffure", monthly_requests=40),
+        AiAssistantTrade.BEAUTY: TradeVolume(label="un institut de beauté", monthly_requests=35),
+        AiAssistantTrade.RESTAURANT: TradeVolume(label="un restaurant", monthly_requests=40),
+        AiAssistantTrade.REAL_ESTATE: TradeVolume(label="une agence immobilière", monthly_requests=25),
+        AiAssistantTrade.HEALTH: TradeVolume(label="un cabinet de santé", monthly_requests=40),
+    }
 
     @classmethod
     def for_category(cls, category: str | None) -> TradeVolume:
@@ -112,13 +71,9 @@ class AiAssistantRequestVolume:
             category: Its Google Maps category (« Plombier », « Garage automobile »), or None.
 
         Returns:
-            The volume of the first matching trade, else ``DEFAULT``.
+            The volume of its trade, else ``DEFAULT``.
         """
-        words = re.findall(r"[a-z0-9]+", TextNormalizer.fold(category or ""))
-        for starts, volume in cls._TRADES:
-            if any(word.startswith(start) for word in words for start in starts):
-                return volume
-        return cls.DEFAULT
+        return cls._VOLUMES.get(AiAssistantTradeResolver.of_category(category), cls.DEFAULT)
 
     @classmethod
     def closed_hours_offer(

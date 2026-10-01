@@ -30,7 +30,7 @@ from services.ai_assistant.client_space_payload import ai_assistant_client_space
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
 from services.ai_assistant.photo_service import PHOTO_JOURNAL_MARKER
 from services.ai_assistant.report_email import LanguageShare, MonthlyStats
-from services.ai_assistant.request_volume import AiAssistantRequestVolume
+from services.ai_assistant.trade_resolver import AiAssistantTradeResolver
 from services.french_date_formatter import FrenchDateFormatter
 
 
@@ -273,7 +273,7 @@ _CARPENTER = TradeExamples(
     ),
 )
 
-_BODY_SHOP = TradeExamples(
+_BODYWORK = TradeExamples(
     requests=(
         ExampleRequest(
             type=AiAssistantRequestType.QUOTE,
@@ -627,10 +627,11 @@ _ANY_TRADE = TradeExamples(
 _EXAMPLES_BY_TRADE: dict[AiAssistantTrade, TradeExamples] = {
     AiAssistantTrade.ROOFER: _ROOFER,
     AiAssistantTrade.CARPENTER: _CARPENTER,
-    AiAssistantTrade.BODY_SHOP: _BODY_SHOP,
-    AiAssistantTrade.GARAGE: _BODY_SHOP,
+    AiAssistantTrade.BODYWORK: _BODYWORK,
+    AiAssistantTrade.GARAGE: _BODYWORK,
     AiAssistantTrade.RESTAURANT: _FOOD,
     AiAssistantTrade.FOOD_TRUCK: _FOOD,
+    AiAssistantTrade.CATERER: _FOOD,
     AiAssistantTrade.PLUMBER: _PLUMBER,
 }
 
@@ -696,8 +697,7 @@ class AiAssistantDemoSpaceExamples:
     @staticmethod
     def _examples_of(category: str | None) -> TradeExamples:
         """The examples of the trade a Google Maps category reads as."""
-        trade = AiAssistantRequestVolume.for_category(category).trade
-        return _EXAMPLES_BY_TRADE.get(trade, _ANY_TRADE)
+        return _EXAMPLES_BY_TRADE.get(AiAssistantTradeResolver.of_category(category), _ANY_TRADE)
 
     @staticmethod
     def _received_moment(example: ExampleRequest, now: datetime) -> datetime:

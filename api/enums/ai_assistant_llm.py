@@ -12,6 +12,7 @@ class AiAssistantLlmUsage(str, Enum):
     REPORT = "assistant_report"
     MAIL_TRIAGE = "assistant_mail_triage"
     MAIL_DRAFT = "assistant_mail_draft"
+    SUGGESTIONS = "assistant_suggestions"
 
 
 class LlmProvider(str, Enum):

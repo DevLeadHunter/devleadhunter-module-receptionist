@@ -48,7 +48,9 @@ class AiAssistantKnowledgeSources:
     """Frames an assistant's website pages and documents as data blocks, within the prompt's budget."""
 
     @classmethod
-    def prompt_lines(cls, website: dict[str, Any] | None, documents: Any, *, question: str | None) -> list[str]:
+    def prompt_lines(
+        cls, website: dict[str, Any] | None, documents: Any, *, question: str | None, max_chars: int | None = None
+    ) -> list[str]:
         """
         The website pages then the documents, each framed as data, within the prompt's budget.
 
@@ -56,11 +58,14 @@ class AiAssistantKnowledgeSources:
             website: The website read (``knowledge_json['website']``), None when it is off or was never read.
             documents: The enabled documents (``knowledge_json['documents']``).
             question: The visitor's latest message: past the budget, the passages closest to it are kept.
+            max_chars: The budget of the pages and documents; the chat prompt's by default.
 
         Returns:
             The prompt lines, empty without any text to read.
         """
-        passages = AiAssistantKnowledgeBudget.select(cls._source_texts(website, documents), question=question)
+        passages = AiAssistantKnowledgeBudget.select(
+            cls._source_texts(website, documents), question=question, max_chars=max_chars
+        )
         if not passages:
             return []
         kinds = {passage.source.kind for passage in passages}

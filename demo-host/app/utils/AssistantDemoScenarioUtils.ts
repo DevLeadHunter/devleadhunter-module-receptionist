@@ -21,6 +21,16 @@ type TradeExample = {
 
 const TRADE_EXAMPLES: TradeExample[] = [
   {
+    keywords: ['food'],
+    need: 'food truck pour un anniversaire le samedi 12 juin, 60 personnes',
+    opening:
+      'Bonjour, on fête un anniversaire le samedi 12 juin, 60 personnes : vous pouvez venir avec le food truck ?',
+    kind: 'quote',
+    hasPhoto: false,
+    photo: null,
+    slots: '',
+  },
+  {
     keywords: ['mariage', 'banquet', 'recept', 'traiteur', 'evenement', 'seminaire'],
     need: 'mariage le samedi 12 juin 2027, 80 invités, tout sur place, autour de 8 000 €',
     opening: 'Bonsoir, nous nous marions le samedi 12 juin 2027 : est-ce encore possible chez vous ? Nous serions 80.',
@@ -243,12 +253,14 @@ export class AssistantDemoScenarioUtils {
    * @param language - The widget's language.
    * @param tradeLabel - The Google Maps category, or null.
    * @param businessName - The business as the assistant names it.
+   * @param isAppointmentChipShown - Whether the appointment chip follows the conversation (its trade takes them).
    * @returns The turns, in order.
    */
   static script(
     language: AssistantWidgetLanguage,
     tradeLabel: string | null,
     businessName: string,
+    isAppointmentChipShown: boolean,
   ): AssistantDemoScriptStep[] {
     const labels: AssistantExampleLabels = EXAMPLE_LABELS[language]
     const match: TradeExample = AssistantDemoScenarioUtils.match(tradeLabel)
@@ -274,13 +286,16 @@ export class AssistantDemoScenarioUtils {
       const when: string = match.slots
         ? `${match.slots.charAt(0).toUpperCase()}${match.slots.slice(1)} si possible`
         : 'Le plus tôt possible'
+      const bookBelowSentence: string = isAppointmentChipShown
+        ? ' Vous pouvez aussi réserver directement ci-dessous.'
+        : ''
       return [
         { role: 'user', content: opening },
         { role: 'assistant', content: 'Avec plaisir. Quel jour vous arrangerait ?' },
         { role: 'user', content: when },
         {
           role: 'assistant',
-          content: `C'est noté. Je transmets à ${businessName}, qui vous confirme l'heure. Vous pouvez aussi réserver directement ci-dessous.`,
+          content: `C'est noté. Je transmets à ${businessName}, qui vous confirme l'heure.${bookBelowSentence}`,
         },
       ]
     }

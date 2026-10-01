@@ -61,8 +61,9 @@
             v-if="shouldShowOpeningChips"
             :language="language"
             :suggestions="suggestions"
-            :can-send-photo="photosRemaining > 0"
+            :can-send-photo="canOfferPhotoChip"
             :can-play-example="canPlayExample"
+            :can-book-appointment="canOfferAppointmentChip"
             @photo="openPhotoPanel"
             @appointment="openSlotPanel"
             @suggest="sendSuggestion"
@@ -72,8 +73,8 @@
             v-else-if="followUps.length > 0 || shouldShowActionChips"
             :language="language"
             :suggestions="followUps"
-            :can-send-photo="shouldShowActionChips && photosRemaining > 0"
-            :can-book-appointment="shouldShowActionChips && !hasSentLead"
+            :can-send-photo="shouldShowActionChips && canOfferPhotoChip"
+            :can-book-appointment="shouldShowActionChips && canOfferAppointmentChip"
             @photo="openPhotoPanel"
             @appointment="openSlotPanel"
             @suggest="sendSuggestion"
@@ -205,6 +206,8 @@ const {
   hasSentLead,
   isAssistantUnavailable,
   canPlayExample,
+  canOfferPhotoChip,
+  canOfferAppointmentChip,
   photoPreviews,
   photosRemaining,
   isPhotoPanelOpen,
@@ -326,6 +329,7 @@ function playScriptedExample(): void {
     language.value,
     props.assistant.trade_label ?? null,
     BusinessNameUtils.short(props.assistant.business_name),
+    canOfferAppointmentChip.value,
   )
   playExample(steps)
 }

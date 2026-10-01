@@ -22,6 +22,7 @@ from models.ai_assistant import AiAssistant
 from models.prospect_db import ProspectDB
 from services.ai_assistant.assistant_service import ai_assistant_service
 from services.ai_assistant.knowledge_sources import SourceToggles
+from services.ai_assistant.suggested_questions import ai_assistant_suggested_questions
 from services.ai_assistant.website_sync import AiAssistantWebsiteSync
 
 logger = logging.getLogger(__name__)
@@ -74,7 +75,8 @@ class AiAssistantSourceService:
 
     async def refresh_website(self, db: Session, assistant: AiAssistant, *, force: bool = False) -> dict[str, Any]:
         """
-        Read the business's website again and keep what changed.
+        Read the business's website again and keep what changed; the questions its widget opens with are written
+        again after a read taken on demand, or a weekly one that changed pages.
 
         Args:
             db: Active database session.
@@ -103,6 +105,11 @@ class AiAssistantSourceService:
         assistant.knowledge_json = knowledge
         db.commit()
         db.refresh(assistant)
+        has_changed_pages = any(sync[key] for key in ("added", "removed", "changed"))
+        if crawl is not None and (force or has_changed_pages):
+            await ai_assistant_suggested_questions.refresh(
+                db, assistant, category=prospect.category if prospect is not None else None
+            )
         return sync
 
     def due(self, db: Session, *, now: datetime | None = None) -> list[AiAssistant]:

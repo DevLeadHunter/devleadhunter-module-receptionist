@@ -47,7 +47,7 @@ from services.ai_assistant.demo_space_examples import ai_assistant_demo_space_ex
 from services.ai_assistant.demo_space_service import ai_assistant_demo_space_service
 from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.request_volume import AiAssistantRequestVolume
+from services.ai_assistant.trade_resolver import AiAssistantTradeResolver
 from services.notification_service import notification_service
 from services.rate_limiter import SlidingWindowRateLimiter
 from tests.assistant_fakes import VISITOR_REQUEST
@@ -261,10 +261,11 @@ def test_the_examples_follow_the_trade(db: Session, category: str | None, summar
 
 
 def test_the_food_trades_are_read_from_the_category() -> None:
-    assert AiAssistantRequestVolume.for_category("Food truck").trade is AiAssistantTrade.FOOD_TRUCK
-    assert AiAssistantRequestVolume.for_category("Foodtruck burgers").label == "un food truck"
-    assert AiAssistantRequestVolume.for_category("Pizzeria").trade is AiAssistantTrade.RESTAURANT
-    assert AiAssistantRequestVolume.for_category("Institut de formation").trade is AiAssistantTrade.OTHER
+    assert AiAssistantTradeResolver.of_category("Food truck") is AiAssistantTrade.FOOD_TRUCK
+    assert AiAssistantTradeResolver.of_category("Foodtruck burgers") is AiAssistantTrade.FOOD_TRUCK
+    assert AiAssistantTradeResolver.of_category("Traiteur") is AiAssistantTrade.CATERER
+    assert AiAssistantTradeResolver.of_category("Pizzeria") is AiAssistantTrade.RESTAURANT
+    assert AiAssistantTradeResolver.of_category("Institut de formation") is AiAssistantTrade.OTHER
 
 
 def test_the_examples_fit_the_business_hours_and_its_next_half_days(db: Session) -> None:

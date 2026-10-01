@@ -16,6 +16,8 @@ export type UseAssistantConversationReturn = {
   hasSentLead: Ref<boolean>
   isAssistantUnavailable: Ref<boolean>
   canPlayExample: ComputedRef<boolean>
+  canOfferPhotoChip: ComputedRef<boolean>
+  canOfferAppointmentChip: ComputedRef<boolean>
   shouldShowOpeningChips: ComputedRef<boolean>
   followUps: ComputedRef<string[]>
   shouldShowActionChips: ComputedRef<boolean>
