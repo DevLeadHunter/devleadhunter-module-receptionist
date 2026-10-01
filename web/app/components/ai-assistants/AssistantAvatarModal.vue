@@ -54,7 +54,7 @@
           </div>
         </div>
 
-        <div v-if="isCutOut" class="mt-5 flex flex-col gap-1">
+        <div v-if="isImageCutOut" class="mt-5 flex flex-col gap-1">
           <div class="flex items-center justify-between gap-3">
             <span class="text-xs font-medium text-[var(--app-ink)]">Fond du portrait</span>
             <div class="flex items-center gap-2">
@@ -187,12 +187,12 @@ const errorMessage: Ref<string> = ref('')
 const isBusy: ComputedRef<boolean> = computed((): boolean => isUploading.value || isRemoving.value || isSaving.value)
 
 /** A cut-out image shows the disc around it, so its colour can be picked; a photo covers it. */
-const isCutOut: ComputedRef<boolean> = computed(
+const isImageCutOut: ComputedRef<boolean> = computed(
   (): boolean => Boolean(props.assistant.avatar_url) && props.assistant.avatar_is_transparent,
 )
 
 const previewBackground: ComputedRef<string | null> = computed((): string | null =>
-  isCutOut.value ? backgroundDraft.value.trim() || null : null,
+  isImageCutOut.value ? backgroundDraft.value.trim() || null : null,
 )
 
 /** What the colour swatch shows: the picked colour, else the accent's tint the disc takes automatically. */
