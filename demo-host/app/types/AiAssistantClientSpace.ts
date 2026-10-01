@@ -69,6 +69,23 @@ export type AiAssistantClientReport = {
   email_requests: number
 }
 
+/** The last days' figures, counted live like the monthly report. */
+export type AiAssistantClientRecentFigures = {
+  days: number
+  conversations: number
+  requests: number
+  quotes: number
+  won: number
+  outside_hours_pct: number | null
+}
+
+/** One day of the home's activity chart (« 2026-10-01 », in the business's time zone). */
+export type AiAssistantClientActivityDay = {
+  day: string
+  conversations: number
+  requests: number
+}
+
 /** Whether the test SMS left for the client's alert mobile. */
 export type AiAssistantClientTestSms = {
   sent: boolean
@@ -176,6 +193,9 @@ export type AiAssistantClientSpace = {
   pending_count: number
   requests: AiAssistantClientRequest[]
   report: AiAssistantClientReport | null
+  /** The last 30 days in all, and day by day (oldest first): the home's figures and chart. Absent on an older API. */
+  recent?: AiAssistantClientRecentFigures | null
+  activity?: AiAssistantClientActivityDay[]
   /** The example space a prospect opens from its demo page: fictional data, nothing to save. */
   is_example: boolean
   settings: AiAssistantClientSettings

@@ -1,6 +1,6 @@
 <template>
   <div class="cs-menu">
-    <template v-for="group in groups" :key="group.title">
+    <section v-for="group in groups" :key="group.title" class="cs-menu__group">
       <p class="cs-sec">{{ group.title }}</p>
       <div class="cs-block">
         <button v-for="entry in group.entries" :key="entry.key" type="button" class="cs-cell" @click="open(entry)">
@@ -9,7 +9,7 @@
           <ClientSpaceIcon name="chevron-right" class="cs-cell__chevron" />
         </button>
       </div>
-    </template>
+    </section>
     <p v-if="!props.space.is_example" class="cs-menu__foot">
       Lien personnel : il se prolonge à chaque ouverture (valable jusqu’au {{ props.space.link_expires_label }}). Ne le
       transférez pas : il donne accès à vos demandes.
@@ -237,5 +237,23 @@ function open(entry: ClientSpaceSettingsEntry): void {
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--cs-faint);
+}
+
+/* On a wide screen the groups flow in two columns, like a settings page of the tools the client already uses. */
+@media (min-width: 1024px) {
+  .cs-menu {
+    display: block;
+    columns: 2;
+    column-gap: 24px;
+  }
+
+  .cs-menu__group {
+    break-inside: avoid;
+  }
+
+  .cs-menu__foot {
+    column-span: all;
+    padding: 18px 4px 0;
+  }
 }
 </style>

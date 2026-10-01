@@ -1,145 +1,153 @@
 <template>
   <div class="cs-agenda">
-    <div v-if="props.calendar.status === 'unavailable'" class="cs-block cs-agenda__connect">
-      <span class="cs-todo__icon cs-todo__icon--accent"><ClientSpaceIcon name="calendar" /></span>
-      <p class="cs-agenda__title">Vous confirmez vos rendez-vous</p>
-      <p class="cs-text cs-text--dim">
-        Vos rendez-vous arrivent en demandes, avec les créneaux souhaités par le visiteur : vous les confirmez
-        vous-même, par téléphone ou par message.
-      </p>
-    </div>
-
-    <div v-else-if="props.calendar.status !== 'connected'" class="cs-block cs-agenda__connect">
-      <span class="cs-todo__icon cs-todo__icon--amber"><ClientSpaceIcon name="calendar" /></span>
-      <p class="cs-agenda__title">
-        {{
-          props.calendar.status === 'error' ? 'L’accès à votre agenda a été perdu' : 'Google Agenda n’est pas connecté'
-        }}
-      </p>
-      <p class="cs-text cs-text--dim">
-        {{
-          props.calendar.status === 'error'
-            ? `Les rendez-vous repassent en demandes à confirmer. Reconnectez votre agenda pour que ${props.assistantName} réserve à nouveau.`
-            : `${props.assistantName} note les créneaux souhaités mais ne peut pas réserver à votre place. Une fois connecté, ${props.assistantName} propose vos créneaux libres et réserve directement.`
-        }}
-      </p>
-      <button
-        v-if="!props.readOnly"
-        type="button"
-        class="cs-btn cs-btn--primary"
-        :disabled="props.isBusy"
-        @click="emit('connect')"
-      >
-        {{ props.calendar.status === 'error' ? 'Reconnecter Google Agenda' : 'Connecter Google Agenda' }}
-      </button>
-      <p v-if="!props.readOnly" class="cs-text cs-text--dim cs-agenda__hint">
-        Google s’ouvre dans un nouvel onglet : autorisez l’accès à vos événements et à vos disponibilités, puis revenez
-        ici.
-      </p>
-      <p v-if="props.errorMessage" class="cs-notice cs-notice--error">{{ props.errorMessage }}</p>
-    </div>
-
-    <template v-if="toConfirm.length > 0">
-      <p class="cs-sec">À confirmer</p>
-      <div class="cs-block">
-        <ClientSpaceRequestRow
-          v-for="item in toConfirm"
-          :key="item.id"
-          :request="item"
-          @select="emit('open-request', item.id)"
-        />
-      </div>
-    </template>
-
-    <p class="cs-sec">Rendez-vous pris</p>
-    <div class="cs-block">
-      <div v-for="item in props.appointments" :key="item.id" class="cs-cell cs-agenda__appointment">
-        <span class="cs-agenda__when">{{ item.start_label }}</span>
-        <span class="cs-agenda__who">
-          <b>{{ item.name }}</b>
-          <span>{{ item.type_label ? `${item.type_label} · ` : '' }}{{ item.contact }}</span>
-        </span>
-      </div>
-      <p v-if="props.appointments.length === 0" class="cs-text cs-text--dim">
-        {{
-          props.calendar.status === 'connected'
-            ? `Aucun rendez-vous à venir. ${props.assistantName} les réserve dans votre agenda et ils apparaissent ici.`
-            : 'Les rendez-vous réservés par votre réceptionniste apparaîtront ici une fois l’agenda connecté.'
-        }}
-      </p>
-    </div>
-
-    <template v-if="props.calendar.status === 'connected'">
-      <p class="cs-sec">Réglages de l’agenda</p>
-      <form class="cs-block cs-agenda__form" @submit.prevent="submit">
+    <div class="cs-agenda__google" :class="{ 'cs-agenda__google--after': props.calendar.status === 'connected' }">
+      <p class="cs-sec">{{ props.calendar.status === 'connected' ? 'Réglages de l’agenda' : 'Google Agenda' }}</p>
+      <div v-if="props.calendar.status === 'unavailable'" class="cs-block cs-agenda__connect">
+        <span class="cs-todo__icon cs-todo__icon--accent"><ClientSpaceIcon name="calendar" /></span>
+        <p class="cs-agenda__title">Vous confirmez vos rendez-vous</p>
         <p class="cs-text cs-text--dim">
-          Agenda Google connecté<template v-if="props.calendar.account_email">
-            : <b>{{ props.calendar.account_email }}</b></template
-          >. {{ props.assistantName }} y réserve les rendez-vous, sur vos créneaux libres et dans vos horaires.
+          Vos rendez-vous arrivent en demandes, avec les créneaux souhaités par le visiteur : vous les confirmez
+          vous-même, par téléphone ou par message.
         </p>
-        <p v-if="props.calendar.last_error" class="cs-notice cs-notice--error cs-agenda__inset">
-          Dernier problème le {{ props.calendar.last_error }}
+      </div>
+
+      <div v-else-if="props.calendar.status !== 'connected'" class="cs-block cs-agenda__connect">
+        <span class="cs-todo__icon cs-todo__icon--amber"><ClientSpaceIcon name="calendar" /></span>
+        <p class="cs-agenda__title">
+          {{
+            props.calendar.status === 'error'
+              ? 'L’accès à votre agenda a été perdu'
+              : 'Google Agenda n’est pas connecté'
+          }}
         </p>
-
-        <fieldset class="cs-agenda__fields" :disabled="props.readOnly">
-          <label class="cs-field">
-            <span class="cs-label">Durée d’un rendez-vous</span>
-            <select v-model.number="duration" class="cs-input">
-              <option v-for="minutes in props.calendar.duration_choices" :key="minutes" :value="minutes">
-                {{ durationLabel(minutes) }}
-              </option>
-            </select>
-          </label>
-          <label class="cs-field">
-            <span class="cs-label">Délai minimum avant un rendez-vous</span>
-            <select v-model.number="notice" class="cs-input">
-              <option v-for="hours in props.calendar.min_notice_choices" :key="hours" :value="hours">
-                {{ hours === 0 ? 'Aucun' : `${hours} h` }}
-              </option>
-            </select>
-          </label>
-          <label class="cs-field">
-            <span class="cs-label">Types de rendez-vous (facultatif, un par ligne)</span>
-            <textarea
-              v-model="typesText"
-              class="cs-input cs-agenda__types"
-              rows="3"
-              placeholder="Révision&#10;Contrôle technique"
-            />
-            <span class="cs-hint">Le visiteur choisit l’un d’eux avant son créneau. {{ MAX_TYPES }} au plus.</span>
-          </label>
-          <label class="cs-field">
-            <span class="cs-label">Agenda utilisé</span>
-            <input
-              v-model="calendarId"
-              class="cs-input"
-              type="text"
-              maxlength="255"
-              autocomplete="off"
-              placeholder="Votre agenda principal"
-            />
-            <span class="cs-hint">
-              Laissez vide pour votre agenda principal. Pour un autre agenda, collez son identifiant (paramètres de
-              l’agenda, « Intégrer l’agenda »).
-            </span>
-          </label>
-        </fieldset>
-
-        <ClientSpaceSaveBar
+        <p class="cs-text cs-text--dim">
+          {{
+            props.calendar.status === 'error'
+              ? `Les rendez-vous repassent en demandes à confirmer. Reconnectez votre agenda pour que ${props.assistantName} réserve à nouveau.`
+              : `${props.assistantName} note les créneaux souhaités mais ne peut pas réserver à votre place. Une fois connecté, ${props.assistantName} propose vos créneaux libres et réserve directement.`
+          }}
+        </p>
+        <button
           v-if="!props.readOnly"
-          :is-busy="props.isBusy"
-          :can-save="hasChanges"
-          :error-message="props.errorMessage"
-          :show-saved="props.hasSaved && !hasChanges"
+          type="button"
+          class="cs-btn cs-btn--primary"
+          :disabled="props.isBusy"
+          @click="emit('connect')"
         >
-          <button type="button" class="cs-btn" :disabled="props.isBusy" @click="emit('disconnect')">Déconnecter</button>
-        </ClientSpaceSaveBar>
-        <p v-if="!props.readOnly" class="cs-hint cs-agenda__inset">
-          Déconnecter efface l’accès gardé ici. Pour le retirer aussi chez Google : votre compte Google, rubrique
-          Sécurité, accès des applications tierces.
+          {{ props.calendar.status === 'error' ? 'Reconnecter Google Agenda' : 'Connecter Google Agenda' }}
+        </button>
+        <p v-if="!props.readOnly" class="cs-text cs-text--dim cs-agenda__hint">
+          Google s’ouvre dans un nouvel onglet : autorisez l’accès à vos événements et à vos disponibilités, puis
+          revenez ici.
         </p>
-      </form>
-    </template>
+        <p v-if="props.errorMessage" class="cs-notice cs-notice--error">{{ props.errorMessage }}</p>
+      </div>
+
+      <template v-if="props.calendar.status === 'connected'">
+        <form class="cs-block cs-agenda__form" @submit.prevent="submit">
+          <p class="cs-text cs-text--dim">
+            Agenda Google connecté<template v-if="props.calendar.account_email">
+              : <b>{{ props.calendar.account_email }}</b></template
+            >. {{ props.assistantName }} y réserve les rendez-vous, sur vos créneaux libres et dans vos horaires.
+          </p>
+          <p v-if="props.calendar.last_error" class="cs-notice cs-notice--error cs-agenda__inset">
+            Dernier problème le {{ props.calendar.last_error }}
+          </p>
+
+          <fieldset class="cs-agenda__fields" :disabled="props.readOnly">
+            <label class="cs-field">
+              <span class="cs-label">Durée d’un rendez-vous</span>
+              <select v-model.number="duration" class="cs-input">
+                <option v-for="minutes in props.calendar.duration_choices" :key="minutes" :value="minutes">
+                  {{ durationLabel(minutes) }}
+                </option>
+              </select>
+            </label>
+            <label class="cs-field">
+              <span class="cs-label">Délai minimum avant un rendez-vous</span>
+              <select v-model.number="notice" class="cs-input">
+                <option v-for="hours in props.calendar.min_notice_choices" :key="hours" :value="hours">
+                  {{ hours === 0 ? 'Aucun' : `${hours} h` }}
+                </option>
+              </select>
+            </label>
+            <label class="cs-field">
+              <span class="cs-label">Types de rendez-vous (facultatif, un par ligne)</span>
+              <textarea
+                v-model="typesText"
+                class="cs-input cs-agenda__types"
+                rows="3"
+                placeholder="Révision&#10;Contrôle technique"
+              />
+              <span class="cs-hint">Le visiteur choisit l’un d’eux avant son créneau. {{ MAX_TYPES }} au plus.</span>
+            </label>
+            <label class="cs-field">
+              <span class="cs-label">Agenda utilisé</span>
+              <input
+                v-model="calendarId"
+                class="cs-input"
+                type="text"
+                maxlength="255"
+                autocomplete="off"
+                placeholder="Votre agenda principal"
+              />
+              <span class="cs-hint">
+                Laissez vide pour votre agenda principal. Pour un autre agenda, collez son identifiant (paramètres de
+                l’agenda, « Intégrer l’agenda »).
+              </span>
+            </label>
+          </fieldset>
+
+          <ClientSpaceSaveBar
+            v-if="!props.readOnly"
+            :is-busy="props.isBusy"
+            :can-save="hasChanges"
+            :error-message="props.errorMessage"
+            :show-saved="props.hasSaved && !hasChanges"
+          >
+            <button type="button" class="cs-btn" :disabled="props.isBusy" @click="emit('disconnect')">
+              Déconnecter
+            </button>
+          </ClientSpaceSaveBar>
+          <p v-if="!props.readOnly" class="cs-hint cs-agenda__inset">
+            Déconnecter efface l’accès gardé ici. Pour le retirer aussi chez Google : votre compte Google, rubrique
+            Sécurité, accès des applications tierces.
+          </p>
+        </form>
+      </template>
+    </div>
+
+    <div class="cs-agenda__appointments">
+      <template v-if="toConfirm.length > 0">
+        <p class="cs-sec">À confirmer</p>
+        <div class="cs-block">
+          <ClientSpaceRequestRow
+            v-for="item in toConfirm"
+            :key="item.id"
+            :request="item"
+            @select="emit('open-request', item.id)"
+          />
+        </div>
+      </template>
+
+      <p class="cs-sec">Rendez-vous pris</p>
+      <div class="cs-block">
+        <div v-for="item in props.appointments" :key="item.id" class="cs-cell cs-agenda__appointment">
+          <span class="cs-agenda__when">{{ item.start_label }}</span>
+          <span class="cs-agenda__who">
+            <b>{{ item.name }}</b>
+            <span>{{ item.type_label ? `${item.type_label} · ` : '' }}{{ item.contact }}</span>
+          </span>
+        </div>
+        <p v-if="props.appointments.length === 0" class="cs-text cs-text--dim">
+          {{
+            props.calendar.status === 'connected'
+              ? `Aucun rendez-vous à venir. ${props.assistantName} les réserve dans votre agenda et ils apparaissent ici.`
+              : 'Les rendez-vous réservés par votre réceptionniste apparaîtront ici une fois l’agenda connecté.'
+          }}
+        </p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -252,11 +260,23 @@ watch(
   align-content: start;
 }
 
+.cs-agenda__google,
+.cs-agenda__appointments {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  min-width: 0;
+}
+
+/* On a phone, a connected agenda's settings come after the appointments; the button to connect comes first. */
+.cs-agenda__google--after {
+  order: 1;
+}
+
 .cs-agenda__connect {
   display: grid;
   gap: 10px;
   justify-items: start;
-  margin-top: 16px;
   padding: 18px 16px;
 }
 
@@ -339,5 +359,24 @@ watch(
 
 .cs-agenda__form :deep(.cs-savebar) {
   padding: 0 16px;
+}
+
+/* On a wide screen: the appointments on the left, Google Agenda on the right. */
+@media (min-width: 1024px) {
+  .cs-agenda {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: start;
+    column-gap: 24px;
+  }
+
+  .cs-agenda__appointments {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .cs-agenda__google {
+    grid-row: 1;
+    grid-column: 2;
+  }
 }
 </style>

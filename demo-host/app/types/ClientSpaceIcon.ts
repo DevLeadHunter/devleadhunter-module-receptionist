@@ -27,6 +27,7 @@ export type ClientSpaceIconName =
   | 'languages'
   | 'calendar-check'
   | 'arrow-left'
+  | 'arrow-right'
   | 'help-circle'
   | 'life-buoy'
   | 'image'

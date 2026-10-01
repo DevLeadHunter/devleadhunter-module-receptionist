@@ -1,6 +1,7 @@
 <template>
-  <main v-if="props.state === 'loading'" class="cs-message">
-    <p class="cs-muted">Chargement…</p>
+  <main v-if="props.state === 'loading'" class="cs-loader" aria-busy="true">
+    <span class="cs-loader__spinner" aria-hidden="true" />
+    <p class="cs-muted">Ouverture de votre espace…</p>
   </main>
 
   <main v-else-if="props.state === 'expired'" class="cs-message">

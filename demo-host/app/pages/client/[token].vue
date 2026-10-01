@@ -22,10 +22,13 @@
       />
 
       <div class="cs-shell__main" :class="{ 'cs-shell__main--detail': isDetailOpen }">
-        <header v-if="!isDetailOpen" class="cs-bar cs-bar--top">
+        <header v-if="!isDetailOpen || isWide" class="cs-bar cs-bar--top">
           <span class="cs-bar__title" :class="{ 'cs-bar__title--brand': location.section === 'home' }">{{
             topTitle
           }}</span>
+          <span class="cs-bar__status"
+            ><i class="cs-bar__dot" aria-hidden="true" />{{ space.assistant_name }} est en ligne</span
+          >
           <button
             v-if="location.section === 'home'"
             type="button"
@@ -37,11 +40,14 @@
           </button>
         </header>
 
-        <p v-if="isExample && location.section === 'home'" class="cs-example" data-capture="example-banner">
-          Exemple d’espace client, avec des données fictives : le vôtre arrive avec votre réceptionniste. Elle se
-          présente toujours comme réceptionniste IA et ne donne jamais un prix à votre place : elle note, vous décidez.
-          <NuxtLink v-if="demoSlug" :to="`/ia/${demoSlug}`" class="cs-example__link">Revenir à ma démo</NuxtLink>
-        </p>
+        <div v-if="isExample && location.section === 'home'" class="cs-example" data-capture="example-banner">
+          <p class="cs-example__text">
+            Exemple d’espace client, avec des données fictives : le vôtre arrive avec votre réceptionniste.
+          </p>
+          <NuxtLink v-if="demoSlug" :to="`/ia/${demoSlug}`" class="cs-example__link">
+            <ClientSpaceIcon name="arrow-left" />Revenir à ma démo
+          </NuxtLink>
+        </div>
 
         <ClientSpaceHome
           v-if="location.section === 'home'"
@@ -409,7 +415,7 @@ const openedQuestion: ComputedRef<AiAssistantClientUnansweredEntry | null> = com
 
 /** The phone's top bar: the business on the home, the section elsewhere. */
 const topTitle: ComputedRef<string> = computed((): string => {
-  if (location.value.section === 'home') return space.value?.business_name ?? ''
+  if (location.value.section === 'home') return isWide.value ? 'Accueil' : (space.value?.business_name ?? '')
   if (location.value.section === 'requests') return 'Demandes'
   if (location.value.section === 'agenda') return 'Agenda'
   return 'Réglages'
