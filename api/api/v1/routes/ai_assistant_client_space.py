@@ -58,6 +58,7 @@ from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
 from services.ai_assistant.calendar_service import ai_assistant_calendar_service
 from services.ai_assistant.calendar_settings import DURATION_CHOICES, MIN_NOTICE_CHOICES, CalendarSettings
 from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
+from services.ai_assistant.client_space_activity import AiAssistantClientActivity
 from services.ai_assistant.client_space_example import EXAMPLE_TOKEN, ai_assistant_client_space_example
 from services.ai_assistant.client_space_service import ClientSpaceAccessError, ai_assistant_client_space_service
 from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
@@ -290,6 +291,8 @@ async def get_client_space(
         pending_count=ai_assistant_client_space_service.pending_count(db, assistant),
         requests=[_to_request_item(record, booked.get(record.id)) for record in records],
         report=_to_report(report, assistant.assistant_name) if report is not None else None,
+        recent=AiAssistantClientActivity.recent_figures(db, assistant),
+        activity=AiAssistantClientActivity.by_day(db, assistant),
         settings=_to_settings(assistant),
         language_options=[
             AiAssistantClientLanguageOption(code=language, label=LANGUAGE_NAMES.get(language.value, language.value))

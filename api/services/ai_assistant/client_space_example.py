@@ -16,11 +16,13 @@ from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantReq
 from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
 from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
 from schemas.ai_assistant_client_space import (
+    AiAssistantClientActivityDay,
     AiAssistantClientAppointmentItem,
     AiAssistantClientCalendar,
     AiAssistantClientGoogleProfile,
     AiAssistantClientLanguageOption,
     AiAssistantClientLimit,
+    AiAssistantClientRecentFigures,
     AiAssistantClientReport,
     AiAssistantClientRequestItem,
     AiAssistantClientSettings,
@@ -30,6 +32,7 @@ from schemas.ai_assistant_client_space import (
 from schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantUnansweredEntry
 from services.ai_assistant.calendar_settings import DURATION_CHOICES, MIN_NOTICE_CHOICES
 from services.ai_assistant.client_links import AiAssistantClientLinks
+from services.ai_assistant.client_space_activity import ACTIVITY_DAYS
 from services.ai_assistant.client_space_service import AiAssistantClientSpaceService
 from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
 from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
@@ -43,6 +46,9 @@ EXAMPLE_TOKEN = "exemple"
 _BUSINESS_NAME = "Toitures Morel"
 _ASSISTANT_NAME = "Sofia"
 _ACCENT_COLOR = "#b45309"
+# The last 30 days, oldest first, the listed requests on their days (yesterday's two, three days ago…).
+_ACTIVITY_CONVERSATIONS = (1, 2, 0, 3, 1, 1, 0, 2, 4, 1, 0, 1, 2, 3, 1, 0, 2, 1, 3, 2, 1, 2, 2, 4, 2, 1, 3, 1, 4, 2)
+_ACTIVITY_REQUESTS = (0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 2, 0)
 
 
 class AiAssistantClientSpaceExample:
@@ -62,6 +68,9 @@ class AiAssistantClientSpaceExample:
         current = now or OpeningHoursCalendar.business_now()
         yesterday = current - timedelta(days=1)
         earlier = current - timedelta(days=3)
+        five_days_ago = current - timedelta(days=5)
+        eight_days_ago = current - timedelta(days=8)
+        eleven_days_ago = current - timedelta(days=11)
         last_month = current.replace(day=1) - timedelta(days=1)
         next_visit = AiAssistantClientSpaceExample._next_weekday(current.date(), 3)
         return AiAssistantClientSpaceResponse(
@@ -123,6 +132,62 @@ class AiAssistantClientSpaceExample:
                     received_outside_hours=False,
                     outcome=AiAssistantRequestOutcome.WON,
                 ),
+                AiAssistantClientRequestItem(
+                    id=4,
+                    type=AiAssistantRequestType.QUOTE,
+                    status=AiAssistantRequestStatus.HANDLED,
+                    name="Marc Dubois",
+                    contact="06 23 45 67 89",
+                    summary="Réfection complète d'une toiture de 90 m² en tuiles mécaniques.",
+                    received_label=f"{five_days_ago:%d/%m} à 19:12",
+                    received_day=f"{five_days_ago:%Y-%m-%d}",
+                    received_time="19:12",
+                    received_outside_hours=True,
+                    outcome=AiAssistantRequestOutcome.WON,
+                ),
+                AiAssistantClientRequestItem(
+                    id=5,
+                    type=AiAssistantRequestType.APPOINTMENT,
+                    status=AiAssistantRequestStatus.HANDLED,
+                    name="Emma Laurent",
+                    contact="06 34 56 78 90",
+                    summary="Un velux fuit dans la chambre, souhaite une visite un samedi matin.",
+                    received_label=f"{eight_days_ago:%d/%m} à 07:48",
+                    received_day=f"{eight_days_ago:%Y-%m-%d}",
+                    received_time="07:48",
+                    received_outside_hours=True,
+                ),
+                AiAssistantClientRequestItem(
+                    id=6,
+                    type=AiAssistantRequestType.QUOTE,
+                    status=AiAssistantRequestStatus.HANDLED,
+                    name="Thomas Garnier",
+                    contact="thomas.garnier@exemple.fr",
+                    summary="Nettoyage et démoussage du toit d'une longère avant la vente.",
+                    received_label=f"{eleven_days_ago:%d/%m} à 10:30",
+                    received_day=f"{eleven_days_ago:%Y-%m-%d}",
+                    received_time="10:30",
+                    received_outside_hours=False,
+                    outcome=AiAssistantRequestOutcome.LOST,
+                ),
+            ],
+            recent=AiAssistantClientRecentFigures(
+                days=ACTIVITY_DAYS,
+                conversations=sum(_ACTIVITY_CONVERSATIONS),
+                requests=sum(_ACTIVITY_REQUESTS),
+                quotes=7,
+                won=4,
+                outside_hours_pct=58,
+            ),
+            activity=[
+                AiAssistantClientActivityDay(
+                    day=f"{current.date() - timedelta(days=ACTIVITY_DAYS - 1 - offset):%Y-%m-%d}",
+                    conversations=conversations,
+                    requests=requests,
+                )
+                for offset, (conversations, requests) in enumerate(
+                    zip(_ACTIVITY_CONVERSATIONS, _ACTIVITY_REQUESTS, strict=True)
+                )
             ],
             report=AiAssistantClientReport(
                 month_label=FrenchDateFormatter.month_year(last_month),

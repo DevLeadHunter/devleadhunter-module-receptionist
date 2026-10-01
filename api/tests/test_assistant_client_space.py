@@ -394,7 +394,8 @@ def test_the_example_space_opens_without_a_link_and_its_actions_stay_closed(db: 
 
     assert space.is_example is True
     assert (space.business_name, space.assistant_name, space.pending_count) == ("Toitures Morel", "Sofia", 2)
-    assert [item.type.value for item in space.requests] == ["urgent", "appointment", "quote"]
+    assert [item.type.value for item in space.requests][:3] == ["urgent", "appointment", "quote"]
+    assert space.recent is not None and len(space.activity) == 30
     assert space.report is not None and space.subscription is not None and space.calendar.status.value == "connected"
     assert space.settings.alert_sms_types and space.faq and space.unanswered
     # Dated from now: the example never looks stale.

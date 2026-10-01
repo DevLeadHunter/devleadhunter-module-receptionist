@@ -115,6 +115,26 @@ class AiAssistantClientReport(BaseModel):
     email_requests: int = 0
 
 
+class AiAssistantClientRecentFigures(BaseModel):
+    """The last days' figures, counted live like the monthly report (which covers the calendar month before)."""
+
+    days: int
+    conversations: int
+    requests: int
+    quotes: int
+    won: int
+    outside_hours_pct: int | None = None
+
+
+class AiAssistantClientActivityDay(BaseModel):
+    """One day of the home's activity chart."""
+
+    # « 2026-10-01 », in the business's time zone.
+    day: str
+    conversations: int
+    requests: int
+
+
 class AiAssistantClientSubscription(BaseModel):
     """The client's subscription, read from its local copy."""
 
@@ -241,6 +261,9 @@ class AiAssistantClientSpaceResponse(BaseModel):
     pending_count: int
     requests: list[AiAssistantClientRequestItem] = Field(default_factory=list)
     report: AiAssistantClientReport | None = None
+    # The last 30 days, in all and day by day (oldest first): the home's figures and chart.
+    recent: AiAssistantClientRecentFigures | None = None
+    activity: list[AiAssistantClientActivityDay] = Field(default_factory=list)
     settings: AiAssistantClientSettings
     language_options: list[AiAssistantClientLanguageOption] = Field(default_factory=list)
     subscription: AiAssistantClientSubscription | None = None

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from dataclasses import replace
 from datetime import datetime
 
 from sqlalchemy import ColumnElement, func, select
@@ -65,18 +66,28 @@ class AiAssistantReportStats:
         Returns:
             The period's figures, the most asked questions included.
         """
-        # A returning visitor writes on in their session's conversation: it counts in every month they write.
-        visitor_turns = (
-            AiAssistantConversation.assistant_id == assistant.id,
-            AiAssistantConversation.is_test.is_not(True),
-            AiAssistantMessage.role == "user",
-            AiAssistantMessage.created_at >= start,
-            AiAssistantMessage.created_at < end,
-        )
+        figures = cls.figures(db, assistant, start=start, end=end)
+        questions = await cls._top_questions(db, assistant, cls.visitor_turns(assistant, start=start, end=end))
+        return replace(figures, top_questions=questions)
+
+    @classmethod
+    def figures(cls, db: Session, assistant: AiAssistant, *, start: datetime, end: datetime) -> MonthlyStats:
+        """
+        The figures of an assistant over a period, without the most asked questions (no model call).
+
+        Args:
+            db: Active database session.
+            assistant: The assistant.
+            start: Period start, naive UTC (included).
+            end: Period end, naive UTC (excluded).
+
+        Returns:
+            The period's figures, ``top_questions`` left empty.
+        """
         active = (
             select(AiAssistantMessage.conversation_id)
             .join(AiAssistantConversation, AiAssistantConversation.id == AiAssistantMessage.conversation_id)
-            .where(*visitor_turns)
+            .where(*cls.visitor_turns(assistant, start=start, end=end))
         )
         language_rows = (
             db.query(AiAssistantConversation.language, func.count(AiAssistantConversation.id))
@@ -122,9 +133,31 @@ class AiAssistantReportStats:
             outside_hours_pct=round(100 * sum(known_hours) / len(known_hours)) if known_hours else None,
             languages=cls._language_shares(language_rows),
             average_handling_hours=(round(sum(handling_hours) / len(handling_hours), 1) if handling_hours else None),
-            top_questions=await cls._top_questions(db, assistant, visitor_turns),
+            top_questions=(),
             won=sum(1 for row in requests if row.outcome == AiAssistantRequestOutcome.WON.value),
             email_requests=sum(1 for row in requests if row.channel == AiAssistantRequestChannel.EMAIL.value),
+        )
+
+    @staticmethod
+    def visitor_turns(assistant: AiAssistant, *, start: datetime, end: datetime) -> tuple[ColumnElement[bool], ...]:
+        """
+        The filters of the visitors' messages over a period, in the assistant's conversations (tests left out).
+
+        Args:
+            assistant: The assistant.
+            start: Period start, naive UTC (included).
+            end: Period end, naive UTC (excluded).
+
+        Returns:
+            The filters, for a query joining the messages to their conversation.
+        """
+        # A returning visitor writes on in their session's conversation: it counts in every month they write.
+        return (
+            AiAssistantConversation.assistant_id == assistant.id,
+            AiAssistantConversation.is_test.is_not(True),
+            AiAssistantMessage.role == "user",
+            AiAssistantMessage.created_at >= start,
+            AiAssistantMessage.created_at < end,
         )
 
     @staticmethod
