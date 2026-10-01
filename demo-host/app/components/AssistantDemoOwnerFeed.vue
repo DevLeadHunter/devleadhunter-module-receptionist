@@ -1,32 +1,37 @@
 <template>
   <div class="feed">
-    <div class="feed__bar">
-      <span class="feed__time">{{ props.timeLabel }}</span>
-      <span class="feed__where">Sur votre téléphone</span>
-    </div>
-
-    <div
-      :key="props.arrivalKey"
-      class="feed__notification"
-      :class="{ 'feed__notification--new': !props.isExample || props.arrivalKey > 0 }"
-      aria-live="polite"
-    >
-      <span class="feed__app" aria-hidden="true">
-        <svg viewBox="0 0 24 24">
-          <path
-            d="M12 3C6.5 3 2.5 6.6 2.5 11c0 2.4 1.2 4.6 3.2 6.1L5 21l4.4-2.1c.8.2 1.7.3 2.6.3 5.5 0 9.5-3.6 9.5-8.1S17.5 3 12 3Z"
-            fill="#fff"
-          />
-        </svg>
-      </span>
-      <div class="feed__body">
-        <div class="feed__top">
-          <span class="feed__title">{{ props.assistantName }} · réceptionniste</span>
-          <span class="feed__when">maintenant</span>
-        </div>
-        <p class="feed__text">{{ props.alertText }}</p>
+    <div class="feed__phone">
+      <span class="feed__island" aria-hidden="true" />
+      <div class="feed__clock">
+        <span class="feed__date">Ce soir, sur votre téléphone</span>
+        <span class="feed__time">{{ props.timeLabel }}</span>
       </div>
-      <span v-if="props.isExample" class="feed__tag">exemple</span>
+
+      <div
+        :key="props.arrivalKey"
+        class="feed__notification"
+        :class="{ 'feed__notification--new': !props.isExample || props.arrivalKey > 0 }"
+        aria-live="polite"
+      >
+        <span class="feed__app" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 3C6.5 3 2.5 6.6 2.5 11c0 2.4 1.2 4.6 3.2 6.1L5 21l4.4-2.1c.8.2 1.7.3 2.6.3 5.5 0 9.5-3.6 9.5-8.1S17.5 3 12 3Z"
+              fill="#fff"
+            />
+          </svg>
+        </span>
+        <div class="feed__body">
+          <div class="feed__top">
+            <span class="feed__title">{{ props.assistantName }} · réceptionniste</span>
+            <span class="feed__when">maintenant</span>
+          </div>
+          <p class="feed__text">{{ props.alertText }}</p>
+        </div>
+        <span v-if="props.isExample" class="feed__tag">exemple</span>
+      </div>
+
+      <span class="feed__home" aria-hidden="true" />
     </div>
 
     <p class="feed__hint">{{ props.hintText }}</p>
@@ -36,6 +41,16 @@
 <script lang="ts" setup>
 import type { AssistantDemoOwnerFeedProps } from '~/types/AssistantDemoOwnerFeed'
 
+/**
+ * The business's side of the demo: its phone's lock screen, where the receptionist's SMS lands, and the hint under
+ * it. The example SMS of the trade first, then the visitor's own request.
+ * @param timeLabel The time on the lock screen (« 21:43 »).
+ * @param assistantName The receptionist's first name.
+ * @param alertText The SMS.
+ * @param isExample The trade's example, not yet the visitor's request.
+ * @param hintText What to do next, under the phone.
+ * @param arrivalKey Changes each time the SMS lands again, to replay its arrival.
+ */
 const props: AssistantDemoOwnerFeedProps = defineProps({
   timeLabel: {
     type: String,
@@ -69,34 +84,51 @@ const props: AssistantDemoOwnerFeedProps = defineProps({
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 18px;
-  border-radius: 22px;
-  border: 1px solid var(--ia-line);
-  background: var(--ia-card);
-  box-shadow: 0 30px 70px -34px rgba(23, 19, 13, 0.35);
 }
-.feed__bar {
+.feed__phone {
+  position: relative;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 12px;
-  color: var(--ia-ink-dim);
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 340px;
+  min-height: 390px;
+  margin-inline: auto;
+  padding: 50px 14px 14px;
+  border: 7px solid #15120e;
+  border-radius: 44px;
+  background:
+    radial-gradient(120% 65% at 50% 0%, color-mix(in srgb, var(--a-accent) 60%, #2a241c) 0%, transparent 72%),
+    linear-gradient(180deg, #2a241c 0%, #0f0d0a 100%);
+  box-shadow: 0 30px 70px -34px rgba(23, 19, 13, 0.6);
+  color: #fff;
+}
+.feed__island {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  width: 92px;
+  height: 26px;
+  border-radius: 999px;
+  background: #000;
+  transform: translateX(-50%);
+}
+.feed__clock {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.feed__date {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.82);
 }
 .feed__time {
-  font-family: var(--ia-font-display);
-  font-size: 30px;
-  font-weight: 500;
+  font-size: 68px;
+  font-weight: 650;
   line-height: 1;
-  letter-spacing: -0.02em;
-  color: var(--ia-ink);
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
-}
-.feed__where {
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: 11px;
 }
 .feed__notification {
   position: relative;
@@ -105,11 +137,10 @@ const props: AssistantDemoOwnerFeedProps = defineProps({
   gap: 11px;
   align-items: start;
   padding: 12px 14px 13px 12px;
-  border-radius: 18px;
-  background: #fff;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.92);
   color: #111;
-  border: 1px solid var(--ia-line-soft);
-  box-shadow: 0 18px 40px -22px rgba(23, 19, 13, 0.45);
+  box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.6);
 }
 .feed__notification--new {
   animation: feed-drop 0.45s cubic-bezier(0.2, 0.7, 0.3, 1);
@@ -180,10 +211,19 @@ const props: AssistantDemoOwnerFeedProps = defineProps({
   text-transform: uppercase;
   color: var(--ia-ink-dim);
 }
+.feed__home {
+  align-self: center;
+  width: 118px;
+  height: 5px;
+  margin-top: auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+}
 .feed__hint {
   margin: 0;
-  font-size: 13px;
+  font-size: 13.5px;
   line-height: 1.5;
+  text-align: center;
   color: var(--ia-ink-dim);
 }
 @media (prefers-reduced-motion: reduce) {
