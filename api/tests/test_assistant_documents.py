@@ -34,6 +34,7 @@ from services.ai_assistant.knowledge_budget import AiAssistantKnowledgeBudget, K
 from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 from services.ai_assistant.knowledge_sources import SourceToggles
 from services.ai_assistant.source_service import AiAssistantSourceService
+from tests.assistant_fakes import AsyncCallRecorder
 
 
 def _pdf(pages: list[list[str]]) -> bytes:
@@ -237,6 +238,14 @@ def storage(monkeypatch: pytest.MonkeyPatch) -> _Storage:
     monkeypatch.setattr(document_module, "r2_storage", fake)
     monkeypatch.setattr(sources_routes, "r2_storage", fake)
     return fake
+
+
+@pytest.fixture(autouse=True)
+def suggested_questions(monkeypatch: pytest.MonkeyPatch) -> AsyncCallRecorder:
+    """The opening questions a website read writes again, recorded instead of asked to a model."""
+    recorder = AsyncCallRecorder(False)
+    monkeypatch.setattr(source_module.ai_assistant_suggested_questions, "refresh", recorder)
+    return recorder
 
 
 def _protected(data: bytes) -> bytes:

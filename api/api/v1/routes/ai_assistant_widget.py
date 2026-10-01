@@ -81,6 +81,7 @@ from services.ai_assistant.photo_service import (
 from services.ai_assistant.request_follow_up import ai_assistant_request_follow_up
 from services.ai_assistant.request_service import ai_assistant_request_service
 from services.ai_assistant.request_volume import AiAssistantRequestVolume
+from services.ai_assistant.suggested_questions import AiAssistantSuggestedQuestions
 from services.ai_assistant.visitor_contact import VisitorContact
 from services.assistant_pricing_service import AssistantPricingService
 from services.assistant_video_service import (
@@ -179,6 +180,10 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
     video_ready = has_ready_video(assistant)
     is_sold = assistant.status == AiAssistantStatus.DELIVERED.value
     listing = _listing_public_fields(db, assistant)
+    category = listing.get("trade_label")
+    opening = AiAssistantSuggestedQuestions.opening(
+        assistant.knowledge_json, category if isinstance(category, str) else None
+    )
     return AiAssistantPublicResponse(
         slug=assistant.slug,
         business_name=assistant.business_name,
@@ -199,6 +204,9 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
             else None
         ),
         closed_hours=_closed_hours(db, assistant) if assistant.status == AiAssistantStatus.ACTIVE.value else None,
+        suggested_questions=list(opening.questions),
+        offers_photo_quote=opening.offers_photo_quote,
+        offers_appointment=opening.offers_appointment,
     )
 
 

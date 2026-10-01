@@ -205,7 +205,7 @@ export const EXAMPLE_LABELS: Record<AssistantWidgetLanguage, AssistantExampleLab
   },
 }
 
-/** The question offered as a chip before the visitor's first message, beside the photo and appointment ones. */
+/** The question offered before the first message when the business has none of its own in the widget's language. */
 export const SUGGESTIONS: Record<AssistantWidgetLanguage, string[]> = {
   fr: ['Quels services proposez-vous ?'],
   nl: ['Welke diensten bieden jullie aan?'],
