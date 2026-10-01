@@ -30,6 +30,7 @@ from models.ai_assistant import AiAssistant
 from models.ai_assistant_request import AiAssistantRequest
 from schemas.ai_assistant_demo_space import AiAssistantDemoSpaceRequestItem, AiAssistantDemoSpaceResponse
 from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.avatar_service import ai_assistant_avatar_service
 from services.ai_assistant.business_card import AiAssistantBusinessCard
 from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
 from services.ai_assistant.client_space_activity import AiAssistantClientActivity
@@ -171,6 +172,8 @@ class AiAssistantDemoSpaceService:
             assistant_name=assistant.assistant_name,
             assistant_gender=ai_assistant_config_builder.resolve_persona_gender(assistant.assistant_name),
             accent_color=ai_assistant_service.accent_color(assistant),
+            avatar_url=ai_assistant_avatar_service.shown_url(assistant),
+            avatar_background=ai_assistant_avatar_service.shown_background(assistant),
             link_expires_label=self._last_day_label(assistant),
             pending_count=sum(1 for item in requests if item.status is AiAssistantRequestStatus.NEW),
             requests=requests,

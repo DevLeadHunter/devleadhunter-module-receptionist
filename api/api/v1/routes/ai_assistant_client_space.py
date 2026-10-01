@@ -35,6 +35,7 @@ from schemas.ai_assistant_client_space import (
 from schemas.ai_assistant_demo_space import AiAssistantDemoSpaceRequest, AiAssistantDemoSpaceResponse
 from schemas.ai_assistant_faq import AiAssistantFaqEntryRequest, AiAssistantFaqResponse
 from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.avatar_service import ai_assistant_avatar_service
 from services.ai_assistant.calendar_access import ai_assistant_calendar_access
 from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
 from services.ai_assistant.calendar_service import ai_assistant_calendar_service
@@ -102,6 +103,8 @@ async def get_client_space(
         business_name=assistant.business_name,
         assistant_name=assistant.assistant_name,
         accent_color=ai_assistant_service.accent_color(assistant),
+        avatar_url=ai_assistant_avatar_service.shown_url(assistant),
+        avatar_background=ai_assistant_avatar_service.shown_background(assistant),
         link_expires_label=ai_assistant_client_space_payload.business_label(fresh_link.expires_at, "%d/%m/%Y"),
         pending_count=ai_assistant_client_space_service.pending_count(db, assistant),
         requests=[ai_assistant_client_space_payload.request_item(record, booked.get(record.id)) for record in records],

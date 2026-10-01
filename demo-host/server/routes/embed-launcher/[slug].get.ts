@@ -43,6 +43,8 @@ export default defineEventHandler(async (event: H3Event): Promise<AssistantLaunc
   return {
     assistant_name: assistant.assistant_name,
     portrait_path: AssistantAvatarUtils.portraitUrl(assistant.assistant_name, assistant.assistant_gender ?? null),
+    portrait_url: assistant.avatar_url ?? null,
+    portrait_background: assistant.avatar_background ?? null,
     accent_strong: palette.strong,
     accent_tint: palette.tint,
     say_before: UI_LABELS[language].launcherBefore,

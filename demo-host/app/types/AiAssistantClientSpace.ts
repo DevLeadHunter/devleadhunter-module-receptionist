@@ -199,6 +199,8 @@ export type AiAssistantClientSpace = {
   business_name: string
   assistant_name: string
   accent_color: string | null
+  avatar_url?: string | null
+  avatar_background?: string | null
   link_expires_label: string
   pending_count: number
   requests: AiAssistantClientRequest[]

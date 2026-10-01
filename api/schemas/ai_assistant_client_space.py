@@ -254,6 +254,9 @@ class AiAssistantClientSpaceResponse(BaseModel):
     business_name: str
     assistant_name: str
     accent_color: str | None = None
+    # The business's own portrait in place of the casting face, and the disc behind a cut-out one.
+    avatar_url: str | None = None
+    avatar_background: str | None = None
     # « 24/10/2026 »: the last day this link opens the space.
     link_expires_label: str
     # The example space a prospect opens from its demo page: fictional data, nothing to save.

@@ -16,6 +16,10 @@ export type AiAssistantSummary = {
   tone: string | null
   accent_color: string | null
   use_brand_color: boolean
+  avatar_url: string | null
+  avatar_enabled: boolean
+  avatar_is_transparent: boolean
+  avatar_background: string | null
   status: string
   demo_url: string
   embed_snippet: string
@@ -133,6 +137,8 @@ export type AiAssistantUpdatePayload = {
   tone?: string
   use_brand_color?: boolean
   accent_color?: string
+  avatar_background?: string
+  avatar_enabled?: boolean
   email?: string
   alert_phone?: string
   alert_sms_enabled?: boolean
@@ -150,6 +156,7 @@ export type AiAssistantEditForm = {
   business_name: string
   tone: string
   accent_color: string
+  avatar_enabled: boolean
   languages: string[]
   email: string
   alert_phone: string

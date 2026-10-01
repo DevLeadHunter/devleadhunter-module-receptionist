@@ -57,6 +57,7 @@ from services.ai_assistant.appointment_slots import (
     SlotNoLongerOffered,
 )
 from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.avatar_service import ai_assistant_avatar_service
 from services.ai_assistant.business_card import AiAssistantBusinessCard
 from services.ai_assistant.calendar_booking import SlotTakenError, ai_assistant_calendar_booking
 from services.ai_assistant.calendar_service import ai_assistant_calendar_service
@@ -192,6 +193,8 @@ async def get_public_assistant(slug: str, db: Session = Depends(get_db)) -> AiAs
         assistant_gender=ai_assistant_config_builder.resolve_persona_gender(assistant.assistant_name).value,
         languages=assistant.languages or [],
         accent_color=ai_assistant_service.accent_color(assistant),
+        avatar_url=ai_assistant_avatar_service.shown_url(assistant),
+        avatar_background=ai_assistant_avatar_service.shown_background(assistant),
         status=assistant.status,
         **listing,
         **_owner_public_fields(assistant),

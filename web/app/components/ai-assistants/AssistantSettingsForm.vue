@@ -10,8 +10,19 @@
         <span class="text-xs font-medium text-[var(--app-ink)]">Réceptionniste</span>
         <AssistantPersonaPicker
           v-model="form.assistant_name"
+          v-model:custom-image-picked="form.avatar_enabled"
           :demo-url="props.assistant.demo_url"
           :accent-color="form.accent_color || null"
+          :custom-image-url="props.assistant.avatar_url"
+          :custom-image-background="props.assistant.avatar_is_transparent ? props.assistant.avatar_background : null"
+          @customize="isAvatarModalOpen = true"
+        />
+        <AssistantAvatarModal
+          :open="isAvatarModalOpen"
+          :assistant="props.assistant"
+          :accent-color="form.accent_color || null"
+          @close="isAvatarModalOpen = false"
+          @updated="onAvatarUpdated"
         />
       </div>
       <label class="flex flex-col gap-1">
@@ -172,12 +183,14 @@ import type { AssistantSettingsFormEmits, AssistantSettingsFormProps } from '~/t
 import type { UseToastReturn } from '~/types/Composables'
 import type { SelectFieldOption } from '~/types/SelectField'
 import { computed, ref, watch } from 'vue'
+import AssistantAvatarModal from '~/components/ai-assistants/AssistantAvatarModal.vue'
 import AssistantPersonaPicker from '~/components/ai-assistants/AssistantPersonaPicker.vue'
 import { useToast } from '~/composables/useToast'
 import { ASSISTANT_TONE_OPTIONS } from '~/constants/assistantTones'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { widgetLanguageCode } from '~/utils/aiAssistantLabels'
 import { formatAssistantTone, parseAssistantTone } from '~/utils/assistantTone'
+import { withRecordChanges } from '~/utils/formSync'
 
 const props: AssistantSettingsFormProps = defineProps({
   assistant: {
@@ -221,6 +234,7 @@ const form: Ref<AiAssistantEditForm> = ref(formOf(props.assistant))
 /** The tone as chips; the stored sentence is written from them on save. */
 const toneWords: Ref<string[]> = ref(parseAssistantTone(props.assistant.tone))
 const isSaving: Ref<boolean> = ref(false)
+const isAvatarModalOpen: Ref<boolean> = ref(false)
 
 /** The tone chips: the known tones, plus any word of the stored tone that is not one of them (nothing is lost). */
 const toneOptions: ComputedRef<SelectFieldOption<string>[]> = computed((): SelectFieldOption<string>[] => {
@@ -261,6 +275,7 @@ function formOf(assistant: AiAssistantSummary): AiAssistantEditForm {
     business_name: assistant.business_name,
     tone: assistant.tone ?? '',
     accent_color: assistant.accent_color ?? '',
+    avatar_enabled: assistant.avatar_enabled,
     languages: offeredLanguagesOf(assistant.languages),
     email: assistant.email ?? '',
     alert_phone: assistant.alerts.phone ?? '',
@@ -319,8 +334,11 @@ async function save(): Promise<void> {
       ...changedAlertFields(target.alerts, form.value),
       ...(form.value.eu_only !== target.eu_only ? { eu_only: form.value.eu_only } : {}),
       ...(form.value.mailbox_enabled !== target.mailbox_enabled ? { mailbox_enabled: form.value.mailbox_enabled } : {}),
+      ...(form.value.avatar_enabled !== target.avatar_enabled ? { avatar_enabled: form.value.avatar_enabled } : {}),
     }
     const updated: AiAssistantSummary = await AiAssistantService.update(target.id, payload)
+    form.value = formOf(updated)
+    toneWords.value = parseAssistantTone(updated.tone)
     toast.success('Réceptionniste personnalisée.')
     emit('saved', updated)
   } catch (error: unknown) {
@@ -333,11 +351,26 @@ async function save(): Promise<void> {
   }
 }
 
+/**
+ * The image was sent, chosen or deleted in its dialog: the card follows at once, whatever was picked before.
+ * @param updated - The assistant as the API returned it.
+ */
+function onAvatarUpdated(updated: AiAssistantSummary): void {
+  form.value.avatar_enabled = updated.avatar_enabled
+  emit('saved', updated)
+}
+
 watch(
   (): AiAssistantSummary => props.assistant,
-  (assistant: AiAssistantSummary): void => {
-    form.value = formOf(assistant)
-    toneWords.value = parseAssistantTone(assistant.tone)
+  (assistant: AiAssistantSummary, previous: AiAssistantSummary): void => {
+    if (assistant.id !== previous.id) {
+      form.value = formOf(assistant)
+      toneWords.value = parseAssistantTone(assistant.tone)
+      return
+    }
+    // The same receptionist refreshed (its image, the video status): the server's changes come in, the edits stay.
+    form.value = withRecordChanges(form.value, formOf(previous), formOf(assistant))
+    if (assistant.tone !== previous.tone) toneWords.value = parseAssistantTone(assistant.tone)
   },
 )
 </script>

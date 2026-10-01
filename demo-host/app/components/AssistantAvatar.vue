@@ -62,10 +62,9 @@ onMounted((): void => {
   height: 100%;
   border-radius: 50%;
   overflow: hidden;
-  background: radial-gradient(
-    circle at 32% 22%,
-    color-mix(in srgb, var(--ai-accent-tint) 55%, white),
-    var(--ai-accent-tint) 72%
+  background: var(
+    --ai-avatar-background,
+    radial-gradient(circle at 32% 22%, color-mix(in srgb, var(--ai-accent-tint) 55%, white), var(--ai-accent-tint) 72%)
   );
   user-select: none;
 }

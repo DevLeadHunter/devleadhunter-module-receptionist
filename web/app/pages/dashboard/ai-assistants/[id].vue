@@ -36,6 +36,7 @@
           :url="portraitUrl"
           :name="assistant.assistant_name"
           :accent-color="assistant.accent_color"
+          :background="shownOwnImageBackground(assistant)"
           size-class="h-14 w-14 text-lg"
         />
         <div class="min-w-0 space-y-2">
@@ -235,7 +236,7 @@ import { AiAssistantService } from '~/services/aiAssistantService'
 import { AssistantSidecarService } from '~/services/assistantSidecarService'
 import { useDrawerStackStore } from '~/stores/drawerStack'
 import { assistantStatusLabel, demoUrlWithInternal, missingStartStepsLabel } from '~/utils/aiAssistantLabels'
-import { assistantPortraitUrl } from '~/utils/assistantPortrait'
+import { assistantPortraitUrl, shownOwnImageBackground, shownOwnImageUrl } from '~/utils/assistantPortrait'
 import { ClipboardCopy } from '~/utils/clipboardCopy'
 
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'ai-assistant-module'] })
@@ -295,7 +296,12 @@ const pageTitle: ComputedRef<string> = computed(
 
 const portraitUrl: ComputedRef<string> = computed((): string =>
   assistant.value
-    ? assistantPortraitUrl(assistant.value.demo_url, assistant.value.assistant_name, assistant.value.assistant_gender)
+    ? assistantPortraitUrl(
+        assistant.value.demo_url,
+        assistant.value.assistant_name,
+        assistant.value.assistant_gender,
+        shownOwnImageUrl(assistant.value),
+      )
     : '',
 )
 

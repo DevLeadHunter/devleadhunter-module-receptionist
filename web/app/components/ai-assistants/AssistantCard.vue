@@ -54,6 +54,7 @@
           :url="portraitUrl"
           :name="props.assistant.assistant_name"
           :accent-color="props.assistant.accent_color"
+          :background="shownOwnImageBackground(props.assistant)"
         />
         <div class="min-w-0">
           <h2 class="truncate text-lg font-semibold text-[var(--app-ink)]">{{ props.assistant.business_name }}</h2>
@@ -127,7 +128,7 @@ import {
   demoUrlWithInternal,
   missingStartStepsLabel,
 } from '~/utils/aiAssistantLabels'
-import { assistantPortraitUrl } from '~/utils/assistantPortrait'
+import { assistantPortraitUrl, shownOwnImageBackground, shownOwnImageUrl } from '~/utils/assistantPortrait'
 
 const props: AiAssistantCardProps = defineProps({
   assistant: {
@@ -155,7 +156,12 @@ const demoUrl: ComputedRef<string> = computed((): string => demoUrlWithInternal(
 const previewUrl: ComputedRef<string> = computed((): string => demoUrl.value)
 
 const portraitUrl: ComputedRef<string> = computed((): string =>
-  assistantPortraitUrl(props.assistant.demo_url, props.assistant.assistant_name, props.assistant.assistant_gender),
+  assistantPortraitUrl(
+    props.assistant.demo_url,
+    props.assistant.assistant_name,
+    props.assistant.assistant_gender,
+    shownOwnImageUrl(props.assistant),
+  ),
 )
 
 const statusLabel: ComputedRef<string> = computed((): string => assistantStatusLabel(props.assistant.status))

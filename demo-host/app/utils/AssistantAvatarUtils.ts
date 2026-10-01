@@ -73,14 +73,15 @@ const GLASSES_PROBABILITY: number = 20
  */
 export class AssistantAvatarUtils {
   /**
-   * The photo to show, the same everywhere the assistant appears: the persona's own when the first name belongs
-   * to the casting, else the face of a casting persona of the same gender, always the same for a given name.
+   * The photo to show, the same everywhere the assistant appears: the business's own image when it shows one, else
+   * the persona's own when the first name belongs to the casting, else the face of a casting persona of its gender.
    * @param name - The persona's first name.
    * @param gender - The persona's gender, as the API resolved it from the first name.
-   * @returns The address of the shipped photo.
+   * @param ownImageUrl - The business's own portrait (a photo or its logo), if any.
+   * @returns The address of the photo.
    */
-  static portraitUrl(name: string, gender: AiAssistantPersonaGender | null): string {
-    return `/avatars/${AssistantAvatarUtils.persona(name, gender).slug}.webp`
+  static portraitUrl(name: string, gender: AiAssistantPersonaGender | null, ownImageUrl: string | null = null): string {
+    return ownImageUrl || `/avatars/${AssistantAvatarUtils.persona(name, gender).slug}.webp`
   }
 
   /**

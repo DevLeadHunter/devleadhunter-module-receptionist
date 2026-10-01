@@ -56,7 +56,7 @@
     '.dlh-sheet[hidden]{display:none}' +
     '.dlh-sheet--in{opacity:1;transform:none}' +
     '.dlh-sheet__head{display:flex;align-items:center;gap:12px;padding:14px 12px 12px 16px;border-bottom:1px solid rgba(23,19,13,.07)}' +
-    '.dlh-sheet__portrait{position:relative;width:44px;height:44px;flex:none;border-radius:50%;box-shadow:0 0 0 2px var(--dlh-strong);overflow:hidden;background:var(--dlh-tint)}' +
+    '.dlh-sheet__portrait{position:relative;width:44px;height:44px;flex:none;border-radius:50%;box-shadow:0 0 0 2px var(--dlh-strong);overflow:hidden;background:var(--dlh-portrait-bg,var(--dlh-tint))}' +
     '.dlh-sheet__portrait img{display:block;width:100%;height:100%;object-fit:cover}' +
     '.dlh-sheet__name{flex:1;min-width:0;font-size:17px;font-weight:600;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
     '.dlh-sheet__close{flex:none;width:32px;height:32px;margin:0;padding:0;border:0;border-radius:50%;background:transparent;color:#6d665b;font-size:22px;line-height:1;cursor:pointer}' +
@@ -69,7 +69,7 @@
     '.dlh-launcher__say strong{font-weight:600}' +
     '.dlh-launcher__portrait{position:relative;width:50px;height:50px;flex:none;border-radius:50%;box-shadow:0 0 0 3px #fff,0 0 0 4px var(--dlh-strong),0 12px 28px -12px rgba(23,19,13,.55);transition:transform .15s ease}' +
     '.dlh-launcher:hover .dlh-launcher__portrait{transform:translateY(-2px)}' +
-    '.dlh-launcher__disc{display:block;width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--dlh-tint);background:radial-gradient(circle at 32% 22%,color-mix(in srgb,var(--dlh-tint) 55%,#fff),var(--dlh-tint) 72%)}' +
+    '.dlh-launcher__disc{display:block;width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--dlh-tint);background:var(--dlh-portrait-bg,radial-gradient(circle at 32% 22%,color-mix(in srgb,var(--dlh-tint) 55%,#fff),var(--dlh-tint) 72%))}' +
     '.dlh-launcher__disc img{display:block;width:100%;height:100%;object-fit:cover}' +
     '.dlh-launcher__initial{display:flex;width:100%;height:100%;align-items:center;justify-content:center;font-weight:600;font-size:20px;color:#17130d}' +
     '.dlh-launcher__dot{position:absolute;right:2px;bottom:2px;width:12px;height:12px;border-radius:50%;background:#2f9e5b;box-shadow:0 0 0 2px #fff}' +
@@ -255,6 +255,8 @@
       sheet.appendChild(body)
       sheet.style.setProperty('--dlh-strong', launcher.style.getPropertyValue('--dlh-strong'))
       sheet.style.setProperty('--dlh-tint', launcher.style.getPropertyValue('--dlh-tint'))
+      var portraitBackground = launcher.style.getPropertyValue('--dlh-portrait-bg')
+      if (portraitBackground) sheet.style.setProperty('--dlh-portrait-bg', portraitBackground)
       document.body.appendChild(sheet)
     }
     sheet.hidden = false
@@ -457,6 +459,7 @@
     launcher.setAttribute('aria-label', config.open_label)
     launcher.style.setProperty('--dlh-strong', config.accent_strong)
     launcher.style.setProperty('--dlh-tint', config.accent_tint)
+    if (config.portrait_background) launcher.style.setProperty('--dlh-portrait-bg', config.portrait_background)
 
     var say = document.createElement('span')
     say.className = 'dlh-launcher__say'
@@ -472,11 +475,16 @@
     var disc = document.createElement('span')
     disc.className = 'dlh-launcher__disc'
     var photo = document.createElement('img')
-    portraitSrc = origin + config.portrait_path
+    portraitSrc = config.portrait_url || origin + config.portrait_path
     photo.src = portraitSrc
     photo.alt = ''
     photo.draggable = false
     photo.onerror = function () {
+      if (portraitSrc !== origin + config.portrait_path) {
+        portraitSrc = origin + config.portrait_path
+        photo.src = portraitSrc
+        return
+      }
       disc.textContent = ''
       var initial = document.createElement('span')
       initial.className = 'dlh-launcher__initial'

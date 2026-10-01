@@ -64,8 +64,30 @@ injoignable garde ses pages lues avant (un site `dead`/`placeholder` n'est plus 
 ### Personnalisation
 
 `update(db, assistant, fields)` applique une édition partielle (seules les clés fournies sont
-touchées) : `assistant_name`, `business_name`, `languages`, `tone`, `use_brand_color`, et
-`accent_color` (réécrit dans `knowledge_json['palette']`, chaîne vide = accent neutre).
+touchées) : `assistant_name`, `business_name`, `languages`, `tone`, `use_brand_color`,
+`accent_color` (réécrit dans `knowledge_json['palette']`, chaîne vide = accent neutre),
+`avatar_background` (couleur `#rrggbb` du disque derrière une image détourée, chaîne vide = teinte de l'accent) et
+`avatar_enabled` (montrer l'image du commerce plutôt que le visage ; refusé tant qu'aucune image n'est envoyée).
+
+**Image du commerce à la place du visage (01/10, `services/ai_assistant/avatar_service.py`).** Dans Personnaliser,
+la grille des visages (`AssistantPersonaPicker`, quatre colonnes) se termine par une septième carte « Votre image » :
+un « + » tant qu'aucune image n'est envoyée, l'image avec un crayon ensuite. Elle ouvre la fenêtre
+`AssistantAvatarModal` : envoyer ou remplacer la photo ou le logo (PNG, JPG ou WebP, 2 Mo au plus), choisir le fond
+d'une image détourée, « Utiliser cette image » (active l'image et enregistre le fond), « Supprimer l'image ». La grille
+est un choix unique : cliquer un visage repasse sur ce visage à l'enregistrement du formulaire, l'image restant rangée
+dans sa carte (`avatar_enabled` à faux, l'image gardée). L'image est normalisée une fois, à l'envoi : redressée
+(EXIF), carrée, 512 px, en WebP. Une photo est recadrée au centre (un peu au-dessus du milieu, là où est le visage),
+quel que soit son format ; un logo est posé entier, rogné de ses bords vides et mis à l'échelle pour que son point
+visible le plus éloigné reste dans le disque (un logo carré n'a pas les coins coupés) : détouré, il garde sa
+transparence ; sur fond uni (les quatre bords de la même couleur), il est posé sur un disque de cette couleur. Stockage
+R2 sous `images/assistant-avatars/{id}/{uuid}.webp`, nouvelle clé à chaque envoi (aucun cache ne sert l'ancienne
+image, supprimée ensuite) ; colonnes `avatar_key`, `avatar_enabled`, `avatar_is_transparent`, `avatar_background`.
+Le propriétaire reçoit toujours `avatar_url` (la carte la montre même quand un visage est choisi) ; la config publique
+du widget, l'espace client et l'espace démo ne servent `avatar_url` que si l'image est choisie, et `avatar_background`
+que si elle est détourée. Le widget, le lanceur natif (`portrait_url` et `portrait_background` de
+`/embed-launcher/{slug}`, le `portrait_path` du casting reste pour les loaders en cache) et le dashboard affichent la
+même image. La purge d'une réceptionniste supprimée efface le dossier, la page Stockage le classe en « Portrait
+(réceptionniste) ».
 
 ## Connaissance
 
@@ -204,7 +226,8 @@ C'est le **produit** que le client colle sur son site. Il porte :
   en haut à gauche. Le dashboard montre le même portrait (carte de la liste, en-tête de la page de détail, volet
   Personnaliser) avec `components/ai-assistants/AssistantPortrait.vue` et `utils/assistantPortrait.ts`, à partir
   de `assistant_gender` que l'API renvoie désormais au propriétaire ; le disque y prend la couleur d'accent de
-  l'assistant (celle du formulaire, en direct, dans le volet).
+  l'assistant (celle du formulaire, en direct, dans le volet). Depuis le 01/10, une image du commerce (septième carte
+  de la grille) peut remplacer le visage (voir « Personnalisation »).
 - **Polices servies par le demo-host (25/09)** : Fraunces et Inter (licence OFL) en woff2 dans `public/fonts/`,
   déclarées dans `assets/css/fonts.css` chargé globalement ; plus aucun appel à Google Fonts depuis nos pages ni
   depuis le widget sur le site d'un client.
@@ -925,7 +948,9 @@ Une démo a son **espace démo** en lecture seule (`/ia/{slug}/espace`, voir le 
 | `GET` | `/ai-assistants/leads` | Anciens contacts captés (lecture seule, historique) |
 | `GET` | `/ai-assistants/requests` | Lister les demandes (`?assistant_id=`, `?status=`) + `pending_count` |
 | `PATCH` | `/ai-assistants/requests/{id}` | Changer le statut (`new` / `handled` / `dropped`) ou la note d'une demande |
-| `PATCH` | `/ai-assistants/{id}` | Personnaliser (nom, persona, langues, accent, alertes au commerçant, IA hébergée en Europe, boîte mail : l'éteindre la déconnecte) |
+| `PATCH` | `/ai-assistants/{id}` | Personnaliser (nom, persona, langues, accent, image du commerce montrée ou non et son fond, alertes au commerçant, IA hébergée en Europe, boîte mail : l'éteindre la déconnecte) |
+| `POST` | `/ai-assistants/{id}/avatar` | Envoyer l'image du commerce, montrée une fois choisie, tout de suite si une image l'était déjà (multipart `file` ; 413 au-delà de 2 Mo, 422 si le format ou l'image ne va pas, 502 si le stockage refuse) |
+| `DELETE` | `/ai-assistants/{id}/avatar` | Supprimer l'image du commerce : la réceptionniste reprend son visage (la couleur du fond reste) |
 | `POST` | `/ai-assistants/{id}/regenerate` | Régénérer la connaissance (garde marque + slug) |
 | `POST` | `/ai-assistants/{id}/video` | Générer la vidéo de prospection (fond serveur / VPS) |
 | `GET` | `/ai-assistants/{id}/video-context` | Contexte pour le build desktop (sidecar) |
@@ -1114,6 +1139,7 @@ dashboard (non instrumenté).
 | Portrait, palette, dates des créneaux | `demo-host/app/utils/AssistantAvatarUtils.ts`, `AssistantAccentUtils.ts`, `AssistantScheduleUtils.ts` |
 | Page de démo : scénario des deux téléphones, composants | `demo-host/app/utils/AssistantDemoScenarioUtils.ts`, `demo-host/app/components/AssistantDemo*.vue` |
 | Casting (six prénoms, portraits `{slug}.webp`), sélecteur de visage | `demo-host/app/constants/AssistantCasting.ts`, `demo-host/public/avatars/`, `web/app/constants/assistantCasting.ts`, `web/app/components/ai-assistants/AssistantPersonaPicker.vue` |
+| Image du commerce à la place du visage, fond du portrait | `api/services/ai_assistant/avatar_service.py`, `api/migrations/add_ai_assistant_custom_avatar.py`, `web/app/components/ai-assistants/AssistantPersonaPicker.vue` (septième carte), `AssistantAvatarModal.vue`, `web/app/utils/assistantPortrait.ts` |
 | Polices auto-hébergées (Fraunces, Inter) | `demo-host/app/assets/css/fonts.css`, `demo-host/public/fonts/` |
 | Loader natif du widget, configuration du lanceur | `demo-host/public/ai-assistant.js`, `demo-host/server/routes/embed-launcher/[slug].get.ts`, `demo-host/app/types/AssistantLauncher.ts` |
 | Démo guidée, accueil contextuel, chrome multilingue | `demo-host/app/utils/AssistantDemoScenarioUtils.ts` (`script`), `AssistantHostPageUtils.ts`, `demo-host/app/constants/AssistantWidgetLabels.ts` (`UI_LABELS`, `GREETING_*`, `EXAMPLE_LABELS`) |

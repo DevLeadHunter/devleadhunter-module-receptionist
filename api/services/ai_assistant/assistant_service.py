@@ -20,6 +20,7 @@ from enums.website_status import WebsiteStatus
 from models.ai_assistant import AiAssistant
 from models.demo_site import DemoSite
 from models.prospect_db import ProspectDB
+from services.ai_assistant.avatar_service import ai_assistant_avatar_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
 from services.ai_assistant.gmail_client import gmail_client
@@ -179,6 +180,12 @@ class AiAssistantService:
             assistant.tone = (fields["tone"] or "").strip() or None
         if "use_brand_color" in fields:
             assistant.use_brand_color = bool(fields["use_brand_color"])
+        if "avatar_background" in fields:
+            assistant.avatar_background = ai_assistant_avatar_service.background_of(fields["avatar_background"])
+        if "avatar_enabled" in fields and fields["avatar_enabled"] is not None:
+            if fields["avatar_enabled"] and not assistant.avatar_key:
+                raise ValueError("Image manquante : envoyez d'abord une image")
+            assistant.avatar_enabled = bool(fields["avatar_enabled"])
         if "accent_color" in fields:
             knowledge = dict(assistant.knowledge_json or {})
             palette = dict(knowledge.get("palette") or {})

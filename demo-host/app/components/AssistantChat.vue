@@ -282,16 +282,23 @@ const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<str
   '--ai-accent-strong': palette.value.strong,
   '--ai-accent-text': palette.value.text,
   '--ai-accent-tint': palette.value.tint,
+  ...(props.assistant.avatar_background ? { '--ai-avatar-background': props.assistant.avatar_background } : {}),
 }))
 const avatarUrl: ComputedRef<string> = computed((): string =>
-  AssistantAvatarUtils.portraitUrl(props.assistant.assistant_name, props.assistant.assistant_gender ?? null),
-)
-const avatarFallbackUrl: ComputedRef<string> = computed((): string =>
-  AssistantAvatarUtils.dataUri(
+  AssistantAvatarUtils.portraitUrl(
     props.assistant.assistant_name,
     props.assistant.assistant_gender ?? null,
-    palette.value.tint,
+    props.assistant.avatar_url ?? null,
   ),
+)
+const avatarFallbackUrl: ComputedRef<string> = computed((): string =>
+  props.assistant.avatar_url
+    ? AssistantAvatarUtils.portraitUrl(props.assistant.assistant_name, props.assistant.assistant_gender ?? null)
+    : AssistantAvatarUtils.dataUri(
+        props.assistant.assistant_name,
+        props.assistant.assistant_gender ?? null,
+        palette.value.tint,
+      ),
 )
 const roleLabel: ComputedRef<string> = computed(
   (): string => ROLE_LABELS[language.value][props.assistant.assistant_gender ?? 'feminine'],

@@ -1,4 +1,4 @@
-import type { AiAssistantPersona, AiAssistantPersonaGender } from '~/types/AiAssistant'
+import type { AiAssistantPersona, AiAssistantPersonaGender, AiAssistantSummary } from '~/types/AiAssistant'
 import { ASSISTANT_CASTING, ASSISTANT_DEFAULT_PERSONA } from '~/constants/assistantCasting'
 
 /**
@@ -70,14 +70,38 @@ export function personaPortraitUrl(demoUrl: string, slug: string): string {
 }
 
 /**
- * The portrait an assistant shows, on its demo host.
+ * The business's own image, when the receptionist shows it in place of its casting face.
+ * @param assistant - The assistant.
+ * @returns The image address, or null when the casting face shows.
+ */
+export function shownOwnImageUrl(assistant: AiAssistantSummary): string | null {
+  return assistant.avatar_enabled ? assistant.avatar_url : null
+}
+
+/**
+ * The colour of the disc around the business's own image, when the receptionist shows a cut-out one.
+ * @param assistant - The assistant.
+ * @returns The colour, or null for the accent's tint.
+ */
+export function shownOwnImageBackground(assistant: AiAssistantSummary): string | null {
+  return assistant.avatar_enabled && assistant.avatar_is_transparent ? assistant.avatar_background : null
+}
+
+/**
+ * The portrait an assistant shows: the business's own image when it shows one, else its casting face on the demo host.
  * @param demoUrl - The assistant's demo link.
  * @param name - The assistant's first name.
  * @param gender - The persona's gender.
+ * @param ownImageUrl - The business's own portrait (a photo or its logo), if any.
  * @returns The image address.
  */
-export function assistantPortraitUrl(demoUrl: string, name: string, gender: AiAssistantPersonaGender): string {
-  return personaPortraitUrl(demoUrl, personaFor(name, gender).slug)
+export function assistantPortraitUrl(
+  demoUrl: string,
+  name: string,
+  gender: AiAssistantPersonaGender,
+  ownImageUrl: string | null = null,
+): string {
+  return ownImageUrl || personaPortraitUrl(demoUrl, personaFor(name, gender).slug)
 }
 
 /**

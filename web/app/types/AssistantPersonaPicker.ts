@@ -5,4 +5,11 @@
 export type AssistantPersonaPickerProps = {
   demoUrl: string
   accentColor: string | null
+  customImageUrl: string | null
+  customImageBackground: string | null
+}
+
+/** Events of the casting grid; `customize` asks for the business's own image to be sent or edited. */
+export type AssistantPersonaPickerEmits = {
+  customize: []
 }

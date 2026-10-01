@@ -52,6 +52,14 @@ class AiAssistant(Base):
     knowledge_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # Whether the widget accent is pulled from the prospect's logo (True) or kept neutral (False).
     use_brand_color: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # The business's own portrait (a photo or its logo) on R2, kept at hand to replace the casting face; NULL = none.
+    avatar_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Whether the receptionist shows that portrait (True) or its casting face, the image staying at hand (False).
+    avatar_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Whether that portrait has transparent areas, where the disc behind it shows.
+    avatar_is_transparent: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # The colour of the disc behind a cut-out portrait (« #f4e9dc »); NULL = the accent's tint.
+    avatar_background: Mapped[str | None] = mapped_column(String(16), nullable=True)
     demo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     # Client website where the assistant is embedded once sold (e.g. agence-luma.lu).
     custom_domain: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)

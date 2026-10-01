@@ -117,6 +117,34 @@ export class AiAssistantService {
   }
 
   /**
+   * Make an image (a photo or the business's logo) the receptionist's portrait, in place of the casting face.
+   *
+   * @param assistantId - The assistant.
+   * @param file - The PNG, JPEG or WebP image, 2 MB at most.
+   * @returns The assistant with its new portrait.
+   * @throws Error carrying the API's explanation when the image is refused.
+   */
+  static async uploadAvatar(assistantId: number, file: File): Promise<AiAssistantSummary> {
+    const formData: FormData = new FormData()
+    formData.append('file', file, file.name)
+    return AiAssistantService.postMultipart<AiAssistantSummary>(
+      `${BASE_URL}/${assistantId}/avatar`,
+      formData,
+      "Envoi de l'image échoué",
+    )
+  }
+
+  /**
+   * Give the receptionist its casting face back.
+   *
+   * @param assistantId - The assistant.
+   * @returns The assistant without its own image.
+   */
+  static clearAvatar(assistantId: number): Promise<AiAssistantSummary> {
+    return ApiClient.delete<AiAssistantSummary>(`${BASE_URL}/${assistantId}/avatar`)
+  }
+
+  /**
    * Switch a document on or off.
    *
    * @param assistantId - The assistant.

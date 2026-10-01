@@ -393,15 +393,21 @@ const isWide: Ref<boolean> = ref(false)
 
 /** The receptionist's portrait, as the widget shows it (the gender is unknown here: a casting name has its own). */
 const portraitUrl: ComputedRef<string> = computed((): string =>
-  AssistantAvatarUtils.portraitUrl(space.value?.assistant_name ?? '', space.value?.assistant_gender ?? null),
+  AssistantAvatarUtils.portraitUrl(
+    space.value?.assistant_name ?? '',
+    space.value?.assistant_gender ?? null,
+    space.value?.avatar_url ?? null,
+  ),
 )
 
 const portraitFallbackUrl: ComputedRef<string> = computed((): string =>
-  AssistantAvatarUtils.dataUri(
-    space.value?.assistant_name ?? '',
-    space.value?.assistant_gender ?? null,
-    AssistantAccentUtils.palette(space.value?.accent_color).tint,
-  ),
+  space.value?.avatar_url
+    ? AssistantAvatarUtils.portraitUrl(space.value.assistant_name, space.value.assistant_gender ?? null)
+    : AssistantAvatarUtils.dataUri(
+        space.value?.assistant_name ?? '',
+        space.value?.assistant_gender ?? null,
+        AssistantAccentUtils.palette(space.value?.accent_color).tint,
+      ),
 )
 
 /**
@@ -419,6 +425,8 @@ const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<str
     '--cs-accent-tint-light': light.tint,
     '--cs-accent-text-dark': dark.text,
     '--cs-accent-tint-dark': dark.tint,
+    '--ai-accent-tint': light.tint,
+    ...(space.value?.avatar_background ? { '--ai-avatar-background': space.value.avatar_background } : {}),
   }
 })
 

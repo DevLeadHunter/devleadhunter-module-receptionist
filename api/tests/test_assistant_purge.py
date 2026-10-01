@@ -59,6 +59,7 @@ class FakeBucket:
     """An R2 bucket in memory: the keys it holds, and whether it answers."""
 
     DOCUMENTS_ASSISTANT_PREFIX = R2StorageService.DOCUMENTS_ASSISTANT_PREFIX
+    IMAGES_ASSISTANT_AVATARS_PREFIX = R2StorageService.IMAGES_ASSISTANT_AVATARS_PREFIX
 
     def __init__(self) -> None:
         self.keys: set[str] = set()

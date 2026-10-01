@@ -29,6 +29,7 @@ from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_SUCCESS, ac
 from services.ai_assistant.alert_settings import AlertSettings
 from services.ai_assistant.assistant_purge import ai_assistant_purge_service
 from services.ai_assistant.assistant_service import ai_assistant_service
+from services.ai_assistant.avatar_service import AvatarRefusal, AvatarStorageError, ai_assistant_avatar_service
 from services.ai_assistant.client_space_service import ai_assistant_client_space_service
 from services.ai_assistant.config_builder import ai_assistant_config_builder
 from services.ai_assistant.conversation_service import ConversationCounts, ai_assistant_conversation_service
@@ -78,6 +79,10 @@ def _to_owner_response(
         tone=assistant.tone,
         accent_color=ai_assistant_service.accent_color(assistant),
         use_brand_color=assistant.use_brand_color,
+        avatar_url=ai_assistant_avatar_service.public_url(assistant),
+        avatar_enabled=assistant.avatar_enabled,
+        avatar_is_transparent=bool(assistant.avatar_is_transparent),
+        avatar_background=assistant.avatar_background,
         status=assistant.status,
         demo_url=ai_assistant_service.page_url(assistant.slug),
         embed_snippet=AiAssistantEmbedSnippet.render(assistant.slug),
@@ -418,6 +423,38 @@ async def upload_assistant_video_final(
     except VideoGenerationError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     return _to_full_owner_response(db, assistant)
+
+
+@router.post("/{assistant_id}/avatar", response_model=AiAssistantResponse)
+async def upload_assistant_avatar(
+    assistant_id: int,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """Keep an uploaded photo or logo (PNG, JPEG or WebP, 2 MB at most) as the receptionist's own portrait."""
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
+    try:
+        updated = await ai_assistant_avatar_service.store(db, assistant, file)
+    except AvatarRefusal as exc:
+        refusal_status = (
+            status.HTTP_413_CONTENT_TOO_LARGE if exc.is_too_large else status.HTTP_422_UNPROCESSABLE_CONTENT
+        )
+        raise HTTPException(status_code=refusal_status, detail=str(exc)) from exc
+    except AvatarStorageError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+    return _to_full_owner_response(db, updated)
+
+
+@router.delete("/{assistant_id}/avatar", response_model=AiAssistantResponse)
+async def clear_assistant_avatar(
+    assistant_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """Delete the receptionist's own portrait: it shows its casting face again."""
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
+    return _to_full_owner_response(db, await ai_assistant_avatar_service.clear(db, assistant))
 
 
 @router.delete("/{assistant_id}/video", response_model=AiAssistantResponse)

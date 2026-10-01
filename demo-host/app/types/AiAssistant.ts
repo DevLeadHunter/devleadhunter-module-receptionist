@@ -53,6 +53,8 @@ export type AiAssistantConfig = {
   offers_photo_quote?: boolean
   offers_appointment?: boolean
   has_demo_space?: boolean
+  avatar_url?: string | null
+  avatar_background?: string | null
 }
 
 /**

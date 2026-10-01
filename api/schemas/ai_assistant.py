@@ -54,6 +54,10 @@ class AiAssistantUpdateRequest(BaseModel):
     tone: str | None = Field(default=None, max_length=SHORT_TEXT_MAX_CHARS)
     use_brand_color: bool | None = None
     accent_color: str | None = Field(default=None, max_length=32)
+    # The disc behind a cut-out portrait, « #rrggbb » (empty: the accent's tint).
+    avatar_background: str | None = Field(default=None, max_length=16)
+    # Show the business's own image (True) or the casting face (False); the image needs to be sent first.
+    avatar_enabled: bool | None = None
     # Where the business's alerts, reports and client-space links go (empty clears it).
     email: str | None = Field(default=None, max_length=SHORT_TEXT_MAX_CHARS)
     # The business owner's mobile for the alerts, as typed (empty clears it).
@@ -104,6 +108,11 @@ class AiAssistantResponse(BaseModel):
     tone: str | None = None
     accent_color: str | None = None
     use_brand_color: bool = True
+    # The business's own image (kept even while the casting face shows), whether it shows, is cut out, its disc.
+    avatar_url: str | None = None
+    avatar_enabled: bool = False
+    avatar_is_transparent: bool = False
+    avatar_background: str | None = None
     status: str
     demo_url: str
     embed_snippet: str
@@ -234,6 +243,9 @@ class AiAssistantPublicResponse(BaseModel):
     assistant_gender: str = AiAssistantPersonaGender.FEMININE.value
     languages: list[str] = Field(default_factory=list)
     accent_color: str | None = None
+    # The business's own portrait in place of the casting face, and the disc behind a cut-out one.
+    avatar_url: str | None = None
+    avatar_background: str | None = None
     status: str
     # The business as its Google listing shows it, for the demo page's scene (None when unknown).
     city: str | None = None

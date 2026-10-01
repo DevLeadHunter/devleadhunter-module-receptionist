@@ -38,6 +38,10 @@ const props: AssistantPortraitProps = defineProps({
     type: String as PropType<string | null>,
     default: null,
   },
+  background: {
+    type: String as PropType<string | null>,
+    default: null,
+  },
   sizeClass: {
     type: String,
     default: 'h-10 w-10 text-sm',
@@ -46,7 +50,9 @@ const props: AssistantPortraitProps = defineProps({
 
 const hasPhotoFailed: Ref<boolean> = ref(false)
 
-const discBackground: ComputedRef<string> = computed((): string => portraitDiscBackground(props.accentColor))
+const discBackground: ComputedRef<string> = computed(
+  (): string => props.background || portraitDiscBackground(props.accentColor),
+)
 
 /** Remember that the photo failed to load, so the initial shows instead. */
 function notePhotoFailure(): void {

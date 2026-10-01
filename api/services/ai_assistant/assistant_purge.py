@@ -110,6 +110,9 @@ class AiAssistantPurgeService:
             row_count = self._delete_visitor_rows(db, assistant)
             if deleted_files is not None:
                 row_count += self._delete_file_rows(db, assistant)
+                assistant.avatar_key = None
+                assistant.avatar_enabled = False
+                assistant.avatar_is_transparent = None
             self._forget_visitor_knowledge(assistant)
             assistant_video_service.purge_video(assistant)
             db.commit()
@@ -148,20 +151,21 @@ class AiAssistantPurgeService:
     def _file_keys(
         assistant: AiAssistant, documents: list[AiAssistantDocument], photos: list[AiAssistantPhoto]
     ) -> list[str]:
-        """The storage keys the assistant owns: its documents, its visitors' photos and its prospecting video."""
+        """The storage keys the assistant owns: its documents, its visitors' photos, its video and its portrait."""
         keys = [document.storage_key for document in documents]
         keys += [photo.storage_key for photo in photos if photo.storage_key]
         keys += [
             r2_storage.assistant_video_key(assistant.slug),
             r2_storage.assistant_background_key(assistant.slug),
             r2_storage.assistant_thumbnail_key(assistant.slug),
+            assistant.avatar_key or "",
         ]
         return list(dict.fromkeys(key for key in keys if key))
 
     @staticmethod
     async def _delete_files(assistant: AiAssistant, keys: list[str]) -> int | None:
         """
-        Delete the assistant's files, and any file an interrupted upload left under its documents folder.
+        Delete the assistant's files, and any file an interrupted upload left under its documents or portraits folder.
 
         Returns:
             How many keys were deleted, or None when storage failed (the rows keeping the keys must stay).
@@ -170,8 +174,10 @@ class AiAssistantPurgeService:
             # Nothing can have been stored from an environment without storage.
             return 0
         documents_folder = f"{r2_storage.DOCUMENTS_ASSISTANT_PREFIX}/{assistant.id}/"
+        portraits_folder = f"{r2_storage.IMAGES_ASSISTANT_AVATARS_PREFIX}/{assistant.id}/"
         try:
             orphans = await asyncio.to_thread(r2_storage.list_objects, documents_folder)
+            orphans += await asyncio.to_thread(r2_storage.list_objects, portraits_folder)
             every_key = list(dict.fromkeys([*keys, *(str(orphan["key"]) for orphan in orphans)]))
             await asyncio.to_thread(r2_storage.delete_many, every_key)
         except Exception:
