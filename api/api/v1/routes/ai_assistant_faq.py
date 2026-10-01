@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
-from api.v1.routes.ai_assistant_common import faq_response, owned_assistant_or_404
+from api.v1.routes.ai_assistant_common import owned_assistant_or_404
 from core.database import get_db
 from models.user import User
 from schemas.ai_assistant_faq import AiAssistantFaqEntryRequest, AiAssistantFaqResponse
@@ -20,7 +20,7 @@ async def get_assistant_faq(
     assistant_id: int, user: User = Depends(get_current_active_user), db: Session = Depends(get_db)
 ) -> AiAssistantFaqResponse:
     """The FAQ of the assistant and the questions its visitors asked that it could not answer."""
-    return faq_response(owned_assistant_or_404(db, assistant_id, user.id))
+    return ai_assistant_faq_service.faq_and_unanswered(owned_assistant_or_404(db, assistant_id, user.id))
 
 
 @router.post("/{assistant_id}/faq", response_model=AiAssistantFaqResponse, status_code=status.HTTP_201_CREATED)
@@ -36,7 +36,7 @@ async def add_assistant_faq_entry(
         ai_assistant_faq_service.add_faq(db, assistant, payload.question, payload.answer)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return faq_response(assistant)
+    return ai_assistant_faq_service.faq_and_unanswered(assistant)
 
 
 @router.put("/{assistant_id}/faq/{index}", response_model=AiAssistantFaqResponse)
@@ -55,7 +55,7 @@ async def update_assistant_faq_entry(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_ENTRY_NOT_FOUND) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return faq_response(assistant)
+    return ai_assistant_faq_service.faq_and_unanswered(assistant)
 
 
 @router.delete("/{assistant_id}/faq/{index}", status_code=status.HTTP_204_NO_CONTENT)
