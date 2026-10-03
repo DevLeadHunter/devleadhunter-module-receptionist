@@ -1,7 +1,10 @@
 """
-The assistant's sales copy: the 79 € default price, the prospecting templates and the demo page price.
+The receptionist's sales copy: the 79 € default price, the prospecting templates and the demo page price.
 
-Migrations run against an in-memory SQLite holding just the columns they touch.
+Migrations run against an in-memory SQLite holding just the columns they touch. The older
+rewrites of the « Assistant IA » rows are inert since the frank library renamed those templates
+(the ``reseed_frank_email_template_library`` migration has its own tests); only their rename step
+is still exercised here.
 """
 
 import asyncio
@@ -12,7 +15,6 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-import migrations.add_assistant_video_thumbnail_to_first_emails as thumbnail_migration
 import migrations.raise_assistant_default_price as price_migration
 import migrations.rewrite_assistant_emails_missed_requests as emails_migration
 from core.config import settings
@@ -27,7 +29,7 @@ from services.sms.templates import SMS_TEMPLATE_LIBRARY
 from services.sms_service import sms_service
 
 _ASSISTANT_EMAILS = [
-    template for template in EMAIL_TEMPLATE_LIBRARY if str(template["name"]).startswith("Assistant IA")
+    template for template in EMAIL_TEMPLATE_LIBRARY if str(template["name"]).startswith("Réceptionniste IA")
 ]
 _ASSISTANT_SMS = [template for template in SMS_TEMPLATE_LIBRARY if template.key.startswith("assistant-")]
 
@@ -65,31 +67,25 @@ def test_accounts_left_on_the_old_default_move_to_79_euros(monkeypatch: pytest.M
     assert [tuple(row) for row in prices] == [(1, 7900), (2, 4900)]
 
 
-def test_the_seeded_assistant_emails_are_rewritten_in_place(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_old_photo_template_is_renamed_in_place_and_nothing_else_is_rewritten(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     engine = _bare_engine(
         "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT)",
         "CREATE TABLE email_templates (id INTEGER PRIMARY KEY, user_id INT, name TEXT, subject TEXT, "
         "body_html TEXT, variables TEXT, is_active INT, category TEXT, sort_order INT)",
     )
-    # Row 10 still carries a seeded text (here the library's own): rewritten. Row 11 was edited by hand: kept.
-    photo = next(item for item in EMAIL_TEMPLATE_LIBRARY if item["name"] == "Assistant IA - devis par photo")
     with engine.connect() as conn:
         conn.execute(text("INSERT INTO users (id, email) VALUES (1, :email)"), {"email": settings.admin_email})
-        conn.execute(
-            text(
-                "INSERT INTO email_templates (id, user_id, name, subject, body_html, variables, is_active, "
-                "category, sort_order) VALUES (10, 1, 'Assistant IA - demandes captées', :subject, :body, '[]', 1, "
-                "'first_email', 0)"
-            ),
-            {"subject": photo["subject"], "body": photo["body_html"]},
-        )
-        conn.execute(
-            text(
-                "INSERT INTO email_templates (id, user_id, name, subject, body_html, variables, is_active, "
-                "category, sort_order) VALUES (11, 1, 'Assistant IA - réponses 24/7', 'Ma version', '<p>Ma version</p>', "
-                "'[]', 1, 'first_email', 0)"
+        for template_id, name in ((10, "Assistant IA - demandes captées"), (11, "Assistant IA - réponses 24/7")):
+            conn.execute(
+                text(
+                    "INSERT INTO email_templates (id, user_id, name, subject, body_html, variables, is_active, "
+                    "category, sort_order) VALUES (:id, 1, :name, 'Ma version', '<p>Ma version</p>', '[]', 1, "
+                    "'first_email', 0)"
+                ),
+                {"id": template_id, "name": name},
             )
-        )
         conn.commit()
     monkeypatch.setattr(emails_migration, "engine", engine)
 
@@ -101,7 +97,7 @@ def test_the_seeded_assistant_emails_are_rewritten_in_place(monkeypatch: pytest.
             row[0]: tuple(row[1:])
             for row in conn.execute(text("SELECT id, name, subject, sort_order FROM email_templates"))
         }
-    assert rows[10] == ("Assistant IA - devis par photo", "Une photo, un devis demandé", 11)
+    assert rows[10] == ("Assistant IA - devis par photo", "Ma version", 0)
     assert rows[11] == ("Assistant IA - réponses 24/7", "Ma version", 0)
 
 
@@ -134,12 +130,12 @@ def test_an_old_photo_template_is_archived_when_the_new_one_already_exists(monke
     assert rows[12] == ("Assistant IA - devis par photo", 1)
 
 
-def test_every_assistant_email_links_the_demo_once_and_states_the_price() -> None:
+def test_every_receptionist_email_links_the_demo_once_and_states_the_price() -> None:
     """The demo linked once (video template aside); each first email shows the video thumbnail, empty until made."""
     assert len(_ASSISTANT_EMAILS) == 6
     for template in _ASSISTANT_EMAILS:
         body = str(template["body_html"])
-        is_video_template = template["name"] == "Assistant IA - vidéo"
+        is_video_template = template["name"] == "Réceptionniste IA - en vidéo"
         is_first_email = template["category"] == EmailTemplateCategory.FIRST_EMAIL.value
         assert body.count("{lien_assistant}") == (0 if is_video_template else 1), template["name"]
         assert body.count("{vignette_video_assistant}") == (1 if is_first_email else 0), template["name"]
@@ -148,59 +144,7 @@ def test_every_assistant_email_links_the_demo_once_and_states_the_price() -> Non
         assert "http" not in body, template["name"]
 
 
-def test_the_seeded_first_emails_get_the_video_thumbnail_and_a_hand_edited_one_is_kept(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    engine = _bare_engine(
-        "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT)",
-        "CREATE TABLE email_templates (id INTEGER PRIMARY KEY, user_id INT, name TEXT, subject TEXT, "
-        "body_html TEXT, variables TEXT, is_active INT, category TEXT, sort_order INT)",
-    )
-    library = {str(template["name"]): template for template in EMAIL_TEMPLATE_LIBRARY}
-    photo = library["Assistant IA - devis par photo"]
-    seeded_photo_body = str(photo["body_html"]).replace("{vignette_video_assistant}", "")
-    with engine.connect() as conn:
-        conn.execute(text("INSERT INTO users (id, email) VALUES (1, :email)"), {"email": settings.admin_email})
-        # Row 10 still holds the text seeded before the thumbnail: rewritten. Row 11 was edited by hand: kept.
-        conn.execute(
-            text(
-                "INSERT INTO email_templates (id, user_id, name, subject, body_html, variables, is_active, "
-                "category, sort_order) VALUES (10, 1, 'Assistant IA - devis par photo', :subject, :body, '[]', 1, "
-                "'first_email', 11)"
-            ),
-            {"subject": photo["subject"], "body": seeded_photo_body},
-        )
-        conn.execute(
-            text(
-                "INSERT INTO email_templates (id, user_id, name, subject, body_html, variables, is_active, "
-                "category, sort_order) VALUES (11, 1, 'Assistant IA - multilingue', 'Ma version', "
-                "'<p>Ma version</p>', '[]', 1, 'first_email', 12)"
-            )
-        )
-        conn.commit()
-    monkeypatch.setattr(thumbnail_migration, "engine", engine)
-
-    thumbnail_migration.run_migration()
-    thumbnail_migration.run_migration()
-
-    with engine.connect() as conn:
-        rows = {
-            row[0]: (row[1], row[2])
-            for row in conn.execute(text("SELECT id, body_html, variables FROM email_templates"))
-        }
-    assert rows[10][0] == photo["body_html"]
-    assert "vignette_video_assistant" in rows[10][1]
-    assert rows[11] == ("<p>Ma version</p>", "[]")
-
-
-def test_the_thumbnail_migration_recognises_each_first_email_as_seeded_before() -> None:
-    library = {str(template["name"]): template for template in EMAIL_TEMPLATE_LIBRARY}
-    for name, previous_digest in thumbnail_migration._PREVIOUSLY_SEEDED.items():
-        body_before = str(library[name]["body_html"]).replace("{vignette_video_assistant}", "")
-        assert thumbnail_migration._digest(str(library[name]["subject"]), body_before) == previous_digest, name
-
-
-def test_every_assistant_sms_has_one_door_without_a_scheme() -> None:
+def test_every_receptionist_sms_has_one_door_without_a_scheme() -> None:
     assert len(_ASSISTANT_SMS) == 7
     for template in _ASSISTANT_SMS:
         doors = template.body.count("{lien_assistant}") + template.body.count("{lien_video_assistant}")
@@ -208,19 +152,21 @@ def test_every_assistant_sms_has_one_door_without_a_scheme() -> None:
         assert "http" not in template.body, template.key
 
 
-def test_every_assistant_sms_fits_one_segment_with_a_47_character_link() -> None:
+def test_every_receptionist_sms_fits_two_segments_with_a_47_character_link() -> None:
+    """A frank SMS (price, refundable month, the number to answer to) takes two segments, never three."""
     variables = {
         "salutation": "Bonjour Geoffrey",
         "lien_assistant": "demo.dibodev.fr/s/ia/plomberie-chauffage-dupont",
         "lien_video_assistant": "demo.dibodev.fr/s/va/plomberie-chauffage-dupont",
         "prix_assistant": "79 €",
         "prenom_receptionniste": "Nathan",
+        "telephone": "06 12 34 56 78",
         "signature": "Léo",
     }
     assert len(variables["lien_assistant"]) == len(variables["lien_video_assistant"]) == 47
     for template in _ASSISTANT_SMS:
         body = sms_service.compose_from_template(template, variables)
-        assert segment_count(body) == 1, f"{template.key}: {len(body)} chars"
+        assert segment_count(body) <= 2, f"{template.key}: {len(body)} chars"
 
 
 def test_a_demo_page_shows_the_price_and_a_sold_assistant_does_not() -> None:
