@@ -131,12 +131,18 @@ def test_an_old_photo_template_is_archived_when_the_new_one_already_exists(monke
 
 
 def test_every_receptionist_email_links_the_demo_once_and_states_the_price() -> None:
-    """The demo linked once (video template aside); each first email shows the video thumbnail, empty until made."""
-    assert len(_ASSISTANT_EMAILS) == 6
+    """The demo linked once (video template aside); a first email shows the video thumbnail, empty until made.
+
+    The frank and the keyword first emails keep a single door, like the frank website email.
+    """
+    assert len(_ASSISTANT_EMAILS) == 8
     for template in _ASSISTANT_EMAILS:
         body = str(template["body_html"])
         is_video_template = template["name"] == "Réceptionniste IA - en vidéo"
-        is_first_email = template["category"] == EmailTemplateCategory.FIRST_EMAIL.value
+        is_first_email = template["category"] == EmailTemplateCategory.FIRST_EMAIL.value and template["name"] not in (
+            "Réceptionniste IA - franc",
+            "Réceptionniste IA - en bref",
+        )
         assert body.count("{lien_assistant}") == (0 if is_video_template else 1), template["name"]
         assert body.count("{vignette_video_assistant}") == (1 if is_first_email else 0), template["name"]
         assert "{prix_assistant}" in body, template["name"]
@@ -159,7 +165,8 @@ def test_every_receptionist_sms_fits_two_segments_with_a_47_character_link() -> 
         "lien_assistant": "demo.dibodev.fr/s/ia/plomberie-chauffage-dupont",
         "lien_video_assistant": "demo.dibodev.fr/s/va/plomberie-chauffage-dupont",
         "prix_assistant": "79 €",
-        "prenom_receptionniste": "Nathan",
+        "prenom_receptionniste": "Sofia",
+        "assistant_virtuel": "une assistante virtuelle",
         "telephone": "06 12 34 56 78",
         "signature": "Léo",
     }
