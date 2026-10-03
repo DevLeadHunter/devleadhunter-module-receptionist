@@ -74,12 +74,9 @@ def test_the_frank_receptionist_email_reads_right_for_nathan() -> None:
 
 
 def test_a_receptionist_sms_reads_right_for_nathan() -> None:
-    template = find_sms_template("assistant-relance")
+    template = find_sms_template("assistant-24-7")
     assert template is not None
 
-    body = render_sms_template(
-        template.body,
-        {"salutation": "Bonjour", "prenom_receptionniste": "Nathan", "assistant_virtuel": "un assistant virtuel"},
-    )
+    body = render_sms_template(template.body, {"salutation": "Bonjour", "prenom_receptionniste": "Nathan"})
 
-    assert body.startswith("Bonjour, après mon email, Nathan, un assistant virtuel (IA), répond toujours")
+    assert body.startswith("Bonjour, Nathan, votre réceptionniste IA, répond le soir")

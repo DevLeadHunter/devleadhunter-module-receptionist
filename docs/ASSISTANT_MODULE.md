@@ -428,9 +428,8 @@ Chaque message mène à la démo (`{lien_assistant}`), sauf les modèles « vid�
 (`{vignette_video_assistant}` / `{lien_video_assistant}`) ; trois premiers emails (le soir, photo, langue)
 ajoutent la vignette de la vidéo sous le lien, vide tant qu'elle n'existe pas, comme `{vignette_video}` côté site
 (migration `add_assistant_video_thumbnail_to_first_emails`, qui ne réécrit que les modèles jamais retouchés) ;
-le prix par `{prix_assistant}` ; chaque SMS tient en deux segments
-GSM-7 au plus, mention STOP comprise, avec un lien de 47 caractères (testé), sans `https://` (le lien SMS est
-nu). Les modèles déjà en base sont réécrits en place par `rewrite_assistant_emails_missed_requests` (sujet,
+le prix par `{prix_assistant}` ; chaque SMS tient en un segment
+GSM-7 en France, mention STOP comprise (deux au plus ailleurs, testé), sans `https://` (le lien SMS est nu). Les modèles déjà en base sont réécrits en place par `rewrite_assistant_emails_missed_requests` (sujet,
 corps, catégorie, ordre ; « demandes captées » y devient « devis par photo », ou est archivé si ce modèle
 existe déjà).
 
