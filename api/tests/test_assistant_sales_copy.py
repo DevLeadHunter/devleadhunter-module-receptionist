@@ -145,7 +145,8 @@ def test_every_receptionist_email_links_the_demo_once_and_states_the_price() -> 
         )
         assert body.count("{lien_assistant}") == (0 if is_video_template else 1), template["name"]
         assert body.count("{vignette_video_assistant}") == (1 if is_first_email else 0), template["name"]
-        assert "{prix_assistant}" in body, template["name"]
+        assert "{lien_carte}" not in body, template["name"]
+        assert "{prix_assistant}" in body and "{prix_carte}" not in body, template["name"]
         assert "—" not in body + str(template["subject"]), template["name"]
         assert "http" not in body, template["name"]
 
@@ -153,7 +154,9 @@ def test_every_receptionist_email_links_the_demo_once_and_states_the_price() -> 
 def test_every_receptionist_sms_has_one_door_without_a_scheme() -> None:
     assert len(_ASSISTANT_SMS) == 7
     for template in _ASSISTANT_SMS:
-        doors = template.body.count("{lien_assistant}") + template.body.count("{lien_video_assistant}")
+        doors = sum(
+            template.body.count(door) for door in ("{lien_assistant}", "{lien_video_assistant}", "{lien_carte}")
+        )
         assert doors == 1, template.key
         assert "http" not in template.body, template.key
 
