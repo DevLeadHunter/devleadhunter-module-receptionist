@@ -402,7 +402,7 @@ d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprim
   motif « Pas d'assistant IA actif »), campagne SMS, relance SMS et composeur SMS. Un assistant généré
   après coup rejoint la file des campagnes actives (`enqueue_ready_prospect`), comme une démo.
 - **Module** — une campagne est « assistant » dès qu'un de ses templates, J1, A/B **ou relance**, utilise
-  une variable assistant, `{prix_assistant}` et `{prenom_receptionniste}` compris. La mise en file réserve le
+  une variable assistant, `{prix_assistant}`, `{prenom_receptionniste}`, `{receptionniste}` et `{assistant_virtuel}` compris. La mise en file réserve le
   prospect pour ce module, chaque
   message envoyé (email ou SMS de campagne, relance SMS manuelle ou automatique) repousse la réservation, et l'autre
   module attend **45 j** après ce dernier message (`services/contact_lock_service.py`) ; l'envoi revérifie le verrou
@@ -415,18 +415,21 @@ d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprim
   programmée après l'expiration est ignorée (« Assistant expiré avant la relance »). Le dashboard affiche
   « En attente d'envoi » puis « Expire dans N j ».
 
-**Modèles de prospection** : 6 emails (`seeders/email_template_seeder.py`, « Assistant IA - … » : réponses
-24/7, devis par photo, multilingue, vidéo, relance, le prix cash) et 7 SMS (`services/sms/templates.py`, clés
-`assistant-*`, dont la relance vidéo « la vidéo de mon email : … Votre réceptionniste, {prix_assistant}/mois »), écrits autour de la demande restée sans réponse (le soir, une photo, la langue du client).
+**Modèles de prospection** : 8 emails (`seeders/email_template_seeder.py`, « Réceptionniste IA - … » : franc,
+en bref, le soir personne ne répond, devis par photo, dans leur langue, en vidéo, relance, le prix sans détour)
+et 7 SMS (`services/sms/templates.py`, clés `assistant-*`), écrits autour de la demande restée sans réponse (le
+soir, une photo, la langue du client). « En bref » liste en mots-clés ce que fait la réceptionniste.
 `{prenom_receptionniste}` donne le prénom de la réceptionniste (« Sofia ») dans un email ou un SMS ; il compte
-comme variable assistant (pas d'envoi sans réceptionniste active). Les SMS disent « votre réceptionniste »,
-invariable, jamais « elle » ni un accord qui dépendrait du prénom.
+comme variable assistant (pas d'envoi sans réceptionniste active), comme les deux mots accordés au genre du
+prénom : `{receptionniste}` (« une réceptionniste », « un réceptionniste ») et `{assistant_virtuel}` (« une
+assistante virtuelle », « un assistant virtuel »). Les modèles nomment la réceptionniste par son prénom, jamais
+« il » ou « elle ».
 Chaque message mène à la démo (`{lien_assistant}`), sauf les modèles « vidéo » qui mènent à la vidéo
-(`{vignette_video_assistant}` / `{lien_video_assistant}`) ; les trois premiers emails (24/7, photo, multilingue)
+(`{vignette_video_assistant}` / `{lien_video_assistant}`) ; trois premiers emails (le soir, photo, langue)
 ajoutent la vignette de la vidéo sous le lien, vide tant qu'elle n'existe pas, comme `{vignette_video}` côté site
 (migration `add_assistant_video_thumbnail_to_first_emails`, qui ne réécrit que les modèles jamais retouchés) ;
-le prix par `{prix_assistant}` ; chaque SMS tient en un segment
-GSM-7 mention STOP et prénom compris avec un lien de 45 caractères (testé), sans `https://` (le lien SMS est
+le prix par `{prix_assistant}` ; chaque SMS tient en deux segments
+GSM-7 au plus, mention STOP comprise, avec un lien de 47 caractères (testé), sans `https://` (le lien SMS est
 nu). Les modèles déjà en base sont réécrits en place par `rewrite_assistant_emails_missed_requests` (sujet,
 corps, catégorie, ordre ; « demandes captées » y devient « devis par photo », ou est archivé si ce modèle
 existe déjà).
