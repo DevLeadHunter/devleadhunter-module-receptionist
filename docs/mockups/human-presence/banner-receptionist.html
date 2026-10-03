@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Réceptionniste Dibodev dans le bandeau : maquette</title>
+<style>
+  /* ── Chrome de la maquette (gris) : pas le design proposé. ─────────────── */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background: #dcdcd8; color: #222; -webkit-font-smoothing: antialiased; }
+  .mk-bar { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; padding: 12px 20px; background: #f3f3f0; border-bottom: 1px solid #c9c9c4; }
+  .mk-title { font-size: 13px; font-weight: 600; color: #333; margin-right: auto; }
+  .mk-title small { display: block; font-weight: 400; color: #777; margin-top: 2px; }
+  .mk-group { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #666; }
+  .mk-seg { display: inline-flex; border: 1px solid #b9b9b3; border-radius: 8px; overflow: hidden; background: #fff; }
+  .mk-seg button { appearance: none; border: 0; background: transparent; cursor: pointer; padding: 6px 11px; font: inherit; font-size: 12.5px; color: #444; border-right: 1px solid #d6d6d1; }
+  .mk-seg button:last-child { border-right: 0; }
+  .mk-seg button[aria-pressed="true"] { background: #222; color: #fff; }
+  .mk-note { padding: 10px 20px; font-size: 12.5px; color: #555; background: #ebebe7; border-bottom: 1px solid #d2d2cd; line-height: 1.5; }
+  .mk-note b { color: #222; }
+
+  .stage { position: relative; overflow: hidden; min-height: 800px; margin: 22px auto; max-width: 1280px; border: 1px solid #bdbdb8; border-radius: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.15); background: #fff; }
+  .stage--phone-wrap { display: flex; justify-content: center; background: transparent; border: 0; box-shadow: none; overflow: visible; min-height: 0; padding: 10px 0 30px; }
+  .phone { position: relative; width: 375px; height: 812px; overflow: hidden; flex: none; border-radius: 44px; border: 10px solid #111; background: #fff; box-shadow: 0 30px 70px rgba(0,0,0,.35); }
+  .phone__notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 120px; height: 26px; background: #111; border-radius: 0 0 16px 16px; z-index: 70; }
+  .phone .site { padding-top: 26px; }
+
+  .board { max-width: 1320px; margin: 22px auto 60px; padding: 0 20px; }
+  .board__row { margin-bottom: 26px; }
+  .board__row h2 { font-size: 14px; font-weight: 600; color: #333; margin: 0 0 10px; }
+  .board__row h2 span { font-weight: 400; color: #777; }
+  .board__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .board__cell { position: relative; min-height: 700px; overflow: hidden; border-radius: 12px; border: 1px solid #bdbdb8; padding: 24px; }
+  .board__cell--light { background: #ebe6da; }
+  .board__cell--dark { background: #1c1c1f; }
+  .board__cell--phone { display: flex; justify-content: center; padding: 18px 0 0; }
+  .board__cell--phone .phone { transform: scale(.8); transform-origin: top center; }
+  .board__cell:not(.board__cell--phone) { display: flex; align-items: flex-end; justify-content: flex-end; }
+  /* Dans la planche, carte et panneau ne sont plus flottants : la cellule grandit avec eux. */
+  .board__cell > .dlh-banner, .board__cell > .ai-panel { position: static; margin-top: 30px; }
+  .board__label { position: absolute; top: 12px; left: 14px; z-index: 80; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: rgba(0,0,0,.55); background: rgba(255,255,255,.7); padding: 3px 7px; border-radius: 4px; }
+  .board__cell--dark .board__label { color: rgba(255,255,255,.7); background: rgba(0,0,0,.4); }
+
+  /* ── Faux site démo (décor). ───────────────────────────────────────────── */
+  .site { min-height: 100%; font-family: Georgia, 'Times New Roman', serif; --s-bg: #faf8f4; --s-ink: #1f1b16; --s-mute: #6e665c; --s-card: #fff; --s-line: #e7e1d6; --s-accent: #8b5e3c; --s-photo: linear-gradient(135deg, #d9b991, #8b5e3c 70%, #5e3b22); background: var(--s-bg); color: var(--s-ink); }
+  .site--dark { --s-bg: #141416; --s-ink: #f1efe9; --s-mute: #a39d93; --s-card: #1e1f23; --s-line: #2c2d33; --s-accent: #d6a872; --s-photo: linear-gradient(135deg, #5a4634, #2a2320 70%, #141416); }
+  .site__nav { display: flex; align-items: center; gap: 26px; padding: 22px 48px; border-bottom: 1px solid var(--s-line); font-family: system-ui, sans-serif; }
+  .site__logo { font-family: Georgia, serif; font-size: 20px; font-weight: 700; margin-right: auto; }
+  .site__nav a { font-size: 14px; color: var(--s-mute); text-decoration: none; }
+  .site__nav .site__btn { padding: 10px 16px; border-radius: 8px; background: var(--s-ink); color: var(--s-bg); font-weight: 600; font-size: 14px; }
+  .site__hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; padding: 60px 48px 48px; align-items: center; }
+  .site__eyebrow { font-family: system-ui, sans-serif; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--s-accent); margin-bottom: 14px; }
+  .site__h1 { font-size: 46px; line-height: 1.08; letter-spacing: -.02em; margin: 0 0 18px; font-weight: 500; }
+  .site__lead { font-family: system-ui, sans-serif; font-size: 17px; line-height: 1.55; color: var(--s-mute); max-width: 520px; margin: 0 0 26px; }
+  .site__cta { display: flex; gap: 12px; font-family: system-ui, sans-serif; }
+  .site__cta span { padding: 13px 20px; border-radius: 8px; font-size: 15px; font-weight: 600; }
+  .site__cta span:first-child { background: var(--s-ink); color: var(--s-bg); }
+  .site__cta span:last-child { border: 1px solid var(--s-line); color: var(--s-ink); }
+  .site__photo { aspect-ratio: 4 / 3; border-radius: 14px; background: var(--s-photo); box-shadow: 0 30px 60px rgba(0,0,0,.18); }
+  .site__section { padding: 20px 48px 48px; }
+  .site__h2 { font-size: 28px; font-weight: 500; margin: 0 0 20px; }
+  .site__cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; font-family: system-ui, sans-serif; }
+  .site__card { background: var(--s-card); border: 1px solid var(--s-line); border-radius: 12px; padding: 20px; }
+  .site__card b { display: block; font-size: 16px; margin-bottom: 6px; }
+  .site__card p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--s-mute); }
+  .site__footer { padding: 28px 48px 120px; border-top: 1px solid var(--s-line); font-family: system-ui, sans-serif; font-size: 13px; color: var(--s-mute); }
+  .site--narrow .site__nav { padding: 16px 20px; gap: 14px; }
+  .site--narrow .site__nav a:not(.site__btn) { display: none; }
+  .site--narrow .site__hero { grid-template-columns: 1fr; padding: 34px 20px 20px; gap: 22px; }
+  .site--narrow .site__h1 { font-size: 32px; }
+  .site--narrow .site__lead { font-size: 15px; }
+  .site--narrow .site__section, .site--narrow .site__footer { padding-left: 20px; padding-right: 20px; }
+  .site--narrow .site__cards { grid-template-columns: 1fr; }
+
+  /* ── BANDEAU DevLeadHunter (valeurs littérales de DemoCtaBanner.vue). ─── */
+  .dlh-banner { position: absolute; right: 20px; bottom: 20px; z-index: 50; font-family: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; color: #1d1a14; }
+  .dlh-banner button { font-family: inherit; }
+  .dlh-card { display: flex; flex-direction: column; gap: 13px; width: 360px; padding: 20px; border: 1px solid #e1dbcc; border-radius: 14px; background: #fbf9f3; box-shadow: 0 18px 48px rgba(15, 12, 8, .4); }
+  .dlh-card__grab { display: none; }
+  .dlh-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .dlh-card__brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .dlh-card__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: #6b6558; }
+  .dlh-card__close { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: 999px; background: transparent; cursor: pointer; }
+  .dlh-card__title { font-size: 19px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; }
+  .dlh-card__textarea { width: 100%; height: 76px; padding: 10px 14px; resize: none; outline: none; border: 1px solid #e1dbcc; border-radius: 10px; background: #fff; font: inherit; font-size: 15px; color: #1d1a14; }
+  .dlh-card__textarea::placeholder { color: #a09a8c; }
+  .dlh-card__submit { display: flex; align-items: center; justify-content: center; gap: 8px; height: 46px; width: 100%; border: 0; border-radius: 10px; background: #1d1a14; color: #fbf9f3; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .dlh-card__contacts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dlh-contact-chip { display: inline-flex; flex: 1; align-items: center; justify-content: center; gap: 7px; height: 40px; min-width: 140px; border: 1px solid #e1dbcc; border-radius: 10px; font-size: 12.5px; font-weight: 500; color: #1d1a14; text-decoration: none; white-space: nowrap; }
+  .dlh-contact-chip svg { color: #6b6558; flex-shrink: 0; }
+  .dlh-avatar { flex-shrink: 0; border: 1px solid #e1dbcc; border-radius: 999px; object-fit: cover; background: #e1dbcc; }
+  .dlh-who { display: flex; align-items: center; gap: 12px; }
+  .dlh-avatar--who { width: 56px; height: 56px; border-width: 2px; border-color: #fff; box-shadow: 0 0 0 1px #e1dbcc; }
+  .dlh-who__name { font-size: 16px; font-weight: 600; line-height: 1.2; }
+  .dlh-who__role { margin-top: 3px; font-size: 12.5px; color: #6b6558; }
+  .dlh-who__link { color: #1d1a14; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: #c9c2b2; }
+  .dlh-facts { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .dlh-facts li { position: relative; padding-left: 14px; font-size: 13.5px; line-height: 1.4; color: #3f3a30; }
+  .dlh-facts li::before { content: ''; position: absolute; left: 1px; top: .55em; width: 5px; height: 5px; border-radius: 999px; background: #1d1a14; }
+  .dlh-facts b { color: #1d1a14; font-weight: 600; }
+
+  /* NEW (position 1) : deux onglets dans la carte, « Laissez-moi un mot » et « Une question ? ». */
+  .dlh-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border: 1px solid #e1dbcc; border-radius: 12px; background: #f3efe4; }
+  .dlh-tab { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 38px; border: 0; border-radius: 9px; background: transparent; font-size: 13px; font-weight: 500; color: #6b6558; cursor: pointer; }
+  .dlh-tab[aria-selected="true"] { background: #fbf9f3; color: #1d1a14; font-weight: 600; box-shadow: 0 1px 2px rgba(29,26,20,.12); }
+  .dlh-tab__portrait { position: relative; width: 22px; height: 22px; flex: none; }
+  .dlh-tab__portrait img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; display: block; }
+  .dlh-online-dot { position: absolute; right: -1px; bottom: -1px; width: 8px; height: 8px; border-radius: 50%; background: #2f9e5b; box-shadow: 0 0 0 2px #fbf9f3; }
+
+  /* NEW (position 1) : la conversation dans la carte, habillée crème/encre comme le bandeau. */
+  .dlh-chat { display: flex; flex-direction: column; gap: 10px; }
+  .dlh-chat__who { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: #6b6558; }
+  .dlh-chat__who b { color: #1d1a14; font-weight: 600; }
+  .dlh-chat__who .dlh-tab__portrait { width: 28px; height: 28px; }
+  .dlh-chat__who .dlh-tab__portrait img { width: 28px; height: 28px; }
+  .dlh-chat__online { margin-left: auto; font-size: 11px; color: #2f7d4e; display: inline-flex; align-items: center; gap: 5px; }
+  .dlh-chat__online::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #2f9e5b; }
+  .dlh-chat__context { font-size: 11.5px; color: #6b6558; padding: 7px 10px; border: 1px dashed #d8d1bf; border-radius: 8px; background: #f7f4ec; }
+  .dlh-chat__thread { display: flex; flex-direction: column; gap: 8px; height: 330px; overflow: auto; padding: 2px 2px 2px 0; }
+  .dlh-msg { max-width: 88%; padding: 9px 13px; font-size: 13.5px; line-height: 1.45; border-radius: 14px; }
+  .dlh-msg--assistant { align-self: flex-start; background: #fff; border: 1px solid #e8e2d3; border-bottom-left-radius: 5px; color: #1d1a14; }
+  .dlh-msg--user { align-self: flex-end; background: #1d1a14; color: #fbf9f3; border-bottom-right-radius: 5px; }
+  .dlh-msg__time { display: block; margin-top: 3px; font-size: 10.5px; color: #a09a8c; }
+  .dlh-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .dlh-chip { border: 1px solid #e1dbcc; background: #fbf9f3; color: #1d1a14; border-radius: 999px; padding: 7px 11px; font-size: 12px; font-weight: 500; cursor: pointer; }
+  .dlh-sys { align-self: stretch; display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; background: rgba(47,125,78,.1); border: 1px solid rgba(47,125,78,.25); }
+  .dlh-sys__check { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #2f7d4e; display: inline-flex; align-items: center; justify-content: center; }
+  .dlh-sys__title { font-size: 13px; font-weight: 600; color: #1d1a14; }
+  .dlh-sys__text { font-size: 12px; color: #4d5a4f; margin-top: 1px; line-height: 1.4; }
+  .dlh-chat__compose { display: flex; gap: 8px; }
+  .dlh-chat__input { flex: 1; height: 44px; padding: 0 14px; border: 1px solid #e1dbcc; border-radius: 10px; background: #fff; font: inherit; font-size: 14px; color: #1d1a14; outline: none; }
+  .dlh-chat__input::placeholder { color: #a09a8c; }
+  .dlh-chat__send { width: 44px; height: 44px; border: 0; border-radius: 10px; background: #1d1a14; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+  .dlh-chat__foot { font-size: 11px; color: #a09a8c; text-align: center; }
+
+  /* NEW (position 2) : une ligne discrète dans la carte qui ouvre le panneau Léa tel qu'il existe. */
+  .dlh-ask { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e1dbcc; border-radius: 10px; background: #f7f4ec; }
+  .dlh-ask .dlh-tab__portrait { width: 34px; height: 34px; }
+  .dlh-ask .dlh-tab__portrait img { width: 34px; height: 34px; }
+  .dlh-ask__text { flex: 1; font-size: 12.5px; line-height: 1.35; color: #6b6558; }
+  .dlh-ask__text b { color: #1d1a14; font-weight: 600; }
+  .dlh-ask__btn { flex: none; height: 34px; padding: 0 12px; border: 1px solid #1d1a14; border-radius: 8px; background: transparent; color: #1d1a14; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+
+  .dlh-banner.is-mobile { right: 0; left: 0; bottom: 0; }
+  .dlh-banner.is-mobile .dlh-card { width: 100%; border-radius: 18px 18px 0 0; border-right: 0; border-bottom: 0; border-left: 0; padding: 10px 20px 22px; }
+  .dlh-banner.is-mobile .dlh-card__grab { display: block; width: 40px; height: 4px; margin: 0 auto 2px; border-radius: 999px; background: #e1dbcc; }
+  .dlh-banner.is-mobile .dlh-chat__thread { height: 390px; }
+
+  /* ── PANNEAU LÉA tel qu'il tourne sur dibodev.fr (AssistantChat.vue, ai-assistant.js) :
+        blanc, accent violet #7464d6 / teinte #ddd8fc (palette de l'assistant « dibodev »),
+        Fraunces pour le prénom (Georgia ici, pas de police réseau), Inter pour le corps. ── */
+  .ai-panel { --ai-strong: #7464d6; --ai-tint: #ddd8fc; --ai-paper-2: #faf8f3; --ai-ink: #17130d; --ai-ink-dim: #6d665b; --ai-line: rgba(23,19,13,.12); --ai-line-soft: rgba(23,19,13,.07);
+    position: absolute; right: 22px; bottom: 22px; z-index: 60; width: 392px; height: 628px; display: flex; flex-direction: column; overflow: hidden;
+    background: #fff; border: 1px solid var(--ai-line); border-radius: 22px; box-shadow: 0 30px 70px -30px rgba(23,19,13,.45);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ai-ink); }
+  .ai-panel--mobile { inset: 0; width: auto; height: auto; border-radius: 0; border: 0; padding-top: 26px; }
+  .ai-header { display: flex; align-items: center; gap: 12px; padding: 14px 12px 12px 16px; border-bottom: 1px solid var(--ai-line-soft); }
+  .ai-header__portrait { position: relative; width: 44px; height: 44px; flex: none; border-radius: 50%; box-shadow: 0 0 0 2px var(--ai-strong); }
+  .ai-header__portrait img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; display: block; }
+  .ai-header__online-dot { position: absolute; right: 0; bottom: 0; width: 11px; height: 11px; border-radius: 50%; background: #2f9e5b; box-shadow: 0 0 0 2px #fff; }
+  .ai-header__identity { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .ai-header__name { font-family: 'Fraunces', Georgia, serif; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+  .ai-header__role { font-size: 12.5px; color: var(--ai-ink-dim); }
+  .ai-header__online { font-size: 12px; color: var(--ai-ink-dim); padding: 4px 9px; border: 1px solid var(--ai-line); border-radius: 999px; }
+  .ai-header__close { width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: var(--ai-ink-dim); font-size: 22px; line-height: 1; cursor: pointer; }
+  .ai-context { margin: 12px 14px 0; padding: 8px 12px; border-radius: 10px; background: var(--ai-tint); color: #3b2f8f; font-size: 12px; line-height: 1.4; }
+  .ai-context b { font-weight: 600; }
+  .ai-thread { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; background: var(--ai-paper-2); }
+  .ai-message { display: flex; align-items: flex-end; gap: 8px; max-width: 88%; }
+  .ai-message--assistant { align-self: flex-start; padding-left: 30px; }
+  .ai-message--assistant.ai-message--with-portrait { padding-left: 0; }
+  .ai-message--user { align-self: flex-end; }
+  .ai-message__portrait { width: 22px; height: 22px; flex: none; margin-bottom: 2px; }
+  .ai-message__portrait img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; display: block; }
+  .ai-message__bubble { min-width: 0; padding: 10px 14px; font-size: .9rem; line-height: 1.5; border-radius: 16px; }
+  .ai-message--assistant .ai-message__bubble { background: #fff; color: var(--ai-ink); border: 1px solid var(--ai-line-soft); border-bottom-left-radius: 5px; }
+  .ai-message--user .ai-message__bubble { background: var(--ai-strong); color: #fff; border-bottom-right-radius: 5px; }
+  .ai-chips { display: flex; flex-wrap: wrap; gap: 8px; align-self: flex-start; max-width: 94%; padding-left: 30px; }
+  .ai-chip { border: 1px solid var(--ai-line); background: #fff; color: var(--ai-ink); font: inherit; font-size: .8rem; font-weight: 500; line-height: 1.3; padding: 8px 13px; border-radius: 999px; cursor: pointer; text-align: left; }
+  .ai-card { align-self: stretch; margin-left: 30px; display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: #fff; border: 1px solid var(--ai-line-soft); }
+  .ai-card__check { flex: none; width: 24px; height: 24px; border-radius: 50%; background: #2f9e5b; display: inline-flex; align-items: center; justify-content: center; }
+  .ai-card__title { font-size: 13.5px; font-weight: 600; }
+  .ai-card__text { font-size: 12.5px; color: var(--ai-ink-dim); line-height: 1.4; margin-top: 2px; }
+  .ai-compose { display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--ai-line-soft); background: #fff; }
+  .ai-compose__tool { width: 38px; height: 38px; flex: none; border: 1px solid var(--ai-line); border-radius: 50%; background: #fff; color: var(--ai-ink-dim); font-size: 20px; line-height: 1; cursor: pointer; }
+  .ai-compose__field { flex: 1; min-height: 42px; max-height: 120px; padding: 11px 14px; border: 1px solid var(--ai-line); border-radius: 14px; font: inherit; font-size: .9rem; color: var(--ai-ink); resize: none; outline: none; background: var(--ai-paper-2); }
+  .ai-compose__send { width: 42px; height: 42px; flex: none; border: 0; border-radius: 50%; background: var(--ai-strong); color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+  .ai-foot { padding: 0 12px 10px; font-size: 11px; color: var(--ai-ink-dim); text-align: center; background: #fff; }
+
+  @media (max-width: 1000px) { .board__grid { grid-template-columns: 1fr; } .site__hero { grid-template-columns: 1fr; } .site__cards { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header class="mk-bar">
+  <div class="mk-title">Maquette · réceptionniste Dibodev (Léa) dans le bandeau démo
+    <small>Contrôles gris = maquette. Photos chargées depuis dibodev.fr et demo.dibodev.fr, tout le reste est local.</small>
+  </div>
+  <div class="mk-group">Vue
+    <div class="mk-seg" data-key="view"><button type="button" data-value="scene">Scène</button><button type="button" data-value="board">Planche</button></div>
+  </div>
+  <div class="mk-group">Position
+    <div class="mk-seg" data-key="position"><button type="button" data-value="tab">1 · onglet dans la carte</button><button type="button" data-value="panel">2 · panneau Léa depuis la carte</button></div>
+  </div>
+  <div class="mk-group">Étape
+    <div class="mk-seg" data-key="step"><button type="button" data-value="entry">Entrée</button><button type="button" data-value="chat">Conversation</button></div>
+  </div>
+  <div class="mk-group">Écran
+    <div class="mk-seg" data-key="screen"><button type="button" data-value="desktop">Bureau</button><button type="button" data-value="mobile">Mobile 375</button></div>
+  </div>
+  <div class="mk-group">Site derrière
+    <div class="mk-seg" data-key="theme"><button type="button" data-value="light">Clair</button><button type="button" data-value="dark">Sombre</button></div>
+  </div>
+</header>
+<div class="mk-note" id="note"></div>
+<main id="root"></main>
+
+<script>
+  const DATA = {
+    business: 'Menuiserie Lefort',
+    ownerName: 'Léo Guillaume', ownerRole: 'Développeur à Rennes', ownerSite: 'dibodev.fr',
+    ownerPhotoUrl: 'https://dibodev.fr/images/about/leo-guillaume-portrait-800.webp',
+    leaPhotoUrl: 'https://demo.dibodev.fr/avatars/lea.webp',
+    phone: '06 42 19 38 12', price: '500 €', expiry: '2 novembre',
+  };
+
+  // La conversation type, à 22 h : les mêmes mots que le mail et la carte, et Léa dit qu'elle est une IA.
+  const THREAD = [
+    { role: 'assistant', time: '22:14', text: `Bonjour, je suis Léa, l'assistante IA de Léo, le développeur qui a construit ce site. Je réponds à vos questions sur le site, le prix et la suite. Si vous préférez parler à Léo, je lui transmets.` },
+    { role: 'chips', items: [`C'est combien ?`, `Je peux le modifier moi-même ?`, `Comment je paie ?`, `Je veux parler à Léo`] },
+    { role: 'user', time: '22:15', text: `C'est combien exactement, et il y a un abonnement ?` },
+    { role: 'assistant', text: `${DATA.price}, une seule fois. Pas d'abonnement : le nom de domaine est compris et le site est à vous. Ensuite vous modifiez textes et photos vous-même depuis votre espace d'administration, sans dépendre de personne.` },
+    { role: 'user', text: `Et si je veux le garder, je fais quoi ?` },
+    { role: 'assistant', text: `Vous me dites oui ici, ou vous répondez au mail de Léo. Il vous envoie un lien de paiement sécurisé, met le site sur votre adresse sous 48 h et vous envoie vos accès. Le site reste en ligne jusqu'au ${DATA.expiry}, rien ne bouge d'ici là.` },
+    { role: 'user', time: '22:16', text: `Ok. Il peut m'appeler demain ? 06 12 34 56 78` },
+    { role: 'assistant', text: `C'est noté, Léo vous appelle demain dans la journée. Vous pouvez aussi le joindre directement au ${DATA.phone}.` },
+    { role: 'system', title: 'Léo est prévenu', text: `Votre demande et votre numéro lui ont été transmis à 22 h 16.` },
+  ];
+
+  const ICON = {
+    asterisk: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e8a33c" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9L4.9 19.1"/></svg>`,
+    chevronDown: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a09a8c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 10l6 6 6-6"/></svg>`,
+    arrow: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fbf9f3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`,
+    send: (color) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>`,
+    check: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.3L19 7"/></svg>`,
+    phone: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`,
+  };
+  const leaPortrait = (cls = '') => `<span class="dlh-tab__portrait ${cls}"><img src="${DATA.leaPhotoUrl}" alt="Léa"><span class="dlh-online-dot"></span></span>`;
+
+  const headHtml = `<div class="dlh-card__head"><div class="dlh-card__brand">${ICON.asterisk}<span class="dlh-card__label">Votre démo · ${DATA.business}</span></div><button type="button" class="dlh-card__close" aria-label="Réduire">${ICON.chevronDown}</button></div>`;
+  const whoHtml = `<div class="dlh-who"><img class="dlh-avatar dlh-avatar--who" src="${DATA.ownerPhotoUrl}" alt="${DATA.ownerName}"><div><div class="dlh-who__name">${DATA.ownerName}</div><div class="dlh-who__role">${DATA.ownerRole} · <a class="dlh-who__link" href="https://dibodev.fr">${DATA.ownerSite}</a></div></div></div>`;
+  const factsHtml = `<ul class="dlh-facts"><li><b>${DATA.price}</b>, une seule fois. Pas d'abonnement.</li><li>En ligne jusqu'au <b>${DATA.expiry}</b>, après je le retire.</li><li>Sur votre adresse, vous modifiez textes et photos vous-même.</li></ul>`;
+  const formHtml = `<textarea class="dlh-card__textarea" placeholder="Une question, un oui, un non : écrivez-moi."></textarea><button type="button" class="dlh-card__submit">Me répondre ${ICON.arrow}</button>`;
+  const contactsHtml = `<div class="dlh-card__contacts"><a class="dlh-contact-chip" href="tel:+33642193812">${ICON.phone}${DATA.phone}</a></div>`;
+
+  function tabsHtml(active) {
+    return `<div class="dlh-tabs" role="tablist">
+      <button type="button" class="dlh-tab" role="tab" aria-selected="${active === 'message'}">Laissez-moi un mot</button>
+      <button type="button" class="dlh-tab" role="tab" aria-selected="${active === 'chat'}">${leaPortrait()} Une question ?</button>
+    </div>`;
+  }
+
+  // Conversation habillée crème/encre (position 1) ou blanc/violet (position 2).
+  function threadHtml(style, upTo = THREAD.length) {
+    const items = THREAD.slice(0, upTo);
+    if (style === 'dlh') {
+      return items.map((m) => {
+        if (m.role === 'chips') return `<div class="dlh-chips">${m.items.map((c) => `<button type="button" class="dlh-chip">${c}</button>`).join('')}</div>`;
+        if (m.role === 'system') return `<div class="dlh-sys"><span class="dlh-sys__check">${ICON.check}</span><div><div class="dlh-sys__title">${m.title}</div><div class="dlh-sys__text">${m.text}</div></div></div>`;
+        return `<div class="dlh-msg dlh-msg--${m.role}">${m.text}${m.time ? `<span class="dlh-msg__time">${m.time}</span>` : ''}</div>`;
+      }).join('');
+    }
+    return items.map((m, i) => {
+      if (m.role === 'chips') return `<div class="ai-chips">${m.items.map((c) => `<button type="button" class="ai-chip">${c}</button>`).join('')}</div>`;
+      if (m.role === 'system') return `<div class="ai-card"><span class="ai-card__check">${ICON.check}</span><div><div class="ai-card__title">${m.title}</div><div class="ai-card__text">${m.text}</div></div></div>`;
+      const next = items[i + 1];
+      const lastOfRun = m.role === 'assistant' && (!next || next.role !== 'assistant');
+      const portrait = lastOfRun ? `<span class="ai-message__portrait"><img src="${DATA.leaPhotoUrl}" alt=""></span>` : '';
+      return `<div class="ai-message ai-message--${m.role} ${lastOfRun ? 'ai-message--with-portrait' : ''}">${portrait}<div class="ai-message__bubble">${m.text}</div></div>`;
+    }).join('');
+  }
+
+  // Position 1 : la carte « qui est derrière ce site » avec deux onglets.
+  function tabCardHtml(step, mobile) {
+    const body = step === 'entry'
+      ? `${whoHtml}${factsHtml}${formHtml}${contactsHtml}`
+      : `<div class="dlh-chat">
+          <div class="dlh-chat__who">${leaPortrait()}<span><b>Léa</b> · assistante IA de Léo</span><span class="dlh-chat__online">en ligne</span></div>
+          <div class="dlh-chat__context">Elle connaît ce site : ${DATA.business}, ${DATA.price} une fois, en ligne jusqu'au ${DATA.expiry}.</div>
+          <div class="dlh-chat__thread">${threadHtml('dlh')}</div>
+          <form class="dlh-chat__compose" onsubmit="return false"><input class="dlh-chat__input" placeholder="Votre question"><button type="button" class="dlh-chat__send" aria-label="Envoyer">${ICON.send('#fbf9f3')}</button></form>
+          <div class="dlh-chat__foot">Léa est une IA. Un numéro ou un mail laissé ici arrive directement à Léo.</div>
+        </div>`;
+    return `<div class="dlh-banner is-open ${mobile ? 'is-mobile' : ''}"><div class="dlh-card"><div class="dlh-card__grab"></div>${headHtml}${tabsHtml(step === 'entry' ? 'message' : 'chat')}${body}</div></div>`;
+  }
+
+  // Position 2 : la carte avec une ligne « Une question maintenant ? », puis le panneau Léa tel quel.
+  function askCardHtml(mobile) {
+    const ask = `<div class="dlh-ask">${leaPortrait()}<div class="dlh-ask__text">Une question maintenant ? <b>Léa</b>, mon assistante IA, vous répond tout de suite, même le soir.</div><button type="button" class="dlh-ask__btn">Lui écrire</button></div>`;
+    return `<div class="dlh-banner is-open ${mobile ? 'is-mobile' : ''}"><div class="dlh-card"><div class="dlh-card__grab"></div>${headHtml}${whoHtml}${factsHtml}${formHtml}${ask}${contactsHtml}</div></div>`;
+  }
+  function panelHtml(mobile) {
+    return `<section class="ai-panel ${mobile ? 'ai-panel--mobile' : ''}" role="dialog" aria-label="Léa">
+      <header class="ai-header">
+        <span class="ai-header__portrait"><img src="${DATA.leaPhotoUrl}" alt=""><span class="ai-header__online-dot"></span></span>
+        <span class="ai-header__identity"><b class="ai-header__name">Léa</b><span class="ai-header__role">Réceptionniste IA · Dibodev</span></span>
+        <span class="ai-header__online">en ligne</span>
+        <button type="button" class="ai-header__close" aria-label="Fermer">×</button>
+      </header>
+      <div class="ai-context">Vous regardez le site de <b>${DATA.business}</b> : ${DATA.price} une fois, en ligne jusqu'au ${DATA.expiry}.</div>
+      <div class="ai-thread">${threadHtml('ai')}</div>
+      <form class="ai-compose" onsubmit="return false"><button type="button" class="ai-compose__tool" aria-label="Plus">+</button><textarea class="ai-compose__field" rows="1" placeholder="Écrivez votre message"></textarea><button type="button" class="ai-compose__send" aria-label="Envoyer">${ICON.send('#fff')}</button></form>
+      <div class="ai-foot">Léa est une IA. Vos coordonnées sont transmises à Léo Guillaume, dibodev.fr.</div>
+    </section>`;
+  }
+
+  function siteHtml(theme, narrow) {
+    return `<div class="site ${theme === 'dark' ? 'site--dark' : ''} ${narrow ? 'site--narrow' : ''}">
+      <nav class="site__nav"><span class="site__logo">Menuiserie Lefort</span><a>Prestations</a><a>Réalisations</a><a>Avis</a><a class="site__btn">Demander un devis</a></nav>
+      <section class="site__hero"><div><div class="site__eyebrow">Menuisier à Saint-Herblain</div><h1 class="site__h1">Portes, placards et escaliers sur mesure, posés proprement.</h1><p class="site__lead">Je prends les mesures chez vous, je fabrique à l'atelier et je pose moi-même. Devis clair, délais tenus, chantier laissé propre.</p><div class="site__cta"><span>Demander un devis</span><span>Voir les réalisations</span></div></div><div class="site__photo"></div></section>
+      <section class="site__section"><h2 class="site__h2">Ce que je fais</h2><div class="site__cards"><div class="site__card"><b>Placards et dressings</b><p>Sur mesure, du sol au plafond, portes coulissantes ou battantes.</p></div><div class="site__card"><b>Portes et fenêtres bois</b><p>Pose et remplacement, réglages compris, finitions soignées.</p></div><div class="site__card"><b>Escaliers</b><p>Fabrication en chêne ou hêtre, garde-corps assortis.</p></div></div></section>
+      <footer class="site__footer">Menuiserie Lefort · Saint-Herblain · 02 40 00 00 00</footer>
+    </div>`;
+  }
+
+  function overlayHtml(position, step, mobile) {
+    if (position === 'tab') return tabCardHtml(step, mobile);
+    return step === 'entry' ? askCardHtml(mobile) : panelHtml(mobile);
+  }
+  const phoneHtml = (position, step, theme) => `<div class="phone"><div class="phone__notch"></div>${siteHtml(theme, true)}${overlayHtml(position, step, true)}</div>`;
+
+  const state = { view: 'scene', position: 'tab', step: 'chat', screen: 'desktop', theme: 'light' };
+  const NOTES = {
+    tab: `<b>Position 1, onglet dans la carte</b> : le bandeau garde une seule entrée (la pastille), la carte propose deux chemins côte à côte, « Laissez-moi un mot » (asynchrone, Léo répond) et « Une question ? » (Léa répond tout de suite). La conversation est habillée crème/encre comme le bandeau : cohérent, mais c'est un composant à écrire (le widget Léa existant est réutilisé pour la logique, pas pour l'habillage).`,
+    panel: `<b>Position 2, panneau Léa depuis la carte</b> : une ligne discrète sous le bouton ouvre la réceptionniste telle qu'elle tourne déjà sur dibodev.fr (iframe <code>/embed/dibodev</code>, violet Dibodev, Fraunces). Zéro habillage à écrire, mais deux identités visuelles se suivent à l'écran (bandeau crème puis panneau blanc/violet). Léa reçoit le contexte du site (nom, prix, date) pour ne jamais répondre à côté.`,
+  };
+  function render() {
+    document.querySelectorAll('.mk-seg').forEach((seg) => {
+      const key = seg.dataset.key;
+      seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.value === state[key])));
+      if (['position', 'step', 'screen'].includes(key)) seg.closest('.mk-group').style.opacity = state.view === 'board' ? .4 : 1;
+    });
+    const root = document.getElementById('root');
+    const note = document.getElementById('note');
+    if (state.view === 'board') {
+      note.innerHTML = `<b>Planche</b> : les deux positions, à l'entrée et en conversation, bureau et mobile. Même conversation type partout : prix, paiement, date, puis un numéro laissé qui alerte Léo (push déjà en place côté opérateur pour les démos de la réceptionniste).`;
+      const cell = `board__cell board__cell--${state.theme}`;
+      root.innerHTML = `<div class="board">${['tab', 'panel'].map((p) => `<div class="board__row"><h2>Position ${p === 'tab' ? '1' : '2'} <span>· ${p === 'tab' ? 'onglet « Une question ? » dans la carte' : 'panneau Léa ouvert depuis la carte'}</span></h2>
+        <div class="board__grid">
+          <div class="${cell}"><span class="board__label">Entrée · bureau</span>${overlayHtml(p, 'entry', false)}</div>
+          <div class="${cell}"><span class="board__label">Conversation · bureau</span>${overlayHtml(p, 'chat', false)}</div>
+          <div class="${cell} board__cell--phone"><span class="board__label">Conversation · mobile 375</span>${phoneHtml(p, 'chat', state.theme)}</div>
+        </div></div>`).join('')}</div>`;
+      return;
+    }
+    note.innerHTML = NOTES[state.position] + (state.step === 'chat' ? ` · <b>Conversation type à 22 h</b> : Léa se présente comme IA, répond prix / paiement / date avec les mots du mail, prend le numéro, Léo est prévenu.` : ` · <b>Entrée</b> : ce que voit le prospect quand la carte s'ouvre.`);
+    root.innerHTML = state.screen === 'mobile'
+      ? `<div class="stage stage--phone-wrap">${phoneHtml(state.position, state.step, state.theme)}</div>`
+      : `<div class="stage">${siteHtml(state.theme, false)}${overlayHtml(state.position, state.step, false)}</div>`;
+    scrollThreadsToEnd();
+  }
+  /** Comme un vrai chat : le fil s'ouvre sur le dernier échange (le numéro laissé, « Léo est prévenu »), le début se lit en remontant. */
+  function scrollThreadsToEnd() {
+    document.querySelectorAll('.dlh-chat__thread, .ai-thread').forEach((thread) => { thread.scrollTop = thread.scrollHeight; });
+  }
+  document.querySelectorAll('.mk-seg button').forEach((b) => b.addEventListener('click', () => { state[b.closest('.mk-seg').dataset.key] = b.dataset.value; render(); }));
+  document.getElementById('root').addEventListener('click', (e) => {
+    if (state.view === 'board') return;
+    if (e.target.closest('.dlh-ask__btn') || e.target.closest('.dlh-tab[aria-selected="false"]') && e.target.closest('.dlh-tab').textContent.includes('question')) { state.step = 'chat'; render(); }
+    else if (e.target.closest('.ai-header__close') || e.target.closest('.dlh-tab[aria-selected="false"]')) { state.step = 'entry'; render(); }
+  });
+  render();
+</script>
+</body>
+</html>
