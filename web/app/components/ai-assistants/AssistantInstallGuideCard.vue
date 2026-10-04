@@ -8,9 +8,9 @@
       <UiFilterTabs v-model="platformKey" :tabs="tabs" />
 
       <ol class="list-decimal space-y-2 pl-5 text-sm text-[var(--app-ink)]">
-        <li v-for="step in guide.steps" :key="step">{{ step }}</li>
+        <li v-for="step in guide.steps" :key="step"><UiArrowText :text="step" /></li>
       </ol>
-      <p v-if="guide.note" class="text-xs text-[var(--app-ink-soft)]">{{ guide.note }}</p>
+      <p v-if="guide.note" class="text-xs text-[var(--app-ink-soft)]"><UiArrowText :text="guide.note" /></p>
 
       <div class="space-y-2">
         <pre
