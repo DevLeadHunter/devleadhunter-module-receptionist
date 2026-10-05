@@ -460,11 +460,12 @@ la page démo `/ia/{slug}` : l'email et le SMS mènent à `/va`, dont le bouton 
   prompteur (`buildAssistantScript`) dit « votre réceptionniste » et jamais « il » ni « elle » : le prénom et le
   genre changent à chaque démo. Ses réglages (Paramètres → Vidéo, section `#clip-receptionniste`) sont ceux du clip
   du site : `PresenterVideoConfig` avec `module="ai-assistant"` (textes dans `constants/presenterVideoWordings.ts`).
-  Lecteur du clip, filmer au prompteur ou importer, frise Intro / Chat / Espace client / Outro (l'espace n'apparaît
-  que si le milieu tient 13 s), intro et outro enregistrés par « Enregistrer les réglages », guide avec le discours
-  à lire, et **aperçu de calibration** sur le PC : `AssistantSidecarService.buildPreviewVideo` fabrique la vidéo
-  d'une réceptionniste active avec les réglages non enregistrés (`preview` dans `/video/build-assistant-full`, le
-  sidecar rend le mp4 seul), sans rien publier.
+  Plusieurs **prises** par module (une nouvelle ne remplace rien, une seule est utilisée par les vidéos), filmer au
+  prompteur ou importer, frise Intro / Chat / Espace client / Outro par prise (l'espace n'apparaît que si le milieu
+  tient 13 s), guide avec le discours à lire. Sur le PC, `AssistantSidecarService.buildPreviewVideo` monte une prise
+  sur une réceptionniste active (`preview` dans `/video/build-assistant-full`, le sidecar rend le mp4 seul) : vidéo
+  d'exemple gardée sur la prise (`PUT /settings/presenter-video/takes/{id}/example`), ou aperçu des réglages non
+  enregistrés, sans rien publier.
 - **Mécanique partagée** avec le site : montage (`services/video_montage.py`), primitives communes
   (`services/video_pipeline.py`), poll/fetch sidecar (`web/app/services/sidecarVideoBuild.ts`).
 - **Suivi** comme la vidéo du site : `/va` passe `surface: 'assistant'` à `useDemoVideoTracking` et branche

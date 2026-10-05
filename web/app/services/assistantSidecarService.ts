@@ -8,6 +8,7 @@ import type {
 import type { SidecarBuildOutcome } from '~/services/sidecarVideoBuild'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { DemoSiteService } from '~/services/demoSiteService'
+import { PresenterVideoService } from '~/services/presenterVideoService'
 import { ProfilePhotoService } from '~/services/profilePhotoService'
 import { getScraperSidecarInfo } from '~/services/scraperSidecarService'
 import { pollAndFetchBuild, readSidecarError } from '~/services/sidecarVideoBuild'
@@ -36,19 +37,22 @@ export class AssistantSidecarService {
   }
 
   /**
-   * Render a calibration example of the receptionist video on the desktop, with unsaved timings; nothing is uploaded.
+   * Render a calibration example of the receptionist video on the desktop, with the given timings; nothing is uploaded.
    * @param assistantId - The receptionist used as the example.
    * @param overrides - The intro, outro and middle lengths to try.
+   * @param presenterTakeId - The take montaged instead of the one in use.
    * @returns The rendered mp4, or why it could not be made.
    */
   static async buildPreviewVideo(
     assistantId: number,
     overrides: AssistantPreviewTimingOverrides,
+    presenterTakeId: number,
   ): Promise<AssistantPreviewVideoResult> {
-    const build: AssistantSidecarBuildResult = await AssistantSidecarService.requestFullBuild(assistantId, {
-      ...overrides,
-      preview: true,
-    })
+    const build: AssistantSidecarBuildResult = await AssistantSidecarService.requestFullBuild(
+      assistantId,
+      { ...overrides, preview: true },
+      presenterTakeId,
+    )
     if (build.status !== 'done' || !build.blob) {
       return { status: build.status, message: build.message }
     }
@@ -59,11 +63,13 @@ export class AssistantSidecarService {
    * Run the sidecar's full desktop build of an assistant, shared by the real generation and the calibration preview.
    * @param assistantId - The assistant to render.
    * @param payloadExtras - Fields merged over the API context (the preview's timings and flag).
+   * @param presenterTakeId - The take to montage, or null for the one in use.
    * @returns The produced zip (a bare mp4 for a preview), or the failure status.
    */
   private static async requestFullBuild(
     assistantId: number,
     payloadExtras: Record<string, unknown> = {},
+    presenterTakeId: number | null = null,
   ): Promise<AssistantSidecarBuildResult> {
     const info: Awaited<ReturnType<typeof getScraperSidecarInfo>> = await getScraperSidecarInfo()
     if (!info) return { status: 'unavailable' }
@@ -72,7 +78,10 @@ export class AssistantSidecarService {
     let presenter: Blob
     try {
       context = await AiAssistantService.getVideoContext(assistantId)
-      presenter = await DemoSiteService.fetchPresenterVideoFile(ASSISTANT_PRESENTER_MODULE)
+      presenter =
+        presenterTakeId === null
+          ? await DemoSiteService.fetchPresenterVideoFile(ASSISTANT_PRESENTER_MODULE)
+          : await PresenterVideoService.fetchTakeFile(presenterTakeId)
     } catch (error) {
       return { status: 'failed', message: error instanceof Error ? error.message : 'Contexte vidéo indisponible.' }
     }

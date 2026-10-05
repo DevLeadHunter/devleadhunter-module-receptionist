@@ -9,6 +9,7 @@ export type AssistantVideoBuildResult = {
 }
 
 export type AssistantPreviewTimingOverrides = {
+  presenter_duration: number
   presenter_intro: number
   presenter_outro: number
   total_seconds: number
