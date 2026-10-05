@@ -1,22 +1,28 @@
 <template>
   <div>
-    <div class="mb-8 flex flex-col gap-4 @2xl:flex-row @2xl:items-end @2xl:justify-between">
-      <div>
-        <p class="text-xs font-semibold tracking-wider text-[var(--app-ink-soft)] uppercase">Module IA</p>
-        <h1 class="app-page-title mt-1">Réceptionnistes IA</h1>
-        <p class="mt-2 max-w-xl text-sm text-[var(--app-ink-soft)]">
-          Les réceptionnistes générées pour vos prospects : la démo à envoyer, le script à coller sur leur site, et ce
-          qu'elles captent pour vous.
-        </p>
-      </div>
-      <NuxtLink to="/dashboard/ai-assistants/requests" class="btn-primary inline-flex w-fit items-center gap-2">
-        <UIcon name="i-lucide-inbox" class="h-4 w-4" />
-        Demandes à traiter
-        <span v-if="pendingRequestCount > 0" class="rounded-full bg-[var(--app-bg)]/20 px-1.5 text-[11px] tabular-nums">
-          {{ pendingRequestCount }}
-        </span>
-      </NuxtLink>
-    </div>
+    <UiPageHeader
+      eyebrow="Module IA"
+      :has-eyebrow-mark="false"
+      title="Réceptionnistes IA"
+      description="Les réceptionnistes générées pour vos prospects : la démo à envoyer, le script à coller sur leur site, et ce qu'elles captent pour vous."
+      class="mb-8"
+    >
+      <template #primary-action>
+        <NuxtLink
+          to="/dashboard/ai-assistants/requests"
+          class="app-btn-primary h-11 px-4 text-sm whitespace-nowrap @2xl:h-9 @2xl:text-xs"
+        >
+          <UIcon name="i-lucide-inbox" class="h-3.5 w-3.5" />
+          Demandes à traiter
+          <span
+            v-if="pendingRequestCount > 0"
+            class="rounded-full bg-[var(--app-bg)]/20 px-1.5 text-[11px] tabular-nums"
+          >
+            {{ pendingRequestCount }}
+          </span>
+        </NuxtLink>
+      </template>
+    </UiPageHeader>
 
     <div v-if="pending" class="grid gap-4 @2xl:grid-cols-2 @5xl:grid-cols-3">
       <div v-for="i in 3" :key="i" class="card animate-pulse">

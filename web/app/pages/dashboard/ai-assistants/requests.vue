@@ -1,13 +1,11 @@
 <template>
   <div class="flex min-h-full flex-col gap-6">
-    <div>
-      <p class="text-xs font-semibold tracking-wider text-[var(--app-ink-soft)] uppercase">Module IA</p>
-      <h1 class="app-page-title mt-1">Demandes</h1>
-      <p class="mt-2 max-w-xl text-sm text-[var(--app-ink-soft)]">
-        Chaque visiteur qui laisse ses coordonnées à une réceptionniste apparaît ici : à rappeler, à chiffrer, à caler
-        dans l'agenda.
-      </p>
-    </div>
+    <UiPageHeader
+      eyebrow="Module IA"
+      :has-eyebrow-mark="false"
+      title="Demandes"
+      description="Chaque visiteur qui laisse ses coordonnées à une réceptionniste apparaît ici : à rappeler, à chiffrer, à caler dans l'agenda."
+    />
 
     <UiLoader v-if="isLoading" label="Chargement des demandes…" />
 
@@ -25,19 +23,22 @@
     </UiEmptyState>
 
     <template v-else>
-      <div class="grid grid-cols-1 gap-4 @sm:grid-cols-3">
+      <div
+        class="grid grid-cols-2 gap-4 @sm:grid-cols-3 [&>*:last-child:nth-child(odd)]:col-span-2 @sm:[&>*:last-child:nth-child(odd)]:col-span-1"
+      >
         <UiStatCard label="À traiter" :value="pendingRequestCount" icon="i-lucide-inbox" accent="neutral" />
         <UiStatCard label="Reçues sur 7 jours" :value="weekCount" icon="i-lucide-calendar-days" accent="neutral" />
         <UiStatCard label="Hors horaires" :value="outsideHoursLabel" icon="i-lucide-moon" accent="neutral" />
       </div>
 
       <section class="flex flex-col gap-3">
+        <!-- Les filtres au-dessus des onglets tant que la ligne est courte : les onglets restent posés sur le trait. -->
         <div
-          class="flex flex-col gap-3 border-b border-[var(--app-line)] @xl:flex-row @xl:items-end @xl:justify-between"
+          class="flex flex-col-reverse gap-3 border-b border-[var(--app-line)] @5xl:flex-row @5xl:items-end @5xl:justify-between"
         >
           <UiFilterTabs v-model="statusTab" :tabs="statusTabs" />
-          <div class="flex w-full flex-col gap-2 pb-3 @xl:w-auto @xl:flex-row @xl:items-center @xl:pb-2">
-            <div class="relative w-full @xl:w-64">
+          <div class="grid gap-2 @md:grid-cols-2 @5xl:flex @5xl:shrink-0 @5xl:items-center @5xl:pb-2">
+            <div class="relative w-full @5xl:w-64">
               <UIcon
                 name="i-lucide-search"
                 class="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-[var(--app-faint)]"
@@ -50,7 +51,7 @@
                 class="app-input h-9 pl-9"
               />
             </div>
-            <div class="w-full @xl:w-56">
+            <div class="w-full @5xl:w-56">
               <UiSelectField v-model="assistantFilter" :options="assistantOptions" aria-label="Filtrer par assistant" />
             </div>
           </div>
