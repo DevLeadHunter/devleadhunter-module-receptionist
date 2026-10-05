@@ -10,7 +10,7 @@
       <template #primary-action>
         <NuxtLink
           to="/dashboard/ai-assistants/requests"
-          class="app-btn-primary h-11 px-4 text-sm whitespace-nowrap @2xl:h-9 @2xl:text-xs"
+          class="app-btn-primary h-11 px-4 text-sm whitespace-nowrap @2xl:pointer-fine:h-9 @2xl:pointer-fine:text-xs"
         >
           <UIcon name="i-lucide-inbox" class="h-3.5 w-3.5" />
           Demandes à traiter
