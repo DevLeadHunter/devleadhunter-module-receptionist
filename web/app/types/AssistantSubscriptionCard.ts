@@ -2,6 +2,7 @@ import type { AiAssistantSummary, AssistantSubscriptionInterval } from '~/types/
 
 export type AssistantSubscriptionCardProps = {
   assistant: AiAssistantSummary
+  isFramed?: boolean
 }
 
 export type AssistantSubscriptionLinkForManualCopy = {

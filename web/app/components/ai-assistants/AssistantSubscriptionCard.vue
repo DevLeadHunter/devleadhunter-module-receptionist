@@ -1,5 +1,5 @@
 <template>
-  <div class="rounded-xl border border-[var(--app-line)] bg-[var(--app-bg)] p-4">
+  <div :class="props.isFramed ? 'rounded-xl border border-[var(--app-line)] bg-[var(--app-bg)] p-4' : ''">
     <div class="flex items-center justify-between gap-3">
       <h3 class="text-sm font-semibold text-[var(--app-ink)]">Abonnement</h3>
       <span v-if="props.assistant.subscription_status === 'active'" class="app-badge app-badge--success">
@@ -73,6 +73,10 @@ const props: AssistantSubscriptionCardProps = defineProps({
   assistant: {
     type: Object as PropType<AiAssistantSummary>,
     required: true,
+  },
+  isFramed: {
+    type: Boolean,
+    default: true,
   },
 })
 

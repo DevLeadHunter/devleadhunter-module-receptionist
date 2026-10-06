@@ -5,14 +5,16 @@
       <p>La page ne s'est pas chargée.</p>
       <button type="button" class="ia-page__retry" @click="refresh()">Réessayer</button>
     </div>
-    <p v-else-if="!assistant" class="ia-page__message ia-page__message--error">Cette page n'est plus disponible.</p>
-    <template v-else>
+    <p v-else-if="!shownAssistant" class="ia-page__message ia-page__message--error">
+      Cette page n'est plus disponible.
+    </p>
+    <template v-else-if="shownAssistant">
       <p v-if="isJustSubscribed" class="ia-page__notice" role="status">
-        C'est fait : {{ assistant.assistant_name }} est à vous. Le lien de votre espace arrive par e-mail dans quelques
-        minutes.
+        C'est fait : {{ shownAssistant.assistant_name }} est à vous. Le lien de votre espace arrive par e-mail dans
+        quelques minutes.
       </p>
-      <AssistantBusinessPage v-if="isSold" :assistant="assistant" />
-      <AssistantDemoPage v-else :assistant="assistant" :is-just-subscribed="isJustSubscribed" />
+      <AssistantBusinessPage v-if="isSold" :assistant="shownAssistant" />
+      <AssistantDemoPage v-else :assistant="shownAssistant" :is-just-subscribed="isJustSubscribed" />
     </template>
   </div>
 </template>
@@ -21,10 +23,12 @@
 import type { ComputedRef, Ref } from 'vue'
 import type { LocationQuery } from 'vue-router'
 import type { AiAssistantConfig } from '~/types/AiAssistant'
+import type { AssistantPreviewOverrides } from '~/composables/useAssistantPreviewOverrides'
 import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
 import { computed, onMounted, ref } from 'vue'
 import AssistantBusinessPage from '~/components/AssistantBusinessPage.vue'
 import AssistantDemoPage from '~/components/AssistantDemoPage.vue'
+import { useAssistantPreviewOverrides } from '~/composables/useAssistantPreviewOverrides'
 import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
 import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
@@ -32,6 +36,11 @@ import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 const route: ReturnType<typeof useRoute> = useRoute()
 const router: ReturnType<typeof useRouter> = useRouter()
 const config: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
+
+/** Opened by the dashboard's atelier: the unsaved identity edits are shown as they are typed. */
+const isLivePreview: ComputedRef<boolean> = computed((): boolean => route.query._edit === '1')
+
+const { overrides }: { overrides: Ref<AssistantPreviewOverrides> } = useAssistantPreviewOverrides(isLivePreview)
 
 const {
   data: assistant,
@@ -54,11 +63,22 @@ const {
 /** Back from the checkout: the thanks show once, and the address loses the marker before anyone copies it. */
 const isJustSubscribed: Ref<boolean> = ref(route.query.subscribed === '1')
 
+/** The receptionist as shown: the published one, under the unsaved edits of the atelier while it is open. */
+const shownAssistant: ComputedRef<AiAssistantConfig | null> = computed((): AiAssistantConfig | null => {
+  if (!assistant.value) return null
+  return {
+    ...assistant.value,
+    assistant_name: overrides.value.assistantName ?? assistant.value.assistant_name,
+    business_name: overrides.value.businessName ?? assistant.value.business_name,
+    accent_color: overrides.value.accentColor ?? assistant.value.accent_color,
+  }
+})
+
 /** Once sold, the address leads the business's customers to their page: the demo is for the business only. */
 const isSold: ComputedRef<boolean> = computed((): boolean => assistant.value?.status === 'delivered')
 
 const palette: ComputedRef<AssistantAccentPalette> = computed((): AssistantAccentPalette =>
-  AssistantAccentUtils.palette(assistant.value?.accent_color),
+  AssistantAccentUtils.palette(shownAssistant.value?.accent_color),
 )
 
 const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<string, string> => ({
@@ -68,7 +88,7 @@ const accentStyle: ComputedRef<Record<string, string>> = computed((): Record<str
 }))
 
 const businessName: ComputedRef<string> = computed((): string =>
-  BusinessNameUtils.short(assistant.value?.business_name ?? ''),
+  BusinessNameUtils.short(shownAssistant.value?.business_name ?? ''),
 )
 
 const pageTitle: ComputedRef<string> = computed((): string => {

@@ -4,3 +4,6 @@ export type AiAssistantDetailStat = {
   value: string | number
   icon: string
 }
+
+/** The tools of the receptionist's atelier bar. */
+export type AiAssistantAtelierToolKey = 'identite' | 'reponses' | 'demandes' | 'alertes' | 'video' | 'plus'
