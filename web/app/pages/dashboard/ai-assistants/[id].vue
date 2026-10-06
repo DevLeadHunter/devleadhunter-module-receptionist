@@ -244,41 +244,19 @@
             <AssistantSettingsForm ref="alertsForm" :assistant="assistant" section="alerts" @saved="onAssistantSaved" />
           </div>
 
-          <div v-show="activeTool === 'video'" class="space-y-4">
-            <div class="card p-5">
-              <AssistantVideoCard
-                :assistant="assistant"
-                :is-busy="isVideoBusy"
-                :is-removing-video="isRemovingVideo"
-                :is-taking-longer-than-expected="isVideoTakingLongerThanExpected"
-                :is-refreshing-video="isRefreshingVideo"
-                :is-framed="false"
-                is-heading-hidden
-                @generate="generateVideo"
-                @remove-video="videoDeleteConfirmModal?.open()"
-                @refresh-video="refreshVideoStatusNow"
-              />
-            </div>
-            <div class="card p-5 text-xs text-[var(--app-ink-soft)]">
-              <p class="text-sm font-semibold text-[var(--app-ink)]">Comment elle part</p>
-              <ul class="mt-2 space-y-2">
-                <li class="flex gap-2">
-                  <UIcon name="i-lucide-mail" class="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span>
-                    Email : <code class="font-label">{vignette_video_assistant}</code> pose la vignette cliquable,
-                    <code class="font-label">{lien_video_assistant}</code> le lien.
-                  </span>
-                </li>
-                <li class="flex gap-2">
-                  <UIcon name="i-lucide-message-square-text" class="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span>SMS : <code class="font-label">{lien_video_assistant}</code> donne le lien court.</span>
-                </li>
-                <li class="flex gap-2">
-                  <UIcon name="i-lucide-eye" class="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span>La page vidéo mesure la lecture : lancement, 25 / 50 / 75 %, vue en entier.</span>
-                </li>
-              </ul>
-            </div>
+          <div v-show="activeTool === 'video'" class="card p-5">
+            <AssistantVideoCard
+              :assistant="assistant"
+              :is-busy="isVideoBusy"
+              :is-removing-video="isRemovingVideo"
+              :is-taking-longer-than-expected="isVideoTakingLongerThanExpected"
+              :is-refreshing-video="isRefreshingVideo"
+              :is-framed="false"
+              is-heading-hidden
+              @generate="generateVideo"
+              @remove-video="videoDeleteConfirmModal?.open()"
+              @refresh-video="refreshVideoStatusNow"
+            />
           </div>
 
           <div v-show="activeTool === 'plus'" class="space-y-4">
