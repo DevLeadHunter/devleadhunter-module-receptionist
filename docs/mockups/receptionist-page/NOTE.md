@@ -12,12 +12,12 @@ Captures du vrai logiciel en local, sur les deux vraies réceptionnistes de la p
 - Le reste est une longue colonne de cartes : Résumé (12 lignes), lien, script, cinq boutons d'actions, vidéo, abonnement, puis quatre chiffres, demandes, questions sans réponse, guide d'installation, aperçu de la démo tout en bas.
 - Sur ordinateur : colonne de contrôles à gauche, contenu à droite (le squelette que Léo a refusé pour le site).
 
-## La maquette (`captures-atelier/`, préfixes `dibodev-` et `tasty-`)
+## La maquette (`receptionniste-atelier-captures.html`, `captures-atelier/`, préfixes `dibodev-` et `tasty-`)
 
-Construite dans le vrai logiciel sur la branche **`mockup/receptionist-page`** (worktree `dlh-mockup-site-page`), mêmes données réelles. Direction prise sans demander : **le même atelier que le site**, puisque Léo a dit « continuer la nouvelle version ». Deux autres directions possibles si celle-ci ne va pas : B « la boîte de réception » (la page s'ouvre sur les demandes et les conversations, l'identité en réglage) ; C « la fiche » (une page qui défile, rien d'autre).
+Construite dans le vrai logiciel sur la branche **`mockup/receptionist-page`** (worktree `dlh-mockup-site-page`), mêmes données réelles. Direction prise sans demander : **le même atelier que le site**, puisque Léo a dit « continuer la nouvelle version ». **Retenue le 07/10** (« vas-y continue ») avec une règle durable : **un outil n'ouvre un volet sous l'aperçu que s'il a besoin de voir la page ; sinon c'est une page dédiée** (comme « Plus »). Donc seule Identité a un volet ; Réponses, Demandes, Alertes, Vidéo et Plus sont des pages. Prompt pour l'autre modèle : `PROMPT-IMPLEMENTATION.md`.
 
 - **La page de démo en plein écran** (`/ia/{slug}?internal=1`) dans un vrai téléphone ou un vrai écran d'ordinateur, réduit à l'échelle. Barre du haut : retour, portrait, nom, état (« En service chez le client », « En attente d'envoi », « Expire dans N j »), ligne « Léa · FR · EN · 6 conv. et 3 demandes sur 30 j · Bulle vue sur dibodev.fr », copier le lien, Ouvrir.
-- **Six outils en bas** : Identité (prénom, visage, ton, langues, couleur), Réponses (questions sans réponse avec compteur, réponses en place, sources), Demandes (dernières demandes avec compteur « à traiter », conversations), Alertes (email, mobile, SMS immédiat, heures calmes, email de résumé, Gmail bêta, modèle), Vidéo, Plus.
+- **Six outils en bas** : Identité (volet : prénom, visage, ton, langues, couleur), puis des pages dédiées : Réponses (questions sans réponse avec compteur, réponses en place, sources), Demandes (dernières demandes avec compteur « à traiter », conversations), Alertes (email, mobile, SMS immédiat, heures calmes, email de résumé, Gmail bêta, modèle), Vidéo (la carte et « Comment elle part »), Plus.
 - **La page change en direct** pendant qu'on tape : prénom, entreprise et couleur d'accent sont poussés dans la page de démo par `dlh:preview` (nouveau composable `useAssistantPreviewOverrides` dans demo-host, actif seulement en `_edit=1`). Capture `dibodev-ipad-07-identite-en-direct.jpg` : « Camille » et le vert apparaissent dans la page avant d'être publiés ; « Annuler » / « Publier » en haut, point ambre sur Identité.
 - **Plus** = vraie page : quatre chiffres, lien de la démo (ou « Adresse de sa page » une fois vendue), script, guide d'installation, espace du client (envoyer, couper les liens), abonnement, informations, après la vente (régénérer, marquer vendu), supprimer.
 
@@ -26,13 +26,12 @@ Construite dans le vrai logiciel sur la branche **`mockup/receptionist-page`** (
 - `web/app/pages/dashboard/ai-assistants/[id].vue` : la page refaite (toute la logique de l'ancienne page conservée : régénérer, espace client, couper les liens, vendu, supprimer, vidéo, drawers).
 - `web/app/composables/useAtelierToolSheet.ts` + `web/app/types/AtelierToolSheet.ts` : la mécanique du volet (ouverture, deux hauteurs, glissement, Échap, focus), **extraite** de la page du site. La page du site ne l'utilise pas encore : à migrer à l'implémentation pour ne pas garder deux copies.
 - `web/app/components/atelier/DevicePreview.vue` + `web/app/types/AtelierDevicePreview.ts` : l'aperçu dans un vrai écran, générique (`pageUrl`, `previewMessage`), à faire adopter par la page du site à la place de `DemoSitesAtelierPreview`. Le dossier `components/atelier` n'est pas dans `nuxt.config.ts` : la page l'importe explicitement, à ajouter à la liste des dossiers.
-- `AssistantSettingsForm.vue` : prop `section` (`identity` / `alerts` / `all`), `hasChanges`, `changedSections`, `save()`, `reset()` exposés, événement `draft` ; une seule instance vit dans le volet, les modifications survivent au changement d'outil.
-- `AssistantVideoCard.vue` (`isHeadingHidden`), `AssistantSubscriptionCard.vue` (`isFramed`).
+- `AssistantSettingsForm.vue` : prop `section` (`identity` / `alerts` / `all`), `hasChanges`, `changedSections`, `save()`, `reset()` exposés, événement `draft` ; deux instances (identité dans le volet, alertes sur sa page), montées en `v-show` pour que les modifications survivent au changement d'outil ; « Publier » enregistre celles qui ont changé.
+- `AssistantVideoCard.vue` (`isHeadingHidden`, `isFramed`), `AssistantSubscriptionCard.vue` (`isFramed`).
 - `demo-host/app/pages/ia/[slug]/index.vue` + `composables/useAssistantPreviewOverrides.ts` : les surcharges en direct.
 
 ## À trancher
 
-- La direction elle-même (atelier, boîte de réception, fiche).
 - Le volet Identité est long (six visages) : garder les visages dans le volet, ou les mettre dans une page comme « Plus ».
 - « Réponses » et « Demandes » : des compteurs noirs sur l'outil ; le point ambre reste réservé aux modifications non publiées.
 - Vérifier sur un vrai iPad (Safari) le glissement du volet.

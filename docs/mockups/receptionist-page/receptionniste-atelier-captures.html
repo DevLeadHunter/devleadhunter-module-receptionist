@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page d'une réceptionniste : l'atelier (captures)</title>
+<style>
+:root { --bg: #f4f1e9; --ink: #1d1a14; --soft: #6e6759; --line: #e1dbcc; --sheet: #fbf9f3; }
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, Segoe UI, sans-serif; padding: 28px 16px 64px; }
+main { max-width: 1180px; margin: 0 auto; }
+h1 { font-size: 24px; }
+.lede { margin-top: 6px; color: var(--soft); max-width: 820px; }
+section { margin-top: 36px; }
+h2 { font-size: 17px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+p { margin-top: 10px; max-width: 820px; }
+ul { margin-top: 10px; padding-left: 20px; max-width: 820px; }
+li { margin-top: 4px; }
+.row { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 18px; }
+figure { margin: 0; }
+.row figure { flex: 1 1 360px; max-width: 560px; }
+figure.wide { margin-top: 18px; }
+figure img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--sheet); }
+figcaption { margin-top: 8px; color: var(--soft); font-size: 14px; }
+</style></head>
+<body><main>
+<h1>La page d'une réceptionniste : l'atelier</h1>
+<p class="lede">Captures du vrai logiciel, en local, sur les deux vraies réceptionnistes de la prod (Dibodev, vendue, avec ses conversations et ses demandes ; Tasty Korea Foodtruck, démo pas encore envoyée), à la taille d'un iPad en portrait (820 × 1180). Même principe que la page d'un site démo : la page de la réceptionniste en plein écran, une barre d'outils en bas, et la page qui change en direct pendant qu'on règle.</p>
+
+<section><h2>1. Le principe</h2>
+<ul>
+<li><strong>La page de la réceptionniste en plein écran</strong>, dans un vrai téléphone (390 × 844) ou un vrai écran d'ordinateur (1440 × 900) réduit à l'échelle. En haut, une barre fine : retour, portrait, nom, état (« En attente d'envoi », « Expire dans N j », « En service chez le client »), « Léa · FR · EN · 6 conv. et 3 demandes sur 30 j · Bulle vue sur dibodev.fr », copier le lien, ouvrir.</li>
+<li><strong>Six outils en bas</strong> : Identité, Réponses, Demandes, Alertes, Vidéo, Plus. Un compteur sur Réponses (questions sans réponse) et sur Demandes (demandes à traiter).</li>
+<li><strong>Règle de Léo (07/10)</strong> : un outil n'ouvre un volet sous la page que s'il a besoin de la voir. Seule <strong>Identité</strong> a un volet (le prénom, le visage, l'entreprise et la couleur changent en direct dans la page). <strong>Réponses, Demandes, Alertes, Vidéo et Plus sont des pages dédiées</strong>, sans aperçu.</li>
+<li><strong>Publier</strong> : dès qu'une identité ou une alerte est modifiée, « Annuler » et « Publier » apparaissent en haut et un point ambre marque l'outil concerné.</li>
+</ul>
+</section>
+
+<section><h2>2. Sur iPad, en portrait : une réceptionniste vendue (Dibodev)</h2>
+<div class="row">
+<figure><img src="captures-atelier/dibodev-ipad-00-page.jpg" alt=""><figcaption>La page de la réceptionniste dans un téléphone. Rien d'autre à lire.</figcaption></figure>
+<figure><img src="captures-atelier/dibodev-ipad-01-identite.jpg" alt=""><figcaption>Identité : le seul volet. Entreprise affichée, les six visages, prénom, ton, langues, couleur.</figcaption></figure>
+</div>
+<div class="row">
+<figure><img src="captures-atelier/dibodev-ipad-07-identite-en-direct.jpg" alt=""><figcaption>On tape « Camille » et une couleur verte : la page suit en direct, avant d'être publiée. « Annuler » / « Publier » en haut, point ambre sur Identité.</figcaption></figure>
+<figure><img src="captures-atelier/dibodev-ipad-08-page-ordinateur.jpg" alt=""><figcaption>La même page dans un écran d'ordinateur au vrai format, réduit à l'échelle.</figcaption></figure>
+</div>
+<div class="row">
+<figure><img src="captures-atelier/dibodev-ipad-02-reponses.jpg" alt=""><figcaption>Réponses, page dédiée : la question sans réponse à traiter (Répondre / Ignorer), les réponses en place, et les sources qu'elle lit.</figcaption></figure>
+<figure><img src="captures-atelier/dibodev-ipad-03-demandes.jpg" alt=""><figcaption>Demandes, page dédiée : les dernières demandes (type, résumé, date, état), « Toutes les demandes », les conversations.</figcaption></figure>
+</div>
+<div class="row">
+<figure><img src="captures-atelier/dibodev-ipad-04-alertes.jpg" alt=""><figcaption>Alertes, page dédiée : email et mobile du commerçant, SMS immédiat et ses types, ne pas déranger, email de résumé, boîte Gmail, modèle.</figcaption></figure>
+<figure><img src="captures-atelier/dibodev-ipad-05-video.jpg" alt=""><figcaption>Vidéo, page dédiée : la vidéo de prospection et la façon dont elle part.</figcaption></figure>
+</div>
+<div class="row">
+<figure><img src="captures-atelier/dibodev-ipad-06-plus.jpg" alt=""><figcaption>Plus : les chiffres, l'adresse de sa page, le script, le guide d'installation, l'espace du client, l'abonnement…</figcaption></figure>
+<figure><img src="captures-atelier/dibodev-ipad-06b-plus-suite.jpg" alt=""><figcaption>Plus, la suite : informations, après la vente, suppression.</figcaption></figure>
+</div>
+</section>
+
+<section><h2>3. Une démo pas encore envoyée (Tasty Korea Foodtruck)</h2>
+<div class="row">
+<figure><img src="captures-atelier/tasty-ipad-00-page.jpg" alt=""><figcaption>« En attente d'envoi · Pas de vidéo ». La page de démo que recevra le prospect.</figcaption></figure>
+<figure><img src="captures-atelier/tasty-ipad-06-plus.jpg" alt=""><figcaption>Plus : « Lien de la démo » avec la phrase du compte à rebours, les liens d'abonnement à copier, « Marquer comme vendu (hors Stripe) » plus bas.</figcaption></figure>
+</div>
+</section>
+
+<section><h2>4. Thème sombre et ordinateur</h2>
+<div class="row">
+<figure><img src="captures-atelier/dibodev-ipad-sombre-01-identite.jpg" alt=""><figcaption>Thème sombre, volet Identité.</figcaption></figure>
+<figure><img src="captures-atelier/dibodev-ipad-sombre-02-demandes.jpg" alt=""><figcaption>Thème sombre, page Demandes.</figcaption></figure>
+</div>
+<figure class="wide"><img src="captures-atelier/dibodev-ordinateur-01-identite.jpg" alt=""><figcaption>Ordinateur 1440 px, volet Identité ouvert.</figcaption></figure>
+<figure class="wide"><img src="captures-atelier/dibodev-ordinateur-02-alertes.jpg" alt=""><figcaption>Ordinateur 1440 px, page Alertes.</figcaption></figure>
+</section>
+
+<section><h2>5. Aujourd'hui, pour comparer</h2>
+<div class="row">
+<figure><img src="captures-aujourdhui/ipad-1-01-resume-ecran.jpg" alt=""><figcaption>La page actuelle d'une réceptionniste vendue sur iPad : elle déborde à droite, les valeurs du résumé et l'onglet Configuration sont hors écran.</figcaption></figure>
+<figure><img src="captures-aujourdhui/ipad-2-02-resume-page.jpg" alt=""><figcaption>La page actuelle en entier (Tasty Korea) : une longue colonne de cartes.</figcaption></figure>
+</div>
+</section>
+
+<section><h2>6. Décision</h2>
+<p><strong>Direction retenue par Léo le 07/10</strong> (« vas-y continue »), avec une règle : si un outil n'a pas besoin de voir l'aperçu, c'est une page dédiée, pas un volet. Un autre modèle implémentera la maquette dans le code à partir de <code>PROMPT-IMPLEMENTATION.md</code>.</p>
+</section>
+</main></body></html>
