@@ -24,23 +24,25 @@
       <li v-for="request in props.requests" :key="request.id">
         <button
           type="button"
-          class="flex w-full cursor-pointer items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-[var(--app-surface-2)]"
+          class="flex w-full cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-left transition-colors hover:bg-[var(--app-surface-2)]"
           @click="emit('open', request)"
         >
           <span class="app-badge shrink-0" :class="request.type === 'urgent' ? 'app-badge--danger' : ''">
             {{ REQUEST_TYPE_LABELS[request.type] }}
           </span>
-          <span class="min-w-0 flex-1">
+          <span class="min-w-0 flex-1 basis-40">
             <span class="block truncate text-sm font-medium text-[var(--app-ink)]">{{ request.name }}</span>
             <span class="block truncate text-xs text-[var(--app-ink-soft)]">
               {{ request.need_summary || request.need || 'Demande de rappel, sans détail.' }}
             </span>
           </span>
-          <span class="shrink-0 text-xs text-[var(--app-ink-soft)] tabular-nums">
-            {{ formatShortMonthDayTime(request.created_at) }}
-          </span>
-          <span :class="['app-badge shrink-0', REQUEST_STATUS_BADGE_CLASS[request.status]]">
-            {{ REQUEST_STATUS_LABELS[request.status] }}
+          <span class="ml-auto flex shrink-0 items-center gap-3">
+            <span class="text-xs text-[var(--app-ink-soft)] tabular-nums">
+              {{ formatShortMonthDayTime(request.created_at) }}
+            </span>
+            <span :class="['app-badge', REQUEST_STATUS_BADGE_CLASS[request.status]]">
+              {{ REQUEST_STATUS_LABELS[request.status] }}
+            </span>
           </span>
         </button>
       </li>
