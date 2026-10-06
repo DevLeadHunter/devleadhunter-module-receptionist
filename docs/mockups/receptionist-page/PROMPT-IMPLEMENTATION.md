@@ -1,0 +1,51 @@
+# Prompt d'implémentation : la page d'une réceptionniste devient « l'atelier »
+
+> À coller tel quel à un modèle de code. Repo : `C:\Users\leogu\Desktop\Projects\devleadhunter` (monorepo : `web/` = dashboard Nuxt 4, `api/` = FastAPI, `demo-host/` = hébergeur des sites et des pages de réceptionnistes). Tout le nécessaire est dans le dépôt.
+
+---
+
+Tu travailles dans le dépôt DevLeadHunter, dossiers `web/` (Nuxt 4, Vue 3, TypeScript strict, Tailwind v4, Pinia, Nuxt UI) et `demo-host/` (Nuxt 4). Ta mission : **remplacer la page d'une réceptionniste** (`web/app/pages/dashboard/ai-assistants/[id].vue`) par la version « atelier » dont la maquette a été validée par Léo le 07/10/2026, dans la continuité de l'atelier de la page d'un site démo (`web/app/pages/dashboard/demo-sites/[id]/index.vue`, en prod).
+
+## 1. Ce que tu dois produire
+
+La maquette a été **construite dans le vrai logiciel**, sur la branche `mockup/receptionist-page` (commits « feat: draft the atelier layout of the receptionist page » et suivants). Commence par la lire : `git fetch origin && git log --oneline main..origin/mockup/receptionist-page`, puis `git diff main...origin/mockup/receptionist-page`. Les captures validées sont dans `docs/mockups/receptionist-page/receptionniste-atelier-captures.html` (dossier `captures-atelier/`) : ouvre-les, c'est le rendu attendu, au pixel près sur iPad en portrait (820 × 1180). La note `docs/mockups/receptionist-page/NOTE.md` dit ce que l'atelier contient et ce qui reste ouvert : **rien de l'ancienne page ne doit disparaître** (régénérer, espace client, couper les liens, marquer vendu, supprimer, vidéo, abonnement, guide d'installation, conversations, sources, demandes, questions sans réponse, informations).
+
+**Pars de la branche de maquette** (`git checkout -b feat/receptionist-atelier origin/mockup/receptionist-page`, puis `git merge main` pour être à jour) et finis le travail : la branche est une maquette fonctionnelle, pas un code fini.
+
+### 1.1 Comportement attendu (voir les captures)
+
+- **Barre du haut** : flèche retour, portrait de la réceptionniste, nom du commerce, pastille d'état (`assistantLifetimeLabel` : « En attente d'envoi », « Expire dans N j », « En service chez le client »), ligne de faits « Léa · FR · EN · 6 conv. et 3 demandes sur 30 j · Bulle vue sur dibodev.fr » (ou « Vidéo prête / Pas de vidéo » tant qu'elle n'est pas vendue), bouton rond « copier le lien », bouton « Ouvrir » (la page avec `?internal=1`, comme aujourd'hui). Dès qu'il y a une modification non publiée : « Annuler » + « Publier » remplacent ces deux boutons.
+- **Bandeau** sous la barre quand `needs_follow_up` (les relances sont parties, il manque : …) ou `churn_risk`.
+- **Sélecteur Téléphone / Ordinateur**, centré.
+- **L'aperçu** : la page de la réceptionniste (`demo_url`, avec `?internal=1`) dans un **vrai écran** (téléphone 390 × 844 ou ordinateur 1440 × 900) réduit à l'échelle, centré, qui défile à l'intérieur. Composant générique `AtelierDevicePreview` (`web/app/components/atelier/DevicePreview.vue`, props `pageUrl`, `device`, `previewMessage`, `reloadNonce`).
+- **La page change en direct** pendant qu'on tape dans « Identité » : prénom, entreprise affichée et couleur d'accent sont poussés dans l'iframe par `postMessage` `{ type: 'dlh:preview', assistant_name, business_name, accent_color }`. Côté demo-host, `app/pages/ia/[slug]/index.vue` les applique en mode `_edit=1` seulement (composable `useAssistantPreviewOverrides`, valeurs vérifiées : nom ≤ 64 caractères, couleur hex). Garde ce comportement ; vérifie qu'un visiteur normal (sans `_edit=1`) n'est jamais concerné.
+- **Barre d'outils en bas**, six outils : Identité, Réponses, Demandes, Alertes, Vidéo, Plus. Un **compteur noir** sur Réponses (`unanswered_count`) et sur Demandes (`pending_count` de la liste des demandes) ; un **point ambre** sur Identité ou Alertes quand elles portent une modification non publiée.
+- **Règle de Léo (07/10)** : un outil n'ouvre un volet sous l'aperçu **que s'il a besoin de voir la page**. Donc :
+  - **Identité** = volet (poignée, titre, sous-titre, fermer ; au plus 44 % de la hauteur, l'aperçu se réduit au-dessus et n'est jamais caché ; deux hauteurs à la poignée) : entreprise affichée, les six visages + « Votre image », prénom, ton, langues, couleur d'accent. C'est `AssistantSettingsForm` avec `section="identity"`.
+  - **Réponses, Demandes, Alertes, Vidéo, Plus** = **pages dédiées** qui remplacent l'aperçu (titre + sous-titre en haut, cartes pleine largeur, `max-w-4xl` centré, défilement) :
+    - Réponses : `AssistantFaqCard` (questions sans réponse, réponses en place) + carte « Ce qu'elle lit » avec « Ouvrir les sources » (le drawer `assistant-sources` existant).
+    - Demandes : `AssistantRecentRequests` (6 dernières, « Toutes les demandes ») + carte « Conversations » avec « Lire les conversations » (le drawer `assistant-conversations`).
+    - Alertes : `AssistantSettingsForm` avec `section="alerts"` (email et mobile du commerçant, SMS immédiat et ses types, ne pas déranger, email de résumé, boîte Gmail bêta, modèle hébergé en Europe) dans une carte.
+    - Vidéo : `AssistantVideoCard` (sans son cadre ni son titre : props `isFramed`, `isHeadingHidden`) dans une carte, rien d'autre. **Pas d'encart « Comment elle part »** : Léo l'a jugé inutile (07/10).
+    - Plus : quatre chiffres (`UiStatCard`, deux colonnes sur iPad), lien de la démo (« Adresse de sa page » une fois vendue, phrase d'expiration sinon), script pour le site du client, guide d'installation (`AssistantInstallGuideCard`), espace du client (envoyer, couper les anciens liens, lien à copier à la main), abonnement (`AssistantSubscriptionCard` sans cadre), informations (la `dl` de l'ancien résumé), après la vente (régénérer, marquer vendu hors Stripe tant qu'elle n'est pas vendue), supprimer (carte à liseré rouge).
+- **Publier** enregistre les deux formulaires (identité, alertes) qui ont une modification, l'un après l'autre (`save()` exposé) ; « Annuler » les remet à l'état enregistré (`reset()`). Le libellé est « Publier » / « Publication… ». Après un enregistrement, l'aperçu se recharge (`previewReloadNonce`).
+- Thème sombre et clair, tous les deux (tokens `--app-*`, voir `web/app/assets/css/main.css`).
+
+### 1.2 Ce qui reste à faire par rapport à la branche de maquette
+
+1. **Partager la mécanique du volet avec la page du site.** La branche extrait `useAtelierToolSheet` (`web/app/composables/useAtelierToolSheet.ts`, types `web/app/types/AtelierToolSheet.ts`, retour `UseAtelierToolSheetReturn` dans `web/app/types/Composables.ts`) : ouverture, deux hauteurs, glissement de la poignée, Échap, retour du focus. La page du site (`demo-sites/[id]/index.vue`) a encore sa propre copie : **migre-la sur le composable** et supprime les types devenus inutiles de `web/app/types/DemoSiteDetailPage.ts` (`DemoSiteAtelierSheetSize`, `DemoSiteAtelierSheetDrag`, `DemoSiteAtelierTool` si `AtelierTool<T>` suffit). Une seule implémentation.
+2. **Un seul aperçu en vrai écran.** `AtelierDevicePreview` est générique ; `DemoSitesAtelierPreview` fait la même chose avec un message `dlh:preview` spécifique (template, palette, photos, services). Fais-le reposer sur le générique (le site passe son message dans `previewMessage`) et supprime le doublon. Ajoute `{ path: '~/components/atelier', prefix: 'Atelier' }` à la liste `components` de `web/nuxt.config.ts` (la maquette importe le composant explicitement parce que le dossier n'y est pas).
+3. **Deux instances de `AssistantSettingsForm`** (identité dans le volet, alertes sur leur page) vivent en même temps ; chacune garde ses modifications quand on change d'outil (`v-show`, pas `v-if`). Vérifie qu'un enregistrement de l'une ne perd pas les modifications de l'autre (la synchronisation `withRecordChanges` existe déjà) et que le bouton « Enregistrer » interne du formulaire ne s'affiche que pour `section="all"` (il n'est plus utilisé nulle part : si c'est le cas, retire `all` et le bouton).
+4. **Plein écran** : la page utilise `definePageMeta({ shouldFillDashboardViewport: true })` comme le site (pas de padding, pas de défilement du `<main>`, barre d'onglets du bas masquée). Vérifie que c'est bien le cas dans l'app installée sur iPad.
+5. **Téléphone** (390 px) : six boutons dans la barre, « Ouvrir » sans texte, pages dédiées lisibles ; vérifie-le.
+6. **Accessibilité** : `aria-pressed` sur la barre, le volet se ferme à Échap et le focus revient sur l'outil ; `aria-label` sur les boutons sans texte (copier, fermer) ; les compteurs ont leur texte caché (« 1 à traiter »).
+7. **Nettoyage** : `AssistantSummaryCard` et `AssistantActionsCard` ne sont plus utilisés par la page ; s'ils ne servent nulle part ailleurs, supprime-les avec leurs types. `AssistantDemoPreviewCard` pareil.
+8. **Page du site démo, même ménage** : dans `web/app/pages/dashboard/demo-sites/[id]/index.vue`, le volet « Vidéo » a un encart « Comment elle part » (email `{vignette_video}` / `{lien_video}`, SMS, mesure de la lecture) à droite de la carte vidéo. **Retire-le** (Léo, 07/10 : « pas utile ») ; le volet Vidéo du site ne garde que la carte vidéo, en pleine largeur.
+
+## 2. Règles du dépôt
+
+Les règles sont celles de `docs/mockups/demo-site-page/PROMPT-IMPLEMENTATION.md`, section 2 : TypeScript strict (pas de `any`, chaque `ref` / `computed` / fonction typés), JSDoc au-dessus de chaque fonction, pas de commentaire en ligne dans le code neuf, tokens `--app-*` (jamais de couleur en dur), nommage explicite (`isPreviewShown`, pas `show`), `npm --prefix web run lint` vert, hook de commit jamais contourné, **pas de PR touchant `api/`** (ici `api/` n'est pas concerné), commits en anglais en minuscules (`feat: …`), push direct sur `main` une fois vérifié.
+
+## 3. Vérification
+
+À l'écran, dans les deux thèmes, sur la vraie API locale ou une base seedée : à 820 × 1180 avec émulation tactile (Playwright `has_touch: true`, ou un vrai iPad) chaque outil s'ouvre et se ferme, « Identité » redessine la page en direct, « Publier » enregistre et recharge l'aperçu, les pages dédiées défilent ; à 1440 px à la souris le même atelier ; à 390 px la page reste utilisable. Donne des captures dans le compte rendu et dis ce qui n'a pas pu être vérifié.
