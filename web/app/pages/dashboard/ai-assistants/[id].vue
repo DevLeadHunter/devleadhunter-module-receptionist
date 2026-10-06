@@ -112,7 +112,7 @@
             aria-label="Format de l'aperçu"
           >
             <button
-              v-for="device in previewDevices"
+              v-for="device in ATELIER_PREVIEW_DEVICES"
               :key="device.key"
               type="button"
               :class="[
@@ -146,7 +146,7 @@
               ref="sheetElement"
               class="relative flex shrink-0 flex-col rounded-t-2xl border-t border-[var(--app-line)] bg-[var(--app-surface)] shadow-[0_-12px_40px_rgba(0,0,0,0.08)] outline-none"
               :style="sheetStyle"
-              :aria-label="activeToolMeta?.title"
+              :aria-label="isToolSheetOpen ? activeToolMeta?.title : undefined"
               tabindex="-1"
               data-no-pull-to-refresh
             >
@@ -197,7 +197,7 @@
       <section
         v-show="isPageToolOpen"
         class="min-h-0 flex-1 overflow-y-auto p-4 md:p-6"
-        :aria-label="activeToolMeta?.title"
+        :aria-label="isPageToolOpen ? activeToolMeta?.title : undefined"
       >
         <div class="mx-auto w-full max-w-4xl space-y-4">
           <div v-if="activeToolMeta && activeTool !== 'plus'" class="px-1">
@@ -568,13 +568,11 @@ import type {
   UseToastReturn,
   UseVideoGenerationChecksReturn,
 } from '~/types/Composables'
-import type { DemoSitePreviewDeviceOption } from '~/types/DemoSiteDetailPage'
 import type { AssistantMutationNotice, AssistantRequestMutationNotice } from '~/types/DrawerStack'
 import type { TemplatePreviewDevice } from '~/types/TemplatePicker'
 import type { UiConfirmModalHandle } from '~/types/UiConfirmModal'
 import { computed, onMounted, ref, watch } from 'vue'
 import AssistantFaqCard from '~/components/ai-assistants/AssistantFaqCard.vue'
-import AtelierDevicePreview from '~/components/atelier/DevicePreview.vue'
 import AssistantInstallGuideCard from '~/components/ai-assistants/AssistantInstallGuideCard.vue'
 import AssistantPortrait from '~/components/ai-assistants/AssistantPortrait.vue'
 import AssistantRecentRequests from '~/components/ai-assistants/AssistantRecentRequests.vue'
@@ -582,6 +580,7 @@ import AssistantSettingsForm from '~/components/ai-assistants/AssistantSettingsF
 import AssistantSubscriptionCard from '~/components/ai-assistants/AssistantSubscriptionCard.vue'
 import AssistantVideoCard from '~/components/ai-assistants/AssistantVideoCard.vue'
 import { useAtelierToolSheet } from '~/composables/useAtelierToolSheet'
+import { ATELIER_PREVIEW_DEVICES } from '~/constants/atelierPreviewDevices'
 import { useCoarsePointer } from '~/composables/useCoarsePointer'
 import { useToast } from '~/composables/useToast'
 import { useVideoGenerationChecks } from '~/composables/useVideoGenerationChecks'
@@ -651,12 +650,6 @@ const atelierTools: AtelierTool<AiAssistantAtelierToolKey>[] = [
 
 /** The tools that open a page of their own: they have no need of the receptionist's page in sight. */
 const PAGE_TOOL_KEYS: AiAssistantAtelierToolKey[] = ['reponses', 'demandes', 'alertes', 'video', 'plus']
-
-/** The two ways of looking at the page. */
-const previewDevices: DemoSitePreviewDeviceOption[] = [
-  { key: 'mobile', label: 'Téléphone', icon: 'i-lucide-smartphone' },
-  { key: 'desktop', label: 'Ordinateur', icon: 'i-lucide-monitor' },
-]
 
 /** How many of the assistant's requests the page lists. */
 const RECENT_REQUESTS_LIMIT: number = 6
@@ -901,13 +894,16 @@ const toolWaitingCounts: ComputedRef<Partial<Record<AiAssistantAtelierToolKey, n
   }),
 )
 
-/** The identity edits pushed live into the page, only while something is unpublished. */
-const previewMessage: ComputedRef<Record<string, unknown> | null> = computed((): Record<string, unknown> | null => {
-  if (!identityDraft.value || !toolPendingChanges.value.identite) return null
+/**
+ * The identity edits pushed live into the page; nulls once nothing is unpublished, so a cancelled edit leaves the page
+ * as it is published.
+ */
+const previewMessage: ComputedRef<Record<string, unknown>> = computed((): Record<string, unknown> => {
+  const isIdentityPending: boolean = identityDraft.value !== null && toolPendingChanges.value.identite
   return {
-    assistant_name: identityDraft.value.assistant_name,
-    business_name: identityDraft.value.business_name,
-    accent_color: identityDraft.value.accent_color,
+    assistant_name: isIdentityPending ? identityDraft.value?.assistant_name : null,
+    business_name: isIdentityPending ? identityDraft.value?.business_name : null,
+    accent_color: isIdentityPending ? identityDraft.value?.accent_color : null,
   }
 })
 
@@ -1202,6 +1198,27 @@ async function refreshAssistant(): Promise<void> {
 }
 
 /**
+ * Show the latest requests and how many of all of them wait to be handled.
+ * @param requestList - The assistant's requests as the API listed them.
+ */
+function applyRequestList(requestList: AiAssistantRequestsResponse): void {
+  requests.value = requestList.requests.slice(0, RECENT_REQUESTS_LIMIT)
+  pendingRequestCount.value = requestList.pending_count
+}
+
+/**
+ * Read the requests again after one was handled in its drawer, so the count covers them all, not only the listed ones.
+ * @returns A promise resolved once reloaded; a failure keeps what is shown.
+ */
+async function refreshRequests(): Promise<void> {
+  try {
+    applyRequestList(await AiAssistantService.listRequests(undefined, assistantId.value))
+  } catch {
+    return
+  }
+}
+
+/**
  * Load the assistant and its latest requests.
  * @returns A promise resolved once loaded.
  */
@@ -1214,8 +1231,7 @@ async function loadData(): Promise<void> {
       AiAssistantService.listRequests(undefined, assistantId.value),
     ])
     assistant.value = loaded
-    requests.value = requestList.requests.slice(0, RECENT_REQUESTS_LIMIT)
-    pendingRequestCount.value = requestList.pending_count
+    applyRequestList(requestList)
   } catch {
     loadError.value = 'Réceptionniste introuvable ou indisponible pour le moment.'
   } finally {
@@ -1240,9 +1256,7 @@ watch(
       (listedRequest: AiAssistantRequestItem): AiAssistantRequestItem =>
         listedRequest.id === notice.request.id ? notice.request : listedRequest,
     )
-    pendingRequestCount.value = requests.value.filter(
-      (listedRequest: AiAssistantRequestItem): boolean => listedRequest.status === 'new',
-    ).length
+    void refreshRequests()
   },
 )
 

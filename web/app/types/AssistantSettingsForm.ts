@@ -1,12 +1,12 @@
 import type { AiAssistantEditForm, AiAssistantSummary } from '~/types/AiAssistant'
 
-/** Which part of the settings the form shows: everything, the identity alone, or the alerts and the model alone. */
-export type AssistantSettingsFormSection = 'all' | 'identity' | 'alerts'
+/** Which part of the settings the form shows and saves: the identity, or the alerts with the mailbox and the model. */
+export type AssistantSettingsFormSection = 'identity' | 'alerts'
 
 /** Props of the form editing an assistant's identity, the alerts its business receives and its model constraints. */
 export type AssistantSettingsFormProps = {
   assistant: AiAssistantSummary
-  section?: AssistantSettingsFormSection
+  section: AssistantSettingsFormSection
 }
 
 /** Events of the settings form; `saved` carries the assistant as the API returned it, `draft` every unsaved edit. */

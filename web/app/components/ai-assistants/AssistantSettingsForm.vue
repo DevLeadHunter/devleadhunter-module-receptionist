@@ -1,7 +1,6 @@
 <template>
   <form class="flex flex-col gap-6" @submit.prevent="save">
-    <section v-show="isIdentityShown" class="flex flex-col gap-4">
-      <h3 v-if="isEverythingShown" class="app-label !text-[0.6rem]">Identité</h3>
+    <section v-if="isIdentityShown" class="flex flex-col gap-4">
       <label class="flex flex-col gap-1">
         <span class="text-xs font-medium text-[var(--app-ink)]">Entreprise affichée</span>
         <input v-model="form.business_name" type="text" class="app-input" maxlength="255" required />
@@ -63,12 +62,8 @@
       </div>
     </section>
 
-    <section
-      v-show="isAlertsShown"
-      :class="['flex flex-col gap-4', isEverythingShown ? 'border-t border-[var(--app-line-soft)] pt-5' : '']"
-    >
+    <section v-if="isAlertsShown" class="flex flex-col gap-4">
       <div class="flex flex-col gap-1">
-        <h3 v-if="isEverythingShown" class="app-label !text-[0.6rem]">Alertes au commerçant</h3>
         <p class="text-muted text-xs leading-relaxed">
           Une fois l'assistant vendu : chaque demande par email, et un SMS pour celles qui ne peuvent pas attendre.
           Rappel le lendemain si elle n'est pas traitée.
@@ -138,7 +133,7 @@
       </div>
     </section>
 
-    <section v-show="isAlertsShown" class="flex flex-col gap-2 border-t border-[var(--app-line-soft)] pt-5">
+    <section v-if="isAlertsShown" class="flex flex-col gap-2 border-t border-[var(--app-line-soft)] pt-5">
       <h3 class="app-label !text-[0.6rem]">Boîte mail Gmail (bêta)</h3>
       <UiSwitch id="assistant-mailbox" v-model="form.mailbox_enabled" label="Préparer les réponses aux emails" />
       <p class="text-muted text-xs leading-relaxed">
@@ -148,7 +143,7 @@
       </p>
     </section>
 
-    <section v-show="isAlertsShown" class="flex flex-col gap-2 border-t border-[var(--app-line-soft)] pt-5">
+    <section v-if="isAlertsShown" class="flex flex-col gap-2 border-t border-[var(--app-line-soft)] pt-5">
       <h3 class="app-label !text-[0.6rem]">Modèle</h3>
       <UiSwitch id="assistant-eu-only" v-model="form.eu_only" label="IA hébergée en Europe (Mistral)" />
       <p class="text-muted text-xs leading-relaxed">
@@ -156,20 +151,6 @@
         (l'assistant propose alors de laisser ses coordonnées).
       </p>
     </section>
-
-    <div v-if="isEverythingShown" class="flex flex-col gap-2 border-t border-[var(--app-line)] pt-4">
-      <button
-        type="submit"
-        class="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50"
-        :disabled="isSaving || form.languages.length === 0"
-      >
-        <UIcon v-if="isSaving" name="i-lucide-loader-circle" class="mr-1.5 h-4 w-4 animate-spin" />
-        Enregistrer
-      </button>
-      <p class="text-muted text-center text-[11px] leading-relaxed">
-        La démo, le widget installé et l'espace client changent aussitôt ; l'aperçu ci-contre se recharge.
-      </p>
-    </div>
   </form>
 </template>
 
@@ -200,7 +181,10 @@ import { widgetLanguageCode } from '~/utils/aiAssistantLabels'
 import { formatAssistantTone, parseAssistantTone } from '~/utils/assistantTone'
 import { withRecordChanges } from '~/utils/formSync'
 
-/** With `section` set, one part shows alone and without its submit button: the page saves through the exposed `save()`. */
+/**
+ * One part of an assistant's settings, the identity or the alerts, without a submit button: the page publishes it
+ * through the exposed `save()`, which sends only the fields of that part.
+ */
 const props: AssistantSettingsFormProps = defineProps({
   assistant: {
     type: Object as PropType<AiAssistantSummary>,
@@ -208,7 +192,7 @@ const props: AssistantSettingsFormProps = defineProps({
   },
   section: {
     type: String as PropType<AssistantSettingsFormSection>,
-    default: 'all',
+    required: true,
   },
 })
 
@@ -259,11 +243,9 @@ const toneWords: Ref<string[]> = ref(parseAssistantTone(props.assistant.tone))
 const isSaving: Ref<boolean> = ref(false)
 const isAvatarModalOpen: Ref<boolean> = ref(false)
 
-const isEverythingShown: ComputedRef<boolean> = computed((): boolean => props.section === 'all')
+const isIdentityShown: ComputedRef<boolean> = computed((): boolean => props.section === 'identity')
 
-const isIdentityShown: ComputedRef<boolean> = computed((): boolean => props.section !== 'alerts')
-
-const isAlertsShown: ComputedRef<boolean> = computed((): boolean => props.section !== 'identity')
+const isAlertsShown: ComputedRef<boolean> = computed((): boolean => props.section === 'alerts')
 
 /** The tone chips: the known tones, plus any word of the stored tone that is not one of them (nothing is lost). */
 const toneOptions: ComputedRef<SelectFieldOption<string>[]> = computed((): SelectFieldOption<string>[] => {
@@ -311,9 +293,9 @@ const changedSections: ComputedRef<AssistantSettingsFormChangedSections> = compu
   },
 )
 
-/** Any unsaved edit, in either section. */
-const hasChanges: ComputedRef<boolean> = computed(
-  (): boolean => changedSections.value.identity || changedSections.value.alerts,
+/** An unsaved edit in the part this form shows (the other part's fields are another form's business). */
+const hasChanges: ComputedRef<boolean> = computed((): boolean =>
+  props.section === 'identity' ? changedSections.value.identity : changedSections.value.alerts,
 )
 
 /**
@@ -381,24 +363,14 @@ function changedAlertFields(alerts: AiAssistantAlertSettings, edited: AiAssistan
 async function save(): Promise<void> {
   const target: AiAssistantSummary = props.assistant
   if (isSaving.value) return
-  if (form.value.languages.length === 0) {
+  if (props.section === 'identity' && form.value.languages.length === 0) {
     toast.error('Choisissez au moins une langue.')
     return
   }
   isSaving.value = true
   try {
-    const payload: AiAssistantUpdatePayload = {
-      assistant_name: form.value.assistant_name,
-      business_name: form.value.business_name,
-      tone: formatAssistantTone(toneWords.value),
-      accent_color: form.value.accent_color,
-      languages: form.value.languages,
-      ...(form.value.email.trim() !== (target.email ?? '') ? { email: form.value.email.trim() } : {}),
-      ...changedAlertFields(target.alerts, form.value),
-      ...(form.value.eu_only !== target.eu_only ? { eu_only: form.value.eu_only } : {}),
-      ...(form.value.mailbox_enabled !== target.mailbox_enabled ? { mailbox_enabled: form.value.mailbox_enabled } : {}),
-      ...(form.value.avatar_enabled !== target.avatar_enabled ? { avatar_enabled: form.value.avatar_enabled } : {}),
-    }
+    const payload: AiAssistantUpdatePayload =
+      props.section === 'identity' ? identityPayload(target) : alertsPayload(target)
     const updated: AiAssistantSummary = await AiAssistantService.update(target.id, payload)
     form.value = formOf(updated)
     toneWords.value = parseAssistantTone(updated.tone)
@@ -411,6 +383,36 @@ async function save(): Promise<void> {
     toast.error(explained ? detail : 'Enregistrement impossible pour le moment.')
   } finally {
     isSaving.value = false
+  }
+}
+
+/**
+ * The identity as typed, the avatar switch only when it moved.
+ * @param target - The assistant as it is saved.
+ * @returns The identity fields to send.
+ */
+function identityPayload(target: AiAssistantSummary): AiAssistantUpdatePayload {
+  return {
+    assistant_name: form.value.assistant_name,
+    business_name: form.value.business_name,
+    tone: formatAssistantTone(toneWords.value),
+    accent_color: form.value.accent_color,
+    languages: form.value.languages,
+    ...(form.value.avatar_enabled !== target.avatar_enabled ? { avatar_enabled: form.value.avatar_enabled } : {}),
+  }
+}
+
+/**
+ * The alert, mailbox and model fields that differ from the saved assistant.
+ * @param target - The assistant as it is saved.
+ * @returns The alert fields to send.
+ */
+function alertsPayload(target: AiAssistantSummary): AiAssistantUpdatePayload {
+  return {
+    ...(form.value.email.trim() !== (target.email ?? '') ? { email: form.value.email.trim() } : {}),
+    ...changedAlertFields(target.alerts, form.value),
+    ...(form.value.eu_only !== target.eu_only ? { eu_only: form.value.eu_only } : {}),
+    ...(form.value.mailbox_enabled !== target.mailbox_enabled ? { mailbox_enabled: form.value.mailbox_enabled } : {}),
   }
 }
 
