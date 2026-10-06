@@ -1,5 +1,5 @@
 <template>
-  <div class="rounded-xl border border-[var(--app-line)] bg-[var(--app-bg)] p-4">
+  <div :class="props.isFramed ? 'rounded-xl border border-[var(--app-line)] bg-[var(--app-bg)] p-4' : ''">
     <div class="flex items-center justify-between gap-3">
       <h3 v-if="!props.isHeadingHidden" class="text-sm font-semibold text-[var(--app-ink)]">Vidéo de prospection</h3>
       <span v-if="statusLabel" class="app-badge" :class="statusBadgeClass">{{ statusLabel }}</span>
@@ -120,6 +120,10 @@ const props: AssistantVideoCardProps = defineProps({
   isHeadingHidden: {
     type: Boolean,
     default: false,
+  },
+  isFramed: {
+    type: Boolean,
+    default: true,
   },
 })
 

@@ -37,10 +37,9 @@ const route: ReturnType<typeof useRoute> = useRoute()
 const router: ReturnType<typeof useRouter> = useRouter()
 const config: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
 
-/** Opened by the dashboard's atelier: the unsaved identity edits are shown as they are typed. */
-const isLivePreview: ComputedRef<boolean> = computed((): boolean => route.query._edit === '1')
-
-const { overrides }: { overrides: Ref<AssistantPreviewOverrides> } = useAssistantPreviewOverrides(isLivePreview)
+const { overrides }: { overrides: Ref<AssistantPreviewOverrides> } = useAssistantPreviewOverrides(
+  computed((): boolean => route.query._edit === '1'),
+)
 
 const {
   data: assistant,

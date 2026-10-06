@@ -200,11 +200,7 @@ import { widgetLanguageCode } from '~/utils/aiAssistantLabels'
 import { formatAssistantTone, parseAssistantTone } from '~/utils/assistantTone'
 import { withRecordChanges } from '~/utils/formSync'
 
-/**
- * The form editing a receptionist: her identity (name, face, tone, languages, accent), the alerts her business
- * receives, the Gmail mailbox and the model. `section` shows one part alone, without the submit button: the page
- * then saves through the exposed `save()` and follows `hasChanges`.
- */
+/** With `section` set, one part shows alone and without its submit button: the page saves through the exposed `save()`. */
 const props: AssistantSettingsFormProps = defineProps({
   assistant: {
     type: Object as PropType<AiAssistantSummary>,

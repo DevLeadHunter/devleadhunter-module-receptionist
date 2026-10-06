@@ -35,15 +35,14 @@ function sanitizeColor(value: unknown): string | null {
 }
 
 /**
- * Listen, in live-edit mode only, for the `dlh:preview` messages the dashboard's atelier posts with the unsaved
- * identity of the receptionist (name, business, accent). Nothing is sent back or persisted.
+ * Listen, in live-edit mode only, for the `dlh:preview` messages carrying the receptionist's unsaved identity.
  * @param enabled - Whether live-edit mode is active (the `?_edit=1` query flag).
  * @returns The reactive overrides (all null until a first valid message arrives).
  */
 export function useAssistantPreviewOverrides(enabled: ComputedRef<boolean>): {
   overrides: Ref<AssistantPreviewOverrides>
 } {
-  const overrides: Ref<AssistantPreviewOverrides> = ref<AssistantPreviewOverrides>({
+  const overrides: Ref<AssistantPreviewOverrides> = ref({
     assistantName: null,
     businessName: null,
     accentColor: null,
