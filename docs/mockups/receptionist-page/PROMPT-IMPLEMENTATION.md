@@ -26,7 +26,7 @@ La maquette a été **construite dans le vrai logiciel**, sur la branche `mockup
     - Réponses : `AssistantFaqCard` (questions sans réponse, réponses en place) + carte « Ce qu'elle lit » avec « Ouvrir les sources » (le drawer `assistant-sources` existant).
     - Demandes : `AssistantRecentRequests` (6 dernières, « Toutes les demandes ») + carte « Conversations » avec « Lire les conversations » (le drawer `assistant-conversations`).
     - Alertes : `AssistantSettingsForm` avec `section="alerts"` (email et mobile du commerçant, SMS immédiat et ses types, ne pas déranger, email de résumé, boîte Gmail bêta, modèle hébergé en Europe) dans une carte.
-    - Vidéo : `AssistantVideoCard` (sans son cadre ni son titre : props `isFramed`, `isHeadingHidden`) dans une carte + encart « Comment elle part » (`{vignette_video_assistant}`, `{lien_video_assistant}`, mesure de la lecture).
+    - Vidéo : `AssistantVideoCard` (sans son cadre ni son titre : props `isFramed`, `isHeadingHidden`) dans une carte, rien d'autre. **Pas d'encart « Comment elle part »** : Léo l'a jugé inutile (07/10).
     - Plus : quatre chiffres (`UiStatCard`, deux colonnes sur iPad), lien de la démo (« Adresse de sa page » une fois vendue, phrase d'expiration sinon), script pour le site du client, guide d'installation (`AssistantInstallGuideCard`), espace du client (envoyer, couper les anciens liens, lien à copier à la main), abonnement (`AssistantSubscriptionCard` sans cadre), informations (la `dl` de l'ancien résumé), après la vente (régénérer, marquer vendu hors Stripe tant qu'elle n'est pas vendue), supprimer (carte à liseré rouge).
 - **Publier** enregistre les deux formulaires (identité, alertes) qui ont une modification, l'un après l'autre (`save()` exposé) ; « Annuler » les remet à l'état enregistré (`reset()`). Le libellé est « Publier » / « Publication… ». Après un enregistrement, l'aperçu se recharge (`previewReloadNonce`).
 - Thème sombre et clair, tous les deux (tokens `--app-*`, voir `web/app/assets/css/main.css`).
@@ -40,6 +40,7 @@ La maquette a été **construite dans le vrai logiciel**, sur la branche `mockup
 5. **Téléphone** (390 px) : six boutons dans la barre, « Ouvrir » sans texte, pages dédiées lisibles ; vérifie-le.
 6. **Accessibilité** : `aria-pressed` sur la barre, le volet se ferme à Échap et le focus revient sur l'outil ; `aria-label` sur les boutons sans texte (copier, fermer) ; les compteurs ont leur texte caché (« 1 à traiter »).
 7. **Nettoyage** : `AssistantSummaryCard` et `AssistantActionsCard` ne sont plus utilisés par la page ; s'ils ne servent nulle part ailleurs, supprime-les avec leurs types. `AssistantDemoPreviewCard` pareil.
+8. **Page du site démo, même ménage** : dans `web/app/pages/dashboard/demo-sites/[id]/index.vue`, le volet « Vidéo » a un encart « Comment elle part » (email `{vignette_video}` / `{lien_video}`, SMS, mesure de la lecture) à droite de la carte vidéo. **Retire-le** (Léo, 07/10 : « pas utile ») ; le volet Vidéo du site ne garde que la carte vidéo, en pleine largeur.
 
 ## 2. Règles du dépôt
 
