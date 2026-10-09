@@ -20,8 +20,8 @@
 - **À la marque du prospect** : nom d'assistant, ton, couleur d'accent tirée du logo. Tout est
   personnalisable et **régénérable** sans changer le lien public ni la marque.
 - **Se vend par campagne** : la variable `{lien_assistant}` existe en email (ancre tracée) et en SMS
-  (lien nu), en miroir de `{lien_demo}`. Une **vidéo de prospection** optionnelle (générée sur le PC
-  comme le site, fallback VPS) se joue sur `/va/{slug}`.
+  (lien nu), en miroir de `{lien_demo}`. Une **vidéo de prospection** optionnelle (générée par le PC,
+  comme celle du site) se joue sur `/va/{slug}`.
 - **Cible** : commerces avec site (BE / LU / CH / FR) — vente par **abonnement**, 79 € par mois par défaut
   (voir « Vente par abonnement »).
 
@@ -393,7 +393,7 @@ d'un autre membre sur un prospect partagé, jamais un assistant vendu ou supprim
   dans le même modèle, la vignette disparaît si la vidéo manque et le lien live reste. Sans lui (modèle
   « vidéo seule »), la campagne met le prospect de côté tant que la vidéo n'est pas prête (`skipped_no_video`,
   motif « Pas de vidéo de réceptionniste prête »), à l'envoi comme au lancement, et le reprend dès qu'elle
-  l'est (`reenqueue_campaigns_after_video_ready`, appelé par les deux chemins de génération). La case « Joindre
+  l'est (`reenqueue_campaigns_after_video_ready`, appelé quand le PC publie la vidéo). La case « Joindre
   la vidéo de prospection » de la campagne vaut aussi pour la réceptionniste. En SMS, `assistant-video` retombe
   sur `assistant-24-7` sans vidéo, et la relance `assistant-relance-video` sur `assistant-relance`
   (`resolve_sms_template(..., assistant_video_ready=...)`), et le composeur refuse l'aperçu. Un envoi qui porte `/va/{slug}` démarre le compte à rebours de la démo, comme `/ia/{slug}`.
@@ -448,15 +448,19 @@ la page démo `/ia/{slug}` : l'email et le SMS mènent à `/va`, dont le bouton 
   d'exemple, défilé jusqu'aux « Dernières demandes » (`services/assistant_space_chapter.py`, repères `.cs-home`,
   `.cs-row`, bandeau `.cs-example` masqué). La pastille webcam passe **en bas à droite** (`pip_corner`), là où
   la page laisse du vide : le chat est à gauche.
-- **Desktop d'abord** (comme le site) : le dashboard build tout sur le PC via le sidecar
-  (`/video/build-assistant-full` → `services/assistant_widget_clip_service.py`, Chrome + ffmpeg bundlés), puis
-  `POST /video-final` pousse le résultat sur R2. La scène tourne sur l'horloge de la page (réponses tapées au
-  minuteur) : ses captures JPEG sont horodatées et assemblées à leur vrai rythme (liste ffconcat, 30 i/s
+- **Toujours sur le PC** (comme le site, le serveur ne rend aucune vidéo) : le dashboard build tout sur le PC via
+  le sidecar (`/video/build-assistant-full` → `services/assistant_widget_clip_service.py`, Chrome + ffmpeg
+  bundlés), puis `POST /video-final` pousse le résultat sur R2. La scène tourne sur l'horloge de la page (réponses
+  tapées au minuteur) : ses captures JPEG sont horodatées et assemblées à leur vrai rythme (liste ffconcat, 30 i/s
   mesurés), le chapitre défile image par image. Le desktop se release seul (CI Tauri à chaque push).
-- **Fallback serveur** (`services/assistant_video_service.py`, Playwright headless) hors desktop ou sur
-  échec — l'assistant n'a **aucune** dépendance Storyblok, donc le VPS génère seul.
+- **Relais vers le PC** hors de l'application (iPad, téléphone) : la page laisse une demande
+  (`ai_assistants.video_desktop_requested_at`, `POST /ai-assistants/{id}/video/desktop-request`) ; l'application
+  du PC la prend avec celles des sites, la plus ancienne d'abord (`web/app/stores/desktopVideoRelay.ts`,
+  `services/prospection_video_desktop_relay.py`, relais commun aux deux), la build et la publie, ou rend la raison
+  de l'échec. La carte dit si le PC est allumé et laisse retirer la demande tant qu'il ne l'a pas prise.
 - **Clip présentateur par module** (`presenter_videos.module = 'ai-assistant'`) : un discours webcam
-  « réceptionniste » distinct de celui des sites, avec option de **génération auto** à la création. Le texte du
+  « réceptionniste » distinct de celui des sites, avec option de **génération auto** à la création (la nouvelle
+  réceptionniste laisse sa demande au PC). Le texte du
   prompteur (`buildAssistantScript`) dit « votre réceptionniste » et jamais « il » ni « elle » : le prénom et le
   genre changent à chaque démo. Ses réglages (Paramètres → Vidéo, section `#clip-receptionniste`) sont ceux du clip
   du site : `PresenterVideoConfig` avec `module="ai-assistant"` (textes dans `constants/presenterVideoWordings.ts`).
@@ -484,7 +488,8 @@ la page démo `/ia/{slug}` : l'email et le SMS mènent à `/va`, dont le bouton 
 - **Dashboard** : la carte « Vidéo de prospection » montre la vignette (qui ouvre la page vidéo), copie le lien,
   régénère ou supprime la vidéo (`DELETE /ai-assistants/{id}/video`, confirmation). Pendant une génération sur
   le PC, la fenêtre de progression du site suit les étapes de la réceptionniste (`RECEPTIONIST_VIDEO_BUILD_PHASES`)
-  et une erreur affiche le message de l'API.
+  et une erreur affiche le message de l'API. Une vidéo publiée avant le choix de la prise en usage
+  (`presenter_videos.in_use_since`) porte « Faite avec un ancien clip » à côté de « Régénérer ».
 - **Durée de vie** : les fichiers R2 de la vidéo sont supprimés à l'expiration de la démo et à la suppression de
   la réceptionniste (`AssistantVideoService.purge_video`), comme ceux d'un site. La page Stockage les range en
   « Vidéo (réceptionniste) » et « Vignette (réceptionniste) », avec le nom du prospect et le compte à rebours de sa
@@ -955,7 +960,12 @@ Une démo a son **espace démo** en lecture seule (`/ia/{slug}/espace`, voir le 
 | `POST` | `/ai-assistants/{id}/avatar` | Envoyer l'image du commerce, montrée une fois choisie, tout de suite si une image l'était déjà (multipart `file` ; 413 au-delà de 2 Mo, 422 si le format ou l'image ne va pas, 502 si le stockage refuse) |
 | `DELETE` | `/ai-assistants/{id}/avatar` | Supprimer l'image du commerce : la réceptionniste reprend son visage (la couleur du fond reste) |
 | `POST` | `/ai-assistants/{id}/regenerate` | Régénérer la connaissance (garde marque + slug) |
-| `POST` | `/ai-assistants/{id}/video` | Générer la vidéo de prospection (fond serveur / VPS) |
+| `POST` | `/ai-assistants/{id}/video/desktop-request` | Demander la vidéo de prospection au PC (202 ; 400 si elle ne peut pas partir : démo pas filmable, pas de clip réceptionniste, milieu trop court, vidéo déjà en cours sur le PC) |
+| `DELETE` | `/ai-assistants/{id}/video/desktop-request` | Retirer la demande laissée au PC (409 une fois le PC lancé) |
+| `GET` | `/ai-assistants/video/desktop-requests` | Réceptionnistes dont le PC doit faire la vidéo, la plus ancienne d'abord (marque le PC allumé) |
+| `POST` | `/ai-assistants/{id}/video/desktop-claim` | Le PC prend la demande (409 si elle est retirée ou déjà prise) |
+| `POST` | `/ai-assistants/{id}/video/desktop-failure` | Le PC abandonne la demande avec sa raison, montrée sur la carte |
+| `GET` | `/ai-assistants/{id}/video/state` | Où en est la vidéo (demande, build lancé, ancien clip), lu par la page |
 | `GET` | `/ai-assistants/{id}/video-context` | Contexte pour le build desktop (sidecar) |
 | `POST` | `/ai-assistants/{id}/video-final` | Recevoir la vidéo montée sur le PC → R2 |
 | `DELETE` | `/ai-assistants/{id}/video` | Supprimer la vidéo générée |
@@ -1124,8 +1134,9 @@ dashboard (non instrumenté).
 | Rate limiter | `api/services/rate_limiter.py` |
 | Variables campagne | `api/services/email_variables.py`, `api/services/sms_variables.py` |
 | Verrou inter-modules | `api/services/contact_lock_service.py` |
-| Vidéo (base commune site + assistant, surveillance) | `api/services/prospection_video_service.py`, `api/services/video_generation_watchdog.py`, `api/services/capture_page.py` |
-| Vidéo (serveur / VPS) | `api/services/assistant_video_service.py` |
+| Vidéo (base commune site + assistant) | `api/services/prospection_video_service.py`, `api/services/capture_page.py` |
+| Vidéo (réceptionniste : contexte, publication) | `api/services/assistant_video_service.py` |
+| Vidéo (relais vers le PC, commun site + assistant) | `api/services/prospection_video_desktop_relay.py`, `web/app/stores/desktopVideoRelay.ts`, `web/app/composables/useDesktopVideoRequestFollowUp.ts`, `web/app/components/ui/DesktopVideoRequest.vue` |
 | Vidéo (points d'accroche filmés) | `api/services/assistant_capture_contract.py` (`data-capture`, `data-capture-chip`, `data-capture-message`) |
 | Vidéo (capture desktop) | `api/services/assistant_widget_clip_service.py`, `api/scraper_sidecar.py` |
 | Vidéo (scène filmée, commune) | `api/services/assistant_widget_scene.py`, `api/services/assistant_space_chapter.py` |
