@@ -968,7 +968,7 @@ Une démo a son **espace démo** en lecture seule (`/ia/{slug}/espace`, voir le 
 | `GET` | `/ai-assistants/{id}/video/state` | Où en est la vidéo (demande, build lancé, ancien clip), lu par la page |
 | `GET` | `/ai-assistants/{id}/video-context` | Contexte pour le build desktop (sidecar) |
 | `POST` | `/ai-assistants/{id}/video-final` | Recevoir la vidéo montée sur le PC → R2 |
-| `DELETE` | `/ai-assistants/{id}/video` | Supprimer la vidéo générée |
+| `DELETE` | `/ai-assistants/{id}/video` | Supprimer la vidéo générée et retirer la demande laissée au PC (409 pendant que le PC la fait) |
 | `DELETE` | `/ai-assistants/{id}` | Supprimer : 409 tant qu'un abonnement court ; sinon soft-delete et purge des fichiers R2 et des données des visiteurs (conversations, demandes, photos, documents, rendez-vous, boîte mail et emails lus, accès Gmail révoqué), l'historique de vente reste |
 | `GET` | `/ai-assistants/{id}/conversations` | Les 20 dernières conversations d'un assistant (journal) |
 | `GET` | `/ai-assistants/subscriptions` | Lister ses abonnements + abonnés actifs et revenu mensuel |
@@ -1287,8 +1287,8 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
   `api/scripts/capture_client_space_example.py` avec les serveurs locaux, à relancer quand l'espace change) sous le
   titre « Vous gardez la main », avec l'événement PostHog `assistant_space_example_opened` sur le clic. Cure de texte
   de la page /ia au passage (chapô, outcomes, estimation, note du CTA).
-- **Chapitre « espace » de la vidéo.** `services/assistant_space_chapter.py` (partagé par la capture VPS
-  `assistant_video_service` et la capture desktop `assistant_widget_clip_service`) : quand le segment du milieu
+- **Chapitre « espace » de la vidéo.** `services/assistant_space_chapter.py` (utilisé par la capture desktop
+  `assistant_widget_clip_service`) : quand le segment du milieu
   dure au moins 13 s, ses 7 dernières secondes montrent `/client/exemple?demo=<slug>` (bandeau masqué), un temps
   en haut puis un défilement doux jusqu'à la carte des demandes. En dessous de 13 s, pas de chapitre ; si l'espace
   ne se charge pas, le widget tient jusqu'à la fin. Le prompteur de Léo doit dire une phrase de plus sur l'après.
