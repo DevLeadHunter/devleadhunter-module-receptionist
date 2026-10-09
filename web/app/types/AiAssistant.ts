@@ -29,6 +29,10 @@ export type AiAssistantSummary = {
   video_page_url: string | null
   video_thumbnail_url: string | null
   video_error: string | null
+  video_generated_at: string | null
+  video_desktop_requested_at: string | null
+  is_video_desktop_build_started: boolean
+  is_video_made_with_older_clip: boolean
   subscription_status: string | null
   subscription_amount_cents: number | null
   subscription_interval: string | null
@@ -110,6 +114,13 @@ export type AssistantSubscriptionListResponse = {
   subscriptions: AssistantSubscription[]
   active_count: number
   mrr_cents: number
+}
+
+export type AiAssistantDesktopVideoRequest = {
+  assistant_id: number
+  slug: string
+  business_name: string
+  requested_at: string
 }
 
 /** Everything the desktop sidecar needs to render an assistant's video locally. */

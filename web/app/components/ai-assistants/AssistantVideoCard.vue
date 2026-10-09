@@ -8,31 +8,16 @@
       Votre webcam, puis la réceptionniste qui répond à l'écran. Le lien et la vignette vont dans les emails via
       {lien_video_assistant} et {vignette_video_assistant}.
     </p>
-    <div v-if="isGenerating && props.isTakingLongerThanExpected" class="mt-3 space-y-2">
-      <p class="flex items-center gap-2 text-xs text-[var(--app-ink)]">
-        <UIcon name="i-lucide-hourglass" class="h-4 w-4 shrink-0" />
-        La vidéo prend plus de temps que prévu.
-      </p>
-      <button
-        type="button"
-        class="btn-secondary w-full text-xs disabled:cursor-not-allowed disabled:opacity-50"
-        :disabled="props.isRefreshingVideo"
-        @click="emit('refresh-video')"
-      >
-        <UIcon
-          :name="props.isRefreshingVideo ? 'i-lucide-loader-circle' : 'i-lucide-refresh-cw'"
-          class="mr-1.5 h-3.5 w-3.5"
-          :class="{ 'animate-spin': props.isRefreshingVideo }"
-        />
-        Actualiser
-      </button>
-    </div>
-    <div v-else-if="isGenerating" class="mt-3 flex items-center gap-2 text-xs text-[var(--app-ink-soft)]">
-      <UIcon name="i-lucide-loader-circle" class="h-4 w-4 animate-spin" />
-      Génération en cours…
-    </div>
-    <p v-else-if="props.assistant.video_status === 'failed'" class="mt-3 text-xs text-[var(--app-red)]">
-      {{ props.assistant.video_error || 'La génération a échoué.' }}
+    <UiDesktopVideoRequest
+      v-if="isWaitingForDesktop"
+      class="mt-3"
+      :is-build-started="props.assistant.is_video_desktop_build_started"
+      :is-desktop-app-online="props.isDesktopAppOnline"
+      :is-cancelling="props.isCancellingDesktopRequest"
+      @cancel="emit('cancel-desktop-request')"
+    />
+    <p v-else-if="videoFailureMessage" class="mt-3 text-xs text-[var(--app-red)]">
+      {{ videoFailureMessage }}
     </p>
     <template v-if="props.assistant.video_status === 'ready' && props.assistant.video_page_url">
       <button
@@ -52,18 +37,27 @@
         <button type="button" class="btn-secondary w-full text-xs" @click="copy(props.assistant.video_page_url)">
           {{ copied ? 'Lien copié !' : 'Copier le lien vidéo' }}
         </button>
-        <button
-          type="button"
-          class="btn-secondary w-full text-xs disabled:cursor-not-allowed disabled:opacity-50"
-          :disabled="props.isBusy"
-          @click="emit('generate')"
-        >
-          {{ props.isBusy ? 'Lancement…' : 'Régénérer la vidéo' }}
-        </button>
+        <template v-if="!isWaitingForDesktop">
+          <p
+            v-if="props.assistant.is_video_made_with_older_clip"
+            class="flex items-center gap-1.5 text-xs text-[var(--app-accent-ink)]"
+          >
+            <UIcon name="i-lucide-history" class="h-3.5 w-3.5 shrink-0" />
+            Faite avec un ancien clip
+          </p>
+          <button
+            type="button"
+            class="btn-secondary w-full text-xs disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="props.isBusy"
+            @click="emit('generate')"
+          >
+            {{ props.isBusy ? 'Lancement…' : 'Régénérer la vidéo' }}
+          </button>
+        </template>
         <button
           type="button"
           class="btn-secondary w-full text-xs text-[var(--app-red)] disabled:cursor-not-allowed disabled:opacity-50"
-          :disabled="props.isRemovingVideo"
+          :disabled="props.isRemovingVideo || props.assistant.is_video_desktop_build_started"
           @click="emit('remove-video')"
         >
           {{ props.isRemovingVideo ? 'Suppression…' : 'Supprimer la vidéo' }}
@@ -71,7 +65,7 @@
       </div>
     </template>
     <button
-      v-if="!isGenerating && props.assistant.video_status !== 'ready'"
+      v-if="!isWaitingForDesktop && props.assistant.video_status !== 'ready'"
       type="button"
       class="btn-primary mt-3 w-full text-xs disabled:cursor-not-allowed disabled:opacity-50"
       :disabled="props.isBusy"
@@ -96,6 +90,7 @@ import type { AssistantVideoCardEmits, AssistantVideoCardProps } from '~/types/A
 import type { UseCopyToClipboardReturn, UseOpenExternalUrlReturn } from '~/types/Composables'
 import { computed } from 'vue'
 
+/** The receptionist's prospection video: where it stands, its links and the buttons to make or remove it. */
 const props: AssistantVideoCardProps = defineProps({
   assistant: {
     type: Object as PropType<AiAssistantSummary>,
@@ -109,11 +104,11 @@ const props: AssistantVideoCardProps = defineProps({
     type: Boolean,
     default: false,
   },
-  isTakingLongerThanExpected: {
+  isDesktopAppOnline: {
     type: Boolean,
-    default: false,
+    required: true,
   },
-  isRefreshingVideo: {
+  isCancellingDesktopRequest: {
     type: Boolean,
     default: false,
   },
@@ -132,15 +127,27 @@ const emit: EmitFn<AssistantVideoCardEmits> = defineEmits<AssistantVideoCardEmit
 const { copy, copied }: UseCopyToClipboardReturn = useCopyToClipboard()
 const { openExternalUrl }: UseOpenExternalUrlReturn = useOpenExternalUrl()
 
-const isGenerating: ComputedRef<boolean> = computed(
-  (): boolean => props.assistant.video_status === 'pending' || props.assistant.video_status === 'generating',
+const isWaitingForDesktop: ComputedRef<boolean> = computed((): boolean =>
+  Boolean(props.assistant.video_desktop_requested_at),
 )
 
+const videoFailureMessage: ComputedRef<string | null> = computed((): string | null => {
+  if (props.assistant.video_status === 'failed') {
+    return props.assistant.video_error || 'La génération a échoué.'
+  }
+  if (props.assistant.video_status === 'ready' && props.assistant.video_error) {
+    return `La nouvelle génération a échoué, la vidéo actuelle reste en ligne. ${props.assistant.video_error}`
+  }
+  return null
+})
+
 const statusLabel: ComputedRef<string> = computed((): string => {
+  if (isWaitingForDesktop.value) {
+    return props.assistant.is_video_desktop_build_started ? 'En cours' : 'En attente'
+  }
   const status: string | null = props.assistant.video_status
   if (status === 'ready') return 'Prête'
   if (status === 'failed') return 'Échec'
-  if (status === 'pending' || status === 'generating') return 'En cours'
   return ''
 })
 

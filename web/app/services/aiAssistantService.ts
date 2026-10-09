@@ -1,6 +1,7 @@
 import type {
   AiAssistantClientLink,
   AiAssistantConversationsResponse,
+  AiAssistantDesktopVideoRequest,
   AiAssistantFaqPayload,
   AiAssistantFaqResponse,
   AiAssistantListResponse,
@@ -19,6 +20,7 @@ import type {
 } from '~/types/AiAssistant'
 import type { AiAssistantDocumentItem, AiAssistantSources, AiAssistantSourcesUpdate } from '~/types/AiAssistantSources'
 import type { ApiErrorBody } from '~/types/Api'
+import type { ProspectionVideoState } from '~/types/ProspectionVideo'
 import { ApiClient } from '~/services/api'
 
 const BASE_URL: string = '/api/v1/ai-assistants'
@@ -329,13 +331,65 @@ export class AiAssistantService {
   }
 
   /**
-   * Start generating the assistant's prospection video (webcam speech + a recording of the widget).
+   * Ask the owner's desktop app to build the assistant's prospection video (webcam speech + a recording of the widget).
    *
    * @param assistantId - The assistant to make a video for.
-   * @returns The assistant with its video generation started.
+   * @returns The assistant, its video waiting for the desktop app.
+   * @throws Error carrying the API message when the video cannot be asked now.
    */
-  static generateVideo(assistantId: number): Promise<AiAssistantSummary> {
-    return ApiClient.post<AiAssistantSummary>(`${BASE_URL}/${assistantId}/video`, {})
+  static requestDesktopVideo(assistantId: number): Promise<AiAssistantSummary> {
+    return ApiClient.post<AiAssistantSummary>(`${BASE_URL}/${assistantId}/video/desktop-request`, {})
+  }
+
+  /**
+   * Withdraw the video request left for the desktop app; a video already published is untouched.
+   *
+   * @param assistantId - The assistant whose request to withdraw.
+   * @returns The assistant, without a waiting request.
+   */
+  static cancelDesktopVideoRequest(assistantId: number): Promise<AiAssistantSummary> {
+    return ApiClient.delete<AiAssistantSummary>(`${BASE_URL}/${assistantId}/video/desktop-request`)
+  }
+
+  /**
+   * Read where the prospection video stands, without reloading the whole assistant.
+   *
+   * @param assistantId - The assistant whose video to read.
+   * @returns The video's status, links and desktop request.
+   */
+  static getVideoState(assistantId: number): Promise<ProspectionVideoState> {
+    return ApiClient.get<ProspectionVideoState>(`${BASE_URL}/${assistantId}/video/state`)
+  }
+
+  /**
+   * List the receptionist videos this desktop app has to build.
+   *
+   * @returns The waiting receptionists, oldest request first.
+   */
+  static listDesktopVideoRequests(): Promise<AiAssistantDesktopVideoRequest[]> {
+    return ApiClient.get<AiAssistantDesktopVideoRequest[]>(`${BASE_URL}/video/desktop-requests`)
+  }
+
+  /**
+   * Tell the server this desktop app starts building a requested video, so nothing else takes it.
+   *
+   * @param assistantId - The assistant whose video is built.
+   * @returns The assistant, marked as being built.
+   * @throws Error when the request was withdrawn or another build already took it.
+   */
+  static claimDesktopVideo(assistantId: number): Promise<AiAssistantSummary> {
+    return ApiClient.post<AiAssistantSummary>(`${BASE_URL}/${assistantId}/video/desktop-claim`, {})
+  }
+
+  /**
+   * Close a requested video this desktop app could not build, with the reason the dashboard shows.
+   *
+   * @param assistantId - The assistant whose video was given up.
+   * @param message - Why the build was given up.
+   * @returns The assistant, without a waiting request.
+   */
+  static reportDesktopVideoFailure(assistantId: number, message: string): Promise<AiAssistantSummary> {
+    return ApiClient.post<AiAssistantSummary>(`${BASE_URL}/${assistantId}/video/desktop-failure`, { message })
   }
 
   /**

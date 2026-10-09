@@ -249,13 +249,13 @@
               :assistant="assistant"
               :is-busy="isVideoBusy"
               :is-removing-video="isRemovingVideo"
-              :is-taking-longer-than-expected="isVideoTakingLongerThanExpected"
-              :is-refreshing-video="isRefreshingVideo"
+              :is-desktop-app-online="prospectSearchStore.isDesktopAppOnline"
+              :is-cancelling-desktop-request="isCancellingDesktopVideoRequest"
               :is-framed="false"
               is-heading-hidden
               @generate="generateVideo"
               @remove-video="videoDeleteConfirmModal?.open()"
-              @refresh-video="refreshVideoStatusNow"
+              @cancel-desktop-request="cancelVideoRequest"
             />
           </div>
 
@@ -564,11 +564,12 @@ import type { AtelierTool } from '~/types/AtelierToolSheet'
 import type {
   UseAtelierToolSheetReturn,
   UseCopyToClipboardReturn,
+  UseDesktopVideoRequestFollowUpReturn,
   UseOpenExternalUrlReturn,
   UseToastReturn,
-  UseVideoGenerationChecksReturn,
 } from '~/types/Composables'
 import type { AssistantMutationNotice, AssistantRequestMutationNotice } from '~/types/DrawerStack'
+import type { ProspectionVideoState } from '~/types/ProspectionVideo'
 import type { TemplatePreviewDevice } from '~/types/TemplatePicker'
 import type { UiConfirmModalHandle } from '~/types/UiConfirmModal'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -582,13 +583,15 @@ import AssistantVideoCard from '~/components/ai-assistants/AssistantVideoCard.vu
 import { useAtelierToolSheet } from '~/composables/useAtelierToolSheet'
 import { ATELIER_PREVIEW_DEVICES } from '~/constants/atelierPreviewDevices'
 import { useCoarsePointer } from '~/composables/useCoarsePointer'
+import { useDesktopVideoRequestFollowUp } from '~/composables/useDesktopVideoRequestFollowUp'
 import { useToast } from '~/composables/useToast'
-import { useVideoGenerationChecks } from '~/composables/useVideoGenerationChecks'
 import { useVideoGenerationProgress } from '~/composables/useVideoGenerationProgress'
 import { RECEPTIONIST_VIDEO_BUILD_PHASES } from '~/constants/videoBuildPhases'
 import { AiAssistantService } from '~/services/aiAssistantService'
 import { AssistantSidecarService } from '~/services/assistantSidecarService'
+import { getScraperSidecarInfo } from '~/services/scraperSidecarService'
 import { useDrawerStackStore } from '~/stores/drawerStack'
+import { useProspectSearchStore } from '~/stores/prospectSearch'
 import {
   assistantLanguagesLabel,
   assistantLifetimeLabel,
@@ -661,6 +664,7 @@ const route: ReturnType<typeof useRoute> = useRoute()
 const router: ReturnType<typeof useRouter> = useRouter()
 const toast: UseToastReturn = useToast()
 const drawerStack: ReturnType<typeof useDrawerStackStore> = useDrawerStackStore()
+const prospectSearchStore: ReturnType<typeof useProspectSearchStore> = useProspectSearchStore()
 const { openExternalUrl }: UseOpenExternalUrlReturn = useOpenExternalUrl()
 const { copy, copied }: UseCopyToClipboardReturn = useCopyToClipboard()
 const isCoarsePointer: Ref<boolean> = useCoarsePointer()
@@ -687,11 +691,8 @@ const {
   isCoarsePointer,
 )
 const videoProgress: UseVideoGenerationProgressReturn = useVideoGenerationProgress(RECEPTIONIST_VIDEO_BUILD_PHASES)
-const {
-  isTakingLongerThanExpected: isVideoTakingLongerThanExpected,
-  startChecks: startVideoGenerationChecks,
-  checkNow: checkVideoGenerationNow,
-}: UseVideoGenerationChecksReturn = useVideoGenerationChecks(refreshAssistant, (): boolean => isVideoGenerating.value)
+const { startFollowUp: startVideoFollowUp, stopFollowUp: stopVideoFollowUp }: UseDesktopVideoRequestFollowUpReturn =
+  useDesktopVideoRequestFollowUp(readVideoState, (): AiAssistantSummary | null => assistant.value)
 
 const assistant: Ref<AiAssistantSummary | null> = ref(null)
 const requests: Ref<AiAssistantRequestItem[]> = ref([])
@@ -717,7 +718,7 @@ const clientSpaceLinkForManualCopy: Ref<string | null> = ref(null)
 const isMarkingSold: Ref<boolean> = ref(false)
 const isVideoBusy: Ref<boolean> = ref(false)
 const isRemovingVideo: Ref<boolean> = ref(false)
-const isRefreshingVideo: Ref<boolean> = ref(false)
+const isCancellingDesktopVideoRequest: Ref<boolean> = ref(false)
 const deleteConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
 const clientSpaceConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
 const revokeLinksConfirmModal: Ref<UiConfirmModalHandle | null> = ref(null)
@@ -760,8 +761,8 @@ const statusPillClass: ComputedRef<string> = computed((): string => {
   return 'bg-[var(--app-surface-2)] text-[var(--app-ink-soft)]'
 })
 
-const isVideoGenerating: ComputedRef<boolean> = computed(
-  (): boolean => assistant.value?.video_status === 'pending' || assistant.value?.video_status === 'generating',
+const isVideoWaitingForDesktop: ComputedRef<boolean> = computed((): boolean =>
+  Boolean(assistant.value?.video_desktop_requested_at),
 )
 
 /** One line under the name: who she is, what she captured over 30 days, the video or the client's site. */
@@ -779,7 +780,7 @@ const assistantFactsLine: ComputedRef<string> = computed((): string => {
     facts.push(
       assistant.value.video_status === 'ready'
         ? 'Vidéo prête'
-        : isVideoGenerating.value
+        : isVideoWaitingForDesktop.value
           ? 'Vidéo en cours'
           : 'Pas de vidéo',
     )
@@ -1117,14 +1118,19 @@ async function removeAssistant(): Promise<void> {
 }
 
 /**
- * Start (or restart) the prospection video: on the desktop app first, on the server otherwise.
- * @returns A promise resolved once the generation is requested.
+ * Start (or restart) the prospection video: on this computer with the desktop app, else by the owner's PC.
+ * @returns A promise resolved once the video is built here or asked from the PC.
  */
 async function generateVideo(): Promise<void> {
   if (!assistant.value || isVideoBusy.value) return
   isVideoBusy.value = true
-  videoProgress.start(assistant.value.slug, 'Publication de la vidéo')
   try {
+    const hasLocalVideoBuilder: boolean = (await getScraperSidecarInfo()) !== null
+    if (!hasLocalVideoBuilder) {
+      await requestVideoFromDesktop()
+      return
+    }
+    videoProgress.start(assistant.value.slug, 'Publication de la vidéo')
     const build: AssistantVideoBuildResult = await AssistantSidecarService.buildFullVideo(assistant.value.id)
     if (build.status === 'done' && build.assistant) {
       videoProgress.finish()
@@ -1135,21 +1141,59 @@ async function generateVideo(): Promise<void> {
     }
     if (build.status === 'unavailable') {
       videoProgress.close()
-    } else {
-      // The window stays open with the error and its log, and says the server takes over.
-      videoProgress.fail(build.message ?? 'Échec de la génération locale.')
-      videoProgress.note('Bascule sur le serveur…')
+      await requestVideoFromDesktop()
+      return
     }
-    assistant.value = await AiAssistantService.generateVideo(assistant.value.id)
-    startVideoGenerationChecks()
-    videoProgress.note('Montage lancé sur le serveur, suivi dans l’outil « Vidéo ».')
-    toast.success('Génération de la vidéo lancée.')
+    videoProgress.fail(build.message ?? 'Échec de la génération locale.')
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : 'Échec du lancement de la génération.'
     videoProgress.fail(message)
     toast.error(message)
   } finally {
     isVideoBusy.value = false
+  }
+}
+
+/**
+ * Leave the video to the owner's PC: this device cannot film the receptionist.
+ * @returns A promise resolved once the request waits for the PC, or was refused.
+ */
+async function requestVideoFromDesktop(): Promise<void> {
+  if (!assistant.value) {
+    return
+  }
+  try {
+    const updated: AiAssistantSummary = await AiAssistantService.requestDesktopVideo(assistant.value.id)
+    assistant.value = updated
+    drawerStack.notifyAssistantUpdated(updated)
+    startVideoFollowUp()
+    toast.success('Demande envoyée à votre PC.')
+  } catch (error: unknown) {
+    toast.error(
+      error instanceof Error && error.message ? error.message : "La demande n'a pas pu être envoyée à votre PC.",
+    )
+  }
+}
+
+/**
+ * Withdraw the video request left for the PC; a video already published stays online.
+ * @returns A promise resolved once the request is withdrawn, or the withdrawal was refused.
+ */
+async function cancelVideoRequest(): Promise<void> {
+  if (!assistant.value || isCancellingDesktopVideoRequest.value) {
+    return
+  }
+  isCancellingDesktopVideoRequest.value = true
+  try {
+    const updated: AiAssistantSummary = await AiAssistantService.cancelDesktopVideoRequest(assistant.value.id)
+    assistant.value = updated
+    drawerStack.notifyAssistantUpdated(updated)
+    stopVideoFollowUp()
+    toast.success('Demande annulée.')
+  } catch (error: unknown) {
+    toast.error(error instanceof Error && error.message ? error.message : "La demande n'a pas pu être annulée.")
+  } finally {
+    isCancellingDesktopVideoRequest.value = false
   }
 }
 
@@ -1173,28 +1217,15 @@ async function removeVideo(): Promise<void> {
 }
 
 /**
- * Reload the video status on demand.
- * @returns A promise resolved once reloaded (or refused).
+ * Read where the video stands, leaving the rest of the receptionist as it is.
+ * @returns A promise resolved once the state is published.
+ * @throws When the state cannot be read.
  */
-async function refreshVideoStatusNow(): Promise<void> {
-  if (isRefreshingVideo.value) return
-  isRefreshingVideo.value = true
-  try {
-    await checkVideoGenerationNow()
-  } catch {
-    toast.error('Actualisation impossible pour le moment.')
-  } finally {
-    isRefreshingVideo.value = false
+async function readVideoState(): Promise<void> {
+  const state: ProspectionVideoState = await AiAssistantService.getVideoState(assistantId.value)
+  if (assistant.value) {
+    assistant.value = { ...assistant.value, ...state }
   }
-}
-
-/**
- * Refresh the assistant alone (video progress), leaving the page as it is.
- * @returns A promise resolved once refreshed.
- * @throws When the assistant cannot be reloaded.
- */
-async function refreshAssistant(): Promise<void> {
-  assistant.value = await AiAssistantService.get(assistantId.value)
 }
 
 /**
@@ -1262,7 +1293,9 @@ watch(
 
 onMounted(async (): Promise<void> => {
   await loadData()
-  if (isVideoGenerating.value) startVideoGenerationChecks()
+  if (isVideoWaitingForDesktop.value) {
+    startVideoFollowUp()
+  }
 })
 </script>
 

@@ -4,8 +4,8 @@ export type AssistantVideoCardProps = {
   assistant: AiAssistantSummary
   isBusy: boolean
   isRemovingVideo: boolean
-  isTakingLongerThanExpected: boolean
-  isRefreshingVideo: boolean
+  isDesktopAppOnline: boolean
+  isCancellingDesktopRequest: boolean
   isHeadingHidden?: boolean
   isFramed?: boolean
 }
@@ -13,5 +13,5 @@ export type AssistantVideoCardProps = {
 export type AssistantVideoCardEmits = {
   generate: []
   'remove-video': []
-  'refresh-video': []
+  'cancel-desktop-request': []
 }
