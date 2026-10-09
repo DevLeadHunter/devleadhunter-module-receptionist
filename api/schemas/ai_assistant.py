@@ -119,11 +119,17 @@ class AiAssistantResponse(BaseModel):
     # Demo countdown: NULL until the link is first emailed or texted, then the expiry it set.
     demo_link_sent_at: datetime | None = None
     expires_at: datetime | None = None
-    # Prospection video state: NULL when never requested, else pending/generating/ready/failed.
+    # Prospection video state: NULL until the owner's PC publishes it or gives it up, else ready/failed.
     video_status: str | None = None
     video_page_url: str | None = None
     video_thumbnail_url: str | None = None
     video_error: str | None = None
+    video_generated_at: datetime | None = None
+    # Set while the video waits for the owner's desktop app; then whether the app took it and builds it.
+    video_desktop_requested_at: datetime | None = None
+    is_video_desktop_build_started: bool = False
+    # The video was published before the receptionist clip in use was chosen.
+    is_video_made_with_older_clip: bool = False
     # Subscription state: NULL when no active subscription, else the locked plan the client pays.
     subscription_status: str | None = None
     subscription_amount_cents: int | None = None
@@ -160,6 +166,15 @@ class AiAssistantListResponse(BaseModel):
     """The caller's assistants."""
 
     assistants: list[AiAssistantResponse] = Field(default_factory=list)
+
+
+class AiAssistantDesktopVideoRequestResponse(BaseModel):
+    """A receptionist whose prospection video waits for the owner's desktop app."""
+
+    assistant_id: int
+    slug: str
+    business_name: str
+    requested_at: datetime
 
 
 class AssistantSubscriptionItem(BaseModel):

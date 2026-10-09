@@ -74,6 +74,8 @@ class AiAssistant(Base):
     video_status: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
     video_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     video_generated_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # Set while the video waits for the owner's desktop app, which builds it.
+    video_desktop_requested_at: Mapped[datetime | None] = mapped_column(nullable=True)
     # Alerts to the business owner once the assistant is sold. NULL keeps the default: SMS and email
     # on, an SMS for quotes / appointments / emergencies only, SMS held from 22 h to 8 h (Paris).
     alert_phone_e164: Mapped[str | None] = mapped_column(String(20), nullable=True)

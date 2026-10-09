@@ -3,6 +3,7 @@ prospecting video.
 """
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -20,11 +21,13 @@ from models.user import User
 from schemas.ai_assistant import (
     AiAssistantAlertSettings,
     AiAssistantCreateRequest,
+    AiAssistantDesktopVideoRequestResponse,
     AiAssistantListResponse,
     AiAssistantResponse,
     AiAssistantUpdateRequest,
 )
 from schemas.ai_assistant_client_space import AiAssistantClientLinkRequest, AiAssistantClientLinkResponse
+from schemas.prospection_video import ProspectionVideoDesktopFailureRequest, ProspectionVideoStateResponse
 from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_SUCCESS, activity_log_service
 from services.ai_assistant.alert_settings import AlertSettings
 from services.ai_assistant.assistant_purge import ai_assistant_purge_service
@@ -50,6 +53,9 @@ from services.assistant_video_service import (
 from services.auth_service import get_current_active_user
 from services.email_variables import EmailVariables
 from services.presenter_video_service import presenter_video_service
+from services.prospect_search.desktop_app_presence import desktop_app_presence
+from services.prospection_video_desktop_relay import assistant_video_desktop_relay
+from services.prospection_video_service import ALREADY_BUILDING_MESSAGE
 from services.video_pipeline import VideoGenerationError
 
 logger = logging.getLogger(__name__)
@@ -64,6 +70,7 @@ def _to_owner_response(
     requests: RequestCounts | None = None,
     start_steps: list[AiAssistantStartStep] | None = None,
     mailbox: MailboxView | None = None,
+    clip_in_use_since: datetime | None = None,
 ) -> AiAssistantResponse:
     missing_start_steps = start_steps or []
     mailbox_view = mailbox or ai_assistant_mailbox_service.view(assistant, None)
@@ -94,6 +101,10 @@ def _to_owner_response(
             public_thumbnail_url(assistant.slug, assistant.video_generated_at) if has_ready_video(assistant) else None
         ),
         video_error=assistant.video_error,
+        video_generated_at=assistant.video_generated_at,
+        video_desktop_requested_at=assistant.video_desktop_requested_at,
+        is_video_desktop_build_started=assistant_video_service.is_desktop_build_started(assistant),
+        is_video_made_with_older_clip=assistant_video_service.is_made_with_older_clip(assistant, clip_in_use_since),
         subscription_status=getattr(subscription, "status", None),
         subscription_amount_cents=getattr(subscription, "amount_cents", None),
         subscription_interval=getattr(subscription, "interval", None),
@@ -146,7 +157,14 @@ def _to_full_owner_response(db: Session, assistant: AiAssistant) -> AiAssistantR
         ai_assistant_request_service.counts_for_assistants(db, [assistant.id]).get(assistant.id),
         _start_steps_of(db, assistant),
         ai_assistant_mailbox_service.views_for_assistants(db, [assistant]).get(assistant.id),
+        assistant_video_service.clip_in_use_since(db, assistant.user_id),
     )
+
+
+def _refuse_while_desktop_builds(assistant: AiAssistant) -> None:
+    """Refuse to withdraw or delete a video the owner's desktop app is building: it would publish it anyway."""
+    if assistant_video_service.is_desktop_build_started(assistant):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ALREADY_BUILDING_MESSAGE)
 
 
 def _alert_settings(assistant: AiAssistant) -> AiAssistantAlertSettings:
@@ -191,6 +209,7 @@ async def list_assistants(
     request_counts = ai_assistant_request_service.counts_for_assistants(db, [a.id for a in assistants])
     missing_start_steps = _start_steps_by_assistant_id(db, assistants)
     mailboxes = ai_assistant_mailbox_service.views_for_assistants(db, assistants)
+    clip_in_use_since = assistant_video_service.clip_in_use_since(db, user.id)
     return AiAssistantListResponse(
         assistants=[
             _to_owner_response(
@@ -200,6 +219,7 @@ async def list_assistants(
                 request_counts.get(assistant.id),
                 missing_start_steps.get(assistant.id),
                 mailboxes.get(assistant.id),
+                clip_in_use_since,
             )
             for assistant in assistants
         ]
@@ -342,18 +362,105 @@ async def deliver_assistant(
     return _to_full_owner_response(db, assistant)
 
 
-@router.post("/{assistant_id}/video", response_model=AiAssistantResponse)
-async def generate_assistant_video(
+@router.get("/{assistant_id}/video/state", response_model=ProspectionVideoStateResponse)
+async def get_assistant_video_state(
+    assistant_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> ProspectionVideoStateResponse:
+    """Where the prospection video stands, for the dashboard to follow a PC build without reloading the assistant."""
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
+    is_video_ready = has_ready_video(assistant)
+    clip_in_use_since = assistant_video_service.clip_in_use_since(db, user.id)
+    return ProspectionVideoStateResponse(
+        video_status=assistant.video_status,
+        video_error=assistant.video_error,
+        video_generated_at=assistant.video_generated_at,
+        video_desktop_requested_at=assistant.video_desktop_requested_at,
+        is_video_desktop_build_started=assistant_video_service.is_desktop_build_started(assistant),
+        is_video_made_with_older_clip=assistant_video_service.is_made_with_older_clip(assistant, clip_in_use_since),
+        video_page_url=video_page_url(assistant.slug) if is_video_ready else None,
+        video_thumbnail_url=(
+            public_thumbnail_url(assistant.slug, assistant.video_generated_at) if is_video_ready else None
+        ),
+    )
+
+
+@router.get("/video/desktop-requests", response_model=list[AiAssistantDesktopVideoRequestResponse])
+async def list_assistant_desktop_video_requests(
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> list[AiAssistantDesktopVideoRequestResponse]:
+    """Receptionist videos the caller's desktop app must build. Only the desktop app calls this."""
+    desktop_app_presence.mark_seen(user.id)
+    return [
+        AiAssistantDesktopVideoRequestResponse(
+            assistant_id=assistant.id,
+            slug=assistant.slug,
+            business_name=assistant.business_name,
+            requested_at=assistant.video_desktop_requested_at,
+        )
+        for assistant in assistant_video_desktop_relay.waiting_subjects(db, user.id)
+    ]
+
+
+@router.post(
+    "/{assistant_id}/video/desktop-request", response_model=AiAssistantResponse, status_code=status.HTTP_202_ACCEPTED
+)
+async def request_assistant_video_from_desktop(
     assistant_id: int,
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> AiAssistantResponse:
-    """Start generating the assistant's prospection video (webcam speech + a recording of the widget)."""
+    """Ask the owner's desktop app to build the prospection video (webcam speech + a recording of the widget)."""
     assistant = owned_assistant_or_404(db, assistant_id, user.id)
     try:
-        assistant_video_service.request_generation(db, assistant, user.id)
+        assistant_video_desktop_relay.request(db, assistant, user.id)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return _to_full_owner_response(db, assistant)
+
+
+@router.delete("/{assistant_id}/video/desktop-request", response_model=AiAssistantResponse)
+async def cancel_assistant_video_desktop_request(
+    assistant_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """Withdraw the video request left for the desktop app; a video already published is untouched."""
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
+    _refuse_while_desktop_builds(assistant)
+    return _to_full_owner_response(db, assistant_video_desktop_relay.clear_request(db, assistant))
+
+
+@router.post("/{assistant_id}/video/desktop-claim", response_model=AiAssistantResponse)
+async def claim_assistant_video_desktop_request(
+    assistant_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """Tell that the caller's desktop app starts building the requested video, so nothing else takes it."""
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
+    try:
+        assistant_video_desktop_relay.claim(assistant)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return _to_full_owner_response(db, assistant)
+
+
+@router.post("/{assistant_id}/video/desktop-failure", response_model=AiAssistantResponse)
+async def report_assistant_video_desktop_failure(
+    assistant_id: int,
+    payload: ProspectionVideoDesktopFailureRequest,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> AiAssistantResponse:
+    """Close a requested video the desktop app could not build, with the reason the dashboard shows."""
+    assistant = owned_assistant_or_404(db, assistant_id, user.id)
+    try:
+        assistant_video_desktop_relay.record_failure(db, assistant, payload.message)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     return _to_full_owner_response(db, assistant)
 
 
@@ -366,10 +473,9 @@ async def get_assistant_video_context(
     """
     Everything the desktop sidecar needs to render this assistant's video locally.
 
-    Unlike the site — whose editor sequence needs the owner's Storyblok session, forcing a desktop
-    build — the assistant video has no such dependency; the desktop path is preferred only to spare
-    the shared VPS. The sidecar records the public widget answering, montages it with its bundled
-    ffmpeg, and posts the finished clip back via ``POST /{id}/video-final``.
+    Like every prospection video, it is built on the owner's PC to spare the shared VPS. The sidecar
+    records the public widget answering, montages it with its bundled ffmpeg, and posts the finished
+    clip back via ``POST /{id}/video-final``.
     """
     assistant = owned_assistant_or_404(db, assistant_id, user.id)
     if assistant.status != AiAssistantStatus.ACTIVE.value:
@@ -422,7 +528,7 @@ async def upload_assistant_video_final(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except VideoGenerationError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
-    return _to_full_owner_response(db, assistant)
+    return _to_full_owner_response(db, assistant_video_desktop_relay.clear_request(db, assistant))
 
 
 @router.post("/{assistant_id}/avatar", response_model=AiAssistantResponse)
@@ -463,10 +569,11 @@ async def clear_assistant_video(
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> AiAssistantResponse:
-    """Delete the assistant's generated video and reset its state."""
+    """Delete the assistant's generated video and reset its state, its request to the desktop app withdrawn."""
     assistant = owned_assistant_or_404(db, assistant_id, user.id)
+    _refuse_while_desktop_builds(assistant)
     assistant_video_service.clear_video(db, assistant)
-    return _to_full_owner_response(db, assistant)
+    return _to_full_owner_response(db, assistant_video_desktop_relay.clear_request(db, assistant))
 
 
 @router.delete("/{assistant_id}", status_code=status.HTTP_204_NO_CONTENT)

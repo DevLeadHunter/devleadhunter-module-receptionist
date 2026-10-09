@@ -261,12 +261,12 @@ class AiAssistantService:
         db.commit()
         db.refresh(assistant)
 
-        # Prospection video: auto-generate in the background as soon as the assistant is active, if the
+        # Prospection video: asked from the owner's PC as soon as the assistant is active, if the
         # user configured their « assistant » webcam clip with the option on (covers single + bulk).
         if assistant.status == AiAssistantStatus.ACTIVE.value:
-            from services.assistant_video_service import assistant_video_service
+            from services.prospection_video_desktop_relay import assistant_video_desktop_relay
 
-            assistant_video_service.maybe_start_auto_generation(db, assistant, user_id)
+            assistant_video_desktop_relay.request_if_auto_generating(db, assistant, user_id)
 
         # A campaign may have left this prospect out for lacking an assistant: it can join the queue now.
         self._enqueue_ready_prospect(db, prospect_id, user_id)
