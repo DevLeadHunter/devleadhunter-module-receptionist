@@ -38,13 +38,7 @@
           {{ copied ? 'Lien copié !' : 'Copier le lien vidéo' }}
         </button>
         <template v-if="!isWaitingForDesktop">
-          <p
-            v-if="props.assistant.is_video_made_with_older_clip"
-            class="flex items-center gap-1.5 text-xs text-[var(--app-accent-ink)]"
-          >
-            <UIcon name="i-lucide-history" class="h-3.5 w-3.5 shrink-0" />
-            Faite avec un ancien clip
-          </p>
+          <UiVideoMadeWithOlderClipNotice v-if="props.assistant.is_video_made_with_older_clip" />
           <button
             type="button"
             class="btn-secondary w-full text-xs disabled:cursor-not-allowed disabled:opacity-50"
@@ -88,7 +82,9 @@ import type { ComputedRef, EmitFn, PropType } from 'vue'
 import type { AiAssistantSummary } from '~/types/AiAssistant'
 import type { AssistantVideoCardEmits, AssistantVideoCardProps } from '~/types/AssistantVideoCard'
 import type { UseCopyToClipboardReturn, UseOpenExternalUrlReturn } from '~/types/Composables'
+import type { ProspectionVideoStatusTone } from '~/types/ProspectionVideo'
 import { computed } from 'vue'
+import { ProspectionVideoLabels } from '~/utils/prospectionVideoLabels'
 
 /** The receptionist's prospection video: where it stands, its links and the buttons to make or remove it. */
 const props: AssistantVideoCardProps = defineProps({
@@ -127,33 +123,26 @@ const emit: EmitFn<AssistantVideoCardEmits> = defineEmits<AssistantVideoCardEmit
 const { copy, copied }: UseCopyToClipboardReturn = useCopyToClipboard()
 const { openExternalUrl }: UseOpenExternalUrlReturn = useOpenExternalUrl()
 
+const STATUS_BADGE_CLASSES: Record<ProspectionVideoStatusTone, string> = {
+  waiting: 'app-badge--progress',
+  ready: 'app-badge--success',
+  failed: 'app-badge--danger',
+}
+
 const isWaitingForDesktop: ComputedRef<boolean> = computed((): boolean =>
-  Boolean(props.assistant.video_desktop_requested_at),
+  ProspectionVideoLabels.isWaitingForDesktop(props.assistant),
 )
 
-const videoFailureMessage: ComputedRef<string | null> = computed((): string | null => {
-  if (props.assistant.video_status === 'failed') {
-    return props.assistant.video_error || 'La génération a échoué.'
-  }
-  if (props.assistant.video_status === 'ready' && props.assistant.video_error) {
-    return `La nouvelle génération a échoué, la vidéo actuelle reste en ligne. ${props.assistant.video_error}`
-  }
-  return null
-})
+const videoFailureMessage: ComputedRef<string | null> = computed((): string | null =>
+  ProspectionVideoLabels.failureMessage(props.assistant),
+)
 
-const statusLabel: ComputedRef<string> = computed((): string => {
-  if (isWaitingForDesktop.value) {
-    return props.assistant.is_video_desktop_build_started ? 'En cours' : 'En attente'
-  }
-  const status: string | null = props.assistant.video_status
-  if (status === 'ready') return 'Prête'
-  if (status === 'failed') return 'Échec'
-  return ''
-})
+const statusLabel: ComputedRef<string> = computed(
+  (): string => ProspectionVideoLabels.statusLabel(props.assistant) ?? '',
+)
 
 const statusBadgeClass: ComputedRef<string> = computed((): string => {
-  if (props.assistant.video_status === 'ready') return 'app-badge--success'
-  if (props.assistant.video_status === 'failed') return 'app-badge--danger'
-  return ''
+  const tone: ProspectionVideoStatusTone | null = ProspectionVideoLabels.statusTone(props.assistant)
+  return tone ? STATUS_BADGE_CLASSES[tone] : ''
 })
 </script>
