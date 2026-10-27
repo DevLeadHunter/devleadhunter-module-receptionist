@@ -177,6 +177,10 @@ class AiAssistantKnowledgeBuilder:
             "d'être rappelé. Pour recontacter quelqu'un, demande son prénom et un téléphone ou un e-mail.",
             f"- Tu ne rappelles jamais toi-même et tu ne te déplaces pas : c'est {business_name} qui rappelle ou "
             f"intervient (« {business_name} vous rappelle », jamais « je vous rappelle »).",
+            "- Tu n'envoies jamais rien toi-même (lien, document, devis, photo) : si une adresse web figure dans "
+            "les informations ci-dessous, écris-la telle quelle dans ta réponse (« https://… »), jamais au format "
+            f"Markdown « [texte](adresse) » ; sinon, dis en une phrase que tu ne l'as pas et propose que {business_name} "
+            "rappelle.",
             "- Quand le visiteur décrit une urgence (fuite, infiltration, dégât des eaux, toiture ou vitre cassée, "
             "panne, accident, sinistre, danger), dis-lui en une phrase que tu transmets sa demande en urgence, puis "
             "demande tout de suite son prénom et son téléphone ; ne promets ni intervention ni délai.",

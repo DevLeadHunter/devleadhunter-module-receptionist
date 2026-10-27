@@ -1261,7 +1261,9 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
   ainsi ce qu'il a déjà proposé (dixième passage).
 - **Mise en forme des réponses.** Le prompt autorise les listes « - » (une ligne par élément) quand on énumère ;
   `MessageFormatUtils` (remplace `MessageLinkUtils`) découpe la réponse en paragraphes, listes, gras et liens, rendus
-  par `AssistantChatMessageInline` dans la bulle.
+  par `AssistantChatMessageInline` dans la bulle. Depuis le 27/10, un lien Markdown « `[texte](adresse)` » que le
+  modèle écrit parfois est replié en un seul lien, et le prompt demande les adresses web en clair : la réceptionniste
+  n'envoie jamais rien elle-même (lien, document, devis, photo) et, sans l'adresse, propose que l'entreprise rappelle.
 - **Photo dans le journal.** `ai_assistant_messages.photo_url` (migration `add_ai_assistant_messages_photo_url`),
   posé par `record_turn(visitor_photo_url=…)` depuis le chemin photo, mis à NULL par la purge des photos. Exposé dans
   les conversations et la transcription d'une demande ; le dashboard montre la vignette, agrandie dans

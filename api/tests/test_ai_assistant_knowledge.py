@@ -82,6 +82,16 @@ def test_render_system_prompt_grounds_on_knowledge() -> None:
     assert "chaleureux et direct" in prompt
 
 
+def test_render_system_prompt_forbids_sending_and_markdown_links() -> None:
+    """The prompt says the assistant sends nothing itself and writes a web address as is, never as a Markdown link."""
+    kb = ai_assistant_knowledge_builder.build_knowledge(business_name="Cabinet Meyer", enrichment=None)
+    prompt = ai_assistant_knowledge_builder.render_system_prompt(kb, assistant_name="Léa")
+
+    assert "Tu n'envoies jamais rien toi-même" in prompt
+    assert "jamais au format Markdown" in prompt
+    assert "propose que Cabinet Meyer rappelle" in prompt
+
+
 def test_render_system_prompt_flags_missing_hours() -> None:
     """With no opening hours the prompt tells the assistant to offer a callback instead of inventing them."""
     kb = ai_assistant_knowledge_builder.build_knowledge(business_name="Cabinet Meyer", enrichment=None)
