@@ -3,6 +3,7 @@ import type { AssistantMessageBlock, AssistantMessagePart } from '~/types/Assist
 // An http(s) address, up to the first space or closing quote; trailing punctuation is trimmed below.
 const URL_PATTERN: RegExp = /https?:\/\/[^\s<>"«»*]+/g
 const TRAILING_PUNCTUATION: RegExp = /[.,;:!?)\]}'’…]+$/
+const MARKDOWN_LINK_PATTERN: RegExp = /\[([^\]]*)\]\((https?:\/\/[^\s<>"«»*)]+)\)/g
 // Markdown bold (« **mot** »); a stray, unpaired mark is dropped.
 const BOLD_PATTERN: RegExp = /\*\*(.+?)\*\*/g
 const STRAY_BOLD_MARKS: RegExp = /\*\*/g
@@ -101,7 +102,7 @@ export class MessageFormatUtils {
   }
 
   /**
-   * Plain text cut around the http(s) addresses it contains.
+   * Plain text cut around the http(s) addresses it contains, written as is or as Markdown links.
    * @param text - A piece of text without bold marks.
    * @returns Text and link parts in order.
    */
@@ -109,14 +110,61 @@ export class MessageFormatUtils {
     const content: string = text.replace(STRAY_BOLD_MARKS, '')
     const parts: AssistantMessagePart[] = []
     let last: number = 0
-    for (const match of content.matchAll(URL_PATTERN)) {
+    for (const match of content.matchAll(MARKDOWN_LINK_PATTERN)) {
+      const start: number = match.index ?? 0
+
+      if (start > last) {
+        parts.push(...MessageFormatUtils.addresses(content.slice(last, start)))
+      }
+      parts.push(...MessageFormatUtils.markdownLinkParts(match[1] ?? '', match[2] ?? ''))
+      last = start + match[0].length
+    }
+    if (last < content.length) {
+      parts.push(...MessageFormatUtils.addresses(content.slice(last)))
+    }
+    return parts
+  }
+
+  /**
+   * A Markdown link as parts: the address alone when its text repeats it, else the text then the address.
+   * @param label - The text between the square brackets.
+   * @param url - The http(s) address between the parentheses.
+   * @returns One link part, or a text part followed by the link part.
+   */
+  private static markdownLinkParts(label: string, url: string): AssistantMessagePart[] {
+    const address: string = url.replace(TRAILING_PUNCTUATION, '')
+    const text: string = label.trim()
+
+    if (text === '' || text.replace(TRAILING_PUNCTUATION, '') === address) {
+      return [{ kind: 'link', value: address }]
+    }
+    return [
+      { kind: 'text', value: `${text} ` },
+      { kind: 'link', value: address },
+    ]
+  }
+
+  /**
+   * Plain text cut around the raw http(s) addresses it contains.
+   * @param text - A piece of text without bold marks nor Markdown links.
+   * @returns Text and link parts in order.
+   */
+  private static addresses(text: string): AssistantMessagePart[] {
+    const parts: AssistantMessagePart[] = []
+    let last: number = 0
+    for (const match of text.matchAll(URL_PATTERN)) {
       const start: number = match.index ?? 0
       const url: string = match[0].replace(TRAILING_PUNCTUATION, '')
-      if (start > last) parts.push({ kind: 'text', value: content.slice(last, start) })
+
+      if (start > last) {
+        parts.push({ kind: 'text', value: text.slice(last, start) })
+      }
       parts.push({ kind: 'link', value: url })
       last = start + url.length
     }
-    if (last < content.length) parts.push({ kind: 'text', value: content.slice(last) })
+    if (last < text.length) {
+      parts.push({ kind: 'text', value: text.slice(last) })
+    }
     return parts
   }
 }
