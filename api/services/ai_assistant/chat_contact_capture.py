@@ -127,6 +127,38 @@ class AiAssistantChatContactCapture:
             ai_assistant_request_follow_up.schedule_follow_up(request.id)
         return CapturedChatContact(request=request, name=request.name, contact=request.contact)
 
+    def has_visitor_contact(
+        self, db: Session, *, assistant: AiAssistant, session_id: str | None, visitor_messages: list[str]
+    ) -> bool:
+        """
+        Whether the visitor already gave a way to reach them, so the assistant may say their request is passed on.
+
+        Args:
+            db: Active database session.
+            assistant: The assistant the visitor talks to.
+            session_id: The widget session, whose request the contact form or an earlier turn may have filed.
+            visitor_messages: The visitor's messages of the conversation, the latest included.
+
+        Returns:
+            True when one message holds a phone number or an email of theirs (never the business's own), or when
+            their session already filed a request.
+        """
+        business_contacts = self._business_contacts(assistant)
+
+        if any(self.contact_in(message, business_contacts=business_contacts) for message in visitor_messages):
+            return True
+        session = (session_id or "").strip()
+
+        if not session:
+            return False
+        session_request_id: int | None = (
+            db.query(AiAssistantRequest.id)
+            .filter(AiAssistantRequest.assistant_id == assistant.id, AiAssistantRequest.session_id == session)
+            .limit(1)
+            .scalar()
+        )
+        return session_request_id is not None
+
     @classmethod
     def _name(cls, db: Session, *, assistant_id: int, session_id: str, visitor_name: str | None) -> str:
         """The name the visitor gave in the chat, else the one their session's last request carries."""

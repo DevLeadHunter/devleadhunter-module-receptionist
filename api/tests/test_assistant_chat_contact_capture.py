@@ -180,6 +180,26 @@ def test_a_test_visit_files_a_test_request_and_a_turn_without_session_files_none
     assert (request.session_id, request.is_test) == ("operator", True)
 
 
+def test_the_model_is_told_whether_the_visitor_already_gave_a_way_to_reach_them(
+    db: Session, scheduled: list[int]
+) -> None:
+    """Without a contact of the visitor's, the prompt forbids saying their request is passed on."""
+    assistant = _assistant(db)
+    lead = AiAssistantLeadRequest(
+        name="Julie Roux", contact="06 98 76 54 32", need="Fuite de toiture", language="fr", session_id="s2"
+    )
+
+    _chat(db, assistant, "Mon prénom et mon téléphone", session_id="s1")
+    _chat(db, assistant, f"Paul, au {_BUSINESS_PHONE}", session_id="s1")
+    _chat(db, assistant, "Paul, au 06 12 34 56 78", session_id="s1")
+    _chat(db, assistant, "Et vous faites les gouttières ?", session_id="s1")
+    asyncio.run(routes.submit_assistant_lead(assistant.slug, lead, VISITOR_REQUEST, db))
+    _chat(db, assistant, "Vous passez quand ?", session_id="s2")
+
+    answer_calls = routes.ai_assistant_chat_service.answer.calls
+    assert [call["has_visitor_contact"] for call in answer_calls] == [False, False, True, True, True]
+
+
 def test_a_failure_to_file_the_contact_never_costs_the_visitor_the_reply(
     db: Session, scheduled: list[int], monkeypatch: pytest.MonkeyPatch
 ) -> None:

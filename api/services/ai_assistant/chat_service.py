@@ -113,6 +113,7 @@ class AiAssistantChatService:
         eu_only: bool = False,
         limits: list[AssistantLimit] | None = None,
         event_intake: EventIntakeContext | None = None,
+        has_visitor_contact: bool = True,
     ) -> ChatAnswer:
         """Answer the latest visitor message, grounded strictly on ``knowledge``.
 
@@ -123,6 +124,7 @@ class AiAssistantChatService:
             languages: Active language ISO codes; the assistant still replies in the visitor's language.
             tone: Optional persona tone.
             eu_only: The assistant only allows Mistral (no Groq fallback).
+            has_visitor_contact: The visitor already gave a phone number or an email.
 
         Returns:
             The cleaned reply (a safe fallback when the model is unavailable), the unanswered question and the
@@ -140,6 +142,7 @@ class AiAssistantChatService:
             turns=turns,
             limits=limits,
             event_intake=event_intake,
+            has_visitor_contact=has_visitor_contact,
         )
         raw = await assistant_llm_router.chat(AiAssistantLlmUsage.CHAT, messages, eu_only=eu_only)
         reply, question = MissingInfoMarker.split(clean_model_text(raw or ""))
@@ -161,6 +164,7 @@ class AiAssistantChatService:
         eu_only: bool = False,
         limits: list[AssistantLimit] | None = None,
         event_intake: EventIntakeContext | None = None,
+        has_visitor_contact: bool = True,
     ) -> AsyncIterator[ChatDelta]:
         """Answer the latest visitor message as it is written, grounded strictly on ``knowledge``.
 
@@ -171,6 +175,7 @@ class AiAssistantChatService:
             languages: Active language ISO codes; the assistant still replies in the visitor's language.
             tone: Optional persona tone.
             eu_only: The assistant only allows Mistral (no Groq fallback).
+            has_visitor_contact: The visitor already gave a phone number or an email.
 
         Yields:
             The text deltas of the cleaned reply (the marker lines never among them), then the whole answer as
@@ -189,6 +194,7 @@ class AiAssistantChatService:
             turns=turns,
             limits=limits,
             event_intake=event_intake,
+            has_visitor_contact=has_visitor_contact,
         )
         marker = MissingInfoMarkerStream()
         follow_ups = FollowUpMarkerStream()
@@ -229,6 +235,7 @@ class AiAssistantChatService:
         turns: list[dict[str, Any]],
         limits: list[AssistantLimit] | None = None,
         event_intake: EventIntakeContext | None = None,
+        has_visitor_contact: bool = True,
     ) -> list[dict[str, Any]]:
         """The grounded system prompt followed by the conversation, its size logged."""
         visitor_messages = [turn["content"] for turn in turns if turn["role"] == "user"]
@@ -241,6 +248,7 @@ class AiAssistantChatService:
             question=question,
             limits=limits,
             event_intake=event_intake,
+            has_visitor_contact=has_visitor_contact,
         )
         identity = knowledge.get("identity") if isinstance(knowledge.get("identity"), dict) else {}
         business_name = identity.get("business_name") or "?"

@@ -310,6 +310,23 @@ def _capture_contact(
     return AiAssistantCapturedContact(name=captured.name, contact=captured.contact)
 
 
+def _has_visitor_contact(
+    db: Session, assistant: AiAssistant, *, payload: AiAssistantChatRequest, history: list[dict[str, Any]]
+) -> bool:
+    """Whether the visitor already gave a way to reach them; on a database error, the prompt stays as before."""
+    try:
+        return ai_assistant_chat_contact_capture.has_visitor_contact(
+            db,
+            assistant=assistant,
+            session_id=payload.session_id,
+            visitor_messages=[turn["content"] for turn in history if turn["role"] == "user"],
+        )
+    except Exception as exc:
+        logger.warning("Assistant visitor contact not read for assistant %s (%s)", assistant.id, type(exc).__name__)
+        db.rollback()
+        return True
+
+
 def _record_streamed_turn(
     assistant_id: int, *, slug: str, payload: AiAssistantChatRequest, answer: ChatAnswer
 ) -> AiAssistantCapturedContact | None:
@@ -380,6 +397,7 @@ async def chat_with_assistant(
     eu_only = bool(assistant.eu_only)
     limits = AiAssistantLimits.effective(assistant)
     event_intake = await ai_assistant_event_intake.context(db, assistant)
+    has_visitor_contact = _has_visitor_contact(db, assistant, payload=payload, history=history)
     # The model may take tens of seconds: the pool connection goes back meanwhile (the journal opens its own).
     db.commit()
     answer = await ai_assistant_chat_service.answer(
@@ -391,6 +409,7 @@ async def chat_with_assistant(
         eu_only=eu_only,
         limits=limits,
         event_intake=event_intake,
+        has_visitor_contact=has_visitor_contact,
     )
     _journal_turn(db, assistant, slug=slug, payload=payload, answer=answer)
     return AiAssistantChatResponse(
@@ -429,6 +448,7 @@ async def stream_chat_with_assistant(
     limits = AiAssistantLimits.effective(assistant)
     event_intake = await ai_assistant_event_intake.context(db, assistant)
     offer_booking = ai_assistant_chat_service.asks_for_appointment(history[-1]["content"])
+    has_visitor_contact = _has_visitor_contact(db, assistant, payload=payload, history=history)
     # The model may take tens of seconds: the pool connection goes back meanwhile (the journal opens its own).
     db.commit()
 
@@ -443,6 +463,7 @@ async def stream_chat_with_assistant(
             eu_only=eu_only,
             limits=limits,
             event_intake=event_intake,
+            has_visitor_contact=has_visitor_contact,
         ):
             if delta.final is not None:
                 answer = delta.final

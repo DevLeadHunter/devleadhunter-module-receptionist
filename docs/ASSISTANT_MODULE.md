@@ -1267,7 +1267,10 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
   Depuis le 28/10, `parse_follow_ups` écarte une suggestion qui fait semblant de donner les coordonnées du visiteur
   (« Mon prénom et mon téléphone »), et le prompt interdit le récapitulatif à trous (« [à compléter] »), le
   remerciement avant d'avoir les coordonnées, et un moment de rappel fixé par la réceptionniste (« demain », un jour,
-  une heure) : au plus le délai que l'entreprise affiche elle-même.
+  une heure) : au plus le délai que l'entreprise affiche elle-même. Avant d'appeler le modèle, la route du chat
+  regarde si le visiteur a déjà donné un téléphone ou un e-mail (`has_visitor_contact` : dans un de ses messages, hors
+  coordonnées de l'entreprise, ou par une demande déjà déposée dans sa session) ; sans cela, le prompt lui interdit de
+  dire que la demande est transmise.
 - **Photo dans le journal.** `ai_assistant_messages.photo_url` (migration `add_ai_assistant_messages_photo_url`),
   posé par `record_turn(visitor_photo_url=…)` depuis le chemin photo, mis à NULL par la purge des photos. Exposé dans
   les conversations et la transcription d'une demande ; le dashboard montre la vignette, agrandie dans

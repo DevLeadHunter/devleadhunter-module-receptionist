@@ -121,6 +121,7 @@ class AiAssistantKnowledgeBuilder:
         question: str | None = None,
         limits: list[AssistantLimit] | None = None,
         event_intake: EventIntakeContext | None = None,
+        has_visitor_contact: bool = True,
     ) -> str:
         """Render the French system prompt that grounds the assistant on ``knowledge``.
 
@@ -135,6 +136,8 @@ class AiAssistantKnowledgeBuilder:
                 budget, the passages closest to it are kept.
             limits: The imposed answers (prices, delays…), said as they are on their subjects.
             event_intake: For an event trade, what to collect and the days already taken in the agenda.
+            has_visitor_contact: The visitor already gave a phone number or an email; without one, the prompt
+                forbids saying their request is passed on.
 
         Returns:
             The system prompt string.
@@ -225,6 +228,13 @@ class AiAssistantKnowledgeBuilder:
         lines.append("")
         lines.extend(self.knowledge_lines(knowledge, now=now, question=question))
 
+        if not has_visitor_contact:
+            lines.append("")
+            lines.append(
+                "Ce visiteur ne t'a encore donné ni téléphone ni e-mail : tant qu'il ne les a pas écrits, ne dis "
+                "jamais que sa demande est transmise ou enregistrée, ne le remercie pas pour ses coordonnées et ne "
+                "lui confirme aucun rappel."
+            )
         lines.append("")
         lines.append(
             "Tu accueilles maintenant un visiteur du site. Rappel : toute ta réponse, y compris la "

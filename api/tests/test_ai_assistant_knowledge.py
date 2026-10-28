@@ -102,6 +102,19 @@ def test_render_system_prompt_forbids_placeholder_details_and_a_callback_date() 
     assert "Ne fixe jamais toi-même le moment du rappel, jamais « demain »" in prompt
 
 
+def test_render_system_prompt_forbids_passing_on_a_request_before_the_visitor_gave_a_contact() -> None:
+    """Without the visitor's phone or email, the prompt says their request cannot be passed on yet."""
+    kb = ai_assistant_knowledge_builder.build_knowledge(business_name="Cabinet Meyer", enrichment=None)
+    without_contact = ai_assistant_knowledge_builder.render_system_prompt(
+        kb, assistant_name="Léa", has_visitor_contact=False
+    )
+    with_contact = ai_assistant_knowledge_builder.render_system_prompt(kb, assistant_name="Léa")
+
+    assert "Ce visiteur ne t'a encore donné ni téléphone ni e-mail" in without_contact
+    assert "Ce visiteur ne t'a encore donné" not in with_contact
+    assert without_contact.rstrip().endswith("2 ou 3 suggestions qui suivent exactement ce que tu viens de dire.")
+
+
 def test_render_system_prompt_flags_missing_hours() -> None:
     """With no opening hours the prompt tells the assistant to offer a callback instead of inventing them."""
     kb = ai_assistant_knowledge_builder.build_knowledge(business_name="Cabinet Meyer", enrichment=None)
