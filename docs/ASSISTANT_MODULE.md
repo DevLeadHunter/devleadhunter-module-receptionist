@@ -1265,8 +1265,9 @@ vérifié ouvert sur desktop et mobile. Modèles d'e-mail du module en prod : 34
   modèle écrit parfois est replié en un seul lien, et le prompt demande les adresses web en clair : la réceptionniste
   n'envoie jamais rien elle-même (lien, document, devis, photo) et, sans l'adresse, propose que l'entreprise rappelle.
   Depuis le 28/10, `parse_follow_ups` écarte une suggestion qui fait semblant de donner les coordonnées du visiteur
-  (« Mon prénom et mon téléphone »), et le prompt interdit le récapitulatif à trous (« [à compléter] ») ainsi qu'un
-  jour ou une heure de rappel fixés par la réceptionniste.
+  (« Mon prénom et mon téléphone »), et le prompt interdit le récapitulatif à trous (« [à compléter] »), le
+  remerciement avant d'avoir les coordonnées, et un moment de rappel fixé par la réceptionniste (« demain », un jour,
+  une heure) : au plus le délai que l'entreprise affiche elle-même.
 - **Photo dans le journal.** `ai_assistant_messages.photo_url` (migration `add_ai_assistant_messages_photo_url`),
   posé par `record_turn(visitor_photo_url=…)` depuis le chemin photo, mis à NULL par la purge des photos. Exposé dans
   les conversations et la transcription d'une demande ; le dashboard montre la vignette, agrandie dans

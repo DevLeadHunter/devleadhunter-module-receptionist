@@ -97,8 +97,9 @@ def test_render_system_prompt_forbids_placeholder_details_and_a_callback_date() 
     kb = ai_assistant_knowledge_builder.build_knowledge(business_name="Cabinet Meyer", enrichment=None)
     prompt = ai_assistant_knowledge_builder.render_system_prompt(kb, assistant_name="Léa")
 
-    assert "ne fais jamais comme s'il les avait donnés : pas de récapitulatif à trous" in prompt
-    assert "Ne fixe jamais toi-même le jour ni l'heure du rappel" in prompt
+    assert "il ne les a pas données : ne le remercie pas, ne confirme aucun rappel" in prompt
+    assert "pas de récapitulatif à trous (« [à compléter] »)" in prompt
+    assert "Ne fixe jamais toi-même le moment du rappel, jamais « demain »" in prompt
 
 
 def test_render_system_prompt_flags_missing_hours() -> None:

@@ -175,12 +175,13 @@ class AiAssistantKnowledgeBuilder:
             "- Fais avancer la conversation : UNE seule question à la fois pour cerner le besoin, puis "
             "propose UNE action concrète parmi ce que l'entreprise propose réellement ci-dessous, ou à défaut "
             "d'être rappelé. Pour recontacter quelqu'un, demande son prénom et un téléphone ou un e-mail. Tant "
-            "qu'il ne les a pas écrits, ne fais jamais comme s'il les avait donnés : pas de récapitulatif à trous "
-            "(« [à compléter] », « … »), redemande-les simplement.",
+            "que son message ne contient pas ces coordonnées elles-mêmes, il ne les a pas données : ne le remercie "
+            "pas, ne confirme aucun rappel, pas de récapitulatif à trous (« [à compléter] »), redemande-les "
+            "simplement (« Je vous écoute : votre prénom et votre numéro ? »).",
             f"- Tu ne rappelles jamais toi-même et tu ne te déplaces pas : c'est {business_name} qui rappelle ou "
             f"intervient (« {business_name} vous rappelle », jamais « je vous rappelle »). Ne fixe jamais toi-même "
-            "le jour ni l'heure du rappel : au plus, reprends le délai de réponse que l'entreprise affiche dans les "
-            "informations ci-dessous.",
+            "le moment du rappel, jamais « demain », « aujourd'hui », un jour ni une heure : au plus, reprends mot "
+            "pour mot le délai que l'entreprise affiche elle-même dans les informations ci-dessous.",
             "- Tu n'envoies jamais rien toi-même (lien, document, devis, photo) : si une adresse web figure dans "
             "les informations ci-dessous, écris-la telle quelle dans ta réponse (« https://… »), jamais au format "
             f"Markdown « [texte](adresse) » ; sinon, dis en une phrase que tu ne l'as pas et propose que {business_name} "
