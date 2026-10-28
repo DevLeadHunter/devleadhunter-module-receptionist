@@ -4,7 +4,14 @@ import pytest
 
 from enums.ai_assistant_llm import AiAssistantLlmUsage
 from services.ai_assistant import chat_service as chat_module
-from services.ai_assistant.chat_service import MAX_HISTORY_MESSAGES, ai_assistant_chat_service
+from services.ai_assistant.chat_service import (
+    CHARS_PER_TOKEN,
+    GROQ_ANSWER_TOKENS,
+    GROQ_PROMPT_MAX_CHARS,
+    MAX_HISTORY_MESSAGES,
+    ai_assistant_chat_service,
+)
+from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
 
 _KB = {
     "identity": {"business_name": "LUMA Immobilier", "city": "Luxembourg"},
@@ -154,3 +161,45 @@ def test_the_public_chat_payload_is_bounded() -> None:
     ):
         with pytest.raises(ValidationError):
             AiAssistantChatRequest(messages=messages)
+
+
+@pytest.mark.asyncio
+async def test_the_groq_fallback_gets_a_prompt_within_its_tokens_per_minute_limit(monkeypatch) -> None:
+    """A long website goes whole to Mistral, cut down for Groq, which refuses more than 8,000 tokens a minute."""
+    knowledge = ai_assistant_knowledge_builder.build_knowledge(
+        business_name="Garage Morel",
+        website={
+            "url": "https://garage-morel.fr/",
+            "pages": [
+                {
+                    "url": f"https://garage-morel.fr/page-{index}",
+                    "title": f"Page {index}",
+                    "text": "Vidange, pneus et freins à Rennes. " * 110,
+                }
+                for index in range(8)
+            ],
+        },
+    )
+    calls: list[dict] = []
+
+    async def fake_chat(_usage, messages, **kwargs):
+        calls.append({"messages": messages, **kwargs})
+        return "Oui."
+
+    monkeypatch.setattr(chat_module.assistant_llm_router, "chat", fake_chat)
+
+    await ai_assistant_chat_service.answer(
+        knowledge=knowledge, assistant_name="Sofia", history=[{"role": "user", "content": "Vous changez les pneus ?"}]
+    )
+    await ai_assistant_chat_service.answer(
+        knowledge=_KB, assistant_name="Sofia", history=[{"role": "user", "content": "Bonjour"}]
+    )
+
+    long_site, short_listing = calls
+    groq_system_prompt = long_site["groq_messages"][0]["content"]
+    groq_chars = sum(len(message["content"]) for message in long_site["groq_messages"])
+    assert len(long_site["messages"][0]["content"]) > GROQ_PROMPT_MAX_CHARS
+    assert groq_chars // CHARS_PER_TOKEN + GROQ_ANSWER_TOKENS < 8_000
+    assert "RÈGLES ABSOLUES" in groq_system_prompt and "<<< PAGE « Page 0 »" in groq_system_prompt
+    assert long_site["groq_messages"][1:] == long_site["messages"][1:]
+    assert short_listing["groq_messages"] == short_listing["messages"]

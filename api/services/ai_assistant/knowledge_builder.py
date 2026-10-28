@@ -122,6 +122,7 @@ class AiAssistantKnowledgeBuilder:
         limits: list[AssistantLimit] | None = None,
         event_intake: EventIntakeContext | None = None,
         has_visitor_contact: bool = True,
+        sources_max_chars: int | None = None,
     ) -> str:
         """Render the French system prompt that grounds the assistant on ``knowledge``.
 
@@ -138,6 +139,7 @@ class AiAssistantKnowledgeBuilder:
             event_intake: For an event trade, what to collect and the days already taken in the agenda.
             has_visitor_contact: The visitor already gave a phone number or an email; without one, the prompt
                 forbids saying their request is passed on.
+            sources_max_chars: The budget of the website pages and the documents; the chat prompt's by default.
 
         Returns:
             The system prompt string.
@@ -226,7 +228,7 @@ class AiAssistantKnowledgeBuilder:
             lines.extend(AiAssistantEventIntake.prompt_lines(event_intake))
 
         lines.append("")
-        lines.extend(self.knowledge_lines(knowledge, now=now, question=question))
+        lines.extend(self.knowledge_lines(knowledge, now=now, question=question, max_chars=sources_max_chars))
 
         if not has_visitor_contact:
             lines.append("")

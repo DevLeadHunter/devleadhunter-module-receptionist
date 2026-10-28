@@ -179,6 +179,11 @@ Le reste du produit (génération de la fiche, emails, relances…) reste sur Gr
   notification aux admins envoyée en tâche de fond (une au plus par usage et par type de panne toutes les
   30 min : bascule sur Groq, Groq aussi en panne, IA hébergée en Europe sans réponse ou sans clé). Jamais l'inverse.
   Sans `MISTRAL_API_KEY`, tout reste sur Groq, sans alerte.
+- **Prompt du chat raccourci pour Groq** (depuis le 28/10) : le palier gratuit de Groq refuse en 413 toute requête
+  de plus de 8 000 tokens par minute, réponse comprise, et le prompt de la réceptionniste de dibodev.fr en fait
+  environ 9 000. Le chat envoie donc à Groq, via `groq_messages`, le même prompt avec moins de passages du site et des
+  documents, pour tenir sous `GROQ_PROMPT_MAX_CHARS` (`chat_service.py`) ; les règles et la fiche restent entières.
+  Mistral reçoit toujours le prompt complet.
 - **« IA hébergée en Europe »** (`ai_assistants.eu_only`, NULL = non, interrupteur « IA hébergée en Europe
   (Mistral) » dans « Personnaliser », refusé en 422
   tant que `MISTRAL_API_KEY` n'est pas configurée) : l'assistant ne part **jamais** chez Groq ; en panne,

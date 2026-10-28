@@ -31,10 +31,12 @@ class _Provider:
         self.text = text
         self.model = model
         self.calls: list[dict[str, Any]] = []
+        self.messages: list[list[dict[str, Any]]] = []
         self.rejects = False
 
     async def __call__(self, messages: list[dict[str, Any]], **kwargs: Any) -> LlmCompletion | None:
         self.calls.append(kwargs)
+        self.messages.append(messages)
         if self.rejects:
             raise MistralRequestRejectedError("The last message must be from the user")
         if self.text is None:
@@ -120,6 +122,22 @@ def test_a_mistral_outage_falls_back_to_groq_with_one_admin_alert(
     assert providers["alerts"].messages == ["Mistral indisponible : chat de l'assistant basculé sur Groq"]
     served = [record.getMessage() for record in caplog.records if "assistant_llm_call" in record.getMessage()]
     assert all("provider=groq" in line and "fallback=True" in line for line in served)
+
+
+def test_the_groq_fallback_gets_the_conversation_short_enough_for_its_limit(providers: dict[str, Any]) -> None:
+    providers["mistral"].text = None
+    shorter = [{"role": "system", "content": "Règles."}, *_MESSAGES]
+
+    async def run() -> str | None:
+        answer = await AssistantLlmRouter().chat(
+            AiAssistantLlmUsage.CHAT, _MESSAGES, eu_only=False, groq_messages=shorter
+        )
+        await asyncio.sleep(0)  # let the background admin alert run
+        return answer
+
+    assert asyncio.run(run()) == "Du lundi au vendredi."
+    assert providers["mistral"].messages == [_MESSAGES]
+    assert providers["groq"].messages == [shorter]
 
 
 def test_both_providers_down_is_reported_as_such(providers: dict[str, Any]) -> None:

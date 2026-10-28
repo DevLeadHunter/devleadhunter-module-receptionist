@@ -52,10 +52,12 @@ class _StreamProvider:
         self.deltas = deltas
         self.model = model
         self.calls: list[dict[str, Any]] = []
+        self.messages: list[list[dict[str, Any]]] = []
         self.rejects = False
 
     async def __call__(self, messages: list[dict[str, Any]], **kwargs: Any) -> AsyncIterator[str]:
         self.calls.append(kwargs)
+        self.messages.append(messages)
         if self.rejects:
             raise MistralRequestRejectedError("The last message must be from the user")
         for delta in self.deltas or []:
@@ -193,6 +195,24 @@ def test_the_router_streams_from_mistral_first_then_groq_with_the_same_alerts(
     lines = [record.getMessage() for record in caplog.records if "assistant_llm_call" in record.getMessage()]
     assert "provider=mistral" in lines[0] and "tokens_in=1000" in lines[0] and "cost_eur=0.000160" in lines[0]
     assert "provider=groq" in lines[1] and "fallback=True" in lines[1]
+
+
+def test_the_streamed_groq_fallback_gets_the_conversation_short_enough_for_its_limit(
+    providers: dict[str, Any],
+) -> None:
+    providers["mistral"].deltas = None
+    shorter = [{"role": "system", "content": "Règles."}, *_MESSAGES]
+
+    async def run() -> str:
+        router = AssistantLlmRouter()
+        stream = router.chat_stream(AiAssistantLlmUsage.CHAT, _MESSAGES, eu_only=False, groq_messages=shorter)
+        deltas = [delta async for delta in stream]
+        await asyncio.sleep(0)  # let the background admin alert run
+        return "".join(deltas)
+
+    assert asyncio.run(run()) == "Du lundi."
+    assert providers["mistral"].messages == [_MESSAGES]
+    assert providers["groq"].messages == [shorter]
 
 
 def test_a_chat_stream_line_yields_its_text_and_keeps_the_usage() -> None:

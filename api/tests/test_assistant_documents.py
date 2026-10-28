@@ -562,7 +562,7 @@ def test_the_chat_keeps_the_passages_closest_to_the_question_and_logs_the_prompt
     ]
     sent: list[list[dict[str, Any]]] = []
 
-    async def chat(usage: Any, messages: list[dict[str, Any]], *, eu_only: bool) -> str:
+    async def chat(usage: Any, messages: list[dict[str, Any]], *, eu_only: bool, **_kwargs: Any) -> str:
         sent.append(messages)
         return "Voir nos tarifs : https://garage-morel.fr/tarifs"
 
@@ -695,7 +695,7 @@ def test_a_follow_up_question_keeps_the_subject_and_every_source_keeps_its_openi
         sent.append(kwargs["question"])
         return "prompt"
 
-    async def chat(usage: Any, messages: list[dict[str, Any]], *, eu_only: bool) -> str:
+    async def chat(usage: Any, messages: list[dict[str, Any]], *, eu_only: bool, **_kwargs: Any) -> str:
         return "89 euros."
 
     monkeypatch.setattr(chat_module.ai_assistant_knowledge_builder, "render_system_prompt", render)

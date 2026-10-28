@@ -11,8 +11,9 @@ with the answer for the widget to offer as chips.
 
 import logging
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 
 from enums.ai_assistant_llm import AiAssistantLlmUsage
@@ -33,6 +34,10 @@ from services.text_normalizer import TextNormalizer
 logger = logging.getLogger(__name__)
 
 MAX_HISTORY_MESSAGES = 12
+GROQ_REQUEST_MAX_TOKENS = 7_000
+GROQ_ANSWER_TOKENS = 600
+CHARS_PER_TOKEN = 4
+GROQ_PROMPT_MAX_CHARS = (GROQ_REQUEST_MAX_TOKENS - GROQ_ANSWER_TOKENS) * CHARS_PER_TOKEN
 # The visitor messages that pick the site and document passages when they exceed the prompt's budget: a follow-up
 # (« Et combien ça coûte ? ») keeps the subject of the ones before.
 QUESTION_MESSAGES = 3
@@ -76,6 +81,14 @@ class ChatAnswer:
     reply: str
     unanswered_question: str | None = None
     follow_ups: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ChatPrompt:
+    """The conversation for the model: whole for Mistral, and short enough for Groq's tokens-per-minute limit."""
+
+    messages: list[dict[str, Any]]
+    groq_messages: list[dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -134,7 +147,7 @@ class AiAssistantChatService:
         # Only a conversation ending on the visitor's message is a question to answer (the models refuse others).
         if not turns or turns[-1]["role"] != "user":
             return ChatAnswer(reply=_FALLBACK_REPLY)
-        messages = self._messages(
+        prompt = self._prompt(
             knowledge,
             assistant_name=assistant_name,
             languages=languages,
@@ -144,7 +157,9 @@ class AiAssistantChatService:
             event_intake=event_intake,
             has_visitor_contact=has_visitor_contact,
         )
-        raw = await assistant_llm_router.chat(AiAssistantLlmUsage.CHAT, messages, eu_only=eu_only)
+        raw = await assistant_llm_router.chat(
+            AiAssistantLlmUsage.CHAT, prompt.messages, eu_only=eu_only, groq_messages=prompt.groq_messages
+        )
         reply, question = MissingInfoMarker.split(clean_model_text(raw or ""))
         reply, follow_ups = FollowUpMarker.split(reply)
         return ChatAnswer(
@@ -186,7 +201,7 @@ class AiAssistantChatService:
             yield ChatDelta(text=_FALLBACK_REPLY)
             yield ChatDelta(final=ChatAnswer(reply=_FALLBACK_REPLY))
             return
-        messages = self._messages(
+        prompt = self._prompt(
             knowledge,
             assistant_name=assistant_name,
             languages=languages,
@@ -198,7 +213,9 @@ class AiAssistantChatService:
         )
         marker = MissingInfoMarkerStream()
         follow_ups = FollowUpMarkerStream()
-        async for chunk in assistant_llm_router.chat_stream(AiAssistantLlmUsage.CHAT, messages, eu_only=eu_only):
+        async for chunk in assistant_llm_router.chat_stream(
+            AiAssistantLlmUsage.CHAT, prompt.messages, eu_only=eu_only, groq_messages=prompt.groq_messages
+        ):
             text = follow_ups.feed(marker.feed(clean_model_text(chunk)))
             if text:
                 yield ChatDelta(text=text)
@@ -225,7 +242,7 @@ class AiAssistantChatService:
             return filed_question(turns[-1]["content"])
         return None
 
-    def _messages(
+    def _prompt(
         self,
         knowledge: dict[str, Any],
         *,
@@ -236,11 +253,12 @@ class AiAssistantChatService:
         limits: list[AssistantLimit] | None = None,
         event_intake: EventIntakeContext | None = None,
         has_visitor_contact: bool = True,
-    ) -> list[dict[str, Any]]:
-        """The grounded system prompt followed by the conversation, its size logged."""
+    ) -> ChatPrompt:
+        """The grounded system prompt followed by the conversation, its size logged, and its version for Groq."""
         visitor_messages = [turn["content"] for turn in turns if turn["role"] == "user"]
         question = "\n".join(visitor_messages[-QUESTION_MESSAGES:])
-        system_prompt = ai_assistant_knowledge_builder.render_system_prompt(
+        render_system_prompt: Callable[..., str] = partial(
+            ai_assistant_knowledge_builder.render_system_prompt,
             knowledge,
             assistant_name=assistant_name,
             languages=languages,
@@ -250,6 +268,7 @@ class AiAssistantChatService:
             event_intake=event_intake,
             has_visitor_contact=has_visitor_contact,
         )
+        system_prompt = render_system_prompt()
         identity = knowledge.get("identity") if isinstance(knowledge.get("identity"), dict) else {}
         business_name = identity.get("business_name") or "?"
         # About 4 characters per token in French: the size the website and the documents give the prompt.
@@ -259,7 +278,39 @@ class AiAssistantChatService:
             len(system_prompt),
             len(system_prompt) // 4,
         )
-        return [{"role": "system", "content": system_prompt}, *turns]
+        return ChatPrompt(
+            messages=[{"role": "system", "content": system_prompt}, *turns],
+            groq_messages=[
+                {"role": "system", "content": self._groq_system_prompt(system_prompt, render_system_prompt, turns)},
+                *turns,
+            ],
+        )
+
+    @staticmethod
+    def _groq_system_prompt(
+        system_prompt: str, render_system_prompt: Callable[..., str], turns: list[dict[str, Any]]
+    ) -> str:
+        """
+        The system prompt for Groq, whose free tier refuses a request above 8,000 tokens a minute, answer included.
+
+        Every rule and the whole listing stay; the website pages and the documents get what is left of
+        ``GROQ_PROMPT_MAX_CHARS`` once the rest of the prompt and the conversation are counted.
+
+        Args:
+            system_prompt: The whole system prompt, the one Mistral gets.
+            render_system_prompt: Renders it again, given a budget for the pages and documents.
+            turns: The conversation sent with it.
+
+        Returns:
+            The whole system prompt when it fits, else the same one with fewer passages of the pages and documents.
+        """
+        conversation_chars = sum(len(turn["content"]) for turn in turns)
+
+        if len(system_prompt) + conversation_chars <= GROQ_PROMPT_MAX_CHARS:
+            return system_prompt
+        prompt_without_sources = render_system_prompt(sources_max_chars=0)
+        sources_budget = max(GROQ_PROMPT_MAX_CHARS - len(prompt_without_sources) - conversation_chars, 0)
+        return render_system_prompt(sources_max_chars=sources_budget)
 
     @staticmethod
     def _bounded_history(history: list[dict[str, Any]]) -> list[dict[str, Any]]:

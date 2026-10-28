@@ -85,6 +85,7 @@ class AssistantLlmRouter:
         max_tokens: int = 500,
         temperature: float = 0.5,
         timeout: float = 40.0,
+        groq_messages: list[dict[str, Any]] | None = None,
     ) -> str | None:
         """
         A plain completion for the assistant module.
@@ -96,6 +97,8 @@ class AssistantLlmRouter:
             max_tokens: Answer budget.
             temperature: Sampling temperature.
             timeout: Time budget in seconds, shared by Mistral and the fallback.
+            groq_messages: The same conversation short enough for Groq's tokens-per-minute limit; ``messages``
+                when None.
 
         Returns:
             The answer text, or None when no allowed provider answered.
@@ -108,6 +111,7 @@ class AssistantLlmRouter:
             temperature=temperature,
             json_mode=False,
             timeout=timeout,
+            groq_messages=groq_messages,
         )
         return completion.text if completion else None
 
@@ -156,6 +160,7 @@ class AssistantLlmRouter:
         temperature: float,
         json_mode: bool,
         timeout: float,
+        groq_messages: list[dict[str, Any]] | None = None,
     ) -> LlmCompletion | None:
         """
         Route one call: Mistral, then Groq unless the assistant is EU only.
@@ -171,17 +176,23 @@ class AssistantLlmRouter:
             temperature: Sampling temperature.
             json_mode: Ask for a JSON object answer.
             timeout: Time budget in seconds, shared by both providers.
+            groq_messages: The same conversation short enough for Groq's tokens-per-minute limit; ``messages``
+                when None.
 
         Returns:
             The completion of the provider that answered, or None.
         """
         started = time.monotonic()
         options: dict[str, Any] = {"max_tokens": max_tokens, "temperature": temperature, "json_mode": json_mode}
+        messages_for_groq = groq_messages or messages
+
         if not mistral_service.is_configured:
             if eu_only:
                 self._alert(usage, AiAssistantLlmOutage.EU_ONLY_NO_KEY)
                 return None
-            return await self._groq(usage, messages, started=started, fallback=False, timeout=timeout, **options)
+            return await self._groq(
+                usage, messages_for_groq, started=started, fallback=False, timeout=timeout, **options
+            )
         rejected = False
         try:
             completion = await mistral_service.complete(
@@ -206,7 +217,9 @@ class AssistantLlmRouter:
                 self._alert(usage, AiAssistantLlmOutage.EU_ONLY_NO_ANSWER)
             return None
         remaining = max(timeout - (time.monotonic() - started), MIN_PROVIDER_TIMEOUT_SECONDS)
-        completion = await self._groq(usage, messages, started=started, fallback=True, timeout=remaining, **options)
+        completion = await self._groq(
+            usage, messages_for_groq, started=started, fallback=True, timeout=remaining, **options
+        )
         if not rejected:
             self._alert(usage, AiAssistantLlmOutage.FALLBACK if completion else AiAssistantLlmOutage.NO_ANSWER)
         return completion
@@ -220,6 +233,7 @@ class AssistantLlmRouter:
         max_tokens: int = 500,
         temperature: float = 0.5,
         timeout: float = 40.0,
+        groq_messages: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[str]:
         """
         A plain completion streamed as text deltas, routed like :meth:`complete`.
@@ -234,18 +248,22 @@ class AssistantLlmRouter:
             max_tokens: Answer budget.
             temperature: Sampling temperature.
             timeout: Time budget in seconds, shared by Mistral and the fallback.
+            groq_messages: The same conversation short enough for Groq's tokens-per-minute limit; ``messages``
+                when None.
 
         Yields:
             The text deltas of the provider that answered; nothing when no allowed provider did.
         """
         started = time.monotonic()
         options: dict[str, Any] = {"max_tokens": max_tokens, "temperature": temperature}
+        messages_for_groq = groq_messages or messages
+
         if not mistral_service.is_configured:
             if eu_only:
                 self._alert(usage, AiAssistantLlmOutage.EU_ONLY_NO_KEY)
                 return
             async for delta in self._groq_stream(
-                usage, messages, started=started, fallback=False, timeout=timeout, **options
+                usage, messages_for_groq, started=started, fallback=False, timeout=timeout, **options
             ):
                 yield delta
             return
@@ -279,7 +297,7 @@ class AssistantLlmRouter:
             return
         remaining = max(timeout - (time.monotonic() - started), MIN_PROVIDER_TIMEOUT_SECONDS)
         async for delta in self._groq_stream(
-            usage, messages, started=started, fallback=True, timeout=remaining, **options
+            usage, messages_for_groq, started=started, fallback=True, timeout=remaining, **options
         ):
             served = True
             yield delta
