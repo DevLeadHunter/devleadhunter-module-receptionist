@@ -67,6 +67,20 @@ def test_the_questions_are_distinct_trimmed_and_bounded() -> None:
     assert not may_still_be_follow_up_marker("Nous ") and not may_still_be_follow_up_marker("Suivant")
 
 
+def test_a_suggestion_that_pretends_to_give_the_visitors_details_is_dropped() -> None:
+    """Clicked, « Mon prénom et mon téléphone » would send those words, and the assistant would note them as given."""
+    assert parse_follow_ups("Mon prénom et mon téléphone | Être rappelé | Voici mon e-mail | Prendre rendez-vous") == (
+        "Être rappelé",
+        "Prendre rendez-vous",
+    )
+    assert parse_follow_ups("Je vous laisse mon numéro | My phone number | Call me back") == ("Call me back",)
+    assert parse_follow_ups("Mon nom de domaine | Laisser mes coordonnées | Mon projet de site") == (
+        "Mon nom de domaine",
+        "Laisser mes coordonnées",
+        "Mon projet de site",
+    )
+
+
 def test_the_stream_holds_only_the_lines_that_may_be_the_marker() -> None:
     """A plain line streams at once; the blank lines and the marker at the end never reach the visitor."""
     stream = FollowUpMarkerStream()
@@ -160,6 +174,7 @@ def test_the_system_prompt_asks_for_the_trailing_line_and_for_lists_when_enumera
     # They follow the reply: probable answers to its question, else what comes next; never generic, never repeated.
     assert "les réponses les plus probables à cette question" in prompt
     assert "pas de réponse à trou ni d'exemple fictif (« Mon prénom est … », « 06 xx xx xx xx »" in prompt
+    assert "ni de suggestion qui fait semblant de la donner (« Mon prénom et mon téléphone »)" in prompt
     assert "Jamais une suggestion générique sans lien avec l'échange, jamais une déjà proposée plus tôt" in prompt
     assert prompt.rstrip().endswith("2 ou 3 suggestions qui suivent exactement ce que tu viens de dire.")
     assert "UNE ligne par élément commençant par « - »" in prompt

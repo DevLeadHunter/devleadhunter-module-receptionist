@@ -92,6 +92,15 @@ def test_render_system_prompt_forbids_sending_and_markdown_links() -> None:
     assert "propose que Cabinet Meyer rappelle" in prompt
 
 
+def test_render_system_prompt_forbids_placeholder_details_and_a_callback_date() -> None:
+    """The prompt never lets the assistant note details not given yet, nor set the day of the callback itself."""
+    kb = ai_assistant_knowledge_builder.build_knowledge(business_name="Cabinet Meyer", enrichment=None)
+    prompt = ai_assistant_knowledge_builder.render_system_prompt(kb, assistant_name="Léa")
+
+    assert "ne fais jamais comme s'il les avait donnés : pas de récapitulatif à trous" in prompt
+    assert "Ne fixe jamais toi-même le jour ni l'heure du rappel" in prompt
+
+
 def test_render_system_prompt_flags_missing_hours() -> None:
     """With no opening hours the prompt tells the assistant to offer a callback instead of inventing them."""
     kb = ai_assistant_knowledge_builder.build_knowledge(business_name="Cabinet Meyer", enrichment=None)

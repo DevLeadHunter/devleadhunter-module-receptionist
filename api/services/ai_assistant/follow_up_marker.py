@@ -27,6 +27,13 @@ _MARKER_SIGN = "§"
 # The questions are separated by « | » (asked), or by « ; », « • », « / » when the model improvises.
 _SEPARATOR = re.compile(r"\s*[|;•]\s*|\s+/\s+")
 _TRIMMED = " \t*_«»\"'-"
+_FAKE_VISITOR_DETAILS_SUGGESTION = re.compile(
+    r"^(?:voici\s+|je\s+vous\s+(?:donne|laisse|envoie|écris)\s+)?(?:mon|ma|mes)\s+"
+    r"(?:pr[ée]nom|nom(?!\s+de\s+domaine)|num[ée]ro|t[ée]l[ée]phone|t[ée]l|portable|mobile|e-?mail|mail|adresse"
+    r"|coordonn[ée]es)\b"
+    r"|^(?:here\s+is\s+|here's\s+)?my\s+(?:first\s+name|name|phone|number|e-?mail|address|contact)\b",
+    re.IGNORECASE,
+)
 
 
 def may_still_be_follow_up_marker(line: str) -> bool:
@@ -52,12 +59,16 @@ def parse_follow_ups(items: str) -> tuple[str, ...]:
         items: The text after « §SUITE: ».
 
     Returns:
-        At most three distinct questions (case aside), each trimmed and cut to 80 characters, in order.
+        At most three distinct questions (case aside), each trimmed and cut to 80 characters, in order. A
+        suggestion that would pretend to give the visitor's own details (« Mon prénom et mon téléphone »,
+        « Voici mon e-mail ») is dropped: clicked, it would send those words instead of the details.
     """
     kept: list[str] = []
     for raw in _SEPARATOR.split(items):
         text = " ".join(raw.strip(_TRIMMED).split())[:MAX_FOLLOW_UP_CHARS].strip()
-        if text and text.lower() not in {question.lower() for question in kept}:
+        is_new_question = text.lower() not in {question.lower() for question in kept}
+
+        if text and is_new_question and not _FAKE_VISITOR_DETAILS_SUGGESTION.match(text):
             kept.append(text)
         if len(kept) == MAX_FOLLOW_UPS:
             break
