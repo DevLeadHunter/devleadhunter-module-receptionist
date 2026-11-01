@@ -312,13 +312,14 @@ def test_the_space_keeps_the_client_space_contract_and_adds_what_a_demo_needs(db
 
 def test_the_start_steps_are_not_done_and_nothing_private_of_the_demo_shows(db: Session) -> None:
     """What the operator set on the demo, and the visitors' unanswered questions, never reach the page."""
+    next_year = datetime.now(UTC).year + 1
     demo = _demo(
         db,
         alert_phone_e164="+33612345678",
         installed_host="test.dibodev.fr",
         installed_at=datetime(2026, 9, 20, 10, 0),
-        # 23:30 UTC on 30/10 is already 31/10 in Paris (UTC+1 once summer time is over).
-        expires_at=datetime(2026, 10, 30, 23, 30),
+        # 23:30 UTC on 30/01 is already 31/01 in Paris (UTC+1 in winter); a demo past its last day has no space.
+        expires_at=datetime(next_year, 1, 30, 23, 30),
     )
     ai_assistant_faq_service.record_unanswered(db, demo, "Je m'appelle Marie Voisine, vous passez au 3 rue des Lilas ?")
     ai_assistant_faq_service.add_faq(db, demo, "Faites-vous le démoussage ?", "Oui, avec un traitement hydrofuge.")
@@ -333,7 +334,7 @@ def test_the_start_steps_are_not_done_and_nothing_private_of_the_demo_shows(db: 
     assert space.unanswered == [] and "Marie Voisine" not in space.model_dump_json()
     assert [entry.question for entry in space.faq] == ["Faites-vous le démoussage ?"]
     # The demo's last day, in business time.
-    assert space.link_expires_label == "31/10/2026"
+    assert space.link_expires_label == f"31/01/{next_year}"
     assert _space(db, _demo(db, business_name="Démo Pas Envoyée").slug).link_expires_label == ""
 
 
