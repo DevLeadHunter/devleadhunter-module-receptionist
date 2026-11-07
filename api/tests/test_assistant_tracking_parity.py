@@ -81,14 +81,29 @@ def test_the_prospect_list_and_the_hot_leads_read_the_receptionist_visits(
     """A prospect worked with a receptionist only is no longer « unknown » once its pages are visited."""
     prospect = _prospect(db)
     assistant = _assistant(db, prospect)
+    assistant_slug = assistant.slug
     read_slugs: list[list[str]] = []
 
-    async def aggregate(slugs: list[str]) -> dict[str, dict[str, Any]]:
+    async def read_sessions(slugs: list[str], since: datetime | None = None) -> list[DemoSession]:
         read_slugs.append(slugs)
-        visited = {"pageviews": 4, "visits": 2, "phone_clicks": 0, "contact_clicks": 0, "cta_clicks": 2}
-        return {assistant.slug: {**visited, "last_seen": "2026-09-27T10:00:00"}}
+        visit = DemoSession(
+            slug=assistant_slug,
+            session_id="s1",
+            started_at=datetime(2026, 9, 27, 10),
+            device_type="Mobile",
+            city="Lyon",
+            interaction_count=6,
+            time_on_page_seconds=40.0,
+            engaged_seconds=20.0,
+            timezone_name="Europe/Paris",
+            language="fr-FR",
+            pageview_count=4,
+            cta_click_count=2,
+            last_event_at=datetime(2026, 9, 27, 10, 5),
+        )
+        return [visit]
 
-    monkeypatch.setattr(behavior_module.posthog_service, "get_aggregate_by_slugs", aggregate)
+    monkeypatch.setattr(behavior_module.posthog_service, "get_demo_sessions", read_sessions)
 
     temperatures = asyncio.run(behavior_service.get_temperatures(db, 7, [prospect.id]))
     hot_leads = asyncio.run(behavior_service.get_hot_leads(db, 7))
