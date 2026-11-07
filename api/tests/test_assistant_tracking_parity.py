@@ -19,6 +19,7 @@ from services.ai_assistant.assistant_service import ai_assistant_service
 from services.behavior_service import behavior_service
 from services.email_variables import EmailVariables
 from services.notification_service import notification_service
+from services.posthog_service import DemoSession
 from services.sms_variables import SmsVariables
 
 _DEMO_PAGE = "https://demo.dibodev.fr/ia/garage-martin"
@@ -118,19 +119,21 @@ def test_the_evening_recap_counts_the_receptionist_visits_once_per_slug(
     db.commit()
     counted_slugs: list[list[str]] = []
     recaps: list[str] = []
+    # The recap closes its session, detaching the rows: read their slugs before.
+    expected_slugs = [shared.slug, other.slug]
 
-    async def count_visits(slugs: list[str], since: datetime) -> dict[str, int]:
+    async def read_sessions(slugs: list[str], since: datetime) -> list[DemoSession]:
         counted_slugs.append(slugs)
-        return {"pageviews": 3, "engaged": 1}
+        return [
+            DemoSession(expected_slugs[0], "s1", since, "Mobile", "Lyon", 4, 30.0, 20.0, "Europe/Paris", "fr-FR", 3, 1)
+        ]
 
     async def dispatch(**kwargs: Any) -> None:
         recaps.append(kwargs["body"])
 
     monkeypatch.setattr(notification_module, "SessionLocal", lambda: db)
-    monkeypatch.setattr(notification_module.posthog_service, "count_demo_visits_since", count_visits)
+    monkeypatch.setattr(notification_module.posthog_service, "get_demo_sessions", read_sessions)
     monkeypatch.setattr(notification_service, "_dispatch", dispatch)
-    # The recap closes its session, detaching the rows: read their slugs before.
-    expected_slugs = [shared.slug, other.slug]
 
     asyncio.run(notification_service.send_daily_recap())
 
