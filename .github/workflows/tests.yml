@@ -46,4 +46,6 @@ jobs:
 
       - name: 🧪 Pytest
         working-directory: core/api
+        env:
+          R2_PUBLIC_BASE_URL_DEV: https://media.example.com
         run: python -m pytest ../../module/api/tests -q -p no:cacheprovider
