@@ -79,8 +79,8 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType } from 'vue'
-import type { AiAssistantSummary } from '~/types/AiAssistant'
-import type { AssistantVideoCardEmits, AssistantVideoCardProps } from '~/types/AssistantVideoCard'
+import type { AiAssistantSummary } from '../../types/AiAssistant'
+import type { AssistantVideoCardEmits, AssistantVideoCardProps } from '../../types/AssistantVideoCard'
 import type { UseCopyToClipboardReturn, UseOpenExternalUrlReturn } from '~/types/Composables'
 import type { ProspectionVideoStatusTone } from '~/types/ProspectionVideo'
 import { computed } from 'vue'

@@ -146,15 +146,17 @@ import type {
   AiAssistantRequestsResponse,
   AiAssistantRequestStatus,
   AiAssistantSummary,
-} from '~/types/AiAssistant'
-import type { AiAssistantRequestFlag } from '~/types/AiAssistantRequestsPage'
-import type { AssistantRequestMutationNotice } from '~/types/DrawerStack'
+} from '../../../types/AiAssistant'
+import type { AiAssistantRequestFlag } from '../../../types/AiAssistantRequestsPage'
+import type { AssistantRequestMutationNotice } from '../../../types/AssistantDrawerStack'
+import type { UseAssistantDrawerChangesReturn } from '../../../composables/useAssistantDrawerChanges'
 import type { SelectFieldOption } from '~/types/SelectField'
 import type { UiFilterTab } from '~/types/UiFilterTabs'
 import { computed, onMounted, ref, watch } from 'vue'
-import { AiAssistantService } from '~/services/aiAssistantService'
+import { AiAssistantService } from '../../../services/aiAssistantService'
 import { useDrawerStackStore } from '~/stores/drawerStack'
-import { REQUEST_STATUS_LABELS, REQUEST_TYPE_LABELS } from '~/utils/aiAssistantLabels'
+import { useAssistantDrawerChanges } from '../../../composables/useAssistantDrawerChanges'
+import { REQUEST_STATUS_LABELS, REQUEST_TYPE_LABELS } from '../../../utils/aiAssistantLabels'
 import { formatShortMonthDayTime, parseApiDate } from '~/utils/date'
 
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'ai-assistant-module'] })
@@ -163,6 +165,7 @@ useSeoMeta({ title: 'Demandes — DevLeadHunter' })
 
 const route: ReturnType<typeof useRoute> = useRoute()
 const drawerStack: ReturnType<typeof useDrawerStackStore> = useDrawerStackStore()
+const { requestChangeCount, latestRequestChange }: UseAssistantDrawerChangesReturn = useAssistantDrawerChanges()
 
 /** How many requests the API lists at most per call; « À traiter » is fetched apart so it is never cut. */
 const REQUEST_LIST_LIMIT: number = 300
@@ -345,9 +348,9 @@ async function loadData(): Promise<void> {
 }
 
 watch(
-  (): number => drawerStack.requestMutationCounter,
+  (): number => requestChangeCount.value,
   (): void => {
-    const notice: AssistantRequestMutationNotice | null = drawerStack.lastRequestMutation
+    const notice: AssistantRequestMutationNotice | null = latestRequestChange.value
     if (notice?.type === 'updated') applyUpdate(notice.request)
   },
 )

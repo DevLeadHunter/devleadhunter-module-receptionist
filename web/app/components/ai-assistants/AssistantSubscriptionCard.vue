@@ -58,14 +58,14 @@ import type {
   AiAssistantSubscriptionLink,
   AiAssistantSummary,
   AssistantSubscriptionInterval,
-} from '~/types/AiAssistant'
+} from '../../types/AiAssistant'
 import type {
   AssistantSubscriptionCardProps,
   AssistantSubscriptionLinkForManualCopy,
-} from '~/types/AssistantSubscriptionCard'
+} from '../../types/AssistantSubscriptionCard'
 import type { UseToastReturn } from '~/types/Composables'
 import { computed, ref } from 'vue'
-import { AiAssistantService } from '~/services/aiAssistantService'
+import { AiAssistantService } from '../../services/aiAssistantService'
 import { useToast } from '~/composables/useToast'
 import { ClipboardCopy } from '~/utils/clipboardCopy'
 

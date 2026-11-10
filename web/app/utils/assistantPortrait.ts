@@ -1,5 +1,5 @@
-import type { AiAssistantPersona, AiAssistantPersonaGender, AiAssistantSummary } from '~/types/AiAssistant'
-import { ASSISTANT_CASTING, ASSISTANT_DEFAULT_PERSONA } from '~/constants/assistantCasting'
+import type { AiAssistantPersona, AiAssistantPersonaGender, AiAssistantSummary } from '../types/AiAssistant'
+import { ASSISTANT_CASTING, ASSISTANT_DEFAULT_PERSONA } from '../constants/assistantCasting'
 
 /**
  * The origin of the demo host serving the portraits, read off a demo link.

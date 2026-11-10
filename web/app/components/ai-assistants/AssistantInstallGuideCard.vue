@@ -33,11 +33,11 @@
 <script lang="ts" setup>
 import type { ComputedRef, Ref } from 'vue'
 import { computed, ref } from 'vue'
-import type { AssistantInstallGuide, AssistantInstallGuideCardProps } from '~/types/AssistantInstallGuideCard'
+import type { AssistantInstallGuide, AssistantInstallGuideCardProps } from '../../types/AssistantInstallGuideCard'
 import type { UseCopyToClipboardReturn } from '~/types/Composables'
 import type { UiFilterTab } from '~/types/UiFilterTabs'
 import { useCopyToClipboard } from '~/composables/useCopyToClipboard'
-import { ASSISTANT_INSTALL_GUIDES } from '~/constants/assistantInstallGuides'
+import { ASSISTANT_INSTALL_GUIDES } from '../../constants/assistantInstallGuides'
 
 /** Where to paste the widget's script, platform by platform, with the script itself and a copy button. */
 const props: AssistantInstallGuideCardProps = defineProps({

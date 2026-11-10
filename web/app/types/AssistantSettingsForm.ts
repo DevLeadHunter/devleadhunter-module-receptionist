@@ -1,4 +1,4 @@
-import type { AiAssistantEditForm, AiAssistantSummary } from '~/types/AiAssistant'
+import type { AiAssistantEditForm, AiAssistantSummary } from './AiAssistant'
 
 /** Which part of the settings the form shows and saves: the identity, or the alerts with the mailbox and the model. */
 export type AssistantSettingsFormSection = 'identity' | 'alerts'

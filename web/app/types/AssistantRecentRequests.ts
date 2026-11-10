@@ -1,4 +1,4 @@
-import type { AiAssistantRequestItem } from '~/types/AiAssistant'
+import type { AiAssistantRequestItem } from './AiAssistant'
 
 export type AssistantRecentRequestsProps = {
   assistantId: number

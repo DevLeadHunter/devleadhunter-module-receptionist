@@ -1,4 +1,4 @@
-import type { AiAssistantSummary } from '~/types/AiAssistant'
+import type { AiAssistantSummary } from './AiAssistant'
 
 /** Props of the drawer listing what an assistant's visitors asked (read-only journal). */
 export type UiAssistantConversationsDrawerProps = {

@@ -216,18 +216,18 @@ import type {
   AiAssistantRequestItem,
   AiAssistantRequestStatus,
   AiAssistantTranscriptLine,
-} from '~/types/AiAssistant'
+} from '../../types/AiAssistant'
 import type { Prospect } from '~/types'
 import type { UseToastReturn } from '~/types/Composables'
-import type { UiAssistantRequestDrawerEmits, UiAssistantRequestDrawerProps } from '~/types/UiAssistantRequestDrawer'
+import type { UiAssistantRequestDrawerEmits, UiAssistantRequestDrawerProps } from '../../types/UiAssistantRequestDrawer'
 import { computed, ref, watch } from 'vue'
-import { AiAssistantService } from '~/services/aiAssistantService'
+import { AiAssistantService } from '../../services/aiAssistantService'
 import { ProspectsService } from '~/services/prospectsService'
 import { useToast } from '~/composables/useToast'
 import { useDrawerStackStore } from '~/stores/drawerStack'
 import { contactHref } from '~/utils/contactLink'
 import { formatShortMonthDayTime } from '~/utils/date'
-import { REQUEST_STATUS_LABELS, REQUEST_TYPE_LABELS, languageCodeLabel } from '~/utils/aiAssistantLabels'
+import { REQUEST_STATUS_LABELS, REQUEST_TYPE_LABELS, languageCodeLabel } from '../../utils/aiAssistantLabels'
 
 const props: UiAssistantRequestDrawerProps = defineProps({
   open: {

@@ -21,8 +21,8 @@
 <script lang="ts" setup>
 import type { ComputedRef, PropType, Ref } from 'vue'
 import { computed, ref, watch } from 'vue'
-import type { AssistantPortraitProps } from '~/types/AssistantPortrait'
-import { portraitDiscBackground } from '~/utils/assistantPortrait'
+import type { AssistantPortraitProps } from '../../types/AssistantPortrait'
+import { portraitDiscBackground } from '../../utils/assistantPortrait'
 
 /** The receptionist's photo on a disc tinted with the business's accent; its initial stands in when the photo is missing. */
 const props: AssistantPortraitProps = defineProps({

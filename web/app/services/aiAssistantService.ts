@@ -14,11 +14,12 @@ import type {
   AiAssistantSummary,
   AiAssistantUpdatePayload,
   AiAssistantVideoContext,
+  AssistantPricing,
   AssistantSubscription,
   AssistantSubscriptionInterval,
   AssistantSubscriptionListResponse,
-} from '~/types/AiAssistant'
-import type { AiAssistantDocumentItem, AiAssistantSources, AiAssistantSourcesUpdate } from '~/types/AiAssistantSources'
+} from '../types/AiAssistant'
+import type { AiAssistantDocumentItem, AiAssistantSources, AiAssistantSourcesUpdate } from '../types/AiAssistantSources'
 import type { ApiErrorBody } from '~/types/Api'
 import type { ProspectionVideoState } from '~/types/ProspectionVideo'
 import { ApiClient } from '~/services/api'
@@ -444,6 +445,23 @@ export class AiAssistantService {
     return ApiClient.get<AiAssistantSubscriptionLink>(
       `${BASE_URL}/${assistantId}/subscription/link?interval=${interval}`,
     )
+  }
+
+  /**
+   * Read the price of the receptionist subscription the user sells.
+   * @returns The monthly price and the months offered on the annual plan.
+   */
+  static getPricing(): Promise<AssistantPricing> {
+    return ApiClient.get<AssistantPricing>(`${BASE_URL}/pricing`)
+  }
+
+  /**
+   * Save the price of the receptionist subscription: new subscribers pay it, running ones keep theirs.
+   * @param pricing - The monthly price and the months offered on the annual plan.
+   * @returns The price as saved.
+   */
+  static updatePricing(pricing: AssistantPricing): Promise<AssistantPricing> {
+    return ApiClient.put<AssistantPricing>(`${BASE_URL}/pricing`, pricing)
   }
 
   /**

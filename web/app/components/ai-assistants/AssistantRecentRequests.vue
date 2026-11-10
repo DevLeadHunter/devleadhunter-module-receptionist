@@ -52,9 +52,9 @@
 
 <script lang="ts" setup>
 import type { EmitFn, PropType } from 'vue'
-import type { AiAssistantRequestItem, AiAssistantRequestStatus } from '~/types/AiAssistant'
-import type { AssistantRecentRequestsEmits, AssistantRecentRequestsProps } from '~/types/AssistantRecentRequests'
-import { REQUEST_STATUS_LABELS, REQUEST_TYPE_LABELS } from '~/utils/aiAssistantLabels'
+import type { AiAssistantRequestItem, AiAssistantRequestStatus } from '../../types/AiAssistant'
+import type { AssistantRecentRequestsEmits, AssistantRecentRequestsProps } from '../../types/AssistantRecentRequests'
+import { REQUEST_STATUS_LABELS, REQUEST_TYPE_LABELS } from '../../utils/aiAssistantLabels'
 import { formatShortMonthDayTime } from '~/utils/date'
 
 const props: AssistantRecentRequestsProps = defineProps({

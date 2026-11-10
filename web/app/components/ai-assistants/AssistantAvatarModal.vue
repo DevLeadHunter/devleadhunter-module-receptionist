@@ -142,14 +142,14 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
-import type { AiAssistantSummary } from '~/types/AiAssistant'
-import type { AssistantAvatarModalEmits, AssistantAvatarModalProps } from '~/types/AssistantAvatarModal'
+import type { AiAssistantSummary } from '../../types/AiAssistant'
+import type { AssistantAvatarModalEmits, AssistantAvatarModalProps } from '../../types/AssistantAvatarModal'
 import type { UseToastReturn } from '~/types/Composables'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import AssistantPortrait from '~/components/ai-assistants/AssistantPortrait.vue'
+import AssistantPortrait from './AssistantPortrait.vue'
 import { useToast } from '~/composables/useToast'
-import { AiAssistantService } from '~/services/aiAssistantService'
-import { portraitDiscBackground } from '~/utils/assistantPortrait'
+import { AiAssistantService } from '../../services/aiAssistantService'
+import { portraitDiscBackground } from '../../utils/assistantPortrait'
 
 /** The largest image the API takes, checked here first so a heavy photo is refused without waiting for the upload. */
 const MAX_IMAGE_BYTES: number = 2 * 1024 * 1024

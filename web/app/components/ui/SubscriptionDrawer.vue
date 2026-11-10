@@ -125,14 +125,14 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
-import type { AssistantSubscription } from '~/types/AiAssistant'
+import type { AssistantSubscription } from '../../types/AiAssistant'
 import type { UseToastReturn } from '~/types/Composables'
 import type { UiConfirmModalHandle } from '~/types/UiConfirmModal'
-import type { UiSubscriptionDrawerEmits, UiSubscriptionDrawerProps } from '~/types/UiSubscriptionDrawer'
+import type { UiSubscriptionDrawerEmits, UiSubscriptionDrawerProps } from '../../types/UiSubscriptionDrawer'
 import { computed, ref } from 'vue'
-import { AiAssistantService } from '~/services/aiAssistantService'
+import { AiAssistantService } from '../../services/aiAssistantService'
 import { useToast } from '~/composables/useToast'
-import { SUBSCRIPTION_STATUS_LABELS } from '~/utils/aiAssistantLabels'
+import { SUBSCRIPTION_STATUS_LABELS } from '../../utils/aiAssistantLabels'
 import { formatEuros } from '~/utils/currency'
 import { formatShortMonthDate } from '~/utils/date'
 

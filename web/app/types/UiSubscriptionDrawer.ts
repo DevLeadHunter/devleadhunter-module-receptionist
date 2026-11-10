@@ -1,4 +1,4 @@
-import type { AssistantSubscription } from '~/types/AiAssistant'
+import type { AssistantSubscription } from './AiAssistant'
 
 /** Props of the assistant-subscription detail drawer. */
 export type UiSubscriptionDrawerProps = {

@@ -1,12 +1,12 @@
-import type { AiAssistantSummary } from '~/types/AiAssistant'
+import type { AiAssistantSummary } from '../types/AiAssistant'
 import type {
   AssistantPreviewTimingOverrides,
   AssistantPreviewVideoResult,
   AssistantSidecarBuildResult,
   AssistantVideoBuildResult,
-} from '~/types/AssistantSidecar'
+} from '../types/AssistantSidecar'
 import type { SidecarBuildOutcome } from '~/services/sidecarVideoBuild'
-import { AiAssistantService } from '~/services/aiAssistantService'
+import { AiAssistantService } from './aiAssistantService'
 import { DemoSiteService } from '~/services/demoSiteService'
 import { PresenterVideoService } from '~/services/presenterVideoService'
 import { ProfilePhotoService } from '~/services/profilePhotoService'

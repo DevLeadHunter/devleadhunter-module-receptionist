@@ -179,13 +179,17 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
-import type { AiAssistantSummary } from '~/types/AiAssistant'
-import type { AiAssistantDocumentItem, AiAssistantSources, AiAssistantSourcesUpdate } from '~/types/AiAssistantSources'
+import type { AiAssistantSummary } from '../../types/AiAssistant'
+import type {
+  AiAssistantDocumentItem,
+  AiAssistantSources,
+  AiAssistantSourcesUpdate,
+} from '../../types/AiAssistantSources'
 import type { UseToastReturn } from '~/types/Composables'
-import type { UiAssistantSourcesDrawerEmits, UiAssistantSourcesDrawerProps } from '~/types/UiAssistantSourcesDrawer'
+import type { UiAssistantSourcesDrawerEmits, UiAssistantSourcesDrawerProps } from '../../types/UiAssistantSourcesDrawer'
 import type { UiConfirmModalHandle } from '~/types/UiConfirmModal'
 import { computed, ref, watch } from 'vue'
-import { AiAssistantService } from '~/services/aiAssistantService'
+import { AiAssistantService } from '../../services/aiAssistantService'
 import { useToast } from '~/composables/useToast'
 import { formatNumericDateTime } from '~/utils/date'
 

@@ -1,4 +1,4 @@
-import type { AssistantInstallGuide } from '~/types/AssistantInstallGuideCard'
+import type { AssistantInstallGuide } from '../types/AssistantInstallGuideCard'
 
 /** Where to paste the widget's script on the platforms the clients use, in the order they come up. */
 export const ASSISTANT_INSTALL_GUIDES: AssistantInstallGuide[] = [

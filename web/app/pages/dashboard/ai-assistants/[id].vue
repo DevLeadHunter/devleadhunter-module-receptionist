@@ -553,13 +553,13 @@ import type {
   AiAssistantRequestItem,
   AiAssistantRequestsResponse,
   AiAssistantSummary,
-} from '~/types/AiAssistant'
+} from '../../../types/AiAssistant'
 import type {
   AiAssistantAtelierToolKey,
   AiAssistantDetailStat,
   AiAssistantInformationRow,
-} from '~/types/AiAssistantDetailPage'
-import type { AssistantVideoBuildResult } from '~/types/AssistantSidecar'
+} from '../../../types/AiAssistantDetailPage'
+import type { AssistantVideoBuildResult } from '../../../types/AssistantSidecar'
 import type { AtelierTool } from '~/types/AtelierToolSheet'
 import type {
   UseAtelierToolSheetReturn,
@@ -568,27 +568,29 @@ import type {
   UseOpenExternalUrlReturn,
   UseToastReturn,
 } from '~/types/Composables'
-import type { AssistantMutationNotice, AssistantRequestMutationNotice } from '~/types/DrawerStack'
+import type { AssistantMutationNotice, AssistantRequestMutationNotice } from '../../../types/AssistantDrawerStack'
+import type { UseAssistantDrawerChangesReturn } from '../../../composables/useAssistantDrawerChanges'
 import type { ProspectionVideoState } from '~/types/ProspectionVideo'
 import type { TemplatePreviewDevice } from '~/types/TemplatePicker'
 import type { UiConfirmModalHandle } from '~/types/UiConfirmModal'
 import { computed, onMounted, ref, watch } from 'vue'
-import AssistantFaqCard from '~/components/ai-assistants/AssistantFaqCard.vue'
-import AssistantInstallGuideCard from '~/components/ai-assistants/AssistantInstallGuideCard.vue'
-import AssistantPortrait from '~/components/ai-assistants/AssistantPortrait.vue'
-import AssistantRecentRequests from '~/components/ai-assistants/AssistantRecentRequests.vue'
-import AssistantSettingsForm from '~/components/ai-assistants/AssistantSettingsForm.vue'
-import AssistantSubscriptionCard from '~/components/ai-assistants/AssistantSubscriptionCard.vue'
-import AssistantVideoCard from '~/components/ai-assistants/AssistantVideoCard.vue'
+import AssistantFaqCard from '../../../components/ai-assistants/AssistantFaqCard.vue'
+import AssistantInstallGuideCard from '../../../components/ai-assistants/AssistantInstallGuideCard.vue'
+import AssistantPortrait from '../../../components/ai-assistants/AssistantPortrait.vue'
+import AssistantRecentRequests from '../../../components/ai-assistants/AssistantRecentRequests.vue'
+import AssistantSettingsForm from '../../../components/ai-assistants/AssistantSettingsForm.vue'
+import AssistantSubscriptionCard from '../../../components/ai-assistants/AssistantSubscriptionCard.vue'
+import AssistantVideoCard from '../../../components/ai-assistants/AssistantVideoCard.vue'
 import { useAtelierToolSheet } from '~/composables/useAtelierToolSheet'
 import { ATELIER_PREVIEW_DEVICES } from '~/constants/atelierPreviewDevices'
 import { useCoarsePointer } from '~/composables/useCoarsePointer'
 import { useDesktopVideoRequestFollowUp } from '~/composables/useDesktopVideoRequestFollowUp'
 import { useToast } from '~/composables/useToast'
 import { useVideoGenerationProgress } from '~/composables/useVideoGenerationProgress'
-import { RECEPTIONIST_VIDEO_BUILD_PHASES } from '~/constants/videoBuildPhases'
-import { AiAssistantService } from '~/services/aiAssistantService'
-import { AssistantSidecarService } from '~/services/assistantSidecarService'
+import { ASSISTANT_VIDEO_BUILD_PHASES } from '../../../constants/assistantPresenterVideo'
+import { useAssistantDrawerChanges } from '../../../composables/useAssistantDrawerChanges'
+import { AiAssistantService } from '../../../services/aiAssistantService'
+import { AssistantSidecarService } from '../../../services/assistantSidecarService'
 import { getScraperSidecarInfo } from '~/services/scraperSidecarService'
 import { useDrawerStackStore } from '~/stores/drawerStack'
 import { useProspectSearchStore } from '~/stores/prospectSearch'
@@ -598,8 +600,8 @@ import {
   demoUrlWithInternal,
   mailboxStatusLabel,
   missingStartStepsLabel,
-} from '~/utils/aiAssistantLabels'
-import { assistantPortraitUrl, shownOwnImageBackground, shownOwnImageUrl } from '~/utils/assistantPortrait'
+} from '../../../utils/aiAssistantLabels'
+import { assistantPortraitUrl, shownOwnImageBackground, shownOwnImageUrl } from '../../../utils/assistantPortrait'
 import { ClipboardCopy } from '~/utils/clipboardCopy'
 import { daysUntil, formatNumericDate } from '~/utils/date'
 
@@ -664,6 +666,14 @@ const route: ReturnType<typeof useRoute> = useRoute()
 const router: ReturnType<typeof useRouter> = useRouter()
 const toast: UseToastReturn = useToast()
 const drawerStack: ReturnType<typeof useDrawerStackStore> = useDrawerStackStore()
+const {
+  assistantChangeCount,
+  latestAssistantChange,
+  requestChangeCount,
+  latestRequestChange,
+  notifyAssistantUpdated,
+  notifyAssistantDeleted,
+}: UseAssistantDrawerChangesReturn = useAssistantDrawerChanges()
 const prospectSearchStore: ReturnType<typeof useProspectSearchStore> = useProspectSearchStore()
 const { openExternalUrl }: UseOpenExternalUrlReturn = useOpenExternalUrl()
 const { copy, copied }: UseCopyToClipboardReturn = useCopyToClipboard()
@@ -690,7 +700,7 @@ const {
   PAGE_TOOL_KEYS,
   isCoarsePointer,
 )
-const videoProgress: UseVideoGenerationProgressReturn = useVideoGenerationProgress(RECEPTIONIST_VIDEO_BUILD_PHASES)
+const videoProgress: UseVideoGenerationProgressReturn = useVideoGenerationProgress(ASSISTANT_VIDEO_BUILD_PHASES)
 const { startFollowUp: startVideoFollowUp, stopFollowUp: stopVideoFollowUp }: UseDesktopVideoRequestFollowUpReturn =
   useDesktopVideoRequestFollowUp(readVideoState, (): AiAssistantSummary | null => assistant.value)
 
@@ -958,7 +968,7 @@ function onDraftChange(edited: AiAssistantEditForm): void {
  */
 function onAssistantSaved(updated: AiAssistantSummary): void {
   assistant.value = updated
-  drawerStack.notifyAssistantUpdated(updated)
+  notifyAssistantUpdated(updated)
   previewReloadNonce.value += 1
 }
 
@@ -1019,7 +1029,7 @@ async function regenerateAssistant(): Promise<void> {
   try {
     const updated: AiAssistantSummary = await AiAssistantService.regenerate(assistant.value.id)
     assistant.value = updated
-    drawerStack.notifyAssistantUpdated(updated)
+    notifyAssistantUpdated(updated)
     previewReloadNonce.value += 1
     toast.success('Réceptionniste régénérée depuis les dernières données du prospect.')
   } catch {
@@ -1039,7 +1049,7 @@ async function markSold(): Promise<void> {
   try {
     const updated: AiAssistantSummary = await AiAssistantService.markSold(assistant.value.id)
     assistant.value = updated
-    drawerStack.notifyAssistantUpdated(updated)
+    notifyAssistantUpdated(updated)
     toast.success("Réceptionniste marquée vendue : elle alerte le commerçant et l'e-mail de bienvenue est parti.")
   } catch {
     toast.error('Impossible de marquer cette réceptionniste vendue pour le moment.')
@@ -1088,7 +1098,7 @@ async function revokeClientLinks(): Promise<void> {
     const updated: AiAssistantSummary = await AiAssistantService.revokeClientLinks(assistant.value.id)
     assistant.value = updated
     clientSpaceLinkForManualCopy.value = null
-    drawerStack.notifyAssistantUpdated(updated)
+    notifyAssistantUpdated(updated)
     newClientLinkConfirmModal.value?.open()
   } catch {
     toast.error('Impossible de couper les liens pour le moment.')
@@ -1106,7 +1116,7 @@ async function removeAssistant(): Promise<void> {
   isDeleting.value = true
   try {
     await AiAssistantService.remove(assistant.value.id)
-    drawerStack.notifyAssistantDeleted(assistant.value.id)
+    notifyAssistantDeleted(assistant.value.id)
     toast.success('Réceptionniste supprimée, ses fichiers et les données de ses visiteurs sont effacés.')
     await router.push('/dashboard/ai-assistants')
   } catch (error: unknown) {
@@ -1165,7 +1175,7 @@ async function requestVideoFromDesktop(): Promise<void> {
   try {
     const updated: AiAssistantSummary = await AiAssistantService.requestDesktopVideo(assistant.value.id)
     assistant.value = updated
-    drawerStack.notifyAssistantUpdated(updated)
+    notifyAssistantUpdated(updated)
     startVideoFollowUp()
     toast.success('Demande envoyée à votre PC.')
   } catch (error: unknown) {
@@ -1187,7 +1197,7 @@ async function cancelVideoRequest(): Promise<void> {
   try {
     const updated: AiAssistantSummary = await AiAssistantService.cancelDesktopVideoRequest(assistant.value.id)
     assistant.value = updated
-    drawerStack.notifyAssistantUpdated(updated)
+    notifyAssistantUpdated(updated)
     stopVideoFollowUp()
     toast.success('Demande annulée.')
   } catch (error: unknown) {
@@ -1207,7 +1217,7 @@ async function removeVideo(): Promise<void> {
   try {
     const updated: AiAssistantSummary = await AiAssistantService.clearVideo(assistant.value.id)
     assistant.value = updated
-    drawerStack.notifyAssistantUpdated(updated)
+    notifyAssistantUpdated(updated)
     toast.success('Vidéo supprimée.')
   } catch (error: unknown) {
     toast.error(error instanceof Error ? error.message : 'Suppression de la vidéo impossible.')
@@ -1271,17 +1281,17 @@ async function loadData(): Promise<void> {
 }
 
 watch(
-  (): number => drawerStack.assistantMutationCounter,
+  (): number => assistantChangeCount.value,
   (): void => {
-    const notice: AssistantMutationNotice | null = drawerStack.lastAssistantMutation
+    const notice: AssistantMutationNotice | null = latestAssistantChange.value
     if (notice?.type === 'updated' && notice.assistant.id === assistantId.value) assistant.value = notice.assistant
   },
 )
 
 watch(
-  (): number => drawerStack.requestMutationCounter,
+  (): number => requestChangeCount.value,
   (): void => {
-    const notice: AssistantRequestMutationNotice | null = drawerStack.lastRequestMutation
+    const notice: AssistantRequestMutationNotice | null = latestRequestChange.value
     if (notice?.type !== 'updated') return
     requests.value = requests.value.map(
       (listedRequest: AiAssistantRequestItem): AiAssistantRequestItem =>

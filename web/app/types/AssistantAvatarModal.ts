@@ -1,4 +1,4 @@
-import type { AiAssistantSummary } from '~/types/AiAssistant'
+import type { AiAssistantSummary } from './AiAssistant'
 
 /** Props of the dialog where the business's own image is sent, chosen or deleted; `accentColor` paints its disc. */
 export type AssistantAvatarModalProps = {

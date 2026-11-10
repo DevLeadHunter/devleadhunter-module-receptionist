@@ -114,11 +114,11 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref, ShallowRef } from 'vue'
-import type { AiAssistantSummary } from '~/types/AiAssistant'
-import type { AiAssistantCardEmits, AiAssistantCardProps } from '~/types/AiAssistantCard'
+import type { AiAssistantSummary } from '../../types/AiAssistant'
+import type { AiAssistantCardEmits, AiAssistantCardProps } from '../../types/AiAssistantCard'
 import type { UseCopyToClipboardReturn, UseLazyPreviewReturn } from '~/types/Composables'
 import { computed, ref, useTemplateRef } from 'vue'
-import AssistantPortrait from '~/components/ai-assistants/AssistantPortrait.vue'
+import AssistantPortrait from './AssistantPortrait.vue'
 import { useCopyToClipboard } from '~/composables/useCopyToClipboard'
 import { useLazyPreview } from '~/composables/useLazyPreview'
 import {
@@ -127,8 +127,8 @@ import {
   assistantStatusLabel,
   demoUrlWithInternal,
   missingStartStepsLabel,
-} from '~/utils/aiAssistantLabels'
-import { assistantPortraitUrl, shownOwnImageBackground, shownOwnImageUrl } from '~/utils/assistantPortrait'
+} from '../../utils/aiAssistantLabels'
+import { assistantPortraitUrl, shownOwnImageBackground, shownOwnImageUrl } from '../../utils/assistantPortrait'
 
 const props: AiAssistantCardProps = defineProps({
   assistant: {

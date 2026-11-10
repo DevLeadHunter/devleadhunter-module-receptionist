@@ -79,14 +79,14 @@ import type {
   AiAssistantConversationMessage,
   AiAssistantConversationsResponse,
   AiAssistantSummary,
-} from '~/types/AiAssistant'
+} from '../../types/AiAssistant'
 import type {
   UiAssistantConversationsDrawerEmits,
   UiAssistantConversationsDrawerProps,
-} from '~/types/UiAssistantConversationsDrawer'
+} from '../../types/UiAssistantConversationsDrawer'
 import { computed, ref, watch } from 'vue'
-import { AiAssistantService } from '~/services/aiAssistantService'
-import { languageCodeLabel } from '~/utils/aiAssistantLabels'
+import { AiAssistantService } from '../../services/aiAssistantService'
+import { languageCodeLabel } from '../../utils/aiAssistantLabels'
 import { formatNumericDateTime } from '~/utils/date'
 
 const props: UiAssistantConversationsDrawerProps = defineProps({

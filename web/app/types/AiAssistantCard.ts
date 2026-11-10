@@ -1,4 +1,4 @@
-import type { AiAssistantSummary } from '~/types/AiAssistant'
+import type { AiAssistantSummary } from './AiAssistant'
 
 export type AiAssistantCardProps = {
   assistant: AiAssistantSummary

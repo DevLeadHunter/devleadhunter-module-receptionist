@@ -61,12 +61,12 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, ModelRef, PropType } from 'vue'
-import type { AiAssistantPersona } from '~/types/AiAssistant'
-import type { AssistantPersonaPickerEmits, AssistantPersonaPickerProps } from '~/types/AssistantPersonaPicker'
+import type { AiAssistantPersona } from '../../types/AiAssistant'
+import type { AssistantPersonaPickerEmits, AssistantPersonaPickerProps } from '../../types/AssistantPersonaPicker'
 import { computed } from 'vue'
-import AssistantPortrait from '~/components/ai-assistants/AssistantPortrait.vue'
-import { ASSISTANT_CASTING } from '~/constants/assistantCasting'
-import { personaPortraitUrl } from '~/utils/assistantPortrait'
+import AssistantPortrait from './AssistantPortrait.vue'
+import { ASSISTANT_CASTING } from '../../constants/assistantCasting'
+import { personaPortraitUrl } from '../../utils/assistantPortrait'
 
 /** The first name shown by the assistant; a casting persona is picked when it is its name. */
 const modelValue: ModelRef<string> = defineModel<string>({ required: true })

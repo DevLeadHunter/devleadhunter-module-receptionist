@@ -5,7 +5,7 @@ import type {
   AiAssistantStartStep,
   AiAssistantSummary,
   AssistantSubscriptionStatus,
-} from '~/types/AiAssistant'
+} from '../types/AiAssistant'
 import { daysUntil } from '~/utils/date'
 
 /** French label of each assistant status. */

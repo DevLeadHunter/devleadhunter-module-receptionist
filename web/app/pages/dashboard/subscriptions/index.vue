@@ -77,19 +77,21 @@
 <script lang="ts" setup>
 import type { Ref } from 'vue'
 import { onMounted, ref, watch } from 'vue'
-import type { AssistantSubscription, AssistantSubscriptionListResponse } from '~/types/AiAssistant'
-import type { AssistantSubscriptionMutationNotice } from '~/types/DrawerStack'
+import type { AssistantSubscription, AssistantSubscriptionListResponse } from '../../../types/AiAssistant'
+import type { AssistantSubscriptionMutationNotice } from '../../../types/AssistantDrawerStack'
+import type { UseAssistantDrawerChangesReturn } from '../../../composables/useAssistantDrawerChanges'
 import type { UseToastReturn } from '~/types/Composables'
-import { AiAssistantService } from '~/services/aiAssistantService'
+import { AiAssistantService } from '../../../services/aiAssistantService'
 import { useDrawerStackStore } from '~/stores/drawerStack'
+import { useAssistantDrawerChanges } from '../../../composables/useAssistantDrawerChanges'
 import { useToast } from '~/composables/useToast'
-import { SUBSCRIPTION_STATUS_LABELS } from '~/utils/aiAssistantLabels'
+import { SUBSCRIPTION_STATUS_LABELS } from '../../../utils/aiAssistantLabels'
 import { formatShortMonthDate } from '~/utils/date'
 import { formatEuros } from '~/utils/currency'
 
 definePageMeta({
   layout: 'dashboard',
-  middleware: ['auth'],
+  middleware: ['auth', 'ai-assistant-module'],
 })
 
 const toast: UseToastReturn = useToast()
@@ -100,6 +102,8 @@ const mrrCents: Ref<number> = ref(0)
 const isLoading: Ref<boolean> = ref(false)
 
 const drawerStack: ReturnType<typeof useDrawerStackStore> = useDrawerStackStore()
+const { subscriptionChangeCount, latestSubscriptionChange }: UseAssistantDrawerChangesReturn =
+  useAssistantDrawerChanges()
 
 const STATUS_BADGE_CLASS: Record<string, string> = {
   incomplete: '',
@@ -145,7 +149,7 @@ function openDrawer(subscription: AssistantSubscription): void {
 
 /** Apply the latest subscription mutation broadcast by the drawer to the list (and refresh the KPIs). */
 function applySubscriptionMutation(): void {
-  const notice: AssistantSubscriptionMutationNotice | null = drawerStack.lastSubscriptionMutation
+  const notice: AssistantSubscriptionMutationNotice | null = latestSubscriptionChange.value
   if (!notice) return
   const index: number = subscriptions.value.findIndex(
     (subscription: AssistantSubscription): boolean => subscription.id === notice.subscription.id,
@@ -154,7 +158,7 @@ function applySubscriptionMutation(): void {
   loadAll()
 }
 
-watch((): number => drawerStack.subscriptionMutationCounter, applySubscriptionMutation)
+watch((): number => subscriptionChangeCount.value, applySubscriptionMutation)
 
 onMounted(async (): Promise<void> => {
   await loadAll()

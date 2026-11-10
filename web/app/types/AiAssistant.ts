@@ -82,6 +82,12 @@ export type AiAssistantListResponse = {
   assistants: AiAssistantSummary[]
 }
 
+/** The price of the receptionist subscription the user sells (`GET/PUT /api/v1/ai-assistants/pricing`). */
+export type AssistantPricing = {
+  monthly_price_cents: number
+  annual_free_months: number
+}
+
 /** A client's recurring subscription to a sold assistant, as the Abonnements page shows it. */
 export type AssistantSubscription = {
   id: number

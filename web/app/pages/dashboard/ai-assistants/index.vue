@@ -127,19 +127,25 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, Ref } from 'vue'
-import type { AiAssistantListResponse, AiAssistantRequestsResponse, AiAssistantSummary } from '~/types/AiAssistant'
+import type {
+  AiAssistantListResponse,
+  AiAssistantRequestsResponse,
+  AiAssistantSummary,
+} from '../../../types/AiAssistant'
 import type { UseOpenExternalUrlReturn } from '~/types/Composables'
-import type { AssistantMutationNotice } from '~/types/DrawerStack'
+import type { AssistantMutationNotice } from '../../../types/AssistantDrawerStack'
+import type { UseAssistantDrawerChangesReturn } from '../../../composables/useAssistantDrawerChanges'
 import type { SelectFieldOption } from '~/types/SelectField'
 import { computed, onMounted, ref, watch } from 'vue'
-import { AiAssistantService } from '~/services/aiAssistantService'
-import { useDrawerStackStore } from '~/stores/drawerStack'
+import { AiAssistantService } from '../../../services/aiAssistantService'
+import { useAssistantDrawerChanges } from '../../../composables/useAssistantDrawerChanges'
 
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'ai-assistant-module'] })
 
 useSeoMeta({ title: 'Réceptionnistes IA — DevLeadHunter' })
 
-const drawerStack: ReturnType<typeof useDrawerStackStore> = useDrawerStackStore()
+const { assistantChangeCount, latestAssistantChange, requestChangeCount }: UseAssistantDrawerChangesReturn =
+  useAssistantDrawerChanges()
 const { openExternalUrl }: UseOpenExternalUrlReturn = useOpenExternalUrl()
 
 const assistants: Ref<AiAssistantSummary[]> = ref([])
@@ -238,9 +244,9 @@ async function loadData(): Promise<void> {
 }
 
 watch(
-  (): number => drawerStack.assistantMutationCounter,
+  (): number => assistantChangeCount.value,
   (): void => {
-    const notice: AssistantMutationNotice | null = drawerStack.lastAssistantMutation
+    const notice: AssistantMutationNotice | null = latestAssistantChange.value
     if (notice?.type === 'updated') {
       assistants.value = assistants.value.map(
         (assistant: AiAssistantSummary): AiAssistantSummary =>
@@ -255,7 +261,7 @@ watch(
 )
 
 watch(
-  (): number => drawerStack.requestMutationCounter,
+  (): number => requestChangeCount.value,
   (): void => {
     refreshPendingRequestCount()
   },

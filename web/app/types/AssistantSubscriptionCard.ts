@@ -1,4 +1,4 @@
-import type { AiAssistantSummary, AssistantSubscriptionInterval } from '~/types/AiAssistant'
+import type { AiAssistantSummary, AssistantSubscriptionInterval } from './AiAssistant'
 
 export type AssistantSubscriptionCardProps = {
   assistant: AiAssistantSummary

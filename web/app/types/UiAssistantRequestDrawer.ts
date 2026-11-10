@@ -1,4 +1,4 @@
-import type { AiAssistantRequestItem } from '~/types/AiAssistant'
+import type { AiAssistantRequestItem } from './AiAssistant'
 
 /** Props of the drawer showing one visitor request, its conversation and the owner's actions. */
 export type UiAssistantRequestDrawerProps = {

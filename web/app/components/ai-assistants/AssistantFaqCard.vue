@@ -130,10 +130,10 @@
 <script lang="ts" setup>
 import type { Ref } from 'vue'
 import { onMounted, ref, watch } from 'vue'
-import type { AiAssistantFaqEntry, AiAssistantFaqResponse, AiAssistantUnansweredEntry } from '~/types/AiAssistant'
-import type { AssistantFaqCardProps } from '~/types/AssistantFaqCard'
+import type { AiAssistantFaqEntry, AiAssistantFaqResponse, AiAssistantUnansweredEntry } from '../../types/AiAssistant'
+import type { AssistantFaqCardProps } from '../../types/AssistantFaqCard'
 import type { UseToastReturn } from '~/types/Composables'
-import { AiAssistantService } from '~/services/aiAssistantService'
+import { AiAssistantService } from '../../services/aiAssistantService'
 import { useToast } from '~/composables/useToast'
 
 /** What visitors asked without an answer, with a field to answer each, and the answers in place, editable. */

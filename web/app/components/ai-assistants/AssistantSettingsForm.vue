@@ -162,23 +162,23 @@ import type {
   AiAssistantRequestType,
   AiAssistantSummary,
   AiAssistantUpdatePayload,
-} from '~/types/AiAssistant'
+} from '../../types/AiAssistant'
 import type {
   AssistantSettingsFormChangedSections,
   AssistantSettingsFormEmits,
   AssistantSettingsFormProps,
   AssistantSettingsFormSection,
-} from '~/types/AssistantSettingsForm'
+} from '../../types/AssistantSettingsForm'
 import type { UseToastReturn } from '~/types/Composables'
 import type { SelectFieldOption } from '~/types/SelectField'
 import { computed, ref, watch } from 'vue'
-import AssistantAvatarModal from '~/components/ai-assistants/AssistantAvatarModal.vue'
-import AssistantPersonaPicker from '~/components/ai-assistants/AssistantPersonaPicker.vue'
+import AssistantAvatarModal from './AssistantAvatarModal.vue'
+import AssistantPersonaPicker from './AssistantPersonaPicker.vue'
 import { useToast } from '~/composables/useToast'
-import { ASSISTANT_TONE_OPTIONS } from '~/constants/assistantTones'
-import { AiAssistantService } from '~/services/aiAssistantService'
-import { widgetLanguageCode } from '~/utils/aiAssistantLabels'
-import { formatAssistantTone, parseAssistantTone } from '~/utils/assistantTone'
+import { ASSISTANT_TONE_OPTIONS } from '../../constants/assistantTones'
+import { AiAssistantService } from '../../services/aiAssistantService'
+import { widgetLanguageCode } from '../../utils/aiAssistantLabels'
+import { formatAssistantTone, parseAssistantTone } from '../../utils/assistantTone'
 import { withRecordChanges } from '~/utils/formSync'
 
 /**
