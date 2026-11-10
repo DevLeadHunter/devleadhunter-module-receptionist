@@ -81,9 +81,9 @@
 <script lang="ts" setup>
 import type { ComputedRef, PropType, Ref } from 'vue'
 import { computed, onMounted, ref } from 'vue'
-import type { AssistantContactBannerProps, AssistantContactBannerState } from '~/types/AssistantContactBanner'
-import { ASSISTANT_FIRST_BYTE_TIMEOUT_MS } from '~/constants/AssistantWidgetLimits'
-import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
+import type { AssistantContactBannerProps, AssistantContactBannerState } from '../types/AssistantContactBanner'
+import { ASSISTANT_FIRST_BYTE_TIMEOUT_MS } from '../constants/AssistantWidgetLimits'
+import { AssistantAccentUtils } from '../utils/AssistantAccentUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 
 const props: AssistantContactBannerProps = defineProps({

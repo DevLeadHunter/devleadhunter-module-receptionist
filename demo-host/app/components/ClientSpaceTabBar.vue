@@ -19,9 +19,9 @@
 
 <script lang="ts" setup>
 import type { EmitFn, PropType } from 'vue'
-import type { ClientSpaceSection } from '~/types/ClientSpaceNavigation'
-import type { ClientSpaceTabBarEmits, ClientSpaceTabBarProps } from '~/types/ClientSpaceTabBar'
-import { CLIENT_SPACE_NAV_ITEMS } from '~/constants/ClientSpaceNavItems'
+import type { ClientSpaceSection } from '../types/ClientSpaceNavigation'
+import type { ClientSpaceTabBarEmits, ClientSpaceTabBarProps } from '../types/ClientSpaceTabBar'
+import { CLIENT_SPACE_NAV_ITEMS } from '../constants/ClientSpaceNavItems'
 
 /**
  * The four sections at the bottom of the phone screen, the current one in the business's colour, the count of

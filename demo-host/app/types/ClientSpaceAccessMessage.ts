@@ -1,4 +1,4 @@
-import type { AiAssistantClientRenewState, AiAssistantClientSpaceState } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientRenewState, AiAssistantClientSpaceState } from './AiAssistantClientSpace'
 
 export type ClientSpaceAccessMessageProps = {
   state: AiAssistantClientSpaceState

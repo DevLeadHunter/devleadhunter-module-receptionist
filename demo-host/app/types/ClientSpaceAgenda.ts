@@ -3,7 +3,7 @@ import type {
   AiAssistantClientCalendar,
   AiAssistantClientCalendarUpdate,
   AiAssistantClientRequest,
-} from '~/types/AiAssistantClientSpace'
+} from './AiAssistantClientSpace'
 
 /** Props of the client-space agenda section. */
 export type ClientSpaceAgendaProps = {

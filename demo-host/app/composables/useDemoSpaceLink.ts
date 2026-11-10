@@ -5,11 +5,11 @@ import type {
   AiAssistantClientSpace,
   AiAssistantClientSpaceLoad,
   AiAssistantClientSpaceState,
-} from '~/types/AiAssistantClientSpace'
-import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
+} from '../types/AiAssistantClientSpace'
+import type { UseClientSpaceLinkReturn } from '../types/UseClientSpaceLink'
 import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
-import { AssistantConversationStorageUtils } from '~/utils/AssistantConversationStorageUtils'
-import { ClientSpaceLanguageUtils } from '~/utils/ClientSpaceLanguageUtils'
+import { AssistantConversationStorageUtils } from '../utils/AssistantConversationStorageUtils'
+import { ClientSpaceLanguageUtils } from '../utils/ClientSpaceLanguageUtils'
 
 /**
  * The prospect's demo space, loaded with the widget sessions this browser kept, in the shape of the client's link.

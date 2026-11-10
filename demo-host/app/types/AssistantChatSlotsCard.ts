@@ -6,7 +6,7 @@ import type {
   AssistantSlotChoice,
   AssistantSlotsState,
   AssistantWidgetLanguage,
-} from '~/types/AiAssistant'
+} from './AiAssistant'
 
 export type AssistantChatSlotsCardProps = {
   language: AssistantWidgetLanguage

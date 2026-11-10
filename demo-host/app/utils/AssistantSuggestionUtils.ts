@@ -1,6 +1,6 @@
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
-import type { AssistantSuggestionAction } from '~/types/AssistantChat'
-import { APPOINTMENT_LABELS, LEAD_LABELS, PHOTO_LABELS } from '~/constants/AssistantWidgetLabels'
+import type { AssistantWidgetLanguage } from '../types/AiAssistant'
+import type { AssistantSuggestionAction } from '../types/AssistantChat'
+import { APPOINTMENT_LABELS, LEAD_LABELS, PHOTO_LABELS } from '../constants/AssistantWidgetLabels'
 
 /** Other wordings the model gives the widget's three actions, beside the widget's own labels. */
 const OTHER_ACTION_WORDINGS: Record<AssistantSuggestionAction, string[]> = {

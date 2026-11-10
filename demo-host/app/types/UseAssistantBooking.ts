@@ -7,7 +7,7 @@ import type {
   AssistantSlotChoice,
   AssistantSlotRefusalCode,
   AssistantSlotsState,
-} from '~/types/AiAssistant'
+} from './AiAssistant'
 
 export type UseAssistantBookingReturn = {
   bookingMode: Ref<AssistantBookingMode>

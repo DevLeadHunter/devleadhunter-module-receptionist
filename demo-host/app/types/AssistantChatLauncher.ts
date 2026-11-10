@@ -1,4 +1,4 @@
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from './AiAssistant'
 
 export type AssistantChatLauncherProps = {
   language: AssistantWidgetLanguage

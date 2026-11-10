@@ -9,9 +9,9 @@
 
 <script lang="ts" setup>
 import type { EmitFn, PropType } from 'vue'
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
-import type { AssistantChatCallbackBarEmits, AssistantChatCallbackBarProps } from '~/types/AssistantChatCallbackBar'
-import { LEAD_LABELS } from '~/constants/AssistantWidgetLabels'
+import type { AssistantWidgetLanguage } from '../types/AiAssistant'
+import type { AssistantChatCallbackBarEmits, AssistantChatCallbackBarProps } from '../types/AssistantChatCallbackBar'
+import { LEAD_LABELS } from '../constants/AssistantWidgetLabels'
 
 const props: AssistantChatCallbackBarProps = defineProps({
   language: {

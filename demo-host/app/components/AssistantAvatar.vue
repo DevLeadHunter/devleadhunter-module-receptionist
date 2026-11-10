@@ -14,7 +14,7 @@
 <script lang="ts" setup>
 import type { ComputedRef, Ref } from 'vue'
 import { computed, onMounted, ref, watch } from 'vue'
-import type { AssistantAvatarProps } from '~/types/AssistantAvatar'
+import type { AssistantAvatarProps } from '../types/AssistantAvatar'
 
 const props: AssistantAvatarProps = defineProps({
   url: {

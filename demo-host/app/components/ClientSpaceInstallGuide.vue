@@ -46,10 +46,10 @@
 <script lang="ts" setup>
 import type { ComputedRef, PropType } from 'vue'
 import { computed } from 'vue'
-import type { AiAssistantClientInstalled } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceInstallGuideProps } from '~/types/ClientSpaceInstallGuide'
-import type { UseClientSpaceClipboardReturn } from '~/types/UseClientSpaceClipboard'
-import { useClientSpaceClipboard } from '~/composables/useClientSpaceClipboard'
+import type { AiAssistantClientInstalled } from '../types/AiAssistantClientSpace'
+import type { ClientSpaceInstallGuideProps } from '../types/ClientSpaceInstallGuide'
+import type { UseClientSpaceClipboardReturn } from '../types/UseClientSpaceClipboard'
+import { useClientSpaceClipboard } from '../composables/useClientSpaceClipboard'
 
 const props: ClientSpaceInstallGuideProps = defineProps({
   installed: { type: Object as PropType<AiAssistantClientInstalled | null>, default: null },

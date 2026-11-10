@@ -1,5 +1,5 @@
-import type { AssistantSlotChoice, AssistantWidgetLanguage } from '~/types/AiAssistant'
-import { APPOINTMENT_LABELS, DATE_LOCALES } from '~/constants/AssistantWidgetLabels'
+import type { AssistantSlotChoice, AssistantWidgetLanguage } from '../types/AiAssistant'
+import { APPOINTMENT_LABELS, DATE_LOCALES } from '../constants/AssistantWidgetLabels'
 
 /** Every targeted country (FR, BE, LU, CH) keeps Paris time: slots always read in the business's time. */
 const BUSINESS_TIME_ZONE: string = 'Europe/Paris'

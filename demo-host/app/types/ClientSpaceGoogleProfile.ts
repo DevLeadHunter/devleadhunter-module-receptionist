@@ -1,4 +1,4 @@
-import type { AiAssistantClientGoogleProfile } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientGoogleProfile } from './AiAssistantClientSpace'
 
 export type ClientSpaceGoogleProfileProps = {
   googleProfile: AiAssistantClientGoogleProfile

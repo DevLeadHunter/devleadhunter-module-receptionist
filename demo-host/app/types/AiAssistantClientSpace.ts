@@ -1,4 +1,4 @@
-import type { AiAssistantPersonaGender, AssistantWidgetLanguage } from '~/types/AiAssistant'
+import type { AiAssistantPersonaGender, AssistantWidgetLanguage } from './AiAssistant'
 
 /** What a visitor asked for, as the API types a request. */
 export type AiAssistantClientRequestType = 'question' | 'quote' | 'appointment' | 'urgent' | 'other'

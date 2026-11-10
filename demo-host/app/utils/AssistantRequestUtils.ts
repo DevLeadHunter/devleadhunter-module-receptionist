@@ -5,13 +5,13 @@ import type {
   AssistantLeadReply,
   AssistantLeadRequestBody,
   AssistantPhotoReply,
-} from '~/types/AiAssistant'
-import type { AssistantRequestFailure } from '~/types/AssistantRequest'
+} from '../types/AiAssistant'
+import type { AssistantRequestFailure } from '../types/AssistantRequest'
 import {
   ASSISTANT_FIRST_BYTE_TIMEOUT_MS,
   ASSISTANT_PHOTO_TIMEOUT_MS,
   ASSISTANT_REPLY_TIMEOUT_MS,
-} from '~/constants/AssistantWidgetLimits'
+} from '../constants/AssistantWidgetLimits'
 import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
 
 /** The widget's calls to its assistant's public endpoints, each bounded in time and never retried; why one failed. */

@@ -1,4 +1,4 @@
-import type { AiAssistantClientSubscription } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientSubscription } from './AiAssistantClientSpace'
 
 export type ClientSpaceSubscriptionProps = {
   subscription: AiAssistantClientSubscription | null

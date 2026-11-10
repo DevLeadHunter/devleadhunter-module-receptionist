@@ -40,8 +40,8 @@
 <script lang="ts" setup>
 import type { ComputedRef, PropType } from 'vue'
 import { computed } from 'vue'
-import type { AiAssistantClientActivityDay } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceActivityChartColumn, ClientSpaceActivityChartProps } from '~/types/ClientSpaceActivityChart'
+import type { AiAssistantClientActivityDay } from '../types/AiAssistantClientSpace'
+import type { ClientSpaceActivityChartColumn, ClientSpaceActivityChartProps } from '../types/ClientSpaceActivityChart'
 
 /** A date under the axis every this many days, and under the last one. */
 const AXIS_LABEL_EVERY_DAYS: number = 7

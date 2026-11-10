@@ -1,4 +1,4 @@
-import type { ClientSpaceNavItem } from '~/types/ClientSpaceNavigation'
+import type { ClientSpaceNavItem } from '../types/ClientSpaceNavigation'
 
 /** The four sections of the client space, in the order of the tab bar and the sidebar. */
 export const CLIENT_SPACE_NAV_ITEMS: ClientSpaceNavItem[] = [

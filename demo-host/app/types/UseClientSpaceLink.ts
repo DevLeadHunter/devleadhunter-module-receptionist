@@ -4,7 +4,7 @@ import type {
   AiAssistantClientSpace,
   AiAssistantClientSpaceLoad,
   AiAssistantClientSpaceState,
-} from '~/types/AiAssistantClientSpace'
+} from './AiAssistantClientSpace'
 
 export type UseClientSpaceLinkReturn = {
   token: ComputedRef<string>

@@ -35,8 +35,8 @@
 
 <script lang="ts" setup>
 import type { EmitFn, PropType } from 'vue'
-import type { AiAssistantClientRenewState, AiAssistantClientSpaceState } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceAccessMessageEmits, ClientSpaceAccessMessageProps } from '~/types/ClientSpaceAccessMessage'
+import type { AiAssistantClientRenewState, AiAssistantClientSpaceState } from '../types/AiAssistantClientSpace'
+import type { ClientSpaceAccessMessageEmits, ClientSpaceAccessMessageProps } from '../types/ClientSpaceAccessMessage'
 
 const props: ClientSpaceAccessMessageProps = defineProps({
   state: { type: String as PropType<AiAssistantClientSpaceState>, required: true },

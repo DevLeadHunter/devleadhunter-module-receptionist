@@ -11,7 +11,7 @@
 
 <script lang="ts" setup>
 import type { PropType } from 'vue'
-import type { ClientSpaceSaveBarProps } from '~/types/ClientSpaceSaveBar'
+import type { ClientSpaceSaveBarProps } from '../types/ClientSpaceSaveBar'
 
 /**
  * The foot of a client-space form: its submit button, extra buttons (default slot), then the last save's outcome.

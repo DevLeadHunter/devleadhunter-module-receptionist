@@ -1,4 +1,4 @@
-import type { AiAssistantOpeningHoursRow } from '~/types/AiAssistantPublicBusiness'
+import type { AiAssistantOpeningHoursRow } from './AiAssistantPublicBusiness'
 
 export type OpeningHoursListProps = {
   rows: AiAssistantOpeningHoursRow[]

@@ -1,4 +1,4 @@
-import type { AiAssistantPersona } from '~/types/AiAssistant'
+import type { AiAssistantPersona } from '../types/AiAssistant'
 
 /** The persona of an assistant created without a first name, and the face of any feminine name not in the casting. */
 export const ASSISTANT_DEFAULT_PERSONA: AiAssistantPersona = { name: 'Sofia', slug: 'sofia', gender: 'feminine' }

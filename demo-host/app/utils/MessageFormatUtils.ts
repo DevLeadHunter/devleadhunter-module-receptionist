@@ -1,4 +1,4 @@
-import type { AssistantMessageBlock, AssistantMessagePart } from '~/types/AssistantMessage'
+import type { AssistantMessageBlock, AssistantMessagePart } from '../types/AssistantMessage'
 
 // An http(s) address, up to the first space or closing quote; trailing punctuation is trimmed below.
 const URL_PATTERN: RegExp = /https?:\/\/[^\s<>"«»*]+/g

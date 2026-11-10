@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import type { AiAssistantClientCalendarUpdate } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientCalendarUpdate } from './AiAssistantClientSpace'
 
 export type UseClientSpaceCalendarReturn = {
   isCalendarBusy: Ref<boolean>

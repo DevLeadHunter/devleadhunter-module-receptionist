@@ -9,7 +9,7 @@
 
 <script lang="ts" setup>
 import type { EmitFn } from 'vue'
-import type { ClientSpaceBackBarEmits, ClientSpaceBackBarProps } from '~/types/ClientSpaceBackBar'
+import type { ClientSpaceBackBarEmits, ClientSpaceBackBarProps } from '../types/ClientSpaceBackBar'
 
 const props: ClientSpaceBackBarProps = defineProps({
   backLabel: { type: String, required: true },

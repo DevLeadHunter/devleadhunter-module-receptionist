@@ -1,11 +1,11 @@
-import type { AssistantChatReply, AssistantChatRequestBody, AssistantChatStreamFrame } from '~/types/AiAssistant'
-import type { AssistantStreamOutcome } from '~/types/AssistantRequest'
+import type { AssistantChatReply, AssistantChatRequestBody, AssistantChatStreamFrame } from '../types/AiAssistant'
+import type { AssistantStreamOutcome } from '../types/AssistantRequest'
 import {
   ASSISTANT_FIRST_BYTE_TIMEOUT_MS,
   ASSISTANT_REPLY_START_TIMEOUT_MS,
   ASSISTANT_STREAM_IDLE_TIMEOUT_MS,
-} from '~/constants/AssistantWidgetLimits'
-import { AssistantRequestUtils } from '~/utils/AssistantRequestUtils'
+} from '../constants/AssistantWidgetLimits'
+import { AssistantRequestUtils } from './AssistantRequestUtils'
 
 /** Asks for the assistant's reply as a stream (server-sent events) and reads it frame by frame, bounded in time. */
 export class AssistantStreamUtils {

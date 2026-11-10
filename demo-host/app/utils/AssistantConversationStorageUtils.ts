@@ -1,6 +1,6 @@
-import type { AssistantThreadMessage } from '~/types/AiAssistant'
-import type { AssistantStoredConversation } from '~/types/AssistantThread'
-import { AssistantThreadUtils } from '~/utils/AssistantThreadUtils'
+import type { AssistantThreadMessage } from '../types/AiAssistant'
+import type { AssistantStoredConversation } from '../types/AssistantThread'
+import { AssistantThreadUtils } from './AssistantThreadUtils'
 
 /** Keeps a visitor's conversation in the browser's storage, so a returning visitor finds their thread. */
 export class AssistantConversationStorageUtils {

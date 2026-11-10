@@ -34,9 +34,9 @@
 <script lang="ts" setup>
 import type { EmitFn, PropType, Ref } from 'vue'
 import { ref } from 'vue'
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
-import type { AssistantChatHeaderEmits, AssistantChatHeaderProps } from '~/types/AssistantChatHeader'
-import { LANGUAGE_LABELS, UI_LABELS } from '~/constants/AssistantWidgetLabels'
+import type { AssistantWidgetLanguage } from '../types/AiAssistant'
+import type { AssistantChatHeaderEmits, AssistantChatHeaderProps } from '../types/AssistantChatHeader'
+import { LANGUAGE_LABELS, UI_LABELS } from '../constants/AssistantWidgetLabels'
 
 const props: AssistantChatHeaderProps = defineProps({
   assistantName: {

@@ -1,4 +1,4 @@
-import type { AssistantChatMessage } from '~/types/AiAssistant'
+import type { AssistantChatMessage } from './AiAssistant'
 
 export type AssistantChatMessageBubbleProps = {
   message: AssistantChatMessage

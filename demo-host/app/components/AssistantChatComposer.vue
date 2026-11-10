@@ -80,13 +80,13 @@
 <script lang="ts" setup>
 import type { EmitFn, PropType, Ref } from 'vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '../types/AiAssistant'
 import type {
   AssistantChatComposerEmits,
   AssistantChatComposerProps,
   AssistantChatComposerTool,
-} from '~/types/AssistantChatComposer'
-import { APPOINTMENT_LABELS, PHOTO_LABELS, UI_LABELS, UI_PLACEHOLDER } from '~/constants/AssistantWidgetLabels'
+} from '../types/AssistantChatComposer'
+import { APPOINTMENT_LABELS, PHOTO_LABELS, UI_LABELS, UI_PLACEHOLDER } from '../constants/AssistantWidgetLabels'
 
 const props: AssistantChatComposerProps = defineProps({
   language: {

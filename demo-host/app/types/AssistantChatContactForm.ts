@@ -1,4 +1,4 @@
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from './AiAssistant'
 
 /** What the visitor types to be called back. */
 export type AssistantContactDetails = {

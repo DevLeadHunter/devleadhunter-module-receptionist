@@ -1,4 +1,4 @@
-import type { AiAssistantClientActivityDay } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientActivityDay } from './AiAssistantClientSpace'
 
 export type ClientSpaceActivityChartProps = {
   days: AiAssistantClientActivityDay[]

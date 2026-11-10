@@ -159,8 +159,8 @@ import type {
   AiAssistantClientCalendar,
   AiAssistantClientCalendarUpdate,
   AiAssistantClientRequest,
-} from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceAgendaEmits, ClientSpaceAgendaProps } from '~/types/ClientSpaceAgenda'
+} from '../types/AiAssistantClientSpace'
+import type { ClientSpaceAgendaEmits, ClientSpaceAgendaProps } from '../types/ClientSpaceAgenda'
 
 const props: ClientSpaceAgendaProps = defineProps({
   calendar: { type: Object as PropType<AiAssistantClientCalendar>, required: true },

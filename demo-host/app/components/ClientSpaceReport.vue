@@ -45,8 +45,8 @@
 <script lang="ts" setup>
 import type { ComputedRef, PropType } from 'vue'
 import { computed } from 'vue'
-import type { AiAssistantClientReport } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceReportFigure, ClientSpaceReportProps } from '~/types/ClientSpaceReport'
+import type { AiAssistantClientReport } from '../types/AiAssistantClientSpace'
+import type { ClientSpaceReportFigure, ClientSpaceReportProps } from '../types/ClientSpaceReport'
 
 /**
  * The latest monthly report of the client's receptionist: its figures, languages and most asked questions.

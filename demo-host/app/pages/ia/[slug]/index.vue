@@ -22,15 +22,15 @@
 <script lang="ts" setup>
 import type { ComputedRef, Ref } from 'vue'
 import type { LocationQuery } from 'vue-router'
-import type { AiAssistantConfig } from '~/types/AiAssistant'
-import type { AssistantPreviewOverrides } from '~/composables/useAssistantPreviewOverrides'
-import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
+import type { AiAssistantConfig } from '../../../types/AiAssistant'
+import type { AssistantPreviewOverrides } from '../../../composables/useAssistantPreviewOverrides'
+import type { AssistantAccentPalette } from '../../../utils/AssistantAccentUtils'
 import { computed, onMounted, ref } from 'vue'
-import AssistantBusinessPage from '~/components/AssistantBusinessPage.vue'
-import AssistantDemoPage from '~/components/AssistantDemoPage.vue'
-import { useAssistantPreviewOverrides } from '~/composables/useAssistantPreviewOverrides'
+import AssistantBusinessPage from '../../../components/AssistantBusinessPage.vue'
+import AssistantDemoPage from '../../../components/AssistantDemoPage.vue'
+import { useAssistantPreviewOverrides } from '../../../composables/useAssistantPreviewOverrides'
 import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
-import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
+import { AssistantAccentUtils } from '../../../utils/AssistantAccentUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 
 const route: ReturnType<typeof useRoute> = useRoute()

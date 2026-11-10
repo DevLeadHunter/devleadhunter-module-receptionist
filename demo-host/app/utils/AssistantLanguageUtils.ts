@@ -1,5 +1,5 @@
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
-import { LANGUAGE_LABELS } from '~/constants/AssistantWidgetLabels'
+import type { AssistantWidgetLanguage } from '../types/AiAssistant'
+import { LANGUAGE_LABELS } from '../constants/AssistantWidgetLabels'
 
 /** Codes our own data may still hold for a widget language: Luxembourgish was « lu » before it became BCP 47's « lb ». */
 const LEGACY_LANGUAGE_CODES: Map<string, AssistantWidgetLanguage> = new Map([['lu', 'lb']])

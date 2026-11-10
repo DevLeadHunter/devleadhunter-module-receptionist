@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import type { AiAssistantClientRequestOutcome } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientRequestOutcome } from './AiAssistantClientSpace'
 
 export type ClientSpaceRequestAction = 'handled' | 'dropped' | 'outcome'
 

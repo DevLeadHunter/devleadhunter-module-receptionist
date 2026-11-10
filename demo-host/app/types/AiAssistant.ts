@@ -1,4 +1,4 @@
-import type { AiAssistantPublicBusiness } from '~/types/AiAssistantPublicBusiness'
+import type { AiAssistantPublicBusiness } from './AiAssistantPublicBusiness'
 
 /** Grammatical gender the persona speaks in, resolved by the API from its first name. */
 export type AiAssistantPersonaGender = 'feminine' | 'masculine'

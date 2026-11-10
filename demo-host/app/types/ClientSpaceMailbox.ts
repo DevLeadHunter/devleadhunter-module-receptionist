@@ -1,4 +1,4 @@
-import type { AiAssistantClientMailbox } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientMailbox } from './AiAssistantClientSpace'
 
 export type ClientSpaceMailboxProps = {
   mailbox: AiAssistantClientMailbox

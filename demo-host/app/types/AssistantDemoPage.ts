@@ -1,5 +1,5 @@
-import type { AiAssistantConfig } from '~/types/AiAssistant'
-import type { ClientSpaceIconName } from '~/types/ClientSpaceIcon'
+import type { AiAssistantConfig } from './AiAssistant'
+import type { ClientSpaceIconName } from './ClientSpaceIcon'
 
 export type AssistantDemoPageProps = {
   assistant: AiAssistantConfig

@@ -1,4 +1,4 @@
-import type { AiAssistantClientSubscriptionStatus } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientSubscriptionStatus } from '../types/AiAssistantClientSpace'
 
 export const CLIENT_SPACE_SUBSCRIPTION_STATUS_LABELS: Record<AiAssistantClientSubscriptionStatus, string> = {
   incomplete: 'En attente',

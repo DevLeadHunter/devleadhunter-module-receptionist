@@ -1,4 +1,4 @@
-import type { AssistantChatMessage } from '~/types/AiAssistant'
+import type { AssistantChatMessage } from './AiAssistant'
 
 /** One turn of the conversation the demo page plays by itself, before handing over to the visitor. */
 export type AssistantDemoScriptStep = AssistantChatMessage & {

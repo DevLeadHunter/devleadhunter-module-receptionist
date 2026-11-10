@@ -1,4 +1,4 @@
-import type { AssistantGreetingContext, AssistantHostPage } from '~/types/AssistantDemoScript'
+import type { AssistantGreetingContext, AssistantHostPage } from '../types/AssistantDemoScript'
 
 /** Words of a contact page, in the widget's languages, folded. */
 const CONTACT_WORDS: RegExp = /contact|kontakt|nous-joindre|joindre|reach-us/

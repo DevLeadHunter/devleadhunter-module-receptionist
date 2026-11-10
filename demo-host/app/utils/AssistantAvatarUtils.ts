@@ -1,8 +1,8 @@
 import { createAvatar } from '@dicebear/core'
 import type { Options as NotionistsOptions } from '@dicebear/notionists'
 import * as notionists from '@dicebear/notionists'
-import type { AiAssistantPersona, AiAssistantPersonaGender } from '~/types/AiAssistant'
-import { ASSISTANT_CASTING, ASSISTANT_DEFAULT_PERSONA } from '~/constants/AssistantCasting'
+import type { AiAssistantPersona, AiAssistantPersonaGender } from '../types/AiAssistant'
+import { ASSISTANT_CASTING, ASSISTANT_DEFAULT_PERSONA } from '../constants/AssistantCasting'
 
 /** One hair style of the illustration set. */
 type HairStyle = NonNullable<NotionistsOptions['hair']>[number]

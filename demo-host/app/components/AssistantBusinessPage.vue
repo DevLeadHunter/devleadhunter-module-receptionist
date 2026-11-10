@@ -48,12 +48,12 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, PropType } from 'vue'
-import type { AiAssistantConfig } from '~/types/AiAssistant'
-import type { AssistantBusinessPageProps } from '~/types/AssistantBusinessPage'
-import type { AiAssistantOpeningHoursRow } from '~/types/AiAssistantPublicBusiness'
+import type { AiAssistantConfig } from '../types/AiAssistant'
+import type { AssistantBusinessPageProps } from '../types/AssistantBusinessPage'
+import type { AiAssistantOpeningHoursRow } from '../types/AiAssistantPublicBusiness'
 import { computed } from 'vue'
-import AssistantChatWindow from '~/components/AssistantChatWindow.vue'
-import OpeningHoursList from '~/components/OpeningHoursList.vue'
+import AssistantChatWindow from './AssistantChatWindow.vue'
+import OpeningHoursList from './OpeningHoursList.vue'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 import { ContactLinkUtils } from '~/utils/ContactLinkUtils'
 

@@ -5,10 +5,11 @@
 <script lang="ts" setup>
 import type { ComputedRef } from 'vue'
 import { computed, onMounted } from 'vue'
-import type { AiAssistantConfig } from '~/types/AiAssistant'
-import type { AssistantHostPage } from '~/types/AssistantDemoScript'
+import type { AiAssistantConfig } from '../../types/AiAssistant'
+import type { AssistantHostPage } from '../../types/AssistantDemoScript'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 import { useDemoTracking } from '~/composables/useDemoTracking'
+import { ASSISTANT_TRACKING_SURFACE } from '../../constants/AssistantTrackingSurfaces'
 
 definePageMeta({ layout: false })
 
@@ -50,7 +51,13 @@ onMounted((): void => {
     window.parent.postMessage({ type: 'dlh-assistant-unavailable' }, '*')
     return
   }
-  initTracking(current.slug, current.status, null, DemoBeaconUtils.channelFromQuery(route.query.src), 'assistant')
+  initTracking(
+    current.slug,
+    current.status,
+    null,
+    DemoBeaconUtils.channelFromQuery(route.query.src),
+    ASSISTANT_TRACKING_SURFACE,
+  )
 })
 </script>
 

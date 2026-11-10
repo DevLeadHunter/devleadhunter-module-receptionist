@@ -134,13 +134,14 @@
 <script lang="ts" setup>
 import type { ComputedRef, Ref } from 'vue'
 import { computed, onMounted, ref } from 'vue'
-import type { AiAssistantConfig } from '~/types/AiAssistant'
+import type { AiAssistantConfig } from '../../types/AiAssistant'
 import { useDemoVideoTracking } from '~/composables/useDemoVideoTracking'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 import { DemoVideoEngagementTracker } from '~/utils/DemoVideoEngagementTracker'
-import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
-import { AssistantPersonaUtils } from '~/utils/AssistantPersonaUtils'
+import { AssistantAccentUtils } from '../../utils/AssistantAccentUtils'
+import { AssistantPersonaUtils } from '../../utils/AssistantPersonaUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
+import { ASSISTANT_VIDEO_SURFACE } from '../../constants/AssistantTrackingSurfaces'
 
 const route: ReturnType<typeof useRoute> = useRoute()
 const config: ReturnType<typeof useRuntimeConfig> = useRuntimeConfig()
@@ -257,7 +258,7 @@ onMounted(async (): Promise<void> => {
   }
   // A sold receptionist's page is watched by the client, never by a prospect: nothing to track or notify.
   if (current.status === 'active') {
-    await initVideoTracking(current.slug, abVariant.value, channel.value, 'assistant')
+    await initVideoTracking(current.slug, abVariant.value, channel.value, ASSISTANT_VIDEO_SURFACE)
   }
   if (playerRef.value) new DemoVideoEngagementTracker(playerRef.value, capture).start()
 })

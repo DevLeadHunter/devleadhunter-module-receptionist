@@ -39,7 +39,7 @@
 </template>
 
 <script lang="ts" setup>
-import type { AssistantDemoOwnerFeedProps } from '~/types/AssistantDemoOwnerFeed'
+import type { AssistantDemoOwnerFeedProps } from '../types/AssistantDemoOwnerFeed'
 
 const props: AssistantDemoOwnerFeedProps = defineProps({
   timeLabel: {

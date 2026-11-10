@@ -17,8 +17,8 @@
 
 <script lang="ts" setup>
 import type { PropType } from 'vue'
-import type { AiAssistantOpeningHoursRow } from '~/types/AiAssistantPublicBusiness'
-import type { OpeningHoursListProps } from '~/types/OpeningHoursList'
+import type { AiAssistantOpeningHoursRow } from '../types/AiAssistantPublicBusiness'
+import type { OpeningHoursListProps } from '../types/OpeningHoursList'
 
 const props: OpeningHoursListProps = defineProps({
   rows: { type: Array as PropType<AiAssistantOpeningHoursRow[]>, required: true },

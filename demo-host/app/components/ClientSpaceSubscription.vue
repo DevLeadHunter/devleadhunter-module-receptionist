@@ -35,9 +35,9 @@
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType } from 'vue'
 import { computed } from 'vue'
-import type { AiAssistantClientSubscription } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceSubscriptionEmits, ClientSpaceSubscriptionProps } from '~/types/ClientSpaceSubscription'
-import { CLIENT_SPACE_SUBSCRIPTION_STATUS_LABELS } from '~/constants/ClientSpaceSubscriptionStatuses'
+import type { AiAssistantClientSubscription } from '../types/AiAssistantClientSpace'
+import type { ClientSpaceSubscriptionEmits, ClientSpaceSubscriptionProps } from '../types/ClientSpaceSubscription'
+import { CLIENT_SPACE_SUBSCRIPTION_STATUS_LABELS } from '../constants/ClientSpaceSubscriptionStatuses'
 
 const props: ClientSpaceSubscriptionProps = defineProps({
   subscription: { type: Object as PropType<AiAssistantClientSubscription | null>, default: null },

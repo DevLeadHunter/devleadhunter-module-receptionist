@@ -10,14 +10,14 @@ import type {
   AssistantSlotChoice,
   AssistantSlotRefusalCode,
   AssistantSlotsState,
-} from '~/types/AiAssistant'
-import type { AssistantRequestFailure } from '~/types/AssistantRequest'
-import type { AssistantConversationThread } from '~/types/AssistantThread'
-import type { UseAssistantBookingReturn } from '~/types/UseAssistantBooking'
-import { APPOINTMENT_LABELS } from '~/constants/AssistantWidgetLabels'
-import { ASSISTANT_SLOTS_MAX_CHOSEN } from '~/constants/AssistantWidgetLimits'
-import { AssistantRequestUtils } from '~/utils/AssistantRequestUtils'
-import { AssistantScheduleUtils } from '~/utils/AssistantScheduleUtils'
+} from '../types/AiAssistant'
+import type { AssistantRequestFailure } from '../types/AssistantRequest'
+import type { AssistantConversationThread } from '../types/AssistantThread'
+import type { UseAssistantBookingReturn } from '../types/UseAssistantBooking'
+import { APPOINTMENT_LABELS } from '../constants/AssistantWidgetLabels'
+import { ASSISTANT_SLOTS_MAX_CHOSEN } from '../constants/AssistantWidgetLimits'
+import { AssistantRequestUtils } from '../utils/AssistantRequestUtils'
+import { AssistantScheduleUtils } from '../utils/AssistantScheduleUtils'
 
 /**
  * The appointment panel of a conversation: the agenda's free slots or the open half-days, and the visitor's picks.

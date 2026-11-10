@@ -1,5 +1,5 @@
-import type { AiAssistantConfig } from '~/types/AiAssistant'
-import type { AssistantHostPage } from '~/types/AssistantDemoScript'
+import type { AiAssistantConfig } from './AiAssistant'
+import type { AssistantHostPage } from './AssistantDemoScript'
 
 /**
  * Props of the AssistantChat widget; `inline` renders the open panel in place (the demo page's phone), `hostPage`

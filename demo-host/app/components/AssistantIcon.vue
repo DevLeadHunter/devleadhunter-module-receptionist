@@ -4,13 +4,13 @@
 
 <script lang="ts" setup>
 import type { Component, PropType } from 'vue'
-import type { AssistantIconName, AssistantIconProps } from '~/types/AssistantIcon'
-import AssistantIconCalendar from '~/components/AssistantIconCalendar.vue'
-import AssistantIconCamera from '~/components/AssistantIconCamera.vue'
-import AssistantIconClose from '~/components/AssistantIconClose.vue'
-import AssistantIconPencil from '~/components/AssistantIconPencil.vue'
-import AssistantIconPlus from '~/components/AssistantIconPlus.vue'
-import AssistantIconSend from '~/components/AssistantIconSend.vue'
+import type { AssistantIconName, AssistantIconProps } from '../types/AssistantIcon'
+import AssistantIconCalendar from './AssistantIconCalendar.vue'
+import AssistantIconCamera from './AssistantIconCamera.vue'
+import AssistantIconClose from './AssistantIconClose.vue'
+import AssistantIconPencil from './AssistantIconPencil.vue'
+import AssistantIconPlus from './AssistantIconPlus.vue'
+import AssistantIconSend from './AssistantIconSend.vue'
 
 const props: AssistantIconProps = defineProps({
   name: {

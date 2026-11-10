@@ -200,7 +200,7 @@ import type {
   AiAssistantClientRequest,
   AiAssistantClientSettings,
   AiAssistantClientSpace,
-} from '~/types/AiAssistantClientSpace'
+} from '../types/AiAssistantClientSpace'
 import type {
   ClientSpaceHomeAssistantLink,
   ClientSpaceHomeEmits,
@@ -208,7 +208,7 @@ import type {
   ClientSpaceHomeKpi,
   ClientSpaceHomeProps,
   ClientSpaceHomeTask,
-} from '~/types/ClientSpaceHome'
+} from '../types/ClientSpaceHome'
 
 /** How many requests the home lists before « Toutes les demandes ». */
 const LATEST_COUNT: number = 5

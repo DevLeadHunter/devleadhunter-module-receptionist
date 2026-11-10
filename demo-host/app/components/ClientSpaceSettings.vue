@@ -128,20 +128,20 @@
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
 import { computed, ref, watch } from 'vue'
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '../types/AiAssistant'
 import type {
   AiAssistantClientLanguageOption,
   AiAssistantClientRequestType,
   AiAssistantClientSettings,
   AiAssistantClientSettingsUpdate,
   AiAssistantClientTestSmsState,
-} from '~/types/AiAssistantClientSpace'
+} from '../types/AiAssistantClientSpace'
 import type {
   ClientSpaceSettingsEmits,
   ClientSpaceSettingsPart,
   ClientSpaceSettingsProps,
-} from '~/types/ClientSpaceSettings'
-import { CLIENT_SPACE_REQUEST_TYPE_OPTIONS } from '~/constants/ClientSpaceRequestTypes'
+} from '../types/ClientSpaceSettings'
+import { CLIENT_SPACE_REQUEST_TYPE_OPTIONS } from '../constants/ClientSpaceRequestTypes'
 
 /** Whole hours of the day, for the quiet window. */
 const HOURS: number[] = Array.from({ length: 24 }, (_: unknown, hour: number): number => hour)

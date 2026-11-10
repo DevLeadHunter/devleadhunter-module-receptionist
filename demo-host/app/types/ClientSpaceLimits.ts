@@ -1,4 +1,4 @@
-import type { AiAssistantClientLimit, AiAssistantClientLimitUpdate } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientLimit, AiAssistantClientLimitUpdate } from './AiAssistantClientSpace'
 
 /** Props of the client-space limits form. */
 export type ClientSpaceLimitsProps = {

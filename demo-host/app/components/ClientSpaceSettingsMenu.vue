@@ -28,14 +28,14 @@ import type {
   AiAssistantClientSettings,
   AiAssistantClientSpace,
   AiAssistantClientSubscription,
-} from '~/types/AiAssistantClientSpace'
+} from '../types/AiAssistantClientSpace'
 import type {
   ClientSpaceSettingsEntry,
   ClientSpaceSettingsGroup,
   ClientSpaceSettingsMenuEmits,
   ClientSpaceSettingsMenuProps,
-} from '~/types/ClientSpaceSettingsMenu'
-import { CLIENT_SPACE_SUBSCRIPTION_STATUS_LABELS } from '~/constants/ClientSpaceSubscriptionStatuses'
+} from '../types/ClientSpaceSettingsMenu'
+import { CLIENT_SPACE_SUBSCRIPTION_STATUS_LABELS } from '../constants/ClientSpaceSubscriptionStatuses'
 
 /**
  * The settings as a menu of grouped lines, each leading to one screen: the receptionist, the alerts, the

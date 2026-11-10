@@ -10,10 +10,10 @@ import type {
   AiAssistantClientSpace,
   AiAssistantClientTestSms,
   AiAssistantClientTestSmsState,
-} from '~/types/AiAssistantClientSpace'
-import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
-import type { UseClientSpaceSettingsReturn } from '~/types/UseClientSpaceSettings'
-import { ClientSpaceLanguageUtils } from '~/utils/ClientSpaceLanguageUtils'
+} from '../types/AiAssistantClientSpace'
+import type { UseClientSpaceLinkReturn } from '../types/UseClientSpaceLink'
+import type { UseClientSpaceSettingsReturn } from '../types/UseClientSpaceSettings'
+import { ClientSpaceLanguageUtils } from '../utils/ClientSpaceLanguageUtils'
 
 /**
  * The settings section's saves: receptionist, alerts, test SMS, imposed answers, Google profile, billing portal.

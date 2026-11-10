@@ -1,4 +1,4 @@
-import type { AiAssistantClientUnansweredEntry } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientUnansweredEntry } from './AiAssistantClientSpace'
 
 /** Props of one of the receptionist's questions, opened to answer it. */
 export type ClientSpaceQuestionProps = {

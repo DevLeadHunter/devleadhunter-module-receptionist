@@ -1,5 +1,5 @@
-import type { AiAssistantClientSpace } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceSettingsScreen } from '~/types/ClientSpaceNavigation'
+import type { AiAssistantClientSpace } from './AiAssistantClientSpace'
+import type { ClientSpaceSettingsScreen } from './ClientSpaceNavigation'
 
 /** One line of the settings menu: a label, a value at the right, and where it leads. */
 export type ClientSpaceSettingsEntry = {

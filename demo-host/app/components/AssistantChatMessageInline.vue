@@ -16,8 +16,8 @@
 
 <script lang="ts" setup>
 import type { PropType } from 'vue'
-import type { AssistantMessagePart } from '~/types/AssistantMessage'
-import type { AssistantChatMessageInlineProps } from '~/types/AssistantChatMessageInline'
+import type { AssistantMessagePart } from '../types/AssistantMessage'
+import type { AssistantChatMessageInlineProps } from '../types/AssistantChatMessageInline'
 
 const props: AssistantChatMessageInlineProps = defineProps({
   parts: {

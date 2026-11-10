@@ -1,5 +1,5 @@
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
-import type { LanguageMarkerHits } from '~/types/LanguageDetect'
+import type { AssistantWidgetLanguage } from '../types/AiAssistant'
+import type { LanguageMarkerHits } from '../types/LanguageDetect'
 
 /**
  * Words that give a language away, each list free of the others' words (« de » is French and Dutch, so it is in

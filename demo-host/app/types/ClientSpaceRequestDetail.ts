@@ -1,4 +1,4 @@
-import type { AiAssistantClientRequest, AiAssistantClientRequestOutcome } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientRequest, AiAssistantClientRequestOutcome } from './AiAssistantClientSpace'
 
 /** Props of the client-space request detail. */
 export type ClientSpaceRequestDetailProps = {

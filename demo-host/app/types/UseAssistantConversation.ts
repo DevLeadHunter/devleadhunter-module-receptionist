@@ -1,9 +1,9 @@
 import type { ComputedRef, Ref } from 'vue'
-import type { AssistantThreadMessage, AssistantWidgetLanguage } from '~/types/AiAssistant'
-import type { AssistantDemoScriptStep } from '~/types/AssistantDemoScript'
-import type { UseAssistantBookingReturn } from '~/types/UseAssistantBooking'
-import type { UseAssistantLeadFormReturn } from '~/types/UseAssistantLeadForm'
-import type { UseAssistantPhotoUploadReturn } from '~/types/UseAssistantPhotoUpload'
+import type { AssistantThreadMessage, AssistantWidgetLanguage } from './AiAssistant'
+import type { AssistantDemoScriptStep } from './AssistantDemoScript'
+import type { UseAssistantBookingReturn } from './UseAssistantBooking'
+import type { UseAssistantLeadFormReturn } from './UseAssistantLeadForm'
+import type { UseAssistantPhotoUploadReturn } from './UseAssistantPhotoUpload'
 
 export type UseAssistantConversationReturn = {
   messages: Ref<AssistantThreadMessage[]>

@@ -73,8 +73,8 @@
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType } from 'vue'
 import { computed } from 'vue'
-import type { AiAssistantClientMailbox } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceMailboxEmits, ClientSpaceMailboxProps } from '~/types/ClientSpaceMailbox'
+import type { AiAssistantClientMailbox } from '../types/AiAssistantClientSpace'
+import type { ClientSpaceMailboxEmits, ClientSpaceMailboxProps } from '../types/ClientSpaceMailbox'
 
 const props: ClientSpaceMailboxProps = defineProps({
   mailbox: { type: Object as PropType<AiAssistantClientMailbox>, required: true },

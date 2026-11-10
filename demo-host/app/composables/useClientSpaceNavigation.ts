@@ -1,6 +1,6 @@
 import type { ComputedRef, Ref } from 'vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import type { ClientSpaceLocation, ClientSpaceSection, ClientSpaceSettingsScreen } from '~/types/ClientSpaceNavigation'
+import type { ClientSpaceLocation, ClientSpaceSection, ClientSpaceSettingsScreen } from '../types/ClientSpaceNavigation'
 
 /** The sections, as the hash names them (« #demandes »). */
 const SECTION_HASHES: Record<ClientSpaceSection, string> = {

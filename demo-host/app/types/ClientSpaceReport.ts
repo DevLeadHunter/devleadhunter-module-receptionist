@@ -1,4 +1,4 @@
-import type { AiAssistantClientReport } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientReport } from './AiAssistantClientSpace'
 
 /** Props of the client-space monthly report card. */
 export type ClientSpaceReportProps = {

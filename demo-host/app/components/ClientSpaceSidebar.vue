@@ -47,10 +47,10 @@
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType } from 'vue'
 import { computed } from 'vue'
-import type { ClientSpaceSection } from '~/types/ClientSpaceNavigation'
-import type { ClientSpaceSidebarEmits, ClientSpaceSidebarProps } from '~/types/ClientSpaceSidebar'
-import { CLIENT_SPACE_NAV_ITEMS } from '~/constants/ClientSpaceNavItems'
-import { ClientSpaceRequestUtils } from '~/utils/ClientSpaceRequestUtils'
+import type { ClientSpaceSection } from '../types/ClientSpaceNavigation'
+import type { ClientSpaceSidebarEmits, ClientSpaceSidebarProps } from '../types/ClientSpaceSidebar'
+import { CLIENT_SPACE_NAV_ITEMS } from '../constants/ClientSpaceNavItems'
+import { ClientSpaceRequestUtils } from '../utils/ClientSpaceRequestUtils'
 
 /**
  * The left column of the client space on a wide screen: the business, the four sections, the receptionist and

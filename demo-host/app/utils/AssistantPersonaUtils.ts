@@ -1,4 +1,4 @@
-import type { AiAssistantPersonaGender } from '~/types/AiAssistant'
+import type { AiAssistantPersonaGender } from '../types/AiAssistant'
 
 /** French wording that agrees with the assistant persona's gender, as resolved by the API from its first name. */
 export class AssistantPersonaUtils {

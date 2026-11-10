@@ -6,9 +6,9 @@ import type {
   AiAssistantClientRequestOutcome,
   AiAssistantClientRequestOutcomeUpdate,
   AiAssistantClientSpace,
-} from '~/types/AiAssistantClientSpace'
-import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
-import type { ClientSpaceRequestAction, UseClientSpaceRequestsReturn } from '~/types/UseClientSpaceRequests'
+} from '../types/AiAssistantClientSpace'
+import type { UseClientSpaceLinkReturn } from '../types/UseClientSpaceLink'
+import type { ClientSpaceRequestAction, UseClientSpaceRequestsReturn } from '../types/UseClientSpaceRequests'
 
 /**
  * The requests section's actions: requests called back, set aside or given an outcome, questions answered.

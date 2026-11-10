@@ -1,4 +1,4 @@
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from './AiAssistant'
 
 /**
  * `canPlayExample`: the demo page offers to play a conversation by itself before the visitor writes;

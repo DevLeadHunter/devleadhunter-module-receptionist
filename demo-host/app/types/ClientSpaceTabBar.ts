@@ -1,4 +1,4 @@
-import type { ClientSpaceSection } from '~/types/ClientSpaceNavigation'
+import type { ClientSpaceSection } from './ClientSpaceNavigation'
 
 /** Props of the client-space tab bar (phones). */
 export type ClientSpaceTabBarProps = {

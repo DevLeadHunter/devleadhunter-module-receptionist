@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
 import { ref } from 'vue'
-import type { ClientSpaceCopyKey, UseClientSpaceClipboardReturn } from '~/types/UseClientSpaceClipboard'
+import type { ClientSpaceCopyKey, UseClientSpaceClipboardReturn } from '../types/UseClientSpaceClipboard'
 
 /** How long a copy button says « Copié » after it copied. */
 const COPIED_NOTICE_MS: number = 2500

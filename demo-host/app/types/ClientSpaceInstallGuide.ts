@@ -1,4 +1,4 @@
-import type { AiAssistantClientInstalled } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientInstalled } from './AiAssistantClientSpace'
 
 export type ClientSpaceInstallGuideProps = {
   installed: AiAssistantClientInstalled | null

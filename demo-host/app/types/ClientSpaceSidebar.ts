@@ -1,4 +1,4 @@
-import type { ClientSpaceSection } from '~/types/ClientSpaceNavigation'
+import type { ClientSpaceSection } from './ClientSpaceNavigation'
 
 /** Props of the client-space sidebar (wide screens). */
 export type ClientSpaceSidebarProps = {

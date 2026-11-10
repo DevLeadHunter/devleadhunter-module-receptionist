@@ -27,10 +27,10 @@
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType } from 'vue'
 import { computed } from 'vue'
-import type { AiAssistantClientRequest } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceRequestStatus } from '~/types/ClientSpaceRequestList'
-import type { ClientSpaceRequestRowEmits, ClientSpaceRequestRowProps } from '~/types/ClientSpaceRequestRow'
-import { ClientSpaceRequestUtils } from '~/utils/ClientSpaceRequestUtils'
+import type { AiAssistantClientRequest } from '../types/AiAssistantClientSpace'
+import type { ClientSpaceRequestStatus } from '../types/ClientSpaceRequestList'
+import type { ClientSpaceRequestRowEmits, ClientSpaceRequestRowProps } from '../types/ClientSpaceRequestRow'
+import { ClientSpaceRequestUtils } from '../utils/ClientSpaceRequestUtils'
 
 /**
  * One request in a list: the visitor's initials, its name, what it is at the right, when it came and what it

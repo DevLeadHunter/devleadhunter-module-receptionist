@@ -47,8 +47,8 @@
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
 import { computed, ref, watch } from 'vue'
-import type { AiAssistantClientLimit, AiAssistantClientLimitUpdate } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceLimitsEmits, ClientSpaceLimitsProps } from '~/types/ClientSpaceLimits'
+import type { AiAssistantClientLimit, AiAssistantClientLimitUpdate } from '../types/AiAssistantClientSpace'
+import type { ClientSpaceLimitsEmits, ClientSpaceLimitsProps } from '../types/ClientSpaceLimits'
 
 /** The longest answer the API keeps. */
 const MAX_ANSWER_CHARS: number = 300

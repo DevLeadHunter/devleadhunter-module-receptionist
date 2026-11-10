@@ -1,10 +1,10 @@
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from '../types/AiAssistant'
 import type {
   AiAssistantClientLanguageOption,
   AiAssistantClientSettings,
   AiAssistantClientSpace,
-} from '~/types/AiAssistantClientSpace'
-import { AssistantLanguageUtils } from '~/utils/AssistantLanguageUtils'
+} from '../types/AiAssistantClientSpace'
+import { AssistantLanguageUtils } from './AssistantLanguageUtils'
 
 /**
  * Reads the receptionist's languages against the ones the client space offers, the legacy « lu » as « lb ».

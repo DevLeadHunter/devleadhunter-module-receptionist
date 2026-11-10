@@ -1,6 +1,6 @@
 import type { ComputedRef, Ref } from 'vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { UseAssistantWidgetFrameOptions, UseAssistantWidgetFrameReturn } from '~/types/UseAssistantWidgetFrame'
+import type { UseAssistantWidgetFrameOptions, UseAssistantWidgetFrameReturn } from '../types/UseAssistantWidgetFrame'
 
 /** Below this host viewport width the panel goes full screen and the launcher drops its bubble. */
 const MOBILE_MAX_WIDTH: number = 560

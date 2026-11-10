@@ -69,10 +69,10 @@
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType } from 'vue'
 import { computed } from 'vue'
-import type { AiAssistantClientGoogleProfile } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceGoogleProfileEmits, ClientSpaceGoogleProfileProps } from '~/types/ClientSpaceGoogleProfile'
-import type { UseClientSpaceClipboardReturn } from '~/types/UseClientSpaceClipboard'
-import { useClientSpaceClipboard } from '~/composables/useClientSpaceClipboard'
+import type { AiAssistantClientGoogleProfile } from '../types/AiAssistantClientSpace'
+import type { ClientSpaceGoogleProfileEmits, ClientSpaceGoogleProfileProps } from '../types/ClientSpaceGoogleProfile'
+import type { UseClientSpaceClipboardReturn } from '../types/UseClientSpaceClipboard'
+import { useClientSpaceClipboard } from '../composables/useClientSpaceClipboard'
 
 const props: ClientSpaceGoogleProfileProps = defineProps({
   googleProfile: { type: Object as PropType<AiAssistantClientGoogleProfile>, required: true },

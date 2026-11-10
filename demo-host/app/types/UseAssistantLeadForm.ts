@@ -1,8 +1,8 @@
 import type { ComputedRef, Ref } from 'vue'
-import type { AssistantCapturedContact } from '~/types/AiAssistant'
-import type { AssistantLeadSummary } from '~/types/AssistantChat'
-import type { AssistantContactDetails } from '~/types/AssistantChatContactForm'
-import type { AssistantContactPrefill } from '~/types/AssistantContactPrefill'
+import type { AssistantCapturedContact } from './AiAssistant'
+import type { AssistantLeadSummary } from './AssistantChat'
+import type { AssistantContactDetails } from './AssistantChatContactForm'
+import type { AssistantContactPrefill } from './AssistantContactPrefill'
 
 export type UseAssistantLeadFormReturn = {
   isLeadFormOpen: ComputedRef<boolean>

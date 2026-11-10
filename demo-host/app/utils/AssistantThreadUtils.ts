@@ -1,5 +1,5 @@
-import type { AssistantChatMessage, AssistantThreadMessage } from '~/types/AiAssistant'
-import { ASSISTANT_STORED_MESSAGES_MAX } from '~/constants/AssistantWidgetLimits'
+import type { AssistantChatMessage, AssistantThreadMessage } from '../types/AiAssistant'
+import { ASSISTANT_STORED_MESSAGES_MAX } from '../constants/AssistantWidgetLimits'
 
 /** Reads and shapes a widget's thread: its own lines (a failure, a confirmation) are never stored nor sent. */
 export class AssistantThreadUtils {

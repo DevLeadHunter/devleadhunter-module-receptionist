@@ -4,10 +4,10 @@ import type {
   AiAssistantClientMailbox,
   AiAssistantClientMailboxConnect,
   AiAssistantClientSpace,
-} from '~/types/AiAssistantClientSpace'
-import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
-import type { UseClientSpaceMailboxReturn } from '~/types/UseClientSpaceMailbox'
-import { ConsentTabUtils } from '~/utils/ConsentTabUtils'
+} from '../types/AiAssistantClientSpace'
+import type { UseClientSpaceLinkReturn } from '../types/UseClientSpaceLink'
+import type { UseClientSpaceMailboxReturn } from '../types/UseClientSpaceMailbox'
+import { ConsentTabUtils } from '../utils/ConsentTabUtils'
 
 /**
  * The client's Gmail: connected in a Google tab, disconnected after a confirmation.

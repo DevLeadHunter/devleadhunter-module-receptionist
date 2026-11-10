@@ -1,5 +1,5 @@
-import type { AiAssistantClientSpace } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceSettingsScreen } from '~/types/ClientSpaceNavigation'
+import type { AiAssistantClientSpace } from './AiAssistantClientSpace'
+import type { ClientSpaceSettingsScreen } from './ClientSpaceNavigation'
 
 /** One line of the home's « À faire » panel, or one step of « Pour démarrer » (a done step has no action). */
 export type ClientSpaceHomeTask = {

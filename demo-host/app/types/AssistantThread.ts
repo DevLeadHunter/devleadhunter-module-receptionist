@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
-import type { AssistantChatMessage, AssistantThreadMessage, AssistantWidgetLanguage } from '~/types/AiAssistant'
-import type { AssistantRequestFailure } from '~/types/AssistantRequest'
+import type { AssistantChatMessage, AssistantThreadMessage, AssistantWidgetLanguage } from './AiAssistant'
+import type { AssistantRequestFailure } from './AssistantRequest'
 
 export type AssistantThreadPanel = 'photo' | 'slots' | 'lead-form'
 

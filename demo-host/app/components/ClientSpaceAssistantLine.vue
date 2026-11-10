@@ -16,7 +16,7 @@
 
 <script lang="ts" setup>
 import type { EmitFn } from 'vue'
-import type { ClientSpaceAssistantLineEmits, ClientSpaceAssistantLineProps } from '~/types/ClientSpaceAssistantLine'
+import type { ClientSpaceAssistantLineEmits, ClientSpaceAssistantLineProps } from '../types/ClientSpaceAssistantLine'
 
 /**
  * The receptionist as the client sees her everywhere: portrait ringed with the business's colour, the green dot

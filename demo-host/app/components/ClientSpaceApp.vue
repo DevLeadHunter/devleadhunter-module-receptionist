@@ -262,25 +262,26 @@ import type {
   AiAssistantClientSpaceLoad,
   AiAssistantClientSpaceState,
   AiAssistantClientUnansweredEntry,
-} from '~/types/AiAssistantClientSpace'
-import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
-import type { ClientSpaceSection, ClientSpaceSettingsScreen } from '~/types/ClientSpaceNavigation'
-import type { UseClientSpaceCalendarReturn } from '~/types/UseClientSpaceCalendar'
-import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
-import type { UseClientSpaceMailboxReturn } from '~/types/UseClientSpaceMailbox'
-import type { UseClientSpaceRequestsReturn } from '~/types/UseClientSpaceRequests'
-import type { UseClientSpaceSettingsReturn } from '~/types/UseClientSpaceSettings'
-import type { ClientSpaceAppProps } from '~/types/ClientSpaceApp'
-import { useClientSpaceCalendar } from '~/composables/useClientSpaceCalendar'
-import { useClientSpaceLink } from '~/composables/useClientSpaceLink'
-import { useClientSpaceMailbox } from '~/composables/useClientSpaceMailbox'
-import { useClientSpaceNavigation } from '~/composables/useClientSpaceNavigation'
-import { useClientSpaceRequests } from '~/composables/useClientSpaceRequests'
-import { useClientSpaceSettings } from '~/composables/useClientSpaceSettings'
+} from '../types/AiAssistantClientSpace'
+import type { AssistantAccentPalette } from '../utils/AssistantAccentUtils'
+import type { ClientSpaceSection, ClientSpaceSettingsScreen } from '../types/ClientSpaceNavigation'
+import type { UseClientSpaceCalendarReturn } from '../types/UseClientSpaceCalendar'
+import type { UseClientSpaceLinkReturn } from '../types/UseClientSpaceLink'
+import type { UseClientSpaceMailboxReturn } from '../types/UseClientSpaceMailbox'
+import type { UseClientSpaceRequestsReturn } from '../types/UseClientSpaceRequests'
+import type { UseClientSpaceSettingsReturn } from '../types/UseClientSpaceSettings'
+import type { ClientSpaceAppProps } from '../types/ClientSpaceApp'
+import { useClientSpaceCalendar } from '../composables/useClientSpaceCalendar'
+import { useClientSpaceLink } from '../composables/useClientSpaceLink'
+import { useClientSpaceMailbox } from '../composables/useClientSpaceMailbox'
+import { useClientSpaceNavigation } from '../composables/useClientSpaceNavigation'
+import { useClientSpaceRequests } from '../composables/useClientSpaceRequests'
+import { useClientSpaceSettings } from '../composables/useClientSpaceSettings'
 import { captureDemoEvent, useDemoTracking } from '~/composables/useDemoTracking'
-import { useDemoSpaceLink } from '~/composables/useDemoSpaceLink'
-import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
-import { AssistantAvatarUtils } from '~/utils/AssistantAvatarUtils'
+import { useDemoSpaceLink } from '../composables/useDemoSpaceLink'
+import { ASSISTANT_TRACKING_SURFACE } from '../constants/AssistantTrackingSurfaces'
+import { AssistantAccentUtils } from '../utils/AssistantAccentUtils'
+import { AssistantAvatarUtils } from '../utils/AssistantAvatarUtils'
 
 const props: ClientSpaceAppProps = defineProps({
   isDemo: { type: Boolean, default: false },
@@ -509,7 +510,7 @@ async function dismissOpenedQuestion(): Promise<void> {
 async function trackDemoSpaceView(): Promise<void> {
   const opened: AiAssistantClientSpace | null = space.value
   if (!isDemoSpace.value || !opened) return
-  await initForOwnEvents(demoSlug.value, 'assistant')
+  await initForOwnEvents(demoSlug.value, ASSISTANT_TRACKING_SURFACE)
   const ownRequestCount: number = opened.requests.filter(
     (item: AiAssistantClientRequest): boolean => !item.is_example,
   ).length
@@ -562,4 +563,4 @@ onBeforeUnmount((): void => {
 })
 </script>
 
-<style src="~/assets/css/client-space.css"></style>
+<style src="../assets/css/client-space.css"></style>

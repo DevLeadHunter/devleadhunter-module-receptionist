@@ -29,7 +29,7 @@
 </template>
 
 <script lang="ts" setup>
-import type { ClientSpaceHelpProps } from '~/types/ClientSpaceHelp'
+import type { ClientSpaceHelpProps } from '../types/ClientSpaceHelp'
 
 const props: ClientSpaceHelpProps = defineProps({
   isExample: { type: Boolean, default: false },

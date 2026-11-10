@@ -20,8 +20,8 @@
 <script lang="ts" setup>
 import type { ComputedRef, PropType } from 'vue'
 import { computed } from 'vue'
-import type { AiAssistantClientFaqEntry } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceLearnedAnswersProps } from '~/types/ClientSpaceLearnedAnswers'
+import type { AiAssistantClientFaqEntry } from '../types/AiAssistantClientSpace'
+import type { ClientSpaceLearnedAnswersProps } from '../types/ClientSpaceLearnedAnswers'
 
 /**
  * The answers the business gave its receptionist, which she now uses as they are.

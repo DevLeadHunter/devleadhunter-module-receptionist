@@ -1,7 +1,7 @@
-import type { AssistantExampleLabels, AssistantWidgetLanguage } from '~/types/AiAssistant'
-import type { AssistantLeadSummary } from '~/types/AssistantChat'
-import type { AssistantDemoScriptStep } from '~/types/AssistantDemoScript'
-import { EXAMPLE_LABELS, PHOTO_LABELS } from '~/constants/AssistantWidgetLabels'
+import type { AssistantExampleLabels, AssistantWidgetLanguage } from '../types/AiAssistant'
+import type { AssistantLeadSummary } from '../types/AssistantChat'
+import type { AssistantDemoScriptStep } from '../types/AssistantDemoScript'
+import { EXAMPLE_LABELS, PHOTO_LABELS } from '../constants/AssistantWidgetLabels'
 
 type TradeExample = {
   /** Matched against the Google category once both are folded (lower case, no accents). */

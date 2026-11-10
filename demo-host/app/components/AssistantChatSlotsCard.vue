@@ -80,10 +80,10 @@ import type {
   AssistantSlotChoice,
   AssistantSlotsState,
   AssistantWidgetLanguage,
-} from '~/types/AiAssistant'
-import type { AssistantChatSlotsCardEmits, AssistantChatSlotsCardProps } from '~/types/AssistantChatSlotsCard'
-import { APPOINTMENT_LABELS, LEAD_LABELS } from '~/constants/AssistantWidgetLabels'
-import { AssistantScheduleUtils } from '~/utils/AssistantScheduleUtils'
+} from '../types/AiAssistant'
+import type { AssistantChatSlotsCardEmits, AssistantChatSlotsCardProps } from '../types/AssistantChatSlotsCard'
+import { APPOINTMENT_LABELS, LEAD_LABELS } from '../constants/AssistantWidgetLabels'
+import { AssistantScheduleUtils } from '../utils/AssistantScheduleUtils'
 
 const props: AssistantChatSlotsCardProps = defineProps({
   language: {

@@ -8,9 +8,9 @@
 
 <script lang="ts" setup>
 import type { PropType } from 'vue'
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
-import type { AssistantChatTypingIndicatorProps } from '~/types/AssistantChatTypingIndicator'
-import { UI_LABELS } from '~/constants/AssistantWidgetLabels'
+import type { AssistantWidgetLanguage } from '../types/AiAssistant'
+import type { AssistantChatTypingIndicatorProps } from '../types/AssistantChatTypingIndicator'
+import { UI_LABELS } from '../constants/AssistantWidgetLabels'
 
 const props: AssistantChatTypingIndicatorProps = defineProps({
   language: {

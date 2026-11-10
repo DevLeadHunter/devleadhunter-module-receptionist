@@ -1,4 +1,4 @@
-import { ASSISTANT_PHOTO_MAX_MEGABYTES } from '~/constants/AssistantWidgetLimits'
+import { ASSISTANT_PHOTO_MAX_MEGABYTES } from '../constants/AssistantWidgetLimits'
 
 /**
  * Client-side preparation of the photos a visitor sends an assistant for a quote: a downscaled JPEG,

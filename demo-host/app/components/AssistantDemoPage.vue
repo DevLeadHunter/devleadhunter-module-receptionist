@@ -134,19 +134,20 @@
 
 <script lang="ts" setup>
 import type { ComputedRef, PropType, Ref } from 'vue'
-import type { AiAssistantClosedHours, AiAssistantConfig } from '~/types/AiAssistant'
-import type { AssistantLeadSummary } from '~/types/AssistantChat'
+import type { AiAssistantClosedHours, AiAssistantConfig } from '../types/AiAssistant'
+import type { AssistantLeadSummary } from '../types/AssistantChat'
 import type {
   AssistantDemoPageFeature,
   AssistantDemoPagePoint,
   AssistantDemoPageProps,
-} from '~/types/AssistantDemoPage'
+} from '../types/AssistantDemoPage'
 import { computed, onMounted, ref } from 'vue'
-import AssistantChatWindow from '~/components/AssistantChatWindow.vue'
-import AssistantDemoOwnerFeed from '~/components/AssistantDemoOwnerFeed.vue'
+import AssistantChatWindow from './AssistantChatWindow.vue'
+import AssistantDemoOwnerFeed from './AssistantDemoOwnerFeed.vue'
 import DemoCtaLink from '~/components/DemoCtaLink.vue'
 import { captureDemoEvent, useDemoTracking } from '~/composables/useDemoTracking'
-import { AssistantDemoScenarioUtils } from '~/utils/AssistantDemoScenarioUtils'
+import { ASSISTANT_TRACKING_SURFACE } from '../constants/AssistantTrackingSurfaces'
+import { AssistantDemoScenarioUtils } from '../utils/AssistantDemoScenarioUtils'
 import { BusinessNameUtils } from '~/utils/BusinessNameUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
 
@@ -320,7 +321,7 @@ onMounted((): void => {
     props.assistant.status,
     DemoBeaconUtils.variantFromQuery(route.query.v),
     DemoBeaconUtils.channelFromQuery(route.query.src),
-    'assistant',
+    ASSISTANT_TRACKING_SURFACE,
   )
 })
 </script>

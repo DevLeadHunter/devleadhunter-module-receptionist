@@ -39,11 +39,11 @@
 <script lang="ts" setup>
 import type { ComputedRef, PropType } from 'vue'
 import { computed } from 'vue'
-import type { AssistantChatMessage } from '~/types/AiAssistant'
-import type { AssistantChatMessageBubbleProps } from '~/types/AssistantChatMessageBubble'
-import type { AssistantMessageBlock } from '~/types/AssistantMessage'
-import AssistantChatMessageInline from '~/components/AssistantChatMessageInline.vue'
-import { MessageFormatUtils } from '~/utils/MessageFormatUtils'
+import type { AssistantChatMessage } from '../types/AiAssistant'
+import type { AssistantChatMessageBubbleProps } from '../types/AssistantChatMessageBubble'
+import type { AssistantMessageBlock } from '../types/AssistantMessage'
+import AssistantChatMessageInline from './AssistantChatMessageInline.vue'
+import { MessageFormatUtils } from '../utils/MessageFormatUtils'
 
 const props: AssistantChatMessageBubbleProps = defineProps({
   message: {

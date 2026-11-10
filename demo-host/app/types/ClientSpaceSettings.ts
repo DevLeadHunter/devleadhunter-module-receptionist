@@ -4,7 +4,7 @@ import type {
   AiAssistantClientSettings,
   AiAssistantClientSettingsUpdate,
   AiAssistantClientTestSmsState,
-} from '~/types/AiAssistantClientSpace'
+} from './AiAssistantClientSpace'
 
 /** Which half of the settings a screen edits: the receptionist herself, or how the business is alerted. */
 export type ClientSpaceSettingsPart = 'assistant' | 'alerts'

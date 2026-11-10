@@ -46,9 +46,9 @@
 
 <script lang="ts" setup>
 import type { EmitFn, PropType } from 'vue'
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
-import type { AssistantChatQuickRepliesEmits, AssistantChatQuickRepliesProps } from '~/types/AssistantChatQuickReplies'
-import { APPOINTMENT_LABELS, EXAMPLE_LABELS, PHOTO_LABELS } from '~/constants/AssistantWidgetLabels'
+import type { AssistantWidgetLanguage } from '../types/AiAssistant'
+import type { AssistantChatQuickRepliesEmits, AssistantChatQuickRepliesProps } from '../types/AssistantChatQuickReplies'
+import { APPOINTMENT_LABELS, EXAMPLE_LABELS, PHOTO_LABELS } from '../constants/AssistantWidgetLabels'
 
 const props: AssistantChatQuickRepliesProps = defineProps({
   language: {

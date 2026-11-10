@@ -15,9 +15,9 @@
 <script lang="ts" setup>
 import type { EmitFn, PropType, Ref } from 'vue'
 import { ref } from 'vue'
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
-import type { AssistantChatPhotoCardEmits, AssistantChatPhotoCardProps } from '~/types/AssistantChatPhotoCard'
-import { LEAD_LABELS, PHOTO_LABELS } from '~/constants/AssistantWidgetLabels'
+import type { AssistantWidgetLanguage } from '../types/AiAssistant'
+import type { AssistantChatPhotoCardEmits, AssistantChatPhotoCardProps } from '../types/AssistantChatPhotoCard'
+import { LEAD_LABELS, PHOTO_LABELS } from '../constants/AssistantWidgetLabels'
 
 const props: AssistantChatPhotoCardProps = defineProps({
   language: {

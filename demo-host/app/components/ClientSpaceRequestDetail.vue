@@ -188,14 +188,14 @@ import type {
   AiAssistantClientConversationLine,
   AiAssistantClientEvent,
   AiAssistantClientRequest,
-} from '~/types/AiAssistantClientSpace'
+} from '../types/AiAssistantClientSpace'
 import type {
   ClientSpaceRequestDetailEmits,
   ClientSpaceRequestDetailProps,
   ClientSpaceRequestEventRow,
-} from '~/types/ClientSpaceRequestDetail'
-import type { ClientSpaceRequestStatus } from '~/types/ClientSpaceRequestList'
-import { ClientSpaceRequestUtils } from '~/utils/ClientSpaceRequestUtils'
+} from '../types/ClientSpaceRequestDetail'
+import type { ClientSpaceRequestStatus } from '../types/ClientSpaceRequestList'
+import { ClientSpaceRequestUtils } from '../utils/ClientSpaceRequestUtils'
 import { ContactLinkUtils } from '~/utils/ContactLinkUtils'
 
 /**

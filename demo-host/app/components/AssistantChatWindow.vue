@@ -11,9 +11,9 @@
 
 <script lang="ts" setup>
 import type { EmitFn, PropType } from 'vue'
-import type { AiAssistantConfig } from '~/types/AiAssistant'
-import type { AssistantChatEmits } from '~/types/AssistantChat'
-import type { AssistantChatWindowProps } from '~/types/AssistantChatWindow'
+import type { AiAssistantConfig } from '../types/AiAssistant'
+import type { AssistantChatEmits } from '../types/AssistantChat'
+import type { AssistantChatWindowProps } from '../types/AssistantChatWindow'
 
 const props: AssistantChatWindowProps = defineProps({
   assistant: { type: Object as PropType<AiAssistantConfig>, required: true },

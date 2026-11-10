@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import type { AssistantInstalledPing } from '~/types/AssistantInstalledPing'
+import type { AssistantInstalledPing } from '../../../app/types/AssistantInstalledPing'
 
 /** A hostname as a browser reports it: dotted labels of letters, digits and hyphens, no scheme nor path. */
 const HOSTNAME: RegExp = /^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i

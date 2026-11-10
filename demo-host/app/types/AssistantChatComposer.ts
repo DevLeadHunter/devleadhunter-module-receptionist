@@ -1,4 +1,4 @@
-import type { AssistantWidgetLanguage } from '~/types/AiAssistant'
+import type { AssistantWidgetLanguage } from './AiAssistant'
 
 /** The two actions the bar offers besides sending a message. */
 export type AssistantChatComposerTool = 'photo' | 'appointment'

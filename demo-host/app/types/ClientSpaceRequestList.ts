@@ -1,4 +1,4 @@
-import type { AiAssistantClientRequest, AiAssistantClientUnansweredEntry } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientRequest, AiAssistantClientUnansweredEntry } from './AiAssistantClientSpace'
 
 /** Which requests the list shows. */
 export type ClientSpaceRequestFilter = 'pending' | 'done' | 'all'

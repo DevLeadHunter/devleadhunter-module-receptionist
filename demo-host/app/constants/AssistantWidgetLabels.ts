@@ -7,14 +7,14 @@ import type {
   AssistantPhotoLabels,
   AssistantUiLabels,
   AssistantWidgetLanguage,
-} from '~/types/AiAssistant'
-import type { AssistantGreetingContext } from '~/types/AssistantDemoScript'
+} from '../types/AiAssistant'
+import type { AssistantGreetingContext } from '../types/AssistantDemoScript'
 import {
   ASSISTANT_PHOTO_MAX_MEGABYTES,
   ASSISTANT_PHOTO_RETENTION_DAYS,
   ASSISTANT_PHOTOS_PER_VISIT,
   ASSISTANT_SLOTS_MAX_CHOSEN,
-} from '~/constants/AssistantWidgetLimits'
+} from './AssistantWidgetLimits'
 
 /** Each language's own name, on the widget's language buttons. */
 export const LANGUAGE_LABELS: Record<AssistantWidgetLanguage, string> = {

@@ -1,5 +1,5 @@
-import type { AiAssistantClientRequest, AiAssistantClientRequestType } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceRequestDayGroup, ClientSpaceRequestStatus } from '~/types/ClientSpaceRequestList'
+import type { AiAssistantClientRequest, AiAssistantClientRequestType } from '../types/AiAssistantClientSpace'
+import type { ClientSpaceRequestDayGroup, ClientSpaceRequestStatus } from '../types/ClientSpaceRequestList'
 
 /** What a visitor asked for, as the client reads it. */
 const TYPE_LABELS: Record<AiAssistantClientRequestType, string> = {

@@ -3,7 +3,7 @@ import type {
   AiAssistantClientLimitUpdate,
   AiAssistantClientSettingsUpdate,
   AiAssistantClientTestSmsState,
-} from '~/types/AiAssistantClientSpace'
+} from './AiAssistantClientSpace'
 
 export type UseClientSpaceSettingsReturn = {
   isSavingSettings: Ref<boolean>

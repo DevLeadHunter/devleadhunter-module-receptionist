@@ -1,11 +1,11 @@
 import type { H3Event } from 'h3'
-import type { AiAssistantConfig, AssistantWidgetLanguage } from '~/types/AiAssistant'
-import type { AssistantLauncherConfig } from '~/types/AssistantLauncher'
-import { UI_LABELS } from '~/constants/AssistantWidgetLabels'
-import type { AssistantAccentPalette } from '~/utils/AssistantAccentUtils'
-import { AssistantAccentUtils } from '~/utils/AssistantAccentUtils'
-import { AssistantAvatarUtils } from '~/utils/AssistantAvatarUtils'
-import { AssistantLanguageUtils } from '~/utils/AssistantLanguageUtils'
+import type { AiAssistantConfig, AssistantWidgetLanguage } from '../../../app/types/AiAssistant'
+import type { AssistantLauncherConfig } from '../../../app/types/AssistantLauncher'
+import { UI_LABELS } from '../../../app/constants/AssistantWidgetLabels'
+import type { AssistantAccentPalette } from '../../../app/utils/AssistantAccentUtils'
+import { AssistantAccentUtils } from '../../../app/utils/AssistantAccentUtils'
+import { AssistantAvatarUtils } from '../../../app/utils/AssistantAvatarUtils'
+import { AssistantLanguageUtils } from '../../../app/utils/AssistantLanguageUtils'
 
 /** How long the loader may keep a launcher configuration (a renamed persona shows within this delay). */
 const CACHE_CONTROL: string = 'public, max-age=300, s-maxage=300'

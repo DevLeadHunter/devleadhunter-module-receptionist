@@ -5,10 +5,10 @@ import type {
   AiAssistantClientCalendarConnect,
   AiAssistantClientCalendarUpdate,
   AiAssistantClientSpace,
-} from '~/types/AiAssistantClientSpace'
-import type { UseClientSpaceCalendarReturn } from '~/types/UseClientSpaceCalendar'
-import type { UseClientSpaceLinkReturn } from '~/types/UseClientSpaceLink'
-import { ConsentTabUtils } from '~/utils/ConsentTabUtils'
+} from '../types/AiAssistantClientSpace'
+import type { UseClientSpaceCalendarReturn } from '../types/UseClientSpaceCalendar'
+import type { UseClientSpaceLinkReturn } from '../types/UseClientSpaceLink'
+import { ConsentTabUtils } from '../utils/ConsentTabUtils'
 
 /**
  * The client's Google agenda: connected in a Google tab, its booking settings saved, disconnected.

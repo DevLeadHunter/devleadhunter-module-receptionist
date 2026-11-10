@@ -1,5 +1,5 @@
-import type { AssistantChatMessage } from '~/types/AiAssistant'
-import type { AssistantContactPrefill } from '~/types/AssistantContactPrefill'
+import type { AssistantChatMessage } from '../types/AiAssistant'
+import type { AssistantContactPrefill } from '../types/AssistantContactPrefill'
 
 // The same rule as the API's VisitorContact: a national number has 9 to 11 digits, an international one
 // (« + » or « 00 » first) 10 to 15; a made-up string of digits is refused before the form can be sent.

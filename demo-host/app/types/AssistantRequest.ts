@@ -1,4 +1,4 @@
-import type { AssistantChatReply } from '~/types/AiAssistant'
+import type { AssistantChatReply } from './AiAssistant'
 
 export type AssistantRequestFailure = 'rate-limited' | 'unavailable' | 'network' | 'server'
 

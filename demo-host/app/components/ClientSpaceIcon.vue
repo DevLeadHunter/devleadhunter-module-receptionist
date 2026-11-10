@@ -5,7 +5,7 @@
 <script lang="ts" setup>
 import type { ComputedRef, PropType } from 'vue'
 import { computed } from 'vue'
-import type { ClientSpaceIconName, ClientSpaceIconProps } from '~/types/ClientSpaceIcon'
+import type { ClientSpaceIconName, ClientSpaceIconProps } from '../types/ClientSpaceIcon'
 
 /**
  * The inner markup of each icon, copied from Lucide (ISC licence): stroke 2, round caps, currentColor. Inlined so

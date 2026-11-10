@@ -7,22 +7,22 @@ import type {
   AssistantLeadReply,
   AssistantSlotRefusalCode,
   AssistantThreadMessage,
-} from '~/types/AiAssistant'
-import type { AssistantLeadSummary } from '~/types/AssistantChat'
-import type { AssistantContactDetails } from '~/types/AssistantChatContactForm'
-import type { AssistantContactPrefill } from '~/types/AssistantContactPrefill'
-import type { AssistantConversationThread } from '~/types/AssistantThread'
-import type { UseAssistantBookingReturn } from '~/types/UseAssistantBooking'
-import type { UseAssistantLeadFormReturn } from '~/types/UseAssistantLeadForm'
-import type { UseAssistantPhotoUploadReturn } from '~/types/UseAssistantPhotoUpload'
+} from '../types/AiAssistant'
+import type { AssistantLeadSummary } from '../types/AssistantChat'
+import type { AssistantContactDetails } from '../types/AssistantChatContactForm'
+import type { AssistantContactPrefill } from '../types/AssistantContactPrefill'
+import type { AssistantConversationThread } from '../types/AssistantThread'
+import type { UseAssistantBookingReturn } from '../types/UseAssistantBooking'
+import type { UseAssistantLeadFormReturn } from '../types/UseAssistantLeadForm'
+import type { UseAssistantPhotoUploadReturn } from '../types/UseAssistantPhotoUpload'
 import { captureDemoEvent } from '~/composables/useDemoTracking'
-import { APPOINTMENT_LABELS, LEAD_LABELS } from '~/constants/AssistantWidgetLabels'
+import { APPOINTMENT_LABELS, LEAD_LABELS } from '../constants/AssistantWidgetLabels'
 import { ApiRefusalUtils } from '~/utils/ApiRefusalUtils'
-import { AssistantRequestUtils } from '~/utils/AssistantRequestUtils'
-import { AssistantScheduleUtils } from '~/utils/AssistantScheduleUtils'
-import { AssistantThreadUtils } from '~/utils/AssistantThreadUtils'
+import { AssistantRequestUtils } from '../utils/AssistantRequestUtils'
+import { AssistantScheduleUtils } from '../utils/AssistantScheduleUtils'
+import { AssistantThreadUtils } from '../utils/AssistantThreadUtils'
 import { DemoBeaconUtils } from '~/utils/DemoBeaconUtils'
-import { VisitorContactUtils } from '~/utils/VisitorContactUtils'
+import { VisitorContactUtils } from '../utils/VisitorContactUtils'
 
 const SLOT_REFUSAL_CODES: AssistantSlotRefusalCode[] = ['slot_taken', 'slot_withdrawn']
 

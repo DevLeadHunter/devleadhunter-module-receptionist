@@ -54,8 +54,8 @@
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
 import { computed, ref, watch } from 'vue'
-import type { AiAssistantClientUnansweredEntry } from '~/types/AiAssistantClientSpace'
-import type { ClientSpaceQuestionEmits, ClientSpaceQuestionProps } from '~/types/ClientSpaceQuestion'
+import type { AiAssistantClientUnansweredEntry } from '../types/AiAssistantClientSpace'
+import type { ClientSpaceQuestionEmits, ClientSpaceQuestionProps } from '../types/ClientSpaceQuestion'
 
 /**
  * One question the receptionist could not answer, asked the way an employee would: her question, a field for the

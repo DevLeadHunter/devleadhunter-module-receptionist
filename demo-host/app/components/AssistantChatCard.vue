@@ -21,7 +21,7 @@
 
 <script lang="ts" setup>
 import type { EmitFn, PropType } from 'vue'
-import type { AssistantChatCardEmits, AssistantChatCardProps, AssistantChatCardTag } from '~/types/AssistantChatCard'
+import type { AssistantChatCardEmits, AssistantChatCardProps, AssistantChatCardTag } from '../types/AssistantChatCard'
 
 const props: AssistantChatCardProps = defineProps({
   title: {

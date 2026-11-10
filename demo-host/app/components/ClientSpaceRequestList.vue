@@ -68,14 +68,14 @@
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
 import { computed, ref } from 'vue'
-import type { AiAssistantClientRequest, AiAssistantClientUnansweredEntry } from '~/types/AiAssistantClientSpace'
+import type { AiAssistantClientRequest, AiAssistantClientUnansweredEntry } from '../types/AiAssistantClientSpace'
 import type {
   ClientSpaceRequestDayGroup,
   ClientSpaceRequestFilter,
   ClientSpaceRequestListEmits,
   ClientSpaceRequestListProps,
-} from '~/types/ClientSpaceRequestList'
-import { ClientSpaceRequestUtils } from '~/utils/ClientSpaceRequestUtils'
+} from '../types/ClientSpaceRequestList'
+import { ClientSpaceRequestUtils } from '../utils/ClientSpaceRequestUtils'
 
 /** The three filters, in order. */
 const FILTERS: { value: ClientSpaceRequestFilter; label: string }[] = [

@@ -79,10 +79,10 @@
 <script lang="ts" setup>
 import type { ComputedRef, EmitFn, PropType, Ref } from 'vue'
 import { computed, ref, useId, watch } from 'vue'
-import type { AssistantContactChannel, AssistantLeadLabels, AssistantWidgetLanguage } from '~/types/AiAssistant'
-import type { AssistantChatContactFormEmits, AssistantChatContactFormProps } from '~/types/AssistantChatContactForm'
-import { LEAD_LABELS } from '~/constants/AssistantWidgetLabels'
-import { VisitorContactUtils } from '~/utils/VisitorContactUtils'
+import type { AssistantContactChannel, AssistantLeadLabels, AssistantWidgetLanguage } from '../types/AiAssistant'
+import type { AssistantChatContactFormEmits, AssistantChatContactFormProps } from '../types/AssistantChatContactForm'
+import { LEAD_LABELS } from '../constants/AssistantWidgetLabels'
+import { VisitorContactUtils } from '../utils/VisitorContactUtils'
 
 const props: AssistantChatContactFormProps = defineProps({
   language: {
