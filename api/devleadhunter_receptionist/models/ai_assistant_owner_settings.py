@@ -18,7 +18,6 @@ class AiAssistantOwnerSettings(Base):
 
     __tablename__ = "ai_assistant_owner_settings"
 
-    # The user's id, never generated here (an integer primary key is AUTO_INCREMENT by default in MySQL).
     user_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
     monthly_price_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=7900)
     annual_free_months: Mapped[int] = mapped_column(Integer, nullable=False, default=2)

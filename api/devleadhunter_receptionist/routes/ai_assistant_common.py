@@ -98,7 +98,6 @@ def require_declared_length(request: Request, *, max_bytes: int, unknown_detail:
         raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail=too_large_detail)
 
 
-# ``client_ip`` moved to the core (the website contact form reads it too): the routes keep importing it from here.
 __all__ = [
     "client_ip",
     "confirmation_response",
