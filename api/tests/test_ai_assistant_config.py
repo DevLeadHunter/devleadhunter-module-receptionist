@@ -1,8 +1,8 @@
 """Tests for the AI assistant configuration builder."""
 
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from services.ai_assistant import config_builder as config_module
-from services.ai_assistant.config_builder import (
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.services import config_builder as config_module
+from devleadhunter_receptionist.services.config_builder import (
     DEFAULT_ASSISTANT_NAME,
     DEFAULT_TONE,
     ai_assistant_config_builder,

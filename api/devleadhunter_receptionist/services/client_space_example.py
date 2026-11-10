@@ -11,11 +11,15 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from core.config import settings
-from enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
-from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestStatus, AiAssistantRequestType
-from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
-from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
-from schemas.ai_assistant_client_space import (
+from devleadhunter_receptionist.enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
+from devleadhunter_receptionist.enums.ai_assistant_request import (
+    AiAssistantRequestOutcome,
+    AiAssistantRequestStatus,
+    AiAssistantRequestType,
+)
+from devleadhunter_receptionist.enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
+from devleadhunter_receptionist.enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
+from devleadhunter_receptionist.schemas.ai_assistant_client_space import (
     AiAssistantClientActivityDay,
     AiAssistantClientAppointmentItem,
     AiAssistantClientCalendar,
@@ -29,15 +33,15 @@ from schemas.ai_assistant_client_space import (
     AiAssistantClientSpaceResponse,
     AiAssistantClientSubscription,
 )
-from schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantUnansweredEntry
-from services.ai_assistant.calendar_settings import DURATION_CHOICES, MIN_NOTICE_CHOICES
-from services.ai_assistant.client_links import AiAssistantClientLinks
-from services.ai_assistant.client_space_activity import ACTIVITY_DAYS
-from services.ai_assistant.client_space_service import AiAssistantClientSpaceService
-from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
-from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
-from services.ai_assistant.limits import AiAssistantLimits
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantUnansweredEntry
+from devleadhunter_receptionist.services.calendar_settings import DURATION_CHOICES, MIN_NOTICE_CHOICES
+from devleadhunter_receptionist.services.client_links import AiAssistantClientLinks
+from devleadhunter_receptionist.services.client_space_activity import ACTIVITY_DAYS
+from devleadhunter_receptionist.services.client_space_service import AiAssistantClientSpaceService
+from devleadhunter_receptionist.services.embed_snippet import AiAssistantEmbedSnippet
+from devleadhunter_receptionist.services.knowledge_builder import LANGUAGE_NAMES
+from devleadhunter_receptionist.services.limits import AiAssistantLimits
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
 from services.french_date_formatter import FrenchDateFormatter
 
 # The token of the example space: never a real link (a real token is « <id>.<expiry>.<signature> »).

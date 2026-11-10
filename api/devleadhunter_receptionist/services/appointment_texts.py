@@ -15,10 +15,10 @@ from datetime import datetime
 from typing import ClassVar
 
 from core.clock import naive_utc_now
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_appointment import AiAssistantAppointment
-from services.ai_assistant.business_card import AiAssistantBusinessCard
-from services.ai_assistant.request_email import AiAssistantRequestEmail, RenderedEmail
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.services.business_card import AiAssistantBusinessCard
+from devleadhunter_receptionist.services.request_email import AiAssistantRequestEmail, RenderedEmail
 from services.french_date_formatter import FrenchDateFormatter
 from services.sms.gsm_segments import segment_count, to_strict_gsm7
 

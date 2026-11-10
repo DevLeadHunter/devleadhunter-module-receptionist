@@ -5,18 +5,18 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints
 
-from enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
-from enums.ai_assistant_mailbox import AiAssistantMailboxConnection
-from enums.ai_assistant_request import (
+from devleadhunter_receptionist.enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
+from devleadhunter_receptionist.enums.ai_assistant_mailbox import AiAssistantMailboxConnection
+from devleadhunter_receptionist.enums.ai_assistant_request import (
     AiAssistantRequestChannel,
     AiAssistantRequestOutcome,
     AiAssistantRequestStatus,
     AiAssistantRequestType,
 )
-from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
-from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
-from schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantUnansweredEntry
-from services.ai_assistant.field_limits import LABEL_MAX_CHARS, SHORT_TEXT_MAX_CHARS
+from devleadhunter_receptionist.enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
+from devleadhunter_receptionist.enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
+from devleadhunter_receptionist.schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantUnansweredEntry
+from devleadhunter_receptionist.services.field_limits import LABEL_MAX_CHARS, SHORT_TEXT_MAX_CHARS
 
 
 class AiAssistantClientEvent(BaseModel):

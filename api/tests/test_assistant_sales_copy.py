@@ -15,17 +15,20 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-import migrations.raise_assistant_default_price as price_migration
-import migrations.rewrite_assistant_emails_missed_requests as emails_migration
+import devleadhunter_receptionist.migrations.raise_assistant_default_price as price_migration
+import devleadhunter_receptionist.migrations.rewrite_assistant_emails_missed_requests as emails_migration
 from core.config import settings
 from core.database import Base
+from devleadhunter_receptionist.email_templates import RECEPTIONIST_EMAIL_TEMPLATES as EMAIL_TEMPLATE_LIBRARY
+from devleadhunter_receptionist.services.assistant_pricing_service import (
+    DEFAULT_MONTHLY_PRICE_CENTS,
+    AssistantPricingService,
+)
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.sms_templates import RECEPTIONIST_SMS_TEMPLATES as SMS_TEMPLATE_LIBRARY
 from enums.email_template_category import EmailTemplateCategory
 from models.prospect_db import ProspectDB
-from seeders.email_template_seeder import EMAIL_TEMPLATE_LIBRARY
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.assistant_pricing_service import DEFAULT_MONTHLY_PRICE_CENTS, AssistantPricingService
 from services.sms.gsm_segments import segment_count
-from services.sms.templates import SMS_TEMPLATE_LIBRARY
 from services.sms_service import sms_service
 
 _ASSISTANT_EMAILS = [
@@ -180,7 +183,7 @@ def test_every_receptionist_sms_fits_two_segments_with_a_47_character_link() -> 
 
 
 def test_a_demo_page_shows_the_price_and_a_sold_assistant_does_not() -> None:
-    from api.v1.routes.ai_assistant_widget import get_public_assistant
+    from devleadhunter_receptionist.routes.ai_assistant_widget import get_public_assistant
 
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
@@ -202,8 +205,8 @@ def test_a_demo_page_shows_the_price_and_a_sold_assistant_does_not() -> None:
 
 
 def test_a_demo_page_estimates_the_closed_hours_from_the_google_hours(monkeypatch: pytest.MonkeyPatch) -> None:
-    import api.v1.routes.ai_assistant_widget as routes
-    from services.ai_assistant.opening_hours import OpeningHoursCalendar
+    import devleadhunter_receptionist.routes.ai_assistant_widget as routes
+    from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
 
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
@@ -272,13 +275,13 @@ def test_a_demo_page_estimates_the_closed_hours_from_the_google_hours(monkeypatc
     ],
 )
 def test_the_request_volume_follows_the_trade_by_word_start(category: str | None, label: str) -> None:
-    from services.ai_assistant.request_volume import AiAssistantRequestVolume
+    from devleadhunter_receptionist.services.request_volume import AiAssistantRequestVolume
 
     assert AiAssistantRequestVolume.for_category(category).label == label
 
 
 def test_the_estimate_rounds_half_up_as_a_reader_does() -> None:
-    from services.ai_assistant.request_volume import AiAssistantRequestVolume
+    from devleadhunter_receptionist.services.request_volume import AiAssistantRequestVolume
 
     assert AiAssistantRequestVolume.estimate(25, 50) == 13  # 12.5, where round() would say 12
     assert AiAssistantRequestVolume.estimate(30, 62) == 19
@@ -286,8 +289,8 @@ def test_the_estimate_rounds_half_up_as_a_reader_does() -> None:
 
 
 def test_an_assistant_without_a_prospect_is_estimated_on_the_default_base(monkeypatch: pytest.MonkeyPatch) -> None:
-    import api.v1.routes.ai_assistant_widget as routes
-    from services.ai_assistant.opening_hours import OpeningHoursCalendar
+    import devleadhunter_receptionist.routes.ai_assistant_widget as routes
+    from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
 
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)

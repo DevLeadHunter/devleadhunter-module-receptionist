@@ -10,13 +10,14 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from enums.ai_assistant_status import AiAssistantStatus
-from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_subscription import AiAssistantSubscription
-from services import assistant_subscription_service as sub_module
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.assistant_subscription_service import AssistantSubscriptionService
+from core.config import settings
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_subscription import AiAssistantSubscription
+from devleadhunter_receptionist.services import assistant_subscription_service as sub_module
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.assistant_subscription_service import AssistantSubscriptionService
 
 
 def _import_all_models() -> None:
@@ -50,7 +51,7 @@ def _assistant() -> SimpleNamespace:
 def _stub_stripe(service: AssistantSubscriptionService, monkeypatch: pytest.MonkeyPatch) -> None:
     session = SimpleNamespace(id="cs_test_123", url="https://checkout.stripe.test/cs_test_123")
     monkeypatch.setattr(service._stripe.checkout.Session, "create", lambda **kwargs: session, raising=False)
-    monkeypatch.setattr(sub_module.settings, "stripe_secret_key", "sk_test_x", raising=False)
+    monkeypatch.setattr(settings, "stripe_secret_key", "sk_test_x", raising=False)
 
 
 def test_checkout_locks_the_monthly_price_on_the_row(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -223,7 +224,7 @@ def test_cancel_incomplete_row_closes_locally_without_stripe(db: Session) -> Non
 
 def test_cancel_active_calls_stripe(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     service = AssistantSubscriptionService()
-    monkeypatch.setattr(sub_module.settings, "stripe_secret_key", "sk_test_x", raising=False)
+    monkeypatch.setattr(settings, "stripe_secret_key", "sk_test_x", raising=False)
     cancelled: list[str] = []
     monkeypatch.setattr(service._stripe.Subscription, "cancel", lambda sub_id: cancelled.append(sub_id), raising=False)
     row = AiAssistantSubscription(
@@ -261,7 +262,7 @@ def test_list_for_user_returns_rows_with_names(db: Session) -> None:
 def test_subscription_link_is_permanent_and_targets_the_public_subscribe_endpoint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(sub_module.settings, "api_base_url", "https://api.devleadhunter.test/", raising=False)
+    monkeypatch.setattr(settings, "api_base_url", "https://api.devleadhunter.test/", raising=False)
     link = AssistantSubscriptionService.subscription_link(SimpleNamespace(slug="barbershop-63"), "year")
     assert link == "https://api.devleadhunter.test/api/v1/ai-assistants/public/barbershop-63/subscribe?interval=year"
 
@@ -311,7 +312,7 @@ def test_purge_stale_incomplete_rows_keeps_recent_and_paid_ones(db: Session) -> 
 def _stub_refund(service: AssistantSubscriptionService, monkeypatch: pytest.MonkeyPatch, invoice: dict) -> list[dict]:
     """Stub the Stripe reads of a refund around one invoice payload and capture the Refund.create calls."""
     refunds: list[dict] = []
-    monkeypatch.setattr(sub_module.settings, "stripe_secret_key", "sk_test_x", raising=False)
+    monkeypatch.setattr(settings, "stripe_secret_key", "sk_test_x", raising=False)
     monkeypatch.setattr(
         service._stripe.Subscription, "retrieve", lambda sub_id: {"latest_invoice": "in_1"}, raising=False
     )

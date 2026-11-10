@@ -9,10 +9,11 @@ from sqlalchemy.orm import Session
 
 import api.v1.routes.demo_events as demo_events_routes
 import services.notification_service as notification_module
-from models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.receptionist_notifications import receptionist_notifications
 from models.demo_site import DemoSite
 from schemas.notification import DemoEventIn
-from services.ai_assistant.assistant_service import ai_assistant_service
 from services.behavior_service import behavior_service
 from services.notification_service import notification_service
 
@@ -51,7 +52,7 @@ def test_a_video_page_beacon_notifies_the_receptionist_even_when_a_site_shares_i
         assistant_events.append(kwargs)
 
     monkeypatch.setattr(demo_events_routes.notification_service, "notify_demo_event", notify_site)
-    monkeypatch.setattr(demo_events_routes.notification_service, "notify_assistant_video_event", notify_assistant)
+    monkeypatch.setattr(receptionist_notifications, "notify_assistant_video_event", notify_assistant)
     assistant = _assistant(db)
     _site(db, slug=assistant.slug, prospect_id=99)
 
@@ -84,7 +85,7 @@ def test_a_receptionist_video_push_is_tagged_with_the_assistant_module(
 
     for event in ("assistant_video_complete", "assistant_video_pause"):
         asyncio.run(
-            notification_service.notify_assistant_video_event(
+            receptionist_notifications.notify_assistant_video_event(
                 db, user_id=7, prospect_id=None, event_name=event, fallback_name="garage-martin", channel="sms"
             )
         )

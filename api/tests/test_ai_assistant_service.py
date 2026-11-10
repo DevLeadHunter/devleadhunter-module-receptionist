@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from core.database import Base
-from services.ai_assistant.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
 
 _ENRICHMENT = {
     "logo_url": None,

@@ -10,12 +10,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from models.ai_assistant_appointment import AiAssistantAppointment
-from services.ai_assistant.calendar_service import AiAssistantCalendarService
-from services.ai_assistant.calendar_settings import CalendarSettings
-from services.ai_assistant.calendar_slot_grid import AiAssistantCalendarSlotGrid
-from services.ai_assistant.google_calendar_client import BusyPeriod
-from tests.assistant_calendar.calendar_fakes import (
+from assistant_calendar.calendar_fakes import (
     MONDAY_10H,
     PARIS,
     WEEK,
@@ -26,6 +21,11 @@ from tests.assistant_calendar.calendar_fakes import (
     paris,
     utc,
 )
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.services.calendar_service import AiAssistantCalendarService
+from devleadhunter_receptionist.services.calendar_settings import CalendarSettings
+from devleadhunter_receptionist.services.calendar_slot_grid import AiAssistantCalendarSlotGrid
+from devleadhunter_receptionist.services.google_calendar_client import BusyPeriod
 
 
 def test_the_offer_leaves_out_slots_already_booked_here(db: Session, google: FakeGoogle) -> None:

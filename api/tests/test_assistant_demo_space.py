@@ -13,44 +13,48 @@ from datetime import UTC, datetime, time, timedelta
 from typing import Any
 
 import pytest
+from assistant_fakes import VISITOR_REQUEST
 from fastapi import HTTPException
+from main import app
 from pydantic import ValidationError
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.routing import Match
 
-import api.v1.routes.ai_assistant_client_space as routes
-import api.v1.routes.ai_assistant_widget as widget_routes
-import services.ai_assistant.message_delivery as delivery_module
+import devleadhunter_receptionist.routes.ai_assistant_client_space as routes
+import devleadhunter_receptionist.routes.ai_assistant_widget as widget_routes
+import devleadhunter_receptionist.services.message_delivery as delivery_module
 from core.config import settings
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from enums.ai_assistant_request import AiAssistantRequestStatus
-from enums.ai_assistant_trade import AiAssistantTrade
-from main import app
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_message import AiAssistantMessage
-from models.ai_assistant_request import AiAssistantRequest
-from models.prospect_db import ProspectDB
-from models.user import User
-from schemas.ai_assistant_client_space import (
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestStatus
+from devleadhunter_receptionist.enums.ai_assistant_trade import AiAssistantTrade
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_message import AiAssistantMessage
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.schemas.ai_assistant_client_space import (
     AiAssistantClientRequestItem,
     AiAssistantClientSettingsUpdate,
     AiAssistantClientSpaceResponse,
 )
-from schemas.ai_assistant_demo_space import AiAssistantDemoSpaceRequest, AiAssistantDemoSpaceResponse
-from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentSlot
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.client_links import AiAssistantClientLinks
-from services.ai_assistant.demo_space_examples import ai_assistant_demo_space_examples
-from services.ai_assistant.demo_space_service import ai_assistant_demo_space_service
-from services.ai_assistant.faq_service import ai_assistant_faq_service
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.trade_resolver import AiAssistantTradeResolver
+from devleadhunter_receptionist.schemas.ai_assistant_demo_space import (
+    AiAssistantDemoSpaceRequest,
+    AiAssistantDemoSpaceResponse,
+)
+from devleadhunter_receptionist.services.appointment_slots import AiAssistantAppointmentSlots, AppointmentSlot
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.client_links import AiAssistantClientLinks
+from devleadhunter_receptionist.services.demo_space_examples import ai_assistant_demo_space_examples
+from devleadhunter_receptionist.services.demo_space_service import ai_assistant_demo_space_service
+from devleadhunter_receptionist.services.faq_service import ai_assistant_faq_service
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.receptionist_notifications import receptionist_notifications
+from devleadhunter_receptionist.services.trade_resolver import AiAssistantTradeResolver
+from models.prospect_db import ProspectDB
+from models.user import User
 from services.notification_service import notification_service
 from services.rate_limiter import SlidingWindowRateLimiter
-from tests.assistant_fakes import VISITOR_REQUEST
 
 _VISITOR_SESSION = "0b6f1c2e-6c1d-4c55-9a7e-3f1f2d9c8a10"
 _OTHER_VISITOR_SESSION = "9d2a4e61-1b7c-4f0e-8c3a-5e6f7a8b9c0d"
@@ -349,8 +353,9 @@ def test_reading_the_space_writes_counts_and_announces_nothing(db: Session, monk
 
         return announce
 
-    for name in ("notify_assistant_lead", "notify_assistant_interest", "notify_error"):
-        monkeypatch.setattr(notification_service, name, record_announce(name))
+    for name in ("notify_assistant_lead", "notify_assistant_interest"):
+        monkeypatch.setattr(receptionist_notifications, name, record_announce(name))
+    monkeypatch.setattr(notification_service, "notify_error", record_announce("notify_error"))
     monkeypatch.setattr(delivery_module.activity_log_service, "record", lambda **kwargs: announced.append("activity"))
     flushes: list[int] = []
     event.listen(db, "before_flush", lambda *_args: flushes.append(1))

@@ -16,13 +16,13 @@ from sqlalchemy.orm import Session
 
 from core.clock import naive_utc_now
 from core.database import SessionLocal
-from enums.ai_assistant_status import AiAssistantStatus
-from models.ai_assistant import AiAssistant
-from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
-from services.ai_assistant.client_links import AiAssistantClientLinks
-from services.ai_assistant.client_space_email import AiAssistantClientSpaceEmail
-from services.ai_assistant.faq_service import UnansweredQuestion, ai_assistant_faq_service
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.business_mailer import AiAssistantBusinessMailer
+from devleadhunter_receptionist.services.client_links import AiAssistantClientLinks
+from devleadhunter_receptionist.services.client_space_email import AiAssistantClientSpaceEmail
+from devleadhunter_receptionist.services.faq_service import UnansweredQuestion, ai_assistant_faq_service
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
 
 logger = logging.getLogger(__name__)
 

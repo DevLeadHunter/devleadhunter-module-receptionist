@@ -5,14 +5,18 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy import String
 from sqlalchemy.orm import InstrumentedAttribute
 
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_appointment import AiAssistantAppointment
-from models.ai_assistant_calendar import AiAssistantCalendar
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_request import AiAssistantRequest
-from schemas.ai_assistant import AiAssistantChatRequest, AiAssistantLeadRequest, AiAssistantUpdateRequest
-from schemas.ai_assistant_client_space import AiAssistantClientCalendarUpdate
-from services.ai_assistant.field_limits import (
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.schemas.ai_assistant import (
+    AiAssistantChatRequest,
+    AiAssistantLeadRequest,
+    AiAssistantUpdateRequest,
+)
+from devleadhunter_receptionist.schemas.ai_assistant_client_space import AiAssistantClientCalendarUpdate
+from devleadhunter_receptionist.services.field_limits import (
     LABEL_MAX_CHARS,
     LONG_TEXT_MAX_CHARS,
     SESSION_ID_MAX_CHARS,

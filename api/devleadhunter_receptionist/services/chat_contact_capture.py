@@ -16,11 +16,11 @@ from typing import ClassVar
 
 from sqlalchemy.orm import Session
 
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_request import AiAssistantRequest
-from services.ai_assistant.request_follow_up import ai_assistant_request_follow_up
-from services.ai_assistant.request_service import ai_assistant_request_service
-from services.ai_assistant.visitor_contact import VisitorContact
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.services.request_follow_up import ai_assistant_request_follow_up
+from devleadhunter_receptionist.services.request_service import ai_assistant_request_service
+from devleadhunter_receptionist.services.visitor_contact import VisitorContact
 
 # 8 to 15 digits with the separators people type, « + » or « 00 » before them or not (the widget reads the same).
 _PHONES_IN_TEXT = re.compile(r"(?:\+|00)?\d(?:[\s.()/-]*\d){7,14}")

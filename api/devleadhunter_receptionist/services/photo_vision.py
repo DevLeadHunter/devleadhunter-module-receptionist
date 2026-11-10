@@ -11,11 +11,11 @@ import re
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
-from enums.ai_assistant_llm import AiAssistantLlmUsage
-from enums.ai_assistant_photo import AiAssistantPhotoUrgency
-from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
-from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
-from services.ai_assistant.llm_router import assistant_llm_router
+from devleadhunter_receptionist.enums.ai_assistant_llm import AiAssistantLlmUsage
+from devleadhunter_receptionist.enums.ai_assistant_photo import AiAssistantPhotoUrgency
+from devleadhunter_receptionist.services.field_limits import SHORT_TEXT_MAX_CHARS
+from devleadhunter_receptionist.services.knowledge_builder import LANGUAGE_NAMES
+from devleadhunter_receptionist.services.llm_router import assistant_llm_router
 
 logger = logging.getLogger(__name__)
 

@@ -4,20 +4,22 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from assistant_fakes import AcceptingSmsProvider, AsyncCallRecorder
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-import api.v1.routes.ai_assistant_client_space as client_routes
+import devleadhunter_receptionist.routes.ai_assistant_client_space as client_routes
+import devleadhunter_receptionist.services.gmail_client as gmail_module
+import devleadhunter_receptionist.services.llm_router as llm_router_module
 import services.activity_log_service as activity_module
-import services.ai_assistant.gmail_client as gmail_module
-import services.ai_assistant.llm_router as llm_router_module
-import services.ai_assistant.request_follow_up as follow_up_module
 import services.email_sending_service as email_sending_module
 import services.sms_service as sms_module
+from assistant_mailbox.mailbox_fakes import FakeGmail, FakeModel
+from core.config import settings
+from devleadhunter_receptionist.services.receptionist_notifications import receptionist_notifications
+from devleadhunter_receptionist.settings import receptionist_settings
 from models.user import User
 from services.rate_limiter import SlidingWindowRateLimiter
-from tests.assistant_fakes import AcceptingSmsProvider, AsyncCallRecorder
-from tests.assistant_mailbox.mailbox_fakes import FakeGmail, FakeModel
 
 _FAKED_CALLS: tuple[str, ...] = (
     "get_profile",
@@ -49,10 +51,10 @@ def gmail(monkeypatch: pytest.MonkeyPatch) -> FakeGmail:
     fake = FakeGmail()
     for name in _FAKED_CALLS:
         monkeypatch.setattr(gmail_module.gmail_client, name, getattr(fake, name))
-    monkeypatch.setattr(gmail_module.settings, "google_client_id", "client-id")
-    monkeypatch.setattr(gmail_module.settings, "google_client_secret", "client-secret")
+    monkeypatch.setattr(settings, "google_client_id", "client-id")
+    monkeypatch.setattr(settings, "google_client_secret", "client-secret")
     monkeypatch.setattr(
-        gmail_module.settings,
+        receptionist_settings,
         "google_mailbox_redirect_uri",
         "https://api.example.fr/api/v1/ai-assistants/mailbox/google/callback",
     )
@@ -76,7 +78,7 @@ def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     push = AsyncCallRecorder()
     provider = AcceptingSmsProvider()
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
-    monkeypatch.setattr(follow_up_module.notification_service, "notify_assistant_lead", push)
+    monkeypatch.setattr(receptionist_notifications, "notify_assistant_lead", push)
     monkeypatch.setattr(sms_module.notification_service, "notify_sms_event", AsyncCallRecorder())
     monkeypatch.setattr(sms_module.sms_service, "_provider", provider)
     return {"email": email, "push": push, "sms": provider}

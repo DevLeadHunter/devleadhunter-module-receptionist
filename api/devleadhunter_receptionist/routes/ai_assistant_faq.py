@@ -3,11 +3,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
-from api.v1.routes.ai_assistant_common import owned_assistant_or_404
 from core.database import get_db
+from devleadhunter_receptionist.routes.ai_assistant_common import owned_assistant_or_404
+from devleadhunter_receptionist.schemas.ai_assistant_faq import AiAssistantFaqEntryRequest, AiAssistantFaqResponse
+from devleadhunter_receptionist.services.faq_service import ai_assistant_faq_service
 from models.user import User
-from schemas.ai_assistant_faq import AiAssistantFaqEntryRequest, AiAssistantFaqResponse
-from services.ai_assistant.faq_service import ai_assistant_faq_service
 from services.auth_service import get_current_active_user
 
 router = APIRouter(prefix="/ai-assistants", tags=["ai-assistant-faq"])

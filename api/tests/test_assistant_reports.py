@@ -14,38 +14,43 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from assistant_fakes import AsyncCallRecorder
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 from starlette.requests import Request
 
-import migrations.add_ai_assistant_conversations_is_test as conversations_migration
-import migrations.add_ai_assistant_reports_table as reports_migration
-import migrations.add_assistant_subscription_activated_at as subscriptions_migration
-import services.ai_assistant.message_delivery as delivery_module
-import services.ai_assistant.report_service as report_module
-import services.ai_assistant.report_stats as report_stats_module
+import devleadhunter_receptionist.migrations.add_ai_assistant_conversations_is_test as conversations_migration
+import devleadhunter_receptionist.migrations.add_ai_assistant_reports_table as reports_migration
+import devleadhunter_receptionist.migrations.add_assistant_subscription_activated_at as subscriptions_migration
+import devleadhunter_receptionist.services.message_delivery as delivery_module
+import devleadhunter_receptionist.services.report_stats as report_stats_module
 import services.email_sending_service as email_sending_module
-from enums.ai_assistant_llm import AiAssistantLlmUsage
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_message import AiAssistantMessage
-from models.ai_assistant_report import AiAssistantReport
-from models.ai_assistant_request import AiAssistantRequest
-from models.ai_assistant_subscription import AiAssistantSubscription
+from devleadhunter_receptionist.enums.ai_assistant_llm import AiAssistantLlmUsage
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_message import AiAssistantMessage
+from devleadhunter_receptionist.models.ai_assistant_report import AiAssistantReport
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.models.ai_assistant_subscription import AiAssistantSubscription
+from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantChatMessage, AiAssistantChatRequest
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.assistant_subscription_service import AssistantSubscriptionService
+from devleadhunter_receptionist.services.business_mailer import AiAssistantBusinessMailer
+from devleadhunter_receptionist.services.chat_service import ChatAnswer
+from devleadhunter_receptionist.services.receptionist_notifications import receptionist_notifications
+from devleadhunter_receptionist.services.report_email import (
+    AiAssistantReportEmail,
+    LanguageShare,
+    MonthlyStats,
+    ReportEmailContent,
+)
+from devleadhunter_receptionist.services.report_service import AiAssistantReportService, ReportPeriod
+from devleadhunter_receptionist.services.report_stats import AiAssistantReportStats
 from models.prospect_db import ProspectDB
 from models.user import User
-from schemas.ai_assistant import AiAssistantChatMessage, AiAssistantChatRequest
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
-from services.ai_assistant.chat_service import ChatAnswer
-from services.ai_assistant.report_email import AiAssistantReportEmail, LanguageShare, MonthlyStats, ReportEmailContent
-from services.ai_assistant.report_service import AiAssistantReportService, ReportPeriod
-from services.ai_assistant.report_stats import AiAssistantReportStats
-from services.assistant_subscription_service import AssistantSubscriptionService
-from tests.assistant_fakes import AsyncCallRecorder
 
 # 9:00 in Paris on Thursday 1 October 2026 (CEST, UTC+2): September's reports are due.
 _OCTOBER_1ST_9H_UTC = datetime(2026, 10, 1, 7, 0)
@@ -85,7 +90,7 @@ def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     logged: list[dict[str, Any]] = []
     monkeypatch.setattr(report_stats_module.assistant_llm_router, "complete_json", model)
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
-    monkeypatch.setattr(report_module.notification_service, "notify_assistant_inactive", push)
+    monkeypatch.setattr(receptionist_notifications, "notify_assistant_inactive", push)
     monkeypatch.setattr(delivery_module.activity_log_service, "record", lambda **kwargs: logged.append(kwargs))
     return {"model": model, "email": email, "push": push, "logged": logged}
 
@@ -596,7 +601,7 @@ def test_the_dashboard_flags_a_subscriber_silent_for_30_days_only() -> None:
 
 
 def test_the_assistant_list_carries_the_churn_flag(db: Session) -> None:
-    from api.v1.routes.ai_assistants import list_assistants
+    from devleadhunter_receptionist.routes.ai_assistants import list_assistants
 
     silent = _assistant(db, business_name="Toitures Morel")
     busy = _assistant(db, business_name="Garage Martin")
@@ -613,7 +618,7 @@ def test_the_assistant_list_carries_the_churn_flag(db: Session) -> None:
 
 
 def test_an_internal_chat_is_journaled_as_a_test(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    from api.v1.routes import ai_assistant_widget as routes
+    from devleadhunter_receptionist.routes import ai_assistant_widget as routes
 
     assistant = _assistant(db, status="active", paid_at=None)
     monkeypatch.setattr(
@@ -638,7 +643,7 @@ def test_a_chat_not_ending_on_the_visitor_is_refused_and_never_journaled(
 ) -> None:
     from fastapi import HTTPException
 
-    from api.v1.routes import ai_assistant_widget as routes
+    from devleadhunter_receptionist.routes import ai_assistant_widget as routes
 
     assistant = _assistant(db, status="active", paid_at=None)
     monkeypatch.setattr(

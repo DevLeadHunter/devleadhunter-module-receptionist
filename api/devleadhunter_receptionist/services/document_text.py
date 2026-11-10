@@ -6,7 +6,7 @@ characters dropped) and bounded: the assistant reads it as data, never as instru
 text layer) or a password-protected one is refused with a sentence the operator can act on.
 
 A PDF can be built to make its reading endless (a small file inflating into megabytes of drawing instructions),
-so it is read in a separate process (``python -m services.ai_assistant.document_text``: the PDF on stdin, the text
+so it is read in a separate process (``python -m devleadhunter_receptionist.services.document_text``: the PDF on stdin, the text
 as JSON on stdout), one at a time, killed after ``TIMEOUT_SECONDS``: the API never shares its interpreter with the
 reading. pypdf's decompression and heavy pages are bounded too.
 """
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # The reading process runs this module from the API's root, where ``services`` is importable.
 _API_ROOT = Path(__file__).resolve().parents[2]
-_READER_MODULE = "services.ai_assistant.document_text"
+_READER_MODULE = "devleadhunter_receptionist.services.document_text"
 
 
 class DocumentRejected(ValueError):

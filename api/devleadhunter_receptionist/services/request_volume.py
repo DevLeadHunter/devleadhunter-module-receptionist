@@ -12,9 +12,9 @@ import math
 from dataclasses import dataclass
 from typing import ClassVar
 
-from enums.ai_assistant_trade import AiAssistantTrade
-from services.ai_assistant.opening_hours import ClosedHoursEstimate, OpeningHoursCalendar
-from services.ai_assistant.trade_resolver import AiAssistantTradeResolver
+from devleadhunter_receptionist.enums.ai_assistant_trade import AiAssistantTrade
+from devleadhunter_receptionist.services.opening_hours import ClosedHoursEstimate, OpeningHoursCalendar
+from devleadhunter_receptionist.services.trade_resolver import AiAssistantTradeResolver
 
 
 @dataclass(frozen=True)

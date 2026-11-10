@@ -10,27 +10,27 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
+from assistant_fakes import AsyncCallRecorder
 from PIL import Image
 from sqlalchemy.orm import Session
 
-import services.ai_assistant.photo_service as photo_module
-import services.ai_assistant.photo_vision as vision_module
-import services.ai_assistant.request_follow_up as follow_up_module
+import devleadhunter_receptionist.services.photo_service as photo_module
+import devleadhunter_receptionist.services.photo_vision as vision_module
 import services.email_sending_service as email_sending_module
-from enums.ai_assistant_llm import AiAssistantLlmUsage
-from enums.ai_assistant_photo import AiAssistantPhotoRejection, AiAssistantPhotoUrgency
-from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestType
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_photo import AiAssistantPhoto
+from devleadhunter_receptionist.enums.ai_assistant_llm import AiAssistantLlmUsage
+from devleadhunter_receptionist.enums.ai_assistant_photo import AiAssistantPhotoRejection, AiAssistantPhotoUrgency
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestType
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_photo import AiAssistantPhoto
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.photo_service import AiAssistantPhotoService, PhotoRejectedError
+from devleadhunter_receptionist.services.photo_vision import AiAssistantPhotoVision
+from devleadhunter_receptionist.services.receptionist_notifications import receptionist_notifications
+from devleadhunter_receptionist.services.request_attachments import AiAssistantRequestAttachments
+from devleadhunter_receptionist.services.request_follow_up import AiAssistantRequestFollowUp
+from devleadhunter_receptionist.services.request_service import AiAssistantRequestService
 from models.prospect_db import ProspectDB
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.photo_service import AiAssistantPhotoService, PhotoRejectedError
-from services.ai_assistant.photo_vision import AiAssistantPhotoVision
-from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
-from services.ai_assistant.request_follow_up import AiAssistantRequestFollowUp
-from services.ai_assistant.request_service import AiAssistantRequestService
-from tests.assistant_fakes import AsyncCallRecorder
 
 _SCRATCH = {
     "relevant": True,
@@ -88,9 +88,7 @@ def cloud(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         "send_via_user_identity",
         AsyncCallRecorder(record_args=True, result={"success": True}),
     )
-    monkeypatch.setattr(
-        follow_up_module.notification_service, "notify_assistant_lead", AsyncCallRecorder(record_args=True)
-    )
+    monkeypatch.setattr(receptionist_notifications, "notify_assistant_lead", AsyncCallRecorder(record_args=True))
     return {"storage": storage, "vision": vision}
 
 
@@ -321,7 +319,7 @@ def test_the_public_route_answers_counts_the_quota_and_maps_refusals(
 ) -> None:
     from fastapi import HTTPException
 
-    from api.v1.routes.ai_assistant_widget import submit_assistant_photo
+    from devleadhunter_receptionist.routes.ai_assistant_widget import submit_assistant_photo
 
     monkeypatch.setattr(photo_module.r2_storage, "is_configured", lambda: True)
     assistant = _assistant(db)

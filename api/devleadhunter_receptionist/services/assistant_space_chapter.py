@@ -12,7 +12,11 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
-from services.assistant_capture_contract import CLIENT_HOME_SELECTOR, EXAMPLE_BANNER_SELECTOR, REQUEST_ROW_SELECTOR
+from devleadhunter_receptionist.services.assistant_capture_contract import (
+    CLIENT_HOME_SELECTOR,
+    EXAMPLE_BANNER_SELECTOR,
+    REQUEST_ROW_SELECTOR,
+)
 from services.capture_page import CapturePage
 from services.video_pipeline import MIN_SCROLL_SECONDS
 

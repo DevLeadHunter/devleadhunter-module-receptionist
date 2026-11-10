@@ -4,10 +4,10 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, Boolean, Date, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
 
 from core.database import Base
-from enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
 
 if TYPE_CHECKING:
     from models.user import User
@@ -109,7 +109,11 @@ class AiAssistant(Base):
     updated_at: Mapped[datetime | None] = mapped_column(onupdate=datetime.utcnow, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
-    user: Mapped["User"] = relationship("User", back_populates="ai_assistants")
+    # The core's ``User`` knows nothing of the receptionist: the backref gives it ``ai_assistants`` (deleted with
+    # the user) only while the module is installed.
+    user: Mapped["User"] = relationship(
+        "User", backref=backref("ai_assistants", cascade="all, delete-orphan", passive_deletes=False)
+    )
 
     def __repr__(self) -> str:
         return f"<AiAssistant id={self.id} slug={self.slug} status={self.status}>"

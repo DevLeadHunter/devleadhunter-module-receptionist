@@ -11,18 +11,18 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from assistant_fakes import VISITOR_REQUEST
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-import api.v1.routes.ai_assistants as owner_routes
-from api.v1.routes import ai_assistant_widget as routes
-from models.ai_assistant import AiAssistant
+import devleadhunter_receptionist.routes.ai_assistants as owner_routes
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.routes import ai_assistant_widget as routes
+from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantLeadRequest
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.request_email import AiAssistantRequestEmail
+from devleadhunter_receptionist.services.visitor_contact import VisitorContact
 from models.prospect_db import ProspectDB
-from schemas.ai_assistant import AiAssistantLeadRequest
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.request_email import AiAssistantRequestEmail
-from services.ai_assistant.visitor_contact import VisitorContact
-from tests.assistant_fakes import VISITOR_REQUEST
 
 
 def _demo_assistant(db: Session, *, status: str = "active") -> AiAssistant:

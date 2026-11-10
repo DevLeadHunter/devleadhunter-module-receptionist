@@ -20,16 +20,17 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from core.clock import naive_utc_now
-from enums.ai_assistant_photo import AiAssistantPhotoRejection
-from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_message import AiAssistantMessage
-from models.ai_assistant_photo import AiAssistantPhoto
-from models.ai_assistant_request import AiAssistantRequest
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.conversation_service import ai_assistant_conversation_service
-from services.ai_assistant.field_limits import SESSION_ID_MAX_CHARS
-from services.ai_assistant.photo_vision import AiAssistantPhotoVision
+from devleadhunter_receptionist.enums.ai_assistant_photo import AiAssistantPhotoRejection
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_message import AiAssistantMessage
+from devleadhunter_receptionist.models.ai_assistant_photo import AiAssistantPhoto
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.conversation_service import ai_assistant_conversation_service
+from devleadhunter_receptionist.services.field_limits import SESSION_ID_MAX_CHARS
+from devleadhunter_receptionist.services.photo_vision import AiAssistantPhotoVision
+from devleadhunter_receptionist.services.receptionist_storage import ReceptionistStorage
 from services.r2_storage_service import r2_storage
 
 logger = logging.getLogger(__name__)
@@ -116,7 +117,7 @@ class AiAssistantPhotoService:
             prospect_id=assistant.prospect_id,
             assistant_id=assistant.id,
             session_id=normalized_session,
-            storage_key=r2_storage.assistant_photo_key(),
+            storage_key=ReceptionistStorage.assistant_photo_key(),
             size_bytes=len(jpeg),
             is_test=is_test,
         )

@@ -6,7 +6,7 @@ from sqlalchemy import JSON, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.database import UTF8MB4_TABLE_OPTIONS, Base
-from enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
+from devleadhunter_receptionist.enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
 
 
 class AiAssistantCalendar(Base):

@@ -15,9 +15,9 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 from typing import ClassVar
 
-from enums.ai_assistant_llm import AiAssistantLlmUsage
-from enums.ai_assistant_request import AiAssistantRequestType
-from services.ai_assistant.llm_router import assistant_llm_router
+from devleadhunter_receptionist.enums.ai_assistant_llm import AiAssistantLlmUsage
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestType
+from devleadhunter_receptionist.services.llm_router import assistant_llm_router
 from services.french_date_formatter import FrenchDateFormatter
 from services.text_normalizer import TextNormalizer
 

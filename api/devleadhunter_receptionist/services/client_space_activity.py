@@ -19,14 +19,17 @@ from sqlalchemy import ColumnElement, distinct, func
 from sqlalchemy.orm import Session
 
 from core.clock import naive_utc_now
-from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestType
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_message import AiAssistantMessage
-from models.ai_assistant_request import AiAssistantRequest
-from schemas.ai_assistant_client_space import AiAssistantClientActivityDay, AiAssistantClientRecentFigures
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.report_stats import AiAssistantReportStats
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestType
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_message import AiAssistantMessage
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.schemas.ai_assistant_client_space import (
+    AiAssistantClientActivityDay,
+    AiAssistantClientRecentFigures,
+)
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.report_stats import AiAssistantReportStats
 
 # The window of the home's figures and chart, today included.
 ACTIVITY_DAYS = 30

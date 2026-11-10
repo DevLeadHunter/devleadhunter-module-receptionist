@@ -10,14 +10,14 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints
 
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from schemas.ai_assistant import AiAssistantPublicBusiness, AiAssistantTranscriptLine
-from schemas.ai_assistant_client_space import (
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantPublicBusiness, AiAssistantTranscriptLine
+from devleadhunter_receptionist.schemas.ai_assistant_client_space import (
     AiAssistantClientReport,
     AiAssistantClientRequestItem,
     AiAssistantClientSpaceResponse,
 )
-from services.ai_assistant.field_limits import SESSION_ID_MAX_CHARS
+from devleadhunter_receptionist.services.field_limits import SESSION_ID_MAX_CHARS
 
 # A widget session id as the widget writes it: a UUID, or « <time>-<random> » in a browser without one.
 DemoSpaceSessionId = Annotated[

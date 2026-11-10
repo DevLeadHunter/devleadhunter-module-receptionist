@@ -4,21 +4,21 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from assistant_fakes import AcceptingSmsProvider, AsyncCallRecorder
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-import api.v1.routes.ai_assistant_client_space as client_routes
-import api.v1.routes.ai_assistant_widget as routes
-import services.ai_assistant.calendar_access as access_module
-import services.ai_assistant.calendar_service as calendar_module
-import services.ai_assistant.google_calendar_client as google_module
-import services.ai_assistant.message_delivery as delivery_module
+import devleadhunter_receptionist.routes.ai_assistant_client_space as client_routes
+import devleadhunter_receptionist.routes.ai_assistant_widget as routes
+import devleadhunter_receptionist.services.calendar_access as access_module
+import devleadhunter_receptionist.services.calendar_service as calendar_module
+import devleadhunter_receptionist.services.message_delivery as delivery_module
 import services.email_sending_service as email_sending_module
 import services.sms_service as sms_module
+from assistant_calendar.calendar_fakes import FakeGoogle
+from core.config import settings
 from models.user import User
 from services.rate_limiter import SlidingWindowRateLimiter
-from tests.assistant_calendar.calendar_fakes import FakeGoogle
-from tests.assistant_fakes import AcceptingSmsProvider, AsyncCallRecorder
 
 
 @pytest.fixture
@@ -39,8 +39,8 @@ def google(monkeypatch: pytest.MonkeyPatch) -> FakeGoogle:
     fake = FakeGoogle()
     for name in ("busy_periods", "insert_event", "get_event", "refresh", "exchange_code", "account_email"):
         monkeypatch.setattr(calendar_module.google_calendar_client, name, getattr(fake, name))
-    monkeypatch.setattr(google_module.settings, "google_client_id", "client-id")
-    monkeypatch.setattr(google_module.settings, "google_client_secret", "client-secret")
+    monkeypatch.setattr(settings, "google_client_id", "client-id")
+    monkeypatch.setattr(settings, "google_client_secret", "client-secret")
     monkeypatch.setattr(calendar_module.activity_log_service, "record", lambda **_: None)
     monkeypatch.setattr(delivery_module.activity_log_service, "record", lambda **_: None)
     return fake

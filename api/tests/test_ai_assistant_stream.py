@@ -14,31 +14,32 @@ from typing import Any
 
 import httpx
 import pytest
+from assistant_fakes import VISITOR_REQUEST
 from fastapi import HTTPException
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-import api.v1.routes.ai_assistant_widget as routes
-import services.ai_assistant.chat_service as chat_module
-import services.ai_assistant.llm_router as router_module
-import services.ai_assistant.missing_info_marker as marker_module
+import devleadhunter_receptionist.routes.ai_assistant_widget as routes
+import devleadhunter_receptionist.services.chat_service as chat_module
+import devleadhunter_receptionist.services.llm_router as router_module
+import devleadhunter_receptionist.services.missing_info_marker as marker_module
 import services.llm_service as llm_module
 import services.mistral_service as mistral_module
-from enums.ai_assistant_llm import AiAssistantLlmUsage
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
+from core.config import settings
+from devleadhunter_receptionist.enums.ai_assistant_llm import AiAssistantLlmUsage
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantChatMessage, AiAssistantChatRequest
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.chat_service import ChatAnswer, ChatDelta, ai_assistant_chat_service
+from devleadhunter_receptionist.services.faq_service import ai_assistant_faq_service
+from devleadhunter_receptionist.services.llm_router import AssistantLlmRouter
 from models.prospect_db import ProspectDB
 from models.user import User
-from schemas.ai_assistant import AiAssistantChatMessage, AiAssistantChatRequest
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.chat_service import ChatAnswer, ChatDelta, ai_assistant_chat_service
-from services.ai_assistant.faq_service import ai_assistant_faq_service
-from services.ai_assistant.llm_router import AssistantLlmRouter
 from services.llm_completion import LlmStreamUsage, read_chat_stream_line
 from services.llm_service import LLMService
 from services.mistral_service import MistralRequestRejectedError, MistralService
 from services.rate_limiter import SlidingWindowRateLimiter
-from tests.assistant_fakes import VISITOR_REQUEST
 
 _KB = {"identity": {"business_name": "Garage Morel", "city": "Rennes"}}
 _MESSAGES = [{"role": "user", "content": "Vous livrez ?"}]
@@ -81,7 +82,7 @@ def providers(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     mistral = _StreamProvider(["Du lundi ", "au vendredi."], model="mistral-small-latest")
     groq = _StreamProvider(["Du lundi."], model="openai/gpt-oss-120b")
     alerts = _Alerts()
-    monkeypatch.setattr(router_module.settings, "mistral_api_key", "mistral-key")
+    monkeypatch.setattr(settings, "mistral_api_key", "mistral-key")
     monkeypatch.setattr(router_module.mistral_service, "complete_stream", mistral)
     monkeypatch.setattr(router_module.llm_service, "complete_stream", groq)
     monkeypatch.setattr(router_module.notification_service, "notify_error", alerts)
@@ -285,7 +286,7 @@ def test_the_mistral_client_streams_the_deltas_and_reads_the_usage(monkeypatch: 
         )
 
     _with_transport(mistral_module, handler, monkeypatch)
-    monkeypatch.setattr(mistral_module.settings, "mistral_api_key", "mistral-key")
+    monkeypatch.setattr(settings, "mistral_api_key", "mistral-key")
     client = MistralService()
     usage = LlmStreamUsage()
 
@@ -318,7 +319,7 @@ def test_the_groq_client_streams_and_drops_the_reasoning_knob_a_model_rejects(mo
         )
 
     _with_transport(llm_module, handler, monkeypatch)
-    monkeypatch.setattr(llm_module.settings, "groq_api_key", "groq-key")
+    monkeypatch.setattr(settings, "groq_api_key", "groq-key")
     usage = LlmStreamUsage()
 
     deltas = _collect(LLMService().complete_stream(_MESSAGES, model="openai/gpt-oss-120b", usage=usage))

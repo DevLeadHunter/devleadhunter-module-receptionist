@@ -17,8 +17,8 @@ from urllib.parse import quote
 
 import httpx
 
-from core.config import settings
-from services.ai_assistant.gmail_payload import GmailPayloadReader
+from devleadhunter_receptionist.services.gmail_payload import GmailPayloadReader
+from devleadhunter_receptionist.settings import receptionist_settings
 from services.google_oauth_client import GoogleApiError, GoogleOAuthError, GoogleTokens, google_oauth_client
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ class GmailClient:
     @property
     def is_configured(self) -> bool:
         """Whether the Google OAuth client and the mailboxes' redirect address are configured on the server."""
-        return google_oauth_client.is_configured and bool(settings.google_mailbox_redirect_uri.strip())
+        return google_oauth_client.is_configured and bool(receptionist_settings.google_mailbox_redirect_uri.strip())
 
     @staticmethod
     def authorization_url(state: str) -> str:
@@ -103,7 +103,7 @@ class GmailClient:
             The URL to open in the client's browser (offline access, consent shown every time).
         """
         return google_oauth_client.authorization_url(
-            scopes=GMAIL_SCOPES, redirect_uri=settings.google_mailbox_redirect_uri.strip(), state=state
+            scopes=GMAIL_SCOPES, redirect_uri=receptionist_settings.google_mailbox_redirect_uri.strip(), state=state
         )
 
     @staticmethod
@@ -136,7 +136,9 @@ class GmailClient:
         """
         try:
             return await google_oauth_client.exchange_code(
-                code, redirect_uri=settings.google_mailbox_redirect_uri.strip(), timeout_seconds=self.TIMEOUT_SECONDS
+                code,
+                redirect_uri=receptionist_settings.google_mailbox_redirect_uri.strip(),
+                timeout_seconds=self.TIMEOUT_SECONDS,
             )
         except GoogleOAuthError as exc:
             raise GmailError(str(exc), needs_reconnect=exc.is_access_lost) from exc

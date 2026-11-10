@@ -25,23 +25,23 @@ from sqlalchemy.orm import Session
 
 from core.clock import naive_utc_now
 from core.database import SessionLocal
-from enums.ai_assistant_status import AiAssistantStatus
-from enums.ai_assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_report import AiAssistantReport
-from models.ai_assistant_subscription import AiAssistantSubscription
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.enums.ai_assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_report import AiAssistantReport
+from devleadhunter_receptionist.models.ai_assistant_subscription import AiAssistantSubscription
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.business_mailer import AiAssistantBusinessMailer
+from devleadhunter_receptionist.services.client_links import AiAssistantClientLinks
+from devleadhunter_receptionist.services.config_builder import ai_assistant_config_builder
+from devleadhunter_receptionist.services.message_delivery import AiAssistantMessageDelivery
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.receptionist_notifications import receptionist_notifications
+from devleadhunter_receptionist.services.report_email import AiAssistantReportEmail, MonthlyStats, ReportEmailContent
+from devleadhunter_receptionist.services.report_stats import AiAssistantReportStats
 from models.prospect_db import ProspectDB
 from models.user import User
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
-from services.ai_assistant.client_links import AiAssistantClientLinks
-from services.ai_assistant.config_builder import ai_assistant_config_builder
-from services.ai_assistant.message_delivery import AiAssistantMessageDelivery
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.report_email import AiAssistantReportEmail, MonthlyStats, ReportEmailContent
-from services.ai_assistant.report_stats import AiAssistantReportStats
 from services.french_date_formatter import FrenchDateFormatter
-from services.notification_service import notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -374,7 +374,7 @@ class AiAssistantReportService:
     async def _warn_operator(db: Session, assistant: AiAssistant, period: ReportPeriod) -> None:
         """Push the operator the silent month of a subscriber; never raises."""
         try:
-            await notification_service.notify_assistant_inactive(
+            await receptionist_notifications.notify_assistant_inactive(
                 db,
                 user_id=assistant.user_id,
                 prospect_id=assistant.prospect_id,

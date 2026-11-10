@@ -17,24 +17,30 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.clock import naive_utc_now
-from enums.ai_assistant_mailbox import (
+from devleadhunter_receptionist.activity import CATEGORY_ASSISTANT
+from devleadhunter_receptionist.enums.ai_assistant_mailbox import (
     AiAssistantMailboxConnection,
     AiAssistantMailboxMessageOutcome,
     AiAssistantMailboxStatus,
 )
-from enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.models.ai_assistant_mailbox import AiAssistantMailbox
+from devleadhunter_receptionist.models.ai_assistant_mailbox_message import AiAssistantMailboxMessage
+from devleadhunter_receptionist.services.gmail_client import (
+    GMAIL_COMPOSE_SCOPE,
+    GMAIL_READONLY_SCOPE,
+    GmailError,
+    gmail_client,
+)
+from devleadhunter_receptionist.services.mailbox_access import ai_assistant_mailbox_access
+from devleadhunter_receptionist.services.oauth_state import AiAssistantOAuthState
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
 from enums.email_account_type import EmailAccountType
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_calendar import AiAssistantCalendar
-from models.ai_assistant_mailbox import AiAssistantMailbox
-from models.ai_assistant_mailbox_message import AiAssistantMailboxMessage
 from models.email_account import EmailAccount
 from models.user import User
-from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_SUCCESS, activity_log_service
-from services.ai_assistant.gmail_client import GMAIL_COMPOSE_SCOPE, GMAIL_READONLY_SCOPE, GmailError, gmail_client
-from services.ai_assistant.mailbox_access import ai_assistant_mailbox_access
-from services.ai_assistant.oauth_state import AiAssistantOAuthState
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from services.activity_log_service import STATUS_SUCCESS, activity_log_service
 from services.encryption_service import encryption_service
 
 logger = logging.getLogger(__name__)

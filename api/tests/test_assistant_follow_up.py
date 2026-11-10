@@ -14,16 +14,16 @@ from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-import api.v1.routes.ai_assistants as owner_routes
-import services.ai_assistant.google_calendar_client as google_module
-import services.ai_assistant.start_reminders as start_reminders_module
-from enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
-from enums.ai_assistant_start_step import AiAssistantStartStep
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_calendar import AiAssistantCalendar
+import devleadhunter_receptionist.routes.ai_assistants as owner_routes
+import devleadhunter_receptionist.services.start_reminders as start_reminders_module
+from core.config import settings
+from devleadhunter_receptionist.enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
+from devleadhunter_receptionist.enums.ai_assistant_start_step import AiAssistantStartStep
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
 from models.prospect_db import ProspectDB
 from models.user import User
-from services.ai_assistant.assistant_service import ai_assistant_service
 
 _OPERATOR = SimpleNamespace(id=7, email="operateur@dibodev.fr")
 _SOLD_ON = datetime(2026, 9, 1, 10, 0)
@@ -43,8 +43,8 @@ def db(engine: Engine) -> Iterator[Session]:
 @pytest.fixture(autouse=True)
 def agenda_not_connected(monkeypatch: pytest.MonkeyPatch) -> None:
     """Google is configured and no agenda is connected: the agenda counts as a missing step."""
-    monkeypatch.setattr(google_module.settings, "google_client_id", "client-id")
-    monkeypatch.setattr(google_module.settings, "google_client_secret", "client-secret")
+    monkeypatch.setattr(settings, "google_client_id", "client-id")
+    monkeypatch.setattr(settings, "google_client_secret", "client-secret")
 
 
 def _assistant(db: Session, business_name: str, *, status: str = "delivered", **fields: Any) -> AiAssistant:
@@ -169,7 +169,7 @@ def test_the_list_reads_every_agenda_in_one_query_and_agrees_with_each_detail_pa
 def test_without_google_on_the_server_the_agenda_is_never_a_missing_step(
     db: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(google_module.settings, "google_client_id", "")
+    monkeypatch.setattr(settings, "google_client_id", "")
     assistant = _assistant(
         db, "Toitures Morel", delivered_at=_SOLD_ON, start_reminder_j14_sent_at=datetime(2026, 9, 15)
     )

@@ -8,18 +8,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from api.v1.routes.ai_assistant_common import (
+from core.database import get_db
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_lead import AiAssistantLead
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.routes.ai_assistant_common import (
     client_ip,
     confirmation_response,
     owned_assistant_or_404,
 )
-from core.database import get_db
-from enums.ai_assistant_request import AiAssistantRequestStatus
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_lead import AiAssistantLead
-from models.ai_assistant_request import AiAssistantRequest
-from models.user import User
-from schemas.ai_assistant import (
+from devleadhunter_receptionist.schemas.ai_assistant import (
     AiAssistantConversationItem,
     AiAssistantConversationMessageItem,
     AiAssistantConversationsResponse,
@@ -30,16 +29,17 @@ from schemas.ai_assistant import (
     AiAssistantRequestsResponse,
     AiAssistantRequestUpdateRequest,
 )
-from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
-from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
-from services.ai_assistant.conversation_service import ai_assistant_conversation_service
-from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
-from services.ai_assistant.request_links import AiAssistantRequestLinks
-from services.ai_assistant.request_service import ai_assistant_request_service
-from services.auth_service import get_current_active_user
-from services.rate_limiter import (
+from devleadhunter_receptionist.services.appointment_slots import AiAssistantAppointmentSlots
+from devleadhunter_receptionist.services.calendar_booking import ai_assistant_calendar_booking
+from devleadhunter_receptionist.services.conversation_service import ai_assistant_conversation_service
+from devleadhunter_receptionist.services.rate_limits import (
     assistant_request_link_limiter,
 )
+from devleadhunter_receptionist.services.request_attachments import AiAssistantRequestAttachments
+from devleadhunter_receptionist.services.request_links import AiAssistantRequestLinks
+from devleadhunter_receptionist.services.request_service import ai_assistant_request_service
+from models.user import User
+from services.auth_service import get_current_active_user
 
 logger = logging.getLogger(__name__)
 

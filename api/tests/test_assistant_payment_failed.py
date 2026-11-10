@@ -12,11 +12,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 import api.v1.routes.payments as payment_routes
-import migrations.add_assistant_subscription_payment_failed_invoice_id as payment_failed_migration
+import devleadhunter_receptionist.migrations.add_assistant_subscription_payment_failed_invoice_id as payment_failed_migration
 import services.notification_service as notification_module
 import services.stripe_payment_service as stripe_payment_module
-from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
-from models.ai_assistant_subscription import AiAssistantSubscription
+from core.config import settings
+from devleadhunter_receptionist.enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
+from devleadhunter_receptionist.models.ai_assistant_subscription import AiAssistantSubscription
 from models.prospect_db import ProspectDB
 from services.notification_service import notification_service
 
@@ -44,8 +45,8 @@ class _WebhookDelivery:
 @pytest.fixture(autouse=True)
 def stripe_configured(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stripe keys set, so the webhook takes deliveries."""
-    monkeypatch.setattr(payment_routes.settings, "stripe_secret_key", "sk_test_x")
-    monkeypatch.setattr(payment_routes.settings, "stripe_webhook_secret", "whsec_x")
+    monkeypatch.setattr(settings, "stripe_secret_key", "sk_test_x")
+    monkeypatch.setattr(settings, "stripe_webhook_secret", "whsec_x")
 
 
 @pytest.fixture

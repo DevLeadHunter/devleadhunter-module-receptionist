@@ -11,11 +11,11 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from enums.ai_assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_subscription import AiAssistantSubscription
+from devleadhunter_receptionist.enums.ai_assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_subscription import AiAssistantSubscription
+from devleadhunter_receptionist.services.request_email import RenderedEmail
 from models.prospect_db import ProspectDB
-from services.ai_assistant.request_email import RenderedEmail
 from services.email_sending_service import EmailSendingService
 
 logger = logging.getLogger(__name__)

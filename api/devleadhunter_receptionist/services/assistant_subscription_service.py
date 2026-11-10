@@ -20,12 +20,15 @@ import stripe
 from sqlalchemy.orm import Session
 
 from core.config import settings
-from enums.ai_assistant_status import AiAssistantStatus
-from enums.ai_assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES, AiAssistantSubscriptionStatus
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_subscription import AiAssistantSubscription
-from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
-from services.assistant_pricing_service import AssistantPricingService
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.enums.ai_assistant_subscription_status import (
+    LIVE_SUBSCRIPTION_STATUSES,
+    AiAssistantSubscriptionStatus,
+)
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_subscription import AiAssistantSubscription
+from devleadhunter_receptionist.services.assistant_pricing_service import AssistantPricingService
+from devleadhunter_receptionist.services.field_limits import SHORT_TEXT_MAX_CHARS
 
 logger = logging.getLogger(__name__)
 

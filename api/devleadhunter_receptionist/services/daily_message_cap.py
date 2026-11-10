@@ -17,14 +17,14 @@ from typing import ClassVar
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from core.config import settings
-from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_message import AiAssistantMessage
-from services.ai_assistant.appointment_texts import BusinessCard
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.notification_service import notification_service
+from devleadhunter_receptionist.enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_message import AiAssistantMessage
+from devleadhunter_receptionist.services.appointment_texts import BusinessCard
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.receptionist_notifications import receptionist_notifications
+from devleadhunter_receptionist.settings import receptionist_settings
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class AiAssistantDailyMessageCap:
     @staticmethod
     def cap() -> int:
         """The visitor messages a business day an assistant answers with the model."""
-        return settings.assistant_daily_visitor_message_cap
+        return receptionist_settings.assistant_daily_visitor_message_cap
 
     @staticmethod
     def day_start(local_now: datetime) -> datetime:
@@ -156,7 +156,7 @@ class AiAssistantDailyMessageCap:
             db.commit()
             if not claimed:
                 return False
-            await notification_service.notify_assistant_daily_cap_reached(
+            await receptionist_notifications.notify_assistant_daily_cap_reached(
                 db,
                 user_id=assistant.user_id,
                 prospect_id=assistant.prospect_id,

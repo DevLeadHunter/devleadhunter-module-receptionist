@@ -16,22 +16,23 @@ from sqlalchemy import exists, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from enums.ai_assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_appointment import AiAssistantAppointment
-from models.ai_assistant_calendar import AiAssistantCalendar
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_document import AiAssistantDocument
-from models.ai_assistant_lead import AiAssistantLead
-from models.ai_assistant_mailbox import AiAssistantMailbox
-from models.ai_assistant_mailbox_message import AiAssistantMailboxMessage
-from models.ai_assistant_message import AiAssistantMessage
-from models.ai_assistant_photo import AiAssistantPhoto
-from models.ai_assistant_report import AiAssistantReport
-from models.ai_assistant_request import AiAssistantRequest
-from models.ai_assistant_subscription import AiAssistantSubscription
-from services.ai_assistant.mailbox_service import ai_assistant_mailbox_service
-from services.assistant_video_service import assistant_video_service
+from devleadhunter_receptionist.enums.ai_assistant_subscription_status import LIVE_SUBSCRIPTION_STATUSES
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_document import AiAssistantDocument
+from devleadhunter_receptionist.models.ai_assistant_lead import AiAssistantLead
+from devleadhunter_receptionist.models.ai_assistant_mailbox import AiAssistantMailbox
+from devleadhunter_receptionist.models.ai_assistant_mailbox_message import AiAssistantMailboxMessage
+from devleadhunter_receptionist.models.ai_assistant_message import AiAssistantMessage
+from devleadhunter_receptionist.models.ai_assistant_photo import AiAssistantPhoto
+from devleadhunter_receptionist.models.ai_assistant_report import AiAssistantReport
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.models.ai_assistant_subscription import AiAssistantSubscription
+from devleadhunter_receptionist.services.assistant_video_service import assistant_video_service
+from devleadhunter_receptionist.services.mailbox_service import ai_assistant_mailbox_service
+from devleadhunter_receptionist.services.receptionist_storage import ReceptionistStorage
 from services.r2_storage_service import r2_storage
 
 logger = logging.getLogger(__name__)
@@ -155,9 +156,9 @@ class AiAssistantPurgeService:
         keys = [document.storage_key for document in documents]
         keys += [photo.storage_key for photo in photos if photo.storage_key]
         keys += [
-            r2_storage.assistant_video_key(assistant.slug),
-            r2_storage.assistant_background_key(assistant.slug),
-            r2_storage.assistant_thumbnail_key(assistant.slug),
+            ReceptionistStorage.assistant_video_key(assistant.slug),
+            ReceptionistStorage.assistant_background_key(assistant.slug),
+            ReceptionistStorage.assistant_thumbnail_key(assistant.slug),
             assistant.avatar_key or "",
         ]
         return list(dict.fromkeys(key for key in keys if key))
@@ -173,8 +174,8 @@ class AiAssistantPurgeService:
         if not r2_storage.is_configured():
             # Nothing can have been stored from an environment without storage.
             return 0
-        documents_folder = f"{r2_storage.DOCUMENTS_ASSISTANT_PREFIX}/{assistant.id}/"
-        portraits_folder = f"{r2_storage.IMAGES_ASSISTANT_AVATARS_PREFIX}/{assistant.id}/"
+        documents_folder = f"{ReceptionistStorage.DOCUMENTS_ASSISTANT_PREFIX}/{assistant.id}/"
+        portraits_folder = f"{ReceptionistStorage.IMAGES_ASSISTANT_AVATARS_PREFIX}/{assistant.id}/"
         try:
             orphans = await asyncio.to_thread(r2_storage.list_objects, documents_folder)
             orphans += await asyncio.to_thread(r2_storage.list_objects, portraits_folder)

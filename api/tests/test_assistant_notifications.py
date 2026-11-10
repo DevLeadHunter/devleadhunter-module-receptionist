@@ -4,17 +4,19 @@ import asyncio
 from typing import Any
 
 import pytest
+from assistant_fakes import AsyncCallRecorder
 from sqlalchemy.orm import Session
 
 import services.notification_service as notification_module
 import services.sms_service as sms_module
+from devleadhunter_receptionist.offer import receptionist_campaign_offer
+from devleadhunter_receptionist.services.receptionist_notifications import receptionist_notifications
 from enums.sms_message_kind import SmsMessageKind
 from models.sms_config import SmsConfig
 from models.sms_message import SmsMessage
 from services.notification_service import notification_service
 from services.sms.sms_provider import SmsSendResult
 from services.sms_service import SmsService
-from tests.assistant_fakes import AsyncCallRecorder
 
 # The receptionist's notifications about a subscriber or a demo, with what each one needs besides the prospect.
 _ASSISTANT_NOTIFICATIONS: list[tuple[str, dict[str, Any]]] = [
@@ -56,7 +58,7 @@ def written(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[dict[str, Any]]]:
 def test_an_assistant_notification_without_a_prospect_points_to_no_prospect(
     db: Session, written: dict[str, list[dict[str, Any]]], method_name: str, details: dict[str, Any]
 ) -> None:
-    notify = getattr(notification_service, method_name)
+    notify = getattr(receptionist_notifications, method_name)
 
     asyncio.run(notify(db, user_id=7, prospect_id=None, fallback_name="Garage Martin", **details))
 
@@ -68,7 +70,7 @@ def test_an_assistant_notification_without_a_prospect_points_to_no_prospect(
 def test_an_assistant_notification_about_a_prospect_points_to_it(
     db: Session, written: dict[str, list[dict[str, Any]]], method_name: str, details: dict[str, Any]
 ) -> None:
-    notify = getattr(notification_service, method_name)
+    notify = getattr(receptionist_notifications, method_name)
 
     asyncio.run(notify(db, user_id=7, prospect_id=5, fallback_name="Garage Martin", **details))
 
@@ -79,7 +81,7 @@ def test_an_assistant_notification_about_a_prospect_points_to_it(
 def test_a_receptionist_sms_push_names_its_module(db: Session, written: dict[str, list[dict[str, Any]]]) -> None:
     asyncio.run(
         notification_service.notify_sms_event(
-            db, user_id=7, event_name="sms_failed", fallback_name="Rendez-vous Garage Morel", is_assistant_module=True
+            db, user_id=7, event_name="sms_failed", fallback_name="Rendez-vous Garage Morel", module_key="ai-assistant"
         )
     )
     asyncio.run(notification_service.notify_sms_event(db, user_id=7, event_name="sms_sent", fallback_name="06"))
@@ -105,7 +107,7 @@ def test_an_sms_belongs_to_the_receptionist_by_its_kind_or_its_link(
 ) -> None:
     message = SmsMessage(user_id=7, to_e164="+33611223344", sender="Dibodev", body=body, kind=kind)
 
-    assert SmsService.is_assistant_message(message) is is_receptionist
+    assert receptionist_campaign_offer.owns_sms_message(message) is is_receptionist
 
 
 def test_a_failed_service_sms_is_notified_under_the_receptionist(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -123,4 +125,4 @@ def test_a_failed_service_sms_is_notified_under_the_receptionist(db: Session, mo
 
     assert not outcome.sent
     [call] = notified.calls
-    assert call["event_name"] == "sms_failed" and call["is_assistant_module"] is True
+    assert call["event_name"] == "sms_failed" and call["module_key"] == "ai-assistant"

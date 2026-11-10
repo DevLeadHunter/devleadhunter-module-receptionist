@@ -12,7 +12,7 @@ import hmac
 from datetime import UTC, datetime, timedelta
 
 from core.config import settings
-from services.ai_assistant.signed_token import SignedToken
+from devleadhunter_receptionist.services.signed_token import SignedToken
 
 
 class AiAssistantRequestLinks:

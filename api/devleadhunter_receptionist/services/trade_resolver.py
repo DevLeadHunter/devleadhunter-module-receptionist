@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import ClassVar
 
-from enums.ai_assistant_trade import AiAssistantTrade
+from devleadhunter_receptionist.enums.ai_assistant_trade import AiAssistantTrade
 from services.text_normalizer import TextNormalizer
 
 

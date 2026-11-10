@@ -12,10 +12,10 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_message import AiAssistantMessage
-from services.ai_assistant.field_limits import LONG_TEXT_MAX_CHARS, SESSION_ID_MAX_CHARS
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_message import AiAssistantMessage
+from devleadhunter_receptionist.services.field_limits import LONG_TEXT_MAX_CHARS, SESSION_ID_MAX_CHARS
 
 RETENTION_DAYS = 90
 RECENT_CONVERSATIONS_LIMIT = 20

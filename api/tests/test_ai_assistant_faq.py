@@ -12,34 +12,38 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from assistant_fakes import VISITOR_REQUEST, AsyncCallRecorder
 from fastapi import HTTPException
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-import api.v1.routes.ai_assistant_client_space as client_routes
-import api.v1.routes.ai_assistant_faq as routes
-import api.v1.routes.ai_assistant_widget as widget_routes
-import services.ai_assistant.faq_service as faq_module
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.prospect_db import ProspectDB
-from models.user import User
-from schemas.ai_assistant import AiAssistantChatMessage, AiAssistantChatRequest
-from schemas.ai_assistant_faq import AiAssistantFaqEntryRequest
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.chat_service import ChatAnswer
-from services.ai_assistant.client_links import AiAssistantClientLinks
-from services.ai_assistant.faq_service import (
+import devleadhunter_receptionist.routes.ai_assistant_client_space as client_routes
+import devleadhunter_receptionist.routes.ai_assistant_faq as routes
+import devleadhunter_receptionist.routes.ai_assistant_widget as widget_routes
+import devleadhunter_receptionist.services.faq_service as faq_module
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantChatMessage, AiAssistantChatRequest
+from devleadhunter_receptionist.schemas.ai_assistant_faq import AiAssistantFaqEntryRequest
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.chat_service import ChatAnswer
+from devleadhunter_receptionist.services.client_links import AiAssistantClientLinks
+from devleadhunter_receptionist.services.faq_service import (
     MAX_ANSWER_CHARS,
     MAX_QUESTION_CHARS,
     MAX_UNANSWERED_ENTRIES,
     AiAssistantFaqService,
     ai_assistant_faq_service,
 )
-from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
-from services.ai_assistant.missing_info_marker import FIRST_LINE_PEEK_CHARS, MissingInfoMarker, MissingInfoMarkerStream
+from devleadhunter_receptionist.services.knowledge_builder import ai_assistant_knowledge_builder
+from devleadhunter_receptionist.services.missing_info_marker import (
+    FIRST_LINE_PEEK_CHARS,
+    MissingInfoMarker,
+    MissingInfoMarkerStream,
+)
+from models.prospect_db import ProspectDB
+from models.user import User
 from services.rate_limiter import SlidingWindowRateLimiter
-from tests.assistant_fakes import VISITOR_REQUEST, AsyncCallRecorder
 
 _OWNER = SimpleNamespace(id=7)
 _STRANGER = SimpleNamespace(id=8)

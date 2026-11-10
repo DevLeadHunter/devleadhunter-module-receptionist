@@ -9,12 +9,12 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from enums.ai_assistant_photo import AiAssistantPhotoUrgency
-from enums.ai_assistant_request import AiAssistantRequestType
-from models.ai_assistant_message import AiAssistantMessage
-from models.ai_assistant_request import AiAssistantRequest
-from schemas.ai_assistant import AiAssistantTranscriptLine
-from services.ai_assistant.request_analyzer import TranscriptLine
+from devleadhunter_receptionist.enums.ai_assistant_photo import AiAssistantPhotoUrgency
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestType
+from devleadhunter_receptionist.models.ai_assistant_message import AiAssistantMessage
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantTranscriptLine
+from devleadhunter_receptionist.services.request_analyzer import TranscriptLine
 
 
 class AiAssistantRequestAttachments:

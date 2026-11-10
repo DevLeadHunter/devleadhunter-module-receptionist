@@ -7,25 +7,25 @@ import asyncio
 from datetime import UTC, datetime
 
 import pytest
+from assistant_fakes import VISITOR_REQUEST
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
 import services.rate_limiter as limiter_module
-from api.v1.routes import ai_assistant_widget as routes
-from api.v1.routes.ai_assistant_common import client_ip
-from enums.ai_assistant_request import AiAssistantRequestType
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestType
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.routes import ai_assistant_widget as routes
+from devleadhunter_receptionist.routes.ai_assistant_common import client_ip
+from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantBookingChoice, AiAssistantLeadRequest
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.business_mailer import AiAssistantBusinessMailer
+from devleadhunter_receptionist.services.request_alerts import ai_assistant_request_alerts
+from devleadhunter_receptionist.services.request_service import AiAssistantRequestService
 from models.prospect_db import ProspectDB
-from schemas.ai_assistant import AiAssistantBookingChoice, AiAssistantLeadRequest
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
-from services.ai_assistant.request_alerts import ai_assistant_request_alerts
-from services.ai_assistant.request_service import AiAssistantRequestService
 from services.rate_limiter import SlidingWindowRateLimiter
 from services.sms.phone_normalizer import to_served_mobile
-from tests.assistant_fakes import VISITOR_REQUEST
 
 
 def _request_with(headers: dict[str, str]) -> Request:

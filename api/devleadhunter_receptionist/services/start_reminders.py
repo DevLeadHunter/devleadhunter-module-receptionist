@@ -12,14 +12,14 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
-from enums.ai_assistant_start_step import AiAssistantStartStep
-from enums.ai_assistant_status import AiAssistantStatus
-from models.ai_assistant import AiAssistant
-from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
-from services.ai_assistant.calendar_service import ai_assistant_calendar_service
-from services.ai_assistant.client_links import AiAssistantClientLinks
-from services.ai_assistant.client_space_email import AiAssistantClientSpaceEmail
+from devleadhunter_receptionist.enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
+from devleadhunter_receptionist.enums.ai_assistant_start_step import AiAssistantStartStep
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.business_mailer import AiAssistantBusinessMailer
+from devleadhunter_receptionist.services.calendar_service import ai_assistant_calendar_service
+from devleadhunter_receptionist.services.client_links import AiAssistantClientLinks
+from devleadhunter_receptionist.services.client_space_email import AiAssistantClientSpaceEmail
 
 logger = logging.getLogger(__name__)
 

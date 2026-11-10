@@ -12,12 +12,12 @@ import logging
 import re
 from typing import Any, ClassVar
 
-from enums.ai_assistant_llm import AiAssistantLlmUsage
-from services.ai_assistant.chat_service import clean_model_text
-from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES, ai_assistant_knowledge_builder
-from services.ai_assistant.knowledge_sources import AiAssistantKnowledgeSources
-from services.ai_assistant.limits import AiAssistantLimits, AssistantLimit
-from services.ai_assistant.llm_router import assistant_llm_router
+from devleadhunter_receptionist.enums.ai_assistant_llm import AiAssistantLlmUsage
+from devleadhunter_receptionist.services.chat_service import clean_model_text
+from devleadhunter_receptionist.services.knowledge_builder import LANGUAGE_NAMES, ai_assistant_knowledge_builder
+from devleadhunter_receptionist.services.knowledge_sources import AiAssistantKnowledgeSources
+from devleadhunter_receptionist.services.limits import AiAssistantLimits, AssistantLimit
+from devleadhunter_receptionist.services.llm_router import assistant_llm_router
 
 logger = logging.getLogger(__name__)
 

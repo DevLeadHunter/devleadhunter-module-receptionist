@@ -14,23 +14,23 @@ from typing import ClassVar
 
 from sqlalchemy.orm import Session
 
-from enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
-from enums.ai_assistant_mailbox import AiAssistantMailboxConnection
-from enums.ai_assistant_request import (
+from devleadhunter_receptionist.enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
+from devleadhunter_receptionist.enums.ai_assistant_mailbox import AiAssistantMailboxConnection
+from devleadhunter_receptionist.enums.ai_assistant_request import (
     AiAssistantRequestChannel,
     AiAssistantRequestOutcome,
     AiAssistantRequestStatus,
     AiAssistantRequestType,
 )
-from enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
-from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_appointment import AiAssistantAppointment
-from models.ai_assistant_calendar import AiAssistantCalendar
-from models.ai_assistant_report import AiAssistantReport
-from models.ai_assistant_request import AiAssistantRequest
-from models.ai_assistant_subscription import AiAssistantSubscription
-from schemas.ai_assistant_client_space import (
+from devleadhunter_receptionist.enums.ai_assistant_subscription_status import AiAssistantSubscriptionStatus
+from devleadhunter_receptionist.enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.models.ai_assistant_report import AiAssistantReport
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.models.ai_assistant_subscription import AiAssistantSubscription
+from devleadhunter_receptionist.schemas.ai_assistant_client_space import (
     AiAssistantClientAppointmentItem,
     AiAssistantClientCalendar,
     AiAssistantClientEvent,
@@ -44,24 +44,24 @@ from schemas.ai_assistant_client_space import (
     AiAssistantClientSettings,
     AiAssistantClientSubscription,
 )
-from services.ai_assistant.alert_settings import AlertSettings
-from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
-from services.ai_assistant.calendar_service import ai_assistant_calendar_service
-from services.ai_assistant.calendar_settings import DURATION_CHOICES, MIN_NOTICE_CHOICES, CalendarSettings
-from services.ai_assistant.client_space_service import ai_assistant_client_space_service
-from services.ai_assistant.gmail_client import GmailClient
-from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
-from services.ai_assistant.limits import AssistantLimit
-from services.ai_assistant.mailbox_access import ai_assistant_mailbox_access
-from services.ai_assistant.mailbox_service import MailboxView, ai_assistant_mailbox_service
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.report_email import AiAssistantReportEmail, MonthlyStats
-from services.ai_assistant.report_service import ReportPeriod
-from services.ai_assistant.request_analyzer import AiAssistantRequestAnalyzer
-from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
-from services.assistant_pricing_service import AssistantPricingService
+from devleadhunter_receptionist.services.alert_settings import AlertSettings
+from devleadhunter_receptionist.services.appointment_slots import AiAssistantAppointmentSlots
+from devleadhunter_receptionist.services.assistant_pricing_service import AssistantPricingService
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.calendar_booking import ai_assistant_calendar_booking
+from devleadhunter_receptionist.services.calendar_service import ai_assistant_calendar_service
+from devleadhunter_receptionist.services.calendar_settings import DURATION_CHOICES, MIN_NOTICE_CHOICES, CalendarSettings
+from devleadhunter_receptionist.services.client_space_service import ai_assistant_client_space_service
+from devleadhunter_receptionist.services.gmail_client import GmailClient
+from devleadhunter_receptionist.services.knowledge_builder import LANGUAGE_NAMES
+from devleadhunter_receptionist.services.limits import AssistantLimit
+from devleadhunter_receptionist.services.mailbox_access import ai_assistant_mailbox_access
+from devleadhunter_receptionist.services.mailbox_service import MailboxView, ai_assistant_mailbox_service
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.report_email import AiAssistantReportEmail, MonthlyStats
+from devleadhunter_receptionist.services.report_service import ReportPeriod
+from devleadhunter_receptionist.services.request_analyzer import AiAssistantRequestAnalyzer
+from devleadhunter_receptionist.services.request_attachments import AiAssistantRequestAttachments
 from services.french_date_formatter import FrenchDateFormatter
 
 

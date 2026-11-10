@@ -11,18 +11,21 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
+from assistant_fakes import AsyncCallRecorder
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 import services.email_sending_service as email_sending_module
-from api.v1.routes.ai_assistants import _to_owner_response
-from models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.routes.ai_assistants import _to_owner_response
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.faq_service import ai_assistant_faq_service
+from devleadhunter_receptionist.services.unanswered_digest import (
+    AiAssistantUnansweredDigest,
+    ai_assistant_unanswered_digest,
+)
 from models.prospect_db import ProspectDB
 from models.user import User
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.faq_service import ai_assistant_faq_service
-from services.ai_assistant.unanswered_digest import AiAssistantUnansweredDigest, ai_assistant_unanswered_digest
-from tests.assistant_fakes import AsyncCallRecorder
 
 # Monday 28 September 2026, 08:30 in Paris (06:30 UTC): the digest hour.
 MONDAY_MORNING = datetime(2026, 9, 28, 6, 30)

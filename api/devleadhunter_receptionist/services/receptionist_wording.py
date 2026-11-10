@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from models.ai_assistant import AiAssistant
-from services.ai_assistant.config_builder import ai_assistant_config_builder
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.config_builder import ai_assistant_config_builder
 
 
 class ReceptionistWording:

@@ -8,8 +8,8 @@ lever in Belgium and Luxembourg, where a business serves several language commun
 import unicodedata
 from typing import Any
 
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from services.ai_assistant.masculine_first_names import MASCULINE_FIRST_NAMES
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.services.masculine_first_names import MASCULINE_FIRST_NAMES
 from services.brand_color_service import brand_color_service
 
 DEFAULT_ASSISTANT_NAME = "Sofia"

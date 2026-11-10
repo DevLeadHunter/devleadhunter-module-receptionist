@@ -16,12 +16,13 @@ from typing import Any
 from sqlalchemy import ColumnElement
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_appointment import AiAssistantAppointment
-from models.ai_assistant_report import AiAssistantReport
-from models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.activity import CATEGORY_ASSISTANT
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.models.ai_assistant_report import AiAssistantReport
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
 from models.sms_config import SmsConfig
-from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
+from services.activity_log_service import STATUS_WARNING, activity_log_service
 from services.sms_service import SmsSendOutcome, sms_service
 
 logger = logging.getLogger(__name__)

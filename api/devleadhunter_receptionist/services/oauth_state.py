@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from typing import ClassVar
 
 from core.clock import naive_utc_now
-from services.ai_assistant.signed_token import SignedToken
+from devleadhunter_receptionist.services.signed_token import SignedToken
 
 
 class AiAssistantOAuthState:

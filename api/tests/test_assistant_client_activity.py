@@ -10,15 +10,15 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_message import AiAssistantMessage
-from models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_message import AiAssistantMessage
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.client_space_activity import ACTIVITY_DAYS, AiAssistantClientActivity
+from devleadhunter_receptionist.services.client_space_example import ai_assistant_client_space_example
 from models.prospect_db import ProspectDB
 from models.user import User
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.client_space_activity import ACTIVITY_DAYS, AiAssistantClientActivity
-from services.ai_assistant.client_space_example import ai_assistant_client_space_example
 
 # Thursday 1 October 2026, 10:00 in Paris (UTC+2).
 _NOW = datetime(2026, 10, 1, 8, 0)

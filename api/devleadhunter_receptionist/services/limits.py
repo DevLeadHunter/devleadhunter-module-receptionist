@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
-from models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
 
 # The subjects, in the order the space shows them: key, topic, default answer (« {business} » = the business).
 DEFAULT_LIMITS: tuple[tuple[str, str, str], ...] = (

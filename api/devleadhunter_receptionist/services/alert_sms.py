@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import ClassVar
 
-from enums.ai_assistant_request import AiAssistantRequestType
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestType
 from services.sms.gsm_segments import segment_count, to_strict_gsm7
 
 

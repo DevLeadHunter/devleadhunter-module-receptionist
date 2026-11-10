@@ -10,20 +10,24 @@ import json
 from typing import Any
 
 import pytest
+from assistant_fakes import VISITOR_REQUEST, AsyncCallRecorder
 from sqlalchemy.orm import Session, sessionmaker
 
-import api.v1.routes.ai_assistant_widget as routes
-import services.ai_assistant.chat_service as chat_module
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_request import AiAssistantRequest
+import devleadhunter_receptionist.routes.ai_assistant_widget as routes
+import devleadhunter_receptionist.services.chat_service as chat_module
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.schemas.ai_assistant import (
+    AiAssistantChatMessage,
+    AiAssistantChatRequest,
+    AiAssistantLeadRequest,
+)
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.chat_contact_capture import AiAssistantChatContactCapture
+from devleadhunter_receptionist.services.chat_service import ChatAnswer
 from models.prospect_db import ProspectDB
-from schemas.ai_assistant import AiAssistantChatMessage, AiAssistantChatRequest, AiAssistantLeadRequest
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.chat_contact_capture import AiAssistantChatContactCapture
-from services.ai_assistant.chat_service import ChatAnswer
 from services.rate_limiter import SlidingWindowRateLimiter
-from tests.assistant_fakes import VISITOR_REQUEST, AsyncCallRecorder
 
 _BUSINESS_PHONE = "02 99 12 34 56"
 

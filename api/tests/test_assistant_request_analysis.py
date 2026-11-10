@@ -11,10 +11,10 @@ from typing import Any
 
 import pytest
 
-import services.ai_assistant.request_analyzer as analyzer_module
-from enums.ai_assistant_request import AiAssistantRequestType
-from services.ai_assistant.request_analyzer import AiAssistantRequestAnalyzer, TranscriptLine
-from services.ai_assistant.request_links import AiAssistantRequestLinks
+import devleadhunter_receptionist.services.request_analyzer as analyzer_module
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestType
+from devleadhunter_receptionist.services.request_analyzer import AiAssistantRequestAnalyzer, TranscriptLine
+from devleadhunter_receptionist.services.request_links import AiAssistantRequestLinks
 
 _TRANSCRIPT = [
     TranscriptLine(role="user", content="Bonjour, j'ai des tuiles déplacées après la tempête"),

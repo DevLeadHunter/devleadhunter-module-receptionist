@@ -5,11 +5,12 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy.orm import Session
 
-from models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.email_templates import RECEPTIONIST_EMAIL_TEMPLATES as EMAIL_TEMPLATE_LIBRARY
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.offer import ReceptionistCampaignOffer
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.receptionist_wording import ReceptionistWording
 from models.prospect_db import ProspectDB
-from seeders.email_template_seeder import EMAIL_TEMPLATE_LIBRARY
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.receptionist_wording import ReceptionistWording
 from services.email_variables import EmailVariables
 from services.sms.templates import find_sms_template, render_sms_template
 from services.sms_variables import SmsVariables
@@ -48,10 +49,10 @@ def test_without_an_assistant_the_words_stay_empty() -> None:
 def test_the_email_and_sms_maps_agree_with_the_first_name(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ai_assistant_service, "get_active_for_prospect", lambda db, *, prospect_id, user_id: _HUGO)
     monkeypatch.setattr(ai_assistant_service, "page_url", lambda slug: "https://demo.dibodev.fr/ia/garage-martin")
-    monkeypatch.setattr(EmailVariables, "assistant_video_urls", staticmethod(lambda assistant: ("", "")))
+    monkeypatch.setattr(ReceptionistCampaignOffer, "video_urls", staticmethod(lambda assistant: ("", "")))
 
     email = EmailVariables.build_for_prospect(db, _prospect(db), user_id=7)
-    sms = SmsVariables.build_for_prospect(db, user_id=7, prospect=_prospect(db), assistant=_HUGO)
+    sms = SmsVariables.build_for_prospect(db, user_id=7, prospect=_prospect(db))
 
     for variables in (email, sms):
         assert variables["receptionniste"] == "un réceptionniste"

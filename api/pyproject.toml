@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "devleadhunter-receptionist"
+version = "1.0.0"
+description = "Réceptionniste IA — DevLeadHunter product module (API part)."
+requires-python = ">=3.11"
+# The module runs on the core's api/ (its packages are imported by their usual names) and uses the core's
+# dependencies (api/requirements.txt of DevLeadHunter/devleadhunter): nothing more to install.
+dependencies = []
+
+[project.entry-points."devleadhunter.product_modules"]
+ai-assistant = "devleadhunter_receptionist.module:ReceptionistModule"
+
+[tool.setuptools.packages.find]
+include = ["devleadhunter_receptionist*"]
+
+[tool.ruff]
+# py311 = le Python du venv de production (VPS). Une cible plus récente pousse des
+# syntaxes (PEP 695) qui font crasher uvicorn au boot alors que tout est vert en local.
+target-version = "py311"
+line-length = 120
+exclude = [".venv", "venv", "__pycache__"]
+# The core's packages are first-party too: the module always runs on the core's api/ root.
+src = ["."]
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle
+  "W",    # pycodestyle warnings
+  "F",    # pyflakes — imports et variables morts
+  "I",    # isort — ordre des imports
+  "UP",   # pyupgrade — syntaxe périmée
+  "B",    # flake8-bugbear — pièges réels (mutable default, boucle qui capture…)
+  "C4",   # comprehensions inutilement verbeuses
+  "SIM",  # simplifications lisibles
+  "RUF",  # règles propres à ruff
+]
+ignore = [
+  "E501",    # la longueur de ligne est portée par le formateur
+  "B008",    # `Depends()` en valeur par défaut est le pattern FastAPI
+  "RUF001",  # les chaînes FR contiennent des caractères typographiques (« », —)
+  "RUF002",
+  "RUF003",
+  # Reste à traiter : ces règles remontent du vrai, mais chaque famille demande une
+  # relecture métier plutôt qu'un fix mécanique. À réactiver une famille à la fois.
+  "B904",    # 22 × `raise ... from err` manquant dans un `except`
+  "UP042",   # 16 × `class X(str, Enum)` → `StrEnum`
+  "SIM105",  # 8 × `try/except/pass` → `contextlib.suppress`
+  "RUF006",  # 7 × `asyncio.create_task` dont la référence n'est pas conservée
+  "F841",    # 6 × variable assignée jamais lue
+  "B905",    # 5 × `zip()` sans `strict=`
+  "B007",    # 2 × variable de boucle inutilisée
+  "SIM102",  # 2 × `if` imbriqués fusionnables
+  "SIM117",  # 1 × `with` imbriqués fusionnables
+]
+
+[tool.ruff.lint.isort]
+# The core's packages, imported by their usual names: first-party, like the module's own.
+known-first-party = ["api", "core", "enums", "migrations", "models", "schemas", "scrappers", "seeders", "services", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# Ces fichiers doivent exécuter du code AVANT leurs imports : ajout de la racine au
+# sys.path, boucle d'événements Windows, configuration du logging SQLAlchemy.
+"seeders/*.py" = ["E402"]
+"devleadhunter_receptionist/scripts/*.py" = ["E402"]
+"devleadhunter_receptionist/migrations/*.py" = ["E402", "W291", "W293"]   # + espaces dans les chaînes SQL
+"main.py" = ["E402"]
+"core/database.py" = ["E402"]
+
+[tool.ruff.format]
+quote-style = "double"

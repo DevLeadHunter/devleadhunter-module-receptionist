@@ -27,12 +27,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.config import settings
 from core.database import SessionLocal
-from enums.ai_assistant_llm import LlmProvider
-from enums.ai_assistant_status import AiAssistantStatus
-from models.ai_assistant import AiAssistant
-from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
-from services.ai_assistant.llm_router import estimate_cost_eur
-from services.ai_assistant.photo_vision import AiAssistantPhotoVision
+from devleadhunter_receptionist.enums.ai_assistant_llm import LlmProvider
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.knowledge_builder import ai_assistant_knowledge_builder
+from devleadhunter_receptionist.services.llm_router import estimate_cost_eur
+from devleadhunter_receptionist.services.photo_vision import AiAssistantPhotoVision
 from services.llm_completion import LlmCompletion
 from services.llm_service import llm_service
 from services.mistral_service import mistral_service

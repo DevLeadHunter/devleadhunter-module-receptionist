@@ -8,12 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
-from api.v1.routes.ai_assistant_common import owned_assistant_or_404, require_declared_length
 from core.database import get_db
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_document import AiAssistantDocument
-from models.user import User
-from schemas.ai_assistant_sources import (
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_document import AiAssistantDocument
+from devleadhunter_receptionist.routes.ai_assistant_common import owned_assistant_or_404, require_declared_length
+from devleadhunter_receptionist.schemas.ai_assistant_sources import (
     AiAssistantDocumentItem,
     AiAssistantDocumentUpdate,
     AiAssistantSourcePage,
@@ -21,9 +20,13 @@ from schemas.ai_assistant_sources import (
     AiAssistantSourcesUpdate,
     AiAssistantWebsiteSyncItem,
 )
-from services.ai_assistant.document_service import AiAssistantDocumentService, ai_assistant_document_service
-from services.ai_assistant.document_text import AiAssistantDocumentText
-from services.ai_assistant.source_service import AiAssistantSourceService, ai_assistant_source_service
+from devleadhunter_receptionist.services.document_service import (
+    AiAssistantDocumentService,
+    ai_assistant_document_service,
+)
+from devleadhunter_receptionist.services.document_text import AiAssistantDocumentText
+from devleadhunter_receptionist.services.source_service import AiAssistantSourceService, ai_assistant_source_service
+from models.user import User
 from services.auth_service import get_current_active_user
 from services.r2_storage_service import r2_storage
 

@@ -13,11 +13,12 @@ from typing import Any
 import httpx
 import pytest
 
-import services.ai_assistant.llm_router as router_module
+import devleadhunter_receptionist.services.llm_router as router_module
 import services.mistral_service as mistral_module
-from enums.ai_assistant_llm import AiAssistantLlmUsage
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.llm_router import AssistantLlmRouter
+from core.config import settings
+from devleadhunter_receptionist.enums.ai_assistant_llm import AiAssistantLlmUsage
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.llm_router import AssistantLlmRouter
 from services.llm_completion import LlmCompletion
 from services.mistral_service import MistralRequestRejectedError, MistralService
 
@@ -67,7 +68,7 @@ def providers(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     groq = _Provider("Du lundi au vendredi.", "openai/gpt-oss-120b")
     alerts = _Alerts()
     vision_models: list[str | None] = ["qwen/qwen3.6-27b"]
-    monkeypatch.setattr(router_module.settings, "mistral_api_key", "mistral-key")
+    monkeypatch.setattr(settings, "mistral_api_key", "mistral-key")
     monkeypatch.setattr(router_module.mistral_service, "complete", mistral)
     monkeypatch.setattr(router_module.llm_service, "complete", groq)
     monkeypatch.setattr(router_module.notification_service, "notify_error", alerts)
@@ -192,7 +193,7 @@ def test_a_request_mistral_rejects_is_not_an_outage_but_a_configuration_alert(pr
 def test_without_a_mistral_key_the_calls_stay_on_groq_except_for_eu_only(
     providers: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(router_module.settings, "mistral_api_key", None)
+    monkeypatch.setattr(settings, "mistral_api_key", None)
     router = AssistantLlmRouter()
 
     assert _chat(router) == "Du lundi au vendredi."
@@ -224,7 +225,7 @@ def test_eu_only_cannot_be_turned_on_without_a_mistral_key(monkeypatch: pytest.M
     class _Assistant:
         eu_only: bool | None = None
 
-    monkeypatch.setattr(router_module.settings, "mistral_api_key", None)
+    monkeypatch.setattr(settings, "mistral_api_key", None)
 
     with pytest.raises(ValueError, match="IA hébergée en Europe"):
         ai_assistant_service.update(None, _Assistant(), {"eu_only": True})  # type: ignore[arg-type]
@@ -239,7 +240,7 @@ def _mistral_with(handler: Any, monkeypatch: pytest.MonkeyPatch) -> MistralServi
         return original(*args, **kwargs)
 
     monkeypatch.setattr(mistral_module.httpx, "AsyncClient", patched_client)
-    monkeypatch.setattr(mistral_module.settings, "mistral_api_key", "mistral-key")
+    monkeypatch.setattr(settings, "mistral_api_key", "mistral-key")
     return MistralService()
 
 

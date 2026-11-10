@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from core.clock import naive_utc_now
 from core.database import UTF8MB4_TABLE_OPTIONS, Base
-from enums.ai_assistant_mailbox import AiAssistantMailboxStatus
+from devleadhunter_receptionist.enums.ai_assistant_mailbox import AiAssistantMailboxStatus
 
 
 class AiAssistantMailbox(Base):

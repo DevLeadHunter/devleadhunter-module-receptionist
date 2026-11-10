@@ -11,18 +11,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sys
-from pathlib import Path
 
 from sqlalchemy import text
 
-_ROOT = Path(__file__).resolve().parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
-
 from core.config import settings
 from core.database import engine
-from seeders.email_template_seeder import EMAIL_TEMPLATE_LIBRARY, _extract_variables
+from devleadhunter_receptionist.email_templates import RECEPTIONIST_EMAIL_TEMPLATES as EMAIL_TEMPLATE_LIBRARY
+from seeders.email_template_seeder import _extract_variables
 
 # The texts as the seeder wrote them before the thumbnail: only rows still carrying one of them are rewritten.
 _PREVIOUSLY_SEEDED: dict[str, str] = {

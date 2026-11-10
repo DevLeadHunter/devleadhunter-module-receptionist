@@ -12,34 +12,38 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from assistant_fakes import VISITOR_REQUEST
 from fastapi import HTTPException
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-import api.v1.routes.ai_assistant_client_space as client_routes
-import api.v1.routes.ai_assistants as owner_routes
-import migrations.add_ai_assistant_mailbox_enabled as enabled_migration
-import migrations.add_ai_assistant_mailbox_tables as tables_migration
-import services.ai_assistant.gmail_client as gmail_module
-from enums.ai_assistant_mailbox import (
+import devleadhunter_receptionist.migrations.add_ai_assistant_mailbox_enabled as enabled_migration
+import devleadhunter_receptionist.migrations.add_ai_assistant_mailbox_tables as tables_migration
+import devleadhunter_receptionist.routes.ai_assistant_client_space as client_routes
+import devleadhunter_receptionist.routes.ai_assistants as owner_routes
+import devleadhunter_receptionist.services.gmail_client as gmail_module
+from assistant_mailbox.mailbox_fakes import MAILBOX_ADDRESS, FakeGmail, add_mailbox, add_mailbox_assistant
+from devleadhunter_receptionist.enums.ai_assistant_mailbox import (
     AiAssistantMailboxConnection,
     AiAssistantMailboxMessageOutcome,
     AiAssistantMailboxStatus,
 )
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.models.ai_assistant_mailbox import AiAssistantMailbox
+from devleadhunter_receptionist.models.ai_assistant_mailbox_message import AiAssistantMailboxMessage
+from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantUpdateRequest
+from devleadhunter_receptionist.services.calendar_service import AiAssistantCalendarState
+from devleadhunter_receptionist.services.client_links import AiAssistantClientLinks
+from devleadhunter_receptionist.services.gmail_client import GmailError
+from devleadhunter_receptionist.services.mailbox_service import (
+    AiAssistantMailboxOAuthState,
+    ai_assistant_mailbox_service,
+)
+from devleadhunter_receptionist.settings import receptionist_settings
 from enums.email_account_type import EmailAccountType
-from models.ai_assistant_calendar import AiAssistantCalendar
-from models.ai_assistant_mailbox import AiAssistantMailbox
-from models.ai_assistant_mailbox_message import AiAssistantMailboxMessage
 from models.email_account import EmailAccount
-from schemas.ai_assistant import AiAssistantUpdateRequest
-from services.ai_assistant.calendar_service import AiAssistantCalendarState
-from services.ai_assistant.client_links import AiAssistantClientLinks
-from services.ai_assistant.gmail_client import GmailError
-from services.ai_assistant.mailbox_service import AiAssistantMailboxOAuthState, ai_assistant_mailbox_service
 from services.encryption_service import encryption_service
-from tests.assistant_fakes import VISITOR_REQUEST
-from tests.assistant_mailbox.mailbox_fakes import MAILBOX_ADDRESS, FakeGmail, add_mailbox, add_mailbox_assistant
 
 _OPERATOR = SimpleNamespace(id=7, email="operateur@dibodev.fr")
 
@@ -157,7 +161,7 @@ def test_without_its_redirect_address_the_server_offers_no_mailbox(
 ) -> None:
     assistant = add_mailbox_assistant(db)
     token = AiAssistantClientLinks.token(assistant)
-    monkeypatch.setattr(gmail_module.settings, "google_mailbox_redirect_uri", "")
+    monkeypatch.setattr(receptionist_settings, "google_mailbox_redirect_uri", "")
 
     space = asyncio.run(client_routes.get_client_space(token, VISITOR_REQUEST, db))
     with pytest.raises(HTTPException) as refused:
@@ -203,7 +207,7 @@ def test_the_operator_switches_the_mailbox_on_and_off_which_disconnects_it(
     switched_off = asyncio.run(
         owner_routes.update_assistant(assistant.id, AiAssistantUpdateRequest(mailbox_enabled=False), _OPERATOR, db)
     )
-    monkeypatch.setattr(gmail_module.settings, "google_mailbox_redirect_uri", "")
+    monkeypatch.setattr(receptionist_settings, "google_mailbox_redirect_uri", "")
     with pytest.raises(HTTPException) as refused:
         asyncio.run(
             owner_routes.update_assistant(assistant.id, AiAssistantUpdateRequest(mailbox_enabled=True), _OPERATOR, db)

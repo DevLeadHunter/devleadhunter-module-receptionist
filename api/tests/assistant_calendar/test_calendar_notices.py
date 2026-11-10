@@ -11,17 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from enums.ai_assistant_request import AiAssistantRequestType
-from models.ai_assistant_appointment import AiAssistantAppointment
-from services.ai_assistant.alert_sms import AlertSms
-from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
-from services.ai_assistant.appointment_reminder import AppointmentReminderWindow
-from services.ai_assistant.appointment_texts import AppointmentTexts, BusinessCard
-from services.ai_assistant.google_calendar_client import CalendarEventState
-from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
-from services.sms.gsm_segments import segment_count, to_gsm7
-from tests.assistant_calendar.calendar_fakes import (
+from assistant_calendar.calendar_fakes import (
     MONDAY_10H,
     FakeGoogle,
     add_assistant,
@@ -30,6 +20,16 @@ from tests.assistant_calendar.calendar_fakes import (
     paris,
     utc,
 )
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestType
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.services.alert_sms import AlertSms
+from devleadhunter_receptionist.services.appointment_notices import ai_assistant_appointment_notices
+from devleadhunter_receptionist.services.appointment_reminder import AppointmentReminderWindow
+from devleadhunter_receptionist.services.appointment_texts import AppointmentTexts, BusinessCard
+from devleadhunter_receptionist.services.google_calendar_client import CalendarEventState
+from devleadhunter_receptionist.services.request_email import AiAssistantRequestEmail, RequestEmailContent
+from services.sms.gsm_segments import segment_count, to_gsm7
 
 
 def test_the_reminder_leaves_the_day_before_within_the_day_or_not_at_all() -> None:

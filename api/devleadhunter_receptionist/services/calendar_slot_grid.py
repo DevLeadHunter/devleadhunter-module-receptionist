@@ -12,10 +12,10 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import ClassVar
 
-from services.ai_assistant.appointment_slots import AppointmentRefused
-from services.ai_assistant.calendar_settings import CalendarSettings
-from services.ai_assistant.google_calendar_client import BusyPeriod
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.appointment_slots import AppointmentRefused
+from devleadhunter_receptionist.services.calendar_settings import CalendarSettings
+from devleadhunter_receptionist.services.google_calendar_client import BusyPeriod
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
 
 
 @dataclass(frozen=True)

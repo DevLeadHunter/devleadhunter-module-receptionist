@@ -5,10 +5,10 @@ from datetime import datetime
 import pytest
 
 from core.config import settings
-from models.ai_assistant import AiAssistant
-from services.ai_assistant.calendar_service import AiAssistantCalendarState
-from services.ai_assistant.client_links import AiAssistantClientLinks
-from services.ai_assistant.request_links import AiAssistantRequestLinks
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.calendar_service import AiAssistantCalendarState
+from devleadhunter_receptionist.services.client_links import AiAssistantClientLinks
+from devleadhunter_receptionist.services.request_links import AiAssistantRequestLinks
 
 _NOW = datetime(2026, 9, 24, 12, 0, 0)
 

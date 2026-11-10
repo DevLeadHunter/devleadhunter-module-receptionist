@@ -5,20 +5,20 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, Field, field_validator
 
-from enums.ai_assistant_booking_mode import AiAssistantBookingMode
-from enums.ai_assistant_mailbox import AiAssistantMailboxConnection
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from enums.ai_assistant_request import (
+from devleadhunter_receptionist.enums.ai_assistant_booking_mode import AiAssistantBookingMode
+from devleadhunter_receptionist.enums.ai_assistant_mailbox import AiAssistantMailboxConnection
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.enums.ai_assistant_request import (
     AiAssistantDayPeriod,
     AiAssistantRequestChannel,
     AiAssistantRequestStatus,
     AiAssistantRequestType,
 )
-from enums.ai_assistant_start_step import AiAssistantStartStep
-from enums.ai_assistant_visitor_channel import AiAssistantVisitorChannel
-from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
-from enums.ai_assistant_widget_refusal import AiAssistantWidgetRefusalCode
-from services.ai_assistant.field_limits import (
+from devleadhunter_receptionist.enums.ai_assistant_start_step import AiAssistantStartStep
+from devleadhunter_receptionist.enums.ai_assistant_visitor_channel import AiAssistantVisitorChannel
+from devleadhunter_receptionist.enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
+from devleadhunter_receptionist.enums.ai_assistant_widget_refusal import AiAssistantWidgetRefusalCode
+from devleadhunter_receptionist.services.field_limits import (
     LABEL_MAX_CHARS,
     LONG_TEXT_MAX_CHARS,
     SESSION_ID_MAX_CHARS,

@@ -19,26 +19,30 @@ from typing import ClassVar
 from sqlalchemy.orm import Session
 
 from core.config import settings
-from enums.ai_assistant_request import AiAssistantDayPeriod, AiAssistantRequestType
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_appointment import AiAssistantAppointment
-from models.ai_assistant_calendar import AiAssistantCalendar
-from models.ai_assistant_request import AiAssistantRequest
-from services.ai_assistant.appointment_reminder import AppointmentReminderWindow
-from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentRefused, AppointmentSlot
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.calendar_access import ai_assistant_calendar_access
-from services.ai_assistant.calendar_settings import CalendarSettings
-from services.ai_assistant.calendar_slot_grid import AiAssistantCalendarSlotGrid
-from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
-from services.ai_assistant.google_calendar_client import (
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantDayPeriod, AiAssistantRequestType
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.services.appointment_reminder import AppointmentReminderWindow
+from devleadhunter_receptionist.services.appointment_slots import (
+    AiAssistantAppointmentSlots,
+    AppointmentRefused,
+    AppointmentSlot,
+)
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.calendar_access import ai_assistant_calendar_access
+from devleadhunter_receptionist.services.calendar_settings import CalendarSettings
+from devleadhunter_receptionist.services.calendar_slot_grid import AiAssistantCalendarSlotGrid
+from devleadhunter_receptionist.services.field_limits import SHORT_TEXT_MAX_CHARS
+from devleadhunter_receptionist.services.google_calendar_client import (
     CalendarEventDraft,
     CalendarEventState,
     GoogleCalendarError,
     google_calendar_client,
 )
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.request_email import AiAssistantRequestEmail
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.request_email import AiAssistantRequestEmail
 from services.french_date_formatter import FrenchDateFormatter
 from services.sms.phone_normalizer import to_served_mobile
 

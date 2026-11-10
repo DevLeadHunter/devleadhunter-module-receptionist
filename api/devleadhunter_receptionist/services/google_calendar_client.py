@@ -17,7 +17,7 @@ from urllib.parse import quote
 
 import httpx
 
-from core.config import settings
+from devleadhunter_receptionist.settings import receptionist_settings
 from services.google_oauth_client import GoogleApiError, GoogleOAuthError, GoogleTokens, google_oauth_client
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ class GoogleCalendarClient:
         """
         return google_oauth_client.authorization_url(
             scopes=GOOGLE_CALENDAR_SCOPES,
-            redirect_uri=settings.google_calendar_redirect_uri,
+            redirect_uri=receptionist_settings.google_calendar_redirect_uri,
             state=state,
             include_granted_scopes=True,
         )
@@ -111,7 +111,9 @@ class GoogleCalendarClient:
         """
         try:
             return await google_oauth_client.exchange_code(
-                code, redirect_uri=settings.google_calendar_redirect_uri, timeout_seconds=self.TIMEOUT_SECONDS
+                code,
+                redirect_uri=receptionist_settings.google_calendar_redirect_uri,
+                timeout_seconds=self.TIMEOUT_SECONDS,
             )
         except GoogleOAuthError as exc:
             raise GoogleCalendarError(str(exc), needs_reconnect=exc.is_access_lost) from exc

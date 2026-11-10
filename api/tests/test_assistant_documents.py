@@ -12,29 +12,33 @@ from datetime import datetime
 from typing import Any
 
 import pytest
+from assistant_fakes import AsyncCallRecorder
 from fastapi import HTTPException
 from pypdf import PdfReader, PdfWriter
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.requests import Request
 
-import api.v1.routes.ai_assistant_sources as sources_routes
-import services.ai_assistant.document_service as document_module
-import services.ai_assistant.source_service as source_module
-from enums.ai_assistant_knowledge_source import AiAssistantKnowledgeSource
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_document import AiAssistantDocument
+import devleadhunter_receptionist.routes.ai_assistant_sources as sources_routes
+import devleadhunter_receptionist.services.document_service as document_module
+import devleadhunter_receptionist.services.source_service as source_module
+from devleadhunter_receptionist.enums.ai_assistant_knowledge_source import AiAssistantKnowledgeSource
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_document import AiAssistantDocument
+from devleadhunter_receptionist.schemas.ai_assistant_sources import AiAssistantSourcesUpdate
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.document_service import AiAssistantDocumentService
+from devleadhunter_receptionist.services.document_text import (
+    AiAssistantDocumentText,
+    DocumentReaderBusy,
+    DocumentRejected,
+)
+from devleadhunter_receptionist.services.knowledge_budget import AiAssistantKnowledgeBudget, KnowledgeSourceText
+from devleadhunter_receptionist.services.knowledge_builder import ai_assistant_knowledge_builder
+from devleadhunter_receptionist.services.knowledge_sources import SourceToggles
+from devleadhunter_receptionist.services.source_service import AiAssistantSourceService
 from models.prospect_db import ProspectDB
 from models.user import User
-from schemas.ai_assistant_sources import AiAssistantSourcesUpdate
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.document_service import AiAssistantDocumentService
-from services.ai_assistant.document_text import AiAssistantDocumentText, DocumentReaderBusy, DocumentRejected
-from services.ai_assistant.knowledge_budget import AiAssistantKnowledgeBudget, KnowledgeSourceText
-from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
-from services.ai_assistant.knowledge_sources import SourceToggles
-from services.ai_assistant.source_service import AiAssistantSourceService
-from tests.assistant_fakes import AsyncCallRecorder
 
 
 def _pdf(pages: list[list[str]]) -> bytes:
@@ -545,7 +549,7 @@ def test_a_disabled_document_leaves_the_prompt(db: Session, storage: _Storage) -
 def test_the_chat_keeps_the_passages_closest_to_the_question_and_logs_the_prompt_size(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    import services.ai_assistant.chat_service as chat_module
+    import devleadhunter_receptionist.services.chat_service as chat_module
 
     tyres_winter = "Pneus hiver : 60 euros la pose. " + "Détail du montage. " * 42
     bodywork = "Carrosserie et peinture. " + "Détail de la carrosserie. " * 31
@@ -569,7 +573,7 @@ def test_the_chat_keeps_the_passages_closest_to_the_question_and_logs_the_prompt
     monkeypatch.setattr(chat_module.assistant_llm_router, "chat", chat)
     monkeypatch.setattr(AiAssistantKnowledgeBudget, "MAX_CHARS", 1800)
 
-    with caplog.at_level("INFO", logger="services.ai_assistant.chat_service"):
+    with caplog.at_level("INFO", logger="devleadhunter_receptionist.services.chat_service"):
         reply = asyncio.run(
             chat_module.ai_assistant_chat_service.answer(
                 knowledge=knowledge,
@@ -665,7 +669,7 @@ def test_a_document_that_cannot_be_saved_leaves_no_file(
 def test_a_follow_up_question_keeps_the_subject_and_every_source_keeps_its_opening(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import services.ai_assistant.chat_service as chat_module
+    import devleadhunter_receptionist.services.chat_service as chat_module
 
     # Three pages of two passages each, then two documents of one: in reading order, the pages would fill the
     # budget and leave the documents out.

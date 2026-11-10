@@ -8,8 +8,12 @@ from urllib.parse import quote
 
 import pytest
 
-from services.assistant_space_chapter import AssistantSpaceChapter
-from services.assistant_widget_scene import AssistantScenePlan, AssistantSceneProgress, AssistantWidgetScene
+from devleadhunter_receptionist.services.assistant_space_chapter import AssistantSpaceChapter
+from devleadhunter_receptionist.services.assistant_widget_scene import (
+    AssistantScenePlan,
+    AssistantSceneProgress,
+    AssistantWidgetScene,
+)
 
 _GREETING = '<div class="ai-m ai-m--assistant"><div class="ai-m__bubble">Bonjour, je suis Sofia.</div></div>'
 _VISITOR_LINE = '<div class="ai-m ai-m--user"><div class="ai-m__bubble">Une fuite sous mon évier.</div></div>'

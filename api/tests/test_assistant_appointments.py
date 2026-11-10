@@ -11,35 +11,35 @@ from datetime import date, datetime
 from typing import Any
 
 import pytest
+from assistant_fakes import VISITOR_REQUEST, AcceptingSmsProvider, AsyncCallRecorder
 from fastapi import HTTPException
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-import api.v1.routes.ai_assistant_widget as routes
-import migrations.add_ai_assistant_request_appointment_slots as slots_migration
-import services.ai_assistant.request_alerts as alerts_module
-import services.ai_assistant.request_analyzer as analyzer_module
-import services.ai_assistant.request_follow_up as follow_up_module
+import devleadhunter_receptionist.migrations.add_ai_assistant_request_appointment_slots as slots_migration
+import devleadhunter_receptionist.routes.ai_assistant_widget as routes
+import devleadhunter_receptionist.services.request_alerts as alerts_module
+import devleadhunter_receptionist.services.request_analyzer as analyzer_module
 import services.email_sending_service as email_sending_module
 import services.sms_service as sms_module
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from enums.ai_assistant_request import AiAssistantDayPeriod, AiAssistantRequestType
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantDayPeriod, AiAssistantRequestType
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantLeadRequest, AiAssistantSlotChoice
+from devleadhunter_receptionist.services.alert_sms import AlertSms
+from devleadhunter_receptionist.services.appointment_slots import AiAssistantAppointmentSlots, AppointmentSlot
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.receptionist_notifications import receptionist_notifications
+from devleadhunter_receptionist.services.request_email import AiAssistantRequestEmail, RequestEmailContent
+from devleadhunter_receptionist.services.request_follow_up import AiAssistantRequestFollowUp
+from devleadhunter_receptionist.services.request_service import AiAssistantRequestService
 from models.prospect_db import ProspectDB
 from models.sms_config import SmsConfig
-from schemas.ai_assistant import AiAssistantLeadRequest, AiAssistantSlotChoice
-from services.ai_assistant.alert_sms import AlertSms
-from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentSlot
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
-from services.ai_assistant.request_follow_up import AiAssistantRequestFollowUp
-from services.ai_assistant.request_service import AiAssistantRequestService
 from services.rate_limiter import SlidingWindowRateLimiter
 from services.sms.gsm_segments import segment_count
-from tests.assistant_fakes import VISITOR_REQUEST, AcceptingSmsProvider, AsyncCallRecorder
 
 _MORNING = AiAssistantDayPeriod.MORNING
 _AFTERNOON = AiAssistantDayPeriod.AFTERNOON
@@ -68,8 +68,8 @@ def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     provider = AcceptingSmsProvider()
     monkeypatch.setattr(analyzer_module.assistant_llm_router, "complete_json", model)
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
-    monkeypatch.setattr(follow_up_module.notification_service, "notify_assistant_lead", AsyncCallRecorder())
-    monkeypatch.setattr(alerts_module.notification_service, "notify_assistant_requests_waiting", AsyncCallRecorder())
+    monkeypatch.setattr(receptionist_notifications, "notify_assistant_lead", AsyncCallRecorder())
+    monkeypatch.setattr(receptionist_notifications, "notify_assistant_requests_waiting", AsyncCallRecorder())
     monkeypatch.setattr(sms_module.notification_service, "notify_sms_event", AsyncCallRecorder())
     monkeypatch.setattr(sms_module.sms_service, "_provider", provider)
     monkeypatch.setattr(alerts_module, "naive_utc_now", lambda: _TUESDAY_14H_UTC)

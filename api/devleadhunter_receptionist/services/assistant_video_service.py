@@ -4,10 +4,10 @@ The assistant's video is its own thing (a *different* recording from the site vi
 brief): the user's assistant-module presenter clip full-screen for the intro/outro, and in the middle
 a screen capture of the demo page's chat **answering** — the scripted example plays (a customer writes,
 the receptionist asks for a photo and hands the request over), then the appointment slots open
-(:mod:`services.assistant_widget_scene`); when the clip leaves enough time, the last seconds switch to the
-example client space, where the requests land (:mod:`services.assistant_space_chapter`). The webcam bubble sits
+(:mod:`devleadhunter_receptionist.services.assistant_widget_scene`); when the clip leaves enough time, the last seconds switch to the
+example client space, where the requests land (:mod:`devleadhunter_receptionist.services.assistant_space_chapter`). The webcam bubble sits
 bottom-right so it never covers the chat. The owner's desktop app films and montages it
-(:mod:`services.assistant_widget_clip_service`); everything but the storage namespace and the wording is
+(:mod:`devleadhunter_receptionist.services.assistant_widget_clip_service`); everything but the storage namespace and the wording is
 shared with the site video in :class:`services.prospection_video_service.ProspectionVideoService`.
 
 The mp4 + jpg go to Cloudflare R2 (``videos/assistant/{slug}.mp4`` / ``images/assistant/{slug}.jpg``); the player
@@ -20,9 +20,11 @@ import logging
 from datetime import datetime
 
 from core.config import settings
-from enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.receptionist_storage import ReceptionistStorage
 from enums.demo_video_status import DemoVideoStatus
-from models.ai_assistant import AiAssistant
+from services.prospection_video_desktop_relay import ProspectionVideoDesktopRelay
 from services.prospection_video_service import ProspectionVideoService
 from services.r2_storage_service import r2_storage
 
@@ -34,12 +36,12 @@ ASSISTANT_PRESENTER_MODULE = "ai-assistant"
 
 def video_object_key(slug: str) -> str:
     """R2 key of the assistant's generated video."""
-    return r2_storage.assistant_video_key(slug)
+    return ReceptionistStorage.assistant_video_key(slug)
 
 
 def thumbnail_object_key(slug: str) -> str:
     """R2 key of the assistant's email thumbnail."""
-    return r2_storage.assistant_thumbnail_key(slug)
+    return ReceptionistStorage.assistant_thumbnail_key(slug)
 
 
 def video_page_url(slug: str) -> str:
@@ -133,3 +135,5 @@ class AssistantVideoService(ProspectionVideoService[AiAssistant]):
 
 
 assistant_video_service = AssistantVideoService()
+# The receptionist's videos wait for the owner's desktop app like the sites' (the core's relay, this kind).
+assistant_video_desktop_relay = ProspectionVideoDesktopRelay(assistant_video_service)

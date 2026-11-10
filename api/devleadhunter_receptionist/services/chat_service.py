@@ -16,14 +16,14 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any
 
-from enums.ai_assistant_llm import AiAssistantLlmUsage
-from services.ai_assistant.event_intake import EventIntakeContext
-from services.ai_assistant.field_limits import LONG_TEXT_MAX_CHARS
-from services.ai_assistant.follow_up_marker import FollowUpMarker, FollowUpMarkerStream
-from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
-from services.ai_assistant.limits import AssistantLimit
-from services.ai_assistant.llm_router import assistant_llm_router
-from services.ai_assistant.missing_info_marker import (
+from devleadhunter_receptionist.enums.ai_assistant_llm import AiAssistantLlmUsage
+from devleadhunter_receptionist.services.event_intake import EventIntakeContext
+from devleadhunter_receptionist.services.field_limits import LONG_TEXT_MAX_CHARS
+from devleadhunter_receptionist.services.follow_up_marker import FollowUpMarker, FollowUpMarkerStream
+from devleadhunter_receptionist.services.knowledge_builder import ai_assistant_knowledge_builder
+from devleadhunter_receptionist.services.limits import AssistantLimit
+from devleadhunter_receptionist.services.llm_router import assistant_llm_router
+from devleadhunter_receptionist.services.missing_info_marker import (
     MissingInfoMarker,
     MissingInfoMarkerStream,
     admits_ignorance,

@@ -12,28 +12,29 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
+from assistant_fakes import VISITOR_REQUEST, AsyncCallRecorder
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
-import migrations.add_ai_assistant_requests_table as requests_migration
-import services.ai_assistant.request_analyzer as analyzer_module
-import services.ai_assistant.request_follow_up as follow_up_module
+import devleadhunter_receptionist.migrations.add_ai_assistant_requests_table as requests_migration
+import devleadhunter_receptionist.services.request_analyzer as analyzer_module
+import devleadhunter_receptionist.services.request_follow_up as follow_up_module
 import services.email_sending_service as email_sending_module
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_lead import AiAssistantLead
-from models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestStatus, AiAssistantRequestType
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_lead import AiAssistantLead
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.conversation_service import ai_assistant_conversation_service
+from devleadhunter_receptionist.services.receptionist_notifications import receptionist_notifications
+from devleadhunter_receptionist.services.request_analyzer import TranscriptLine
+from devleadhunter_receptionist.services.request_attachments import AiAssistantRequestAttachments
+from devleadhunter_receptionist.services.request_email import AiAssistantRequestEmail, RequestEmailContent
+from devleadhunter_receptionist.services.request_follow_up import AiAssistantRequestFollowUp
+from devleadhunter_receptionist.services.request_links import AiAssistantRequestLinks
+from devleadhunter_receptionist.services.request_service import AiAssistantRequestService
 from models.prospect_db import ProspectDB
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.conversation_service import ai_assistant_conversation_service
-from services.ai_assistant.request_analyzer import TranscriptLine
-from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
-from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
-from services.ai_assistant.request_follow_up import AiAssistantRequestFollowUp
-from services.ai_assistant.request_links import AiAssistantRequestLinks
-from services.ai_assistant.request_service import AiAssistantRequestService
-from tests.assistant_fakes import VISITOR_REQUEST, AsyncCallRecorder
 
 _HOURS = [{"day": "lundi", "hours": "08:00–12:00, 14:00–18:00"}]
 _MONDAY_EVENING = datetime(2026, 9, 21, 21, 30)
@@ -185,7 +186,7 @@ def outbox(monkeypatch: pytest.MonkeyPatch) -> dict[str, AsyncCallRecorder]:
     push = AsyncCallRecorder()
     monkeypatch.setattr(analyzer_module.assistant_llm_router, "complete_json", model)
     monkeypatch.setattr(email_sending_module.EmailSendingService, "send_via_user_identity", email)
-    monkeypatch.setattr(follow_up_module.notification_service, "notify_assistant_lead", push)
+    monkeypatch.setattr(receptionist_notifications, "notify_assistant_lead", push)
     return {"model": model, "email": email, "push": push}
 
 
@@ -296,7 +297,10 @@ def test_owner_updates_are_scoped_and_keep_handled_at_in_step(db: Session) -> No
 
 
 def test_the_handled_link_only_confirms_on_open_and_acts_on_a_signed_post(db: Session) -> None:
-    from api.v1.routes.ai_assistant_requests import confirm_request_handled_page, mark_request_handled_from_email
+    from devleadhunter_receptionist.routes.ai_assistant_requests import (
+        confirm_request_handled_page,
+        mark_request_handled_from_email,
+    )
 
     assistant = _assistant(db)
     request, _ = _capture(db, assistant)
@@ -334,7 +338,7 @@ def test_the_handled_link_only_confirms_on_open_and_acts_on_a_signed_post(db: Se
 
 
 def test_a_handled_link_opened_too_often_from_one_address_waits(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    import api.v1.routes.ai_assistant_requests as routes
+    import devleadhunter_receptionist.routes.ai_assistant_requests as routes
     from services.rate_limiter import SlidingWindowRateLimiter
 
     assistant = _assistant(db)

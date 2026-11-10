@@ -20,26 +20,30 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from core.clock import naive_utc_now
 from core.database import SessionLocal
-from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus, AiAssistantRequestType
-from enums.ai_assistant_status import AiAssistantStatus
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_mailbox import AiAssistantMailbox
-from models.ai_assistant_request import AiAssistantRequest
-from services.ai_assistant.alert_settings import AlertSettings, QuietHours
-from services.ai_assistant.alert_sms import AlertSms
-from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots
-from services.ai_assistant.business_mailer import AiAssistantBusinessMailer
-from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
-from services.ai_assistant.client_links import AiAssistantClientLinks
-from services.ai_assistant.config_builder import ai_assistant_config_builder
-from services.ai_assistant.gmail_client import GmailClient
-from services.ai_assistant.message_delivery import AiAssistantMessageDelivery
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.request_analyzer import TranscriptLine, ai_assistant_request_analyzer
-from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
-from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
-from services.ai_assistant.request_links import AiAssistantRequestLinks
-from services.notification_service import notification_service
+from devleadhunter_receptionist.enums.ai_assistant_request import (
+    AiAssistantRequestChannel,
+    AiAssistantRequestStatus,
+    AiAssistantRequestType,
+)
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_mailbox import AiAssistantMailbox
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.services.alert_settings import AlertSettings, QuietHours
+from devleadhunter_receptionist.services.alert_sms import AlertSms
+from devleadhunter_receptionist.services.appointment_slots import AiAssistantAppointmentSlots
+from devleadhunter_receptionist.services.business_mailer import AiAssistantBusinessMailer
+from devleadhunter_receptionist.services.calendar_booking import ai_assistant_calendar_booking
+from devleadhunter_receptionist.services.client_links import AiAssistantClientLinks
+from devleadhunter_receptionist.services.config_builder import ai_assistant_config_builder
+from devleadhunter_receptionist.services.gmail_client import GmailClient
+from devleadhunter_receptionist.services.message_delivery import AiAssistantMessageDelivery
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.receptionist_notifications import receptionist_notifications
+from devleadhunter_receptionist.services.request_analyzer import TranscriptLine, ai_assistant_request_analyzer
+from devleadhunter_receptionist.services.request_attachments import AiAssistantRequestAttachments
+from devleadhunter_receptionist.services.request_email import AiAssistantRequestEmail, RequestEmailContent
+from devleadhunter_receptionist.services.request_links import AiAssistantRequestLinks
 from services.sms.gsm_segments import to_strict_gsm7
 from services.sms_config_service import sms_config_service
 
@@ -240,7 +244,7 @@ class AiAssistantRequestAlerts:
                     .filter(*self._waiting_filters(current), AiAssistantRequest.assistant_id == assistant_id)
                     .count()
                 )
-                await notification_service.notify_assistant_requests_waiting(
+                await receptionist_notifications.notify_assistant_requests_waiting(
                     db,
                     user_id=assistant.user_id,
                     prospect_id=assistant.prospect_id,

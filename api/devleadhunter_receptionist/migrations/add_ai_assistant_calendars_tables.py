@@ -2,16 +2,9 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-_ROOT = Path(__file__).resolve().parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
-
 from core.database import engine
-from models.ai_assistant_appointment import AiAssistantAppointment
-from models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
 
 
 def run_migration() -> None:

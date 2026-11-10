@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import datetime, time, timedelta
 from typing import ClassVar
 
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
 
 
 class AppointmentReminderWindow:

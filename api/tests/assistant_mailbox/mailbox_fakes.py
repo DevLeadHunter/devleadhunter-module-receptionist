@@ -9,11 +9,12 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar
 
+from assistant_calendar.calendar_fakes import add_assistant
 from sqlalchemy.orm import Session
 
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_mailbox import AiAssistantMailbox
-from services.ai_assistant.gmail_client import (
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_mailbox import AiAssistantMailbox
+from devleadhunter_receptionist.services.gmail_client import (
     GMAIL_COMPOSE_SCOPE,
     GMAIL_READONLY_SCOPE,
     GmailChanges,
@@ -24,7 +25,6 @@ from services.ai_assistant.gmail_client import (
 )
 from services.encryption_service import encryption_service
 from services.google_oauth_client import GoogleTokens
-from tests.assistant_calendar.calendar_fakes import add_assistant
 
 MAILBOX_ADDRESS = "garage.morel@gmail.com"
 CONNECTED_AT = datetime(2026, 9, 30, 8, 0)

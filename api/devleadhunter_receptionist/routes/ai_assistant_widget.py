@@ -16,21 +16,20 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
-from api.v1.routes.ai_assistant_common import (
+from core.config import settings
+from core.database import SessionLocal, get_db
+from devleadhunter_receptionist.enums.ai_assistant_photo import AiAssistantPhotoRejection
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.enums.ai_assistant_visitor_channel import AiAssistantVisitorChannel
+from devleadhunter_receptionist.enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
+from devleadhunter_receptionist.enums.ai_assistant_widget_refusal import AiAssistantWidgetRefusalCode
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.routes.ai_assistant_common import (
     client_ip,
     public_assistant_or_404,
     require_declared_length,
 )
-from core.config import settings
-from core.database import SessionLocal, get_db
-from enums.ai_assistant_photo import AiAssistantPhotoRejection
-from enums.ai_assistant_status import AiAssistantStatus
-from enums.ai_assistant_visitor_channel import AiAssistantVisitorChannel
-from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
-from enums.ai_assistant_widget_refusal import AiAssistantWidgetRefusalCode
-from models.ai_assistant import AiAssistant
-from models.prospect_db import ProspectDB
-from schemas.ai_assistant import (
+from devleadhunter_receptionist.schemas.ai_assistant import (
     BOOKABLE_YEAR_MAX,
     BOOKABLE_YEAR_MIN,
     AiAssistantAppointmentDay,
@@ -49,55 +48,56 @@ from schemas.ai_assistant import (
     AiAssistantPublicResponse,
     AiAssistantRefusal,
 )
-from services.ai_assistant.appointment_notices import ai_assistant_appointment_notices
-from services.ai_assistant.appointment_slots import (
+from devleadhunter_receptionist.services.appointment_notices import ai_assistant_appointment_notices
+from devleadhunter_receptionist.services.appointment_slots import (
     AiAssistantAppointmentSlots,
     AppointmentRefused,
     AppointmentSlot,
     SlotNoLongerOffered,
 )
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.avatar_service import ai_assistant_avatar_service
-from services.ai_assistant.business_card import AiAssistantBusinessCard
-from services.ai_assistant.calendar_booking import SlotTakenError, ai_assistant_calendar_booking
-from services.ai_assistant.calendar_service import ai_assistant_calendar_service
-from services.ai_assistant.chat_contact_capture import ai_assistant_chat_contact_capture
-from services.ai_assistant.chat_service import ChatAnswer, ai_assistant_chat_service
-from services.ai_assistant.config_builder import ai_assistant_config_builder
-from services.ai_assistant.conversation_service import ai_assistant_conversation_service
-from services.ai_assistant.daily_message_cap import ai_assistant_daily_message_cap
-from services.ai_assistant.demo_space_service import ai_assistant_demo_space_service
-from services.ai_assistant.event_intake import ai_assistant_event_intake
-from services.ai_assistant.faq_service import ai_assistant_faq_service
-from services.ai_assistant.field_limits import SESSION_ID_MAX_CHARS
-from services.ai_assistant.follow_up_marker import MAX_FOLLOW_UP_CHARS
-from services.ai_assistant.installation_service import ai_assistant_installation_service
-from services.ai_assistant.limits import AiAssistantLimits
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.photo_service import (
+from devleadhunter_receptionist.services.assistant_pricing_service import AssistantPricingService
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.assistant_video_service import (
+    has_ready_video,
+    public_thumbnail_url,
+    public_video_file_url,
+)
+from devleadhunter_receptionist.services.avatar_service import ai_assistant_avatar_service
+from devleadhunter_receptionist.services.business_card import AiAssistantBusinessCard
+from devleadhunter_receptionist.services.calendar_booking import SlotTakenError, ai_assistant_calendar_booking
+from devleadhunter_receptionist.services.calendar_service import ai_assistant_calendar_service
+from devleadhunter_receptionist.services.chat_contact_capture import ai_assistant_chat_contact_capture
+from devleadhunter_receptionist.services.chat_service import ChatAnswer, ai_assistant_chat_service
+from devleadhunter_receptionist.services.config_builder import ai_assistant_config_builder
+from devleadhunter_receptionist.services.conversation_service import ai_assistant_conversation_service
+from devleadhunter_receptionist.services.daily_message_cap import ai_assistant_daily_message_cap
+from devleadhunter_receptionist.services.demo_space_service import ai_assistant_demo_space_service
+from devleadhunter_receptionist.services.event_intake import ai_assistant_event_intake
+from devleadhunter_receptionist.services.faq_service import ai_assistant_faq_service
+from devleadhunter_receptionist.services.field_limits import SESSION_ID_MAX_CHARS
+from devleadhunter_receptionist.services.follow_up_marker import MAX_FOLLOW_UP_CHARS
+from devleadhunter_receptionist.services.installation_service import ai_assistant_installation_service
+from devleadhunter_receptionist.services.limits import AiAssistantLimits
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.photo_service import (
     MAX_PHOTO_BYTES,
     MAX_PHOTOS_PER_SESSION,
     PhotoRejectedError,
     ai_assistant_photo_service,
 )
-from services.ai_assistant.request_follow_up import ai_assistant_request_follow_up
-from services.ai_assistant.request_service import ai_assistant_request_service
-from services.ai_assistant.request_volume import AiAssistantRequestVolume
-from services.ai_assistant.suggested_questions import AiAssistantSuggestedQuestions
-from services.ai_assistant.visitor_contact import VisitorContact
-from services.assistant_pricing_service import AssistantPricingService
-from services.assistant_video_service import (
-    has_ready_video,
-    public_thumbnail_url,
-    public_video_file_url,
-)
-from services.notification_service import notification_service
-from services.r2_storage_service import r2_storage
-from services.rate_limiter import (
+from devleadhunter_receptionist.services.rate_limits import (
     assistant_chat_limiter,
     assistant_lead_limiter,
     assistant_photo_limiter,
 )
+from devleadhunter_receptionist.services.receptionist_notifications import receptionist_notifications
+from devleadhunter_receptionist.services.request_follow_up import ai_assistant_request_follow_up
+from devleadhunter_receptionist.services.request_service import ai_assistant_request_service
+from devleadhunter_receptionist.services.request_volume import AiAssistantRequestVolume
+from devleadhunter_receptionist.services.suggested_questions import AiAssistantSuggestedQuestions
+from devleadhunter_receptionist.services.visitor_contact import VisitorContact
+from models.prospect_db import ProspectDB
+from services.r2_storage_service import r2_storage
 
 logger = logging.getLogger(__name__)
 
@@ -573,7 +573,7 @@ async def submit_assistant_lead(
         # No traceback: a database error would quote the visitor's details in the log.
         logger.warning("assistant request persist failed (slug=%s, %s)", slug, type(exc).__name__)
         if not payload.internal:
-            await notification_service.notify_assistant_lead(
+            await receptionist_notifications.notify_assistant_lead(
                 db,
                 user_id=assistant.user_id,
                 prospect_id=assistant.prospect_id,
@@ -724,7 +724,7 @@ async def submit_assistant_interest(
     assistant = ai_assistant_service.get_public_by_slug(db, slug)
     if not assistant:
         return  # Unknown or inactive slug: ignore, like the public demo-events beacon.
-    await notification_service.notify_assistant_interest(
+    await receptionist_notifications.notify_assistant_interest(
         db,
         user_id=assistant.user_id,
         prospect_id=assistant.prospect_id,

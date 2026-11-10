@@ -21,7 +21,8 @@ from fastapi import UploadFile
 from PIL import Image, ImageChops, ImageOps, UnidentifiedImageError
 from sqlalchemy.orm import Session
 
-from models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.receptionist_storage import ReceptionistStorage
 from services.r2_storage_service import r2_storage
 
 logger = logging.getLogger(__name__)
@@ -86,7 +87,7 @@ class AiAssistantAvatarService:
         if len(data) > self.MAX_BYTES:
             raise AvatarRefusal("L'image dépasse 2 Mo.", is_too_large=True)
         portrait, is_transparent = self.normalized(data)
-        key = r2_storage.assistant_avatar_key(assistant.id)
+        key = ReceptionistStorage.assistant_avatar_key(assistant.id)
         try:
             await r2_storage.upload_bytes_async(key, portrait, "image/webp")
         except Exception as exc:

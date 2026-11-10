@@ -10,18 +10,18 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+from assistant_fakes import VISITOR_REQUEST
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-import api.v1.routes.ai_assistant_client_space as client_routes
-import services.ai_assistant.google_calendar_client as google_module
-from enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
-from models.ai_assistant_appointment import AiAssistantAppointment
-from models.ai_assistant_calendar import AiAssistantCalendar
-from schemas.ai_assistant_client_space import AiAssistantClientCalendarUpdate
-from services.ai_assistant.client_links import AiAssistantClientLinks
-from tests.assistant_calendar.calendar_fakes import FakeGoogle, add_assistant, add_calendar, add_request
-from tests.assistant_fakes import VISITOR_REQUEST
+import devleadhunter_receptionist.routes.ai_assistant_client_space as client_routes
+from assistant_calendar.calendar_fakes import FakeGoogle, add_assistant, add_calendar, add_request
+from core.config import settings
+from devleadhunter_receptionist.enums.ai_assistant_calendar_status import AiAssistantCalendarConnection
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.schemas.ai_assistant_client_space import AiAssistantClientCalendarUpdate
+from devleadhunter_receptionist.services.client_links import AiAssistantClientLinks
 
 
 def test_the_client_space_shows_the_agenda_and_the_upcoming_appointments(
@@ -47,7 +47,7 @@ def test_the_client_space_shows_the_agenda_and_the_upcoming_appointments(
     db.commit()
 
     space = asyncio.run(client_routes.get_client_space(token, VISITOR_REQUEST, db))
-    monkeypatch.setattr(google_module.settings, "google_client_id", "")
+    monkeypatch.setattr(settings, "google_client_id", "")
     unavailable = asyncio.run(client_routes.get_client_space(token, VISITOR_REQUEST, db))
 
     assert disconnected.calendar.status is AiAssistantCalendarConnection.DISCONNECTED

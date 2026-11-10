@@ -15,29 +15,29 @@ from fastapi import HTTPException
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-import api.v1.routes.ai_assistant_requests as request_routes
-import api.v1.routes.ai_assistants as owner_routes
-import services.ai_assistant.assistant_purge as purge_module
-import services.ai_assistant.gmail_client as gmail_module
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_appointment import AiAssistantAppointment
-from models.ai_assistant_calendar import AiAssistantCalendar
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_document import AiAssistantDocument
-from models.ai_assistant_lead import AiAssistantLead
-from models.ai_assistant_mailbox import AiAssistantMailbox
-from models.ai_assistant_mailbox_message import AiAssistantMailboxMessage
-from models.ai_assistant_message import AiAssistantMessage
-from models.ai_assistant_photo import AiAssistantPhoto
-from models.ai_assistant_report import AiAssistantReport
-from models.ai_assistant_request import AiAssistantRequest
-from models.ai_assistant_subscription import AiAssistantSubscription
+import devleadhunter_receptionist.routes.ai_assistant_requests as request_routes
+import devleadhunter_receptionist.routes.ai_assistants as owner_routes
+import devleadhunter_receptionist.services.assistant_purge as purge_module
+import devleadhunter_receptionist.services.gmail_client as gmail_module
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_document import AiAssistantDocument
+from devleadhunter_receptionist.models.ai_assistant_lead import AiAssistantLead
+from devleadhunter_receptionist.models.ai_assistant_mailbox import AiAssistantMailbox
+from devleadhunter_receptionist.models.ai_assistant_mailbox_message import AiAssistantMailboxMessage
+from devleadhunter_receptionist.models.ai_assistant_message import AiAssistantMessage
+from devleadhunter_receptionist.models.ai_assistant_photo import AiAssistantPhoto
+from devleadhunter_receptionist.models.ai_assistant_report import AiAssistantReport
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.models.ai_assistant_subscription import AiAssistantSubscription
+from devleadhunter_receptionist.services.assistant_purge import ai_assistant_purge_service
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.receptionist_storage import ReceptionistStorage
 from models.prospect_db import ProspectDB
 from models.user import User
-from services.ai_assistant.assistant_purge import ai_assistant_purge_service
-from services.ai_assistant.assistant_service import ai_assistant_service
 from services.encryption_service import encryption_service
-from services.r2_storage_service import R2StorageService
 
 _OPERATOR = SimpleNamespace(id=7, email="operateur@dibodev.fr")
 # Every table a purge empties, per assistant.
@@ -58,8 +58,8 @@ _ERASED_MODELS: tuple[type, ...] = (
 class FakeBucket:
     """An R2 bucket in memory: the keys it holds, and whether it answers."""
 
-    DOCUMENTS_ASSISTANT_PREFIX = R2StorageService.DOCUMENTS_ASSISTANT_PREFIX
-    IMAGES_ASSISTANT_AVATARS_PREFIX = R2StorageService.IMAGES_ASSISTANT_AVATARS_PREFIX
+    DOCUMENTS_ASSISTANT_PREFIX = ReceptionistStorage.DOCUMENTS_ASSISTANT_PREFIX
+    IMAGES_ASSISTANT_AVATARS_PREFIX = ReceptionistStorage.IMAGES_ASSISTANT_AVATARS_PREFIX
 
     def __init__(self) -> None:
         self.keys: set[str] = set()
@@ -80,15 +80,15 @@ class FakeBucket:
 
     @staticmethod
     def assistant_video_key(slug: str) -> str:
-        return R2StorageService.assistant_video_key(slug)
+        return ReceptionistStorage.assistant_video_key(slug)
 
     @staticmethod
     def assistant_background_key(slug: str) -> str:
-        return R2StorageService.assistant_background_key(slug)
+        return ReceptionistStorage.assistant_background_key(slug)
 
     @staticmethod
     def assistant_thumbnail_key(slug: str) -> str:
-        return R2StorageService.assistant_thumbnail_key(slug)
+        return ReceptionistStorage.assistant_thumbnail_key(slug)
 
 
 @pytest.fixture
@@ -185,9 +185,9 @@ def _assistant_with_visitors(db: Session, bucket: FakeBucket, business_name: str
         document_key,
         f"documents/assistant/{assistant.id}/upload-interrompu.pdf",
         photo_key,
-        R2StorageService.assistant_video_key(assistant.slug),
-        R2StorageService.assistant_background_key(assistant.slug),
-        R2StorageService.assistant_thumbnail_key(assistant.slug),
+        ReceptionistStorage.assistant_video_key(assistant.slug),
+        ReceptionistStorage.assistant_background_key(assistant.slug),
+        ReceptionistStorage.assistant_thumbnail_key(assistant.slug),
     }
     return assistant
 

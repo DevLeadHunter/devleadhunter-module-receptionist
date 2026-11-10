@@ -17,13 +17,13 @@ from sqlalchemy.orm import Session
 
 from core.clock import naive_utc_now
 from core.database import SessionLocal
-from enums.ai_assistant_status import AiAssistantStatus
-from models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.knowledge_sources import SourceToggles
+from devleadhunter_receptionist.services.suggested_questions import ai_assistant_suggested_questions
+from devleadhunter_receptionist.services.website_sync import AiAssistantWebsiteSync
 from models.prospect_db import ProspectDB
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.knowledge_sources import SourceToggles
-from services.ai_assistant.suggested_questions import ai_assistant_suggested_questions
-from services.ai_assistant.website_sync import AiAssistantWebsiteSync
 
 logger = logging.getLogger(__name__)
 

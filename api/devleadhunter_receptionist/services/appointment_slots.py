@@ -13,9 +13,9 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import ClassVar
 
-from enums.ai_assistant_request import AiAssistantDayPeriod
-from models.ai_assistant import AiAssistant
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantDayPeriod
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
 from services.french_date_formatter import FrenchDateFormatter
 
 

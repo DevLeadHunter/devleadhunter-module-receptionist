@@ -14,10 +14,10 @@ import re
 from dataclasses import dataclass
 from typing import ClassVar
 
-from enums.ai_assistant_llm import AiAssistantLlmUsage
-from enums.ai_assistant_request import AiAssistantRequestType
-from services.ai_assistant.knowledge_sources import AiAssistantKnowledgeSources
-from services.ai_assistant.llm_router import assistant_llm_router
+from devleadhunter_receptionist.enums.ai_assistant_llm import AiAssistantLlmUsage
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestType
+from devleadhunter_receptionist.services.knowledge_sources import AiAssistantKnowledgeSources
+from devleadhunter_receptionist.services.llm_router import assistant_llm_router
 
 logger = logging.getLogger(__name__)
 

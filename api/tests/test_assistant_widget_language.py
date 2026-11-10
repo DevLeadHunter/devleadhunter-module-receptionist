@@ -10,15 +10,19 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-import migrations.rename_assistant_language_lu_to_lb as rename_migration
-from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_report import AiAssistantReport
-from models.ai_assistant_request import AiAssistantRequest
-from schemas.ai_assistant import AiAssistantChatRequest, AiAssistantLeadRequest, AiAssistantUpdateRequest
-from services.ai_assistant.config_builder import ai_assistant_config_builder
-from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
+import devleadhunter_receptionist.migrations.rename_assistant_language_lu_to_lb as rename_migration
+from devleadhunter_receptionist.enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_report import AiAssistantReport
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.schemas.ai_assistant import (
+    AiAssistantChatRequest,
+    AiAssistantLeadRequest,
+    AiAssistantUpdateRequest,
+)
+from devleadhunter_receptionist.services.config_builder import ai_assistant_config_builder
+from devleadhunter_receptionist.services.knowledge_builder import LANGUAGE_NAMES
 
 
 def test_the_widget_speaks_five_languages_with_luxembourgish_as_lb() -> None:

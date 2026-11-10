@@ -16,19 +16,9 @@ import pytest
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-import services.ai_assistant.gmail_client as gmail_module
-import services.ai_assistant.mailbox_sync as sync_module
-import services.ai_assistant.message_delivery as delivery_module
-from enums.ai_assistant_mailbox import AiAssistantMailboxMessageOutcome, AiAssistantMailboxStatus
-from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus
-from models.ai_assistant_mailbox import AiAssistantMailbox
-from models.ai_assistant_mailbox_message import AiAssistantMailboxMessage
-from models.ai_assistant_request import AiAssistantRequest
-from services.ai_assistant.gmail_client import GmailError
-from services.ai_assistant.mailbox_sync import ai_assistant_mailbox_sync
-from services.ai_assistant.report_stats import AiAssistantReportStats
-from services.ai_assistant.request_follow_up import AiAssistantRequestFollowUp
-from tests.assistant_mailbox.mailbox_fakes import (
+import devleadhunter_receptionist.services.mailbox_sync as sync_module
+import devleadhunter_receptionist.services.message_delivery as delivery_module
+from assistant_mailbox.mailbox_fakes import (
     MAILBOX_ADDRESS,
     FakeGmail,
     FakeModel,
@@ -36,6 +26,19 @@ from tests.assistant_mailbox.mailbox_fakes import (
     add_mailbox_assistant,
     customer_email,
 )
+from devleadhunter_receptionist.enums.ai_assistant_mailbox import (
+    AiAssistantMailboxMessageOutcome,
+    AiAssistantMailboxStatus,
+)
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus
+from devleadhunter_receptionist.models.ai_assistant_mailbox import AiAssistantMailbox
+from devleadhunter_receptionist.models.ai_assistant_mailbox_message import AiAssistantMailboxMessage
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.services.gmail_client import GmailError
+from devleadhunter_receptionist.services.mailbox_sync import ai_assistant_mailbox_sync
+from devleadhunter_receptionist.services.report_stats import AiAssistantReportStats
+from devleadhunter_receptionist.services.request_follow_up import AiAssistantRequestFollowUp
+from devleadhunter_receptionist.settings import receptionist_settings
 
 
 def _sync(db: Session, mailbox: AiAssistantMailbox) -> None:
@@ -322,7 +325,7 @@ def test_without_its_redirect_address_a_pass_does_nothing(
 ) -> None:
     add_mailbox(db, add_mailbox_assistant(db))
     gmail.receive(customer_email())
-    monkeypatch.setattr(gmail_module.settings, "google_mailbox_redirect_uri", "")
+    monkeypatch.setattr(receptionist_settings, "google_mailbox_redirect_uri", "")
 
     assert asyncio.run(ai_assistant_mailbox_sync.run_pass()) == 0
     assert gmail.drafts == [] and model.triage_calls == []

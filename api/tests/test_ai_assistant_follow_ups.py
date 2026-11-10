@@ -9,15 +9,15 @@ from typing import Any
 
 import pytest
 
-import services.ai_assistant.chat_service as chat_module
-from services.ai_assistant.chat_service import ChatAnswer, ChatDelta, ai_assistant_chat_service
-from services.ai_assistant.follow_up_marker import (
+import devleadhunter_receptionist.services.chat_service as chat_module
+from devleadhunter_receptionist.services.chat_service import ChatAnswer, ChatDelta, ai_assistant_chat_service
+from devleadhunter_receptionist.services.follow_up_marker import (
     FollowUpMarker,
     FollowUpMarkerStream,
     may_still_be_follow_up_marker,
     parse_follow_ups,
 )
-from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
+from devleadhunter_receptionist.services.knowledge_builder import ai_assistant_knowledge_builder
 
 _KB = {"identity": {"business_name": "Garage Morel", "city": "Rennes"}}
 _MESSAGES = [{"role": "user", "content": "Vous faites la carrosserie ?"}]

@@ -9,22 +9,10 @@ from fastapi import HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from models.ai_assistant import AiAssistant
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.request_email import AiAssistantRequestEmail
-
-
-def client_ip(request: Request) -> str:
-    """
-    Best-effort visitor IP for rate limiting.
-
-    nginx appends the address it saw to ``X-Forwarded-For``, so the last entry is the one a visitor cannot
-    forge; the first one is whatever the visitor sent. Without a proxy, the socket peer is used.
-    """
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded:
-        return forwarded.rsplit(",", 1)[-1].strip()
-    return request.client.host if request.client else "unknown"
+from core.client_ip import client_ip
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.request_email import AiAssistantRequestEmail
 
 
 def public_assistant_or_404(db: Session, slug: str) -> AiAssistant:
@@ -108,3 +96,13 @@ def require_declared_length(request: Request, *, max_bytes: int, unknown_detail:
         raise HTTPException(status_code=status.HTTP_411_LENGTH_REQUIRED, detail=unknown_detail)
     if int(declared_length) > max_bytes:
         raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail=too_large_detail)
+
+
+# ``client_ip`` moved to the core (the website contact form reads it too): the routes keep importing it from here.
+__all__ = [
+    "client_ip",
+    "confirmation_response",
+    "owned_assistant_or_404",
+    "public_assistant_or_404",
+    "require_declared_length",
+]

@@ -10,24 +10,27 @@ import asyncio
 from typing import Any
 
 import pytest
+from assistant_fakes import AsyncCallRecorder
 from sqlalchemy.orm import Session
 
-import services.ai_assistant.assistant_service as assistant_module
-import services.ai_assistant.source_service as source_module
-import services.ai_assistant.suggested_questions as suggested_module
-from api.v1.routes.ai_assistant_widget import get_public_assistant
-from enums.ai_assistant_llm import AiAssistantLlmUsage
-from enums.ai_assistant_trade import AiAssistantTrade
-from models.ai_assistant import AiAssistant
+import devleadhunter_receptionist.services.assistant_service as assistant_module
+import devleadhunter_receptionist.services.source_service as source_module
+import devleadhunter_receptionist.services.suggested_questions as suggested_module
+from devleadhunter_receptionist.enums.ai_assistant_llm import AiAssistantLlmUsage
+from devleadhunter_receptionist.enums.ai_assistant_trade import AiAssistantTrade
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.routes.ai_assistant_widget import get_public_assistant
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.event_intake import AiAssistantEventIntake
+from devleadhunter_receptionist.services.knowledge_builder import ai_assistant_knowledge_builder
+from devleadhunter_receptionist.services.source_service import AiAssistantSourceService
+from devleadhunter_receptionist.services.suggested_questions import (
+    AiAssistantSuggestedQuestions,
+    ai_assistant_suggested_questions,
+)
+from devleadhunter_receptionist.services.trade_openings import AiAssistantTradeOpenings
+from devleadhunter_receptionist.services.trade_resolver import AiAssistantTradeResolver
 from models.prospect_db import ProspectDB
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.event_intake import AiAssistantEventIntake
-from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
-from services.ai_assistant.source_service import AiAssistantSourceService
-from services.ai_assistant.suggested_questions import AiAssistantSuggestedQuestions, ai_assistant_suggested_questions
-from services.ai_assistant.trade_openings import AiAssistantTradeOpenings
-from services.ai_assistant.trade_resolver import AiAssistantTradeResolver
-from tests.assistant_fakes import AsyncCallRecorder
 
 _ROOFER_QUESTIONS = [
     "Combien coûte une réparation de toiture\u00a0?",

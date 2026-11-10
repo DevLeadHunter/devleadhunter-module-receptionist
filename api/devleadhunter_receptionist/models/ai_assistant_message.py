@@ -6,7 +6,7 @@ from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import UTF8MB4_TABLE_OPTIONS, Base
-from models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
 
 
 class AiAssistantMessage(Base):

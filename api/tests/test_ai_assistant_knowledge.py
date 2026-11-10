@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
+from devleadhunter_receptionist.services.knowledge_builder import ai_assistant_knowledge_builder
 
 _ENRICHMENT = {
     "logo_url": "https://cdn/logo.png",

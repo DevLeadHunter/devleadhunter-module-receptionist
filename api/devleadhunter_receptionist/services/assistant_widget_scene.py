@@ -16,7 +16,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from services.assistant_capture_contract import (
+from devleadhunter_receptionist.services.assistant_capture_contract import (
     APPOINTMENT_CHIP_SELECTOR,
     EXAMPLE_CHIP_SELECTOR,
     FIRST_CHIP_SELECTOR,

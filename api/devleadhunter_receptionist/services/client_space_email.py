@@ -8,8 +8,8 @@ from __future__ import annotations
 import html
 from datetime import date
 
-from services.ai_assistant.faq_service import UnansweredQuestion
-from services.ai_assistant.request_email import AiAssistantRequestEmail, RenderedEmail
+from devleadhunter_receptionist.services.faq_service import UnansweredQuestion
+from devleadhunter_receptionist.services.request_email import AiAssistantRequestEmail, RenderedEmail
 
 
 class AiAssistantClientSpaceEmail:

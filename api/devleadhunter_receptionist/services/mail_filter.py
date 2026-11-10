@@ -13,8 +13,8 @@ from datetime import datetime
 from email.utils import getaddresses
 from typing import ClassVar
 
-from enums.ai_assistant_mailbox import AiAssistantMailSkipReason
-from services.ai_assistant.gmail_client import GmailMessage
+from devleadhunter_receptionist.enums.ai_assistant_mailbox import AiAssistantMailSkipReason
+from devleadhunter_receptionist.services.gmail_client import GmailMessage
 from services.reply_capture_service import is_auto_reply
 
 

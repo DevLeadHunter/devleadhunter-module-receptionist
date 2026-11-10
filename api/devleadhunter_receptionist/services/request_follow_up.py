@@ -20,15 +20,23 @@ from sqlalchemy.orm import Session
 
 from core.clock import naive_utc_now
 from core.database import SessionLocal
-from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus, AiAssistantRequestType
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_appointment import AiAssistantAppointment
-from models.ai_assistant_request import AiAssistantRequest
-from services.ai_assistant.request_alerts import ai_assistant_request_alerts
-from services.ai_assistant.request_analyzer import RequestAnalysis, TranscriptLine, ai_assistant_request_analyzer
-from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
-from services.ai_assistant.request_email import AiAssistantRequestEmail
-from services.notification_service import notification_service
+from devleadhunter_receptionist.enums.ai_assistant_request import (
+    AiAssistantRequestChannel,
+    AiAssistantRequestStatus,
+    AiAssistantRequestType,
+)
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.services.receptionist_notifications import receptionist_notifications
+from devleadhunter_receptionist.services.request_alerts import ai_assistant_request_alerts
+from devleadhunter_receptionist.services.request_analyzer import (
+    RequestAnalysis,
+    TranscriptLine,
+    ai_assistant_request_analyzer,
+)
+from devleadhunter_receptionist.services.request_attachments import AiAssistantRequestAttachments
+from devleadhunter_receptionist.services.request_email import AiAssistantRequestEmail
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +133,7 @@ class AiAssistantRequestFollowUp:
         label = AiAssistantRequestEmail.type_label(AiAssistantRequestType(request.type))
         if request.channel == AiAssistantRequestChannel.EMAIL.value:
             label = f"{label} par email"
-        await notification_service.notify_assistant_lead(
+        await receptionist_notifications.notify_assistant_lead(
             db,
             user_id=assistant.user_id,
             prospect_id=assistant.prospect_id,

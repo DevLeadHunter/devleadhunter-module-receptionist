@@ -15,32 +15,36 @@ from typing import Any, ClassVar
 
 from sqlalchemy.orm import Session
 
-from enums.ai_assistant_booking_mode import AiAssistantBookingMode
-from enums.ai_assistant_calendar_status import AiAssistantCalendarConnection, AiAssistantCalendarStatus
-from enums.ai_assistant_status import AiAssistantStatus
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_appointment import AiAssistantAppointment
-from models.ai_assistant_calendar import AiAssistantCalendar
-from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_SUCCESS, activity_log_service
-from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentDay
-from services.ai_assistant.calendar_access import ai_assistant_calendar_access
-from services.ai_assistant.calendar_settings import (
+from devleadhunter_receptionist.activity import CATEGORY_ASSISTANT
+from devleadhunter_receptionist.enums.ai_assistant_booking_mode import AiAssistantBookingMode
+from devleadhunter_receptionist.enums.ai_assistant_calendar_status import (
+    AiAssistantCalendarConnection,
+    AiAssistantCalendarStatus,
+)
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.services.appointment_slots import AiAssistantAppointmentSlots, AppointmentDay
+from devleadhunter_receptionist.services.calendar_access import ai_assistant_calendar_access
+from devleadhunter_receptionist.services.calendar_settings import (
     APPOINTMENT_TYPE_MAX_CHARS,
     DURATION_CHOICES,
     MAX_APPOINTMENT_TYPES,
     MIN_NOTICE_CHOICES,
     CalendarSettings,
 )
-from services.ai_assistant.calendar_slot_grid import AiAssistantCalendarSlotGrid, SlotPage
-from services.ai_assistant.google_calendar_client import (
+from devleadhunter_receptionist.services.calendar_slot_grid import AiAssistantCalendarSlotGrid, SlotPage
+from devleadhunter_receptionist.services.google_calendar_client import (
     GOOGLE_CALENDAR_EVENTS_SCOPE,
     GOOGLE_CALENDAR_FREEBUSY_SCOPE,
     BusyPeriod,
     GoogleCalendarError,
     google_calendar_client,
 )
-from services.ai_assistant.oauth_state import AiAssistantOAuthState
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.oauth_state import AiAssistantOAuthState
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from services.activity_log_service import STATUS_SUCCESS, activity_log_service
 from services.encryption_service import encryption_service
 
 logger = logging.getLogger(__name__)

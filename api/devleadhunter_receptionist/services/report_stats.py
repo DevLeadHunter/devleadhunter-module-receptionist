@@ -16,20 +16,20 @@ from datetime import datetime
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import Session
 
-from enums.ai_assistant_llm import AiAssistantLlmUsage
-from enums.ai_assistant_request import (
+from devleadhunter_receptionist.enums.ai_assistant_llm import AiAssistantLlmUsage
+from devleadhunter_receptionist.enums.ai_assistant_request import (
     AiAssistantRequestChannel,
     AiAssistantRequestOutcome,
     AiAssistantRequestStatus,
     AiAssistantRequestType,
 )
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_message import AiAssistantMessage
-from models.ai_assistant_request import AiAssistantRequest
-from services.ai_assistant.llm_router import assistant_llm_router
-from services.ai_assistant.photo_service import PHOTO_JOURNAL_MARKER
-from services.ai_assistant.report_email import LanguageShare, MonthlyStats
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_message import AiAssistantMessage
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.services.llm_router import assistant_llm_router
+from devleadhunter_receptionist.services.photo_service import PHOTO_JOURNAL_MARKER
+from devleadhunter_receptionist.services.report_email import LanguageShare, MonthlyStats
 
 # The most asked questions are read from the month's first visitor messages, when there are enough.
 MIN_CONVERSATIONS_FOR_QUESTIONS = 3

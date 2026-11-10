@@ -10,19 +10,19 @@ from email import message_from_bytes, policy
 
 import pytest
 
-from enums.ai_assistant_mailbox import AiAssistantMailSkipReason
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from enums.ai_assistant_request import AiAssistantRequestType
-from services.ai_assistant.alert_sms import AlertSms
-from services.ai_assistant.gmail_payload import GmailPayloadReader
-from services.ai_assistant.limits import AiAssistantLimits
-from services.ai_assistant.mail_draft_builder import AiAssistantMailDraftBuilder, MailReplyDraft
-from services.ai_assistant.mail_filter import AiAssistantMailFilter
-from services.ai_assistant.mail_reply_writer import AiAssistantMailReplyWriter
-from services.ai_assistant.mail_triage import AiAssistantMailTriage
-from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
+from assistant_mailbox.mailbox_fakes import CONNECTED_AT, MAILBOX_ADDRESS, customer_email
+from devleadhunter_receptionist.enums.ai_assistant_mailbox import AiAssistantMailSkipReason
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestType
+from devleadhunter_receptionist.services.alert_sms import AlertSms
+from devleadhunter_receptionist.services.gmail_payload import GmailPayloadReader
+from devleadhunter_receptionist.services.limits import AiAssistantLimits
+from devleadhunter_receptionist.services.mail_draft_builder import AiAssistantMailDraftBuilder, MailReplyDraft
+from devleadhunter_receptionist.services.mail_filter import AiAssistantMailFilter
+from devleadhunter_receptionist.services.mail_reply_writer import AiAssistantMailReplyWriter
+from devleadhunter_receptionist.services.mail_triage import AiAssistantMailTriage
+from devleadhunter_receptionist.services.request_email import AiAssistantRequestEmail, RequestEmailContent
 from services.sms.gsm_segments import segment_count
-from tests.assistant_mailbox.mailbox_fakes import CONNECTED_AT, MAILBOX_ADDRESS, customer_email
 
 _DRAFT = MailReplyDraft(
     from_address=MAILBOX_ADDRESS,

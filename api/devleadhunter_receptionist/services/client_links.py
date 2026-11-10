@@ -21,8 +21,8 @@ from datetime import UTC, datetime, timedelta
 from typing import ClassVar
 
 from core.config import settings
-from models.ai_assistant import AiAssistant
-from services.ai_assistant.signed_token import SignedToken
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.signed_token import SignedToken
 
 
 @dataclass(frozen=True)

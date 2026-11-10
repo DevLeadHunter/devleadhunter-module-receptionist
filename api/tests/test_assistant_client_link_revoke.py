@@ -10,24 +10,24 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from assistant_fakes import VISITOR_REQUEST
 from fastapi import HTTPException
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-import api.v1.routes.ai_assistant_client_space as routes
-import api.v1.routes.ai_assistants as owner_routes
-import migrations.add_ai_assistant_client_link_version as version_migration
-import services.ai_assistant.message_delivery as message_delivery_module
-from models.ai_assistant import AiAssistant
+import devleadhunter_receptionist.migrations.add_ai_assistant_client_link_version as version_migration
+import devleadhunter_receptionist.routes.ai_assistant_client_space as routes
+import devleadhunter_receptionist.routes.ai_assistants as owner_routes
+import devleadhunter_receptionist.services.message_delivery as message_delivery_module
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.client_links import AiAssistantClientLinks
+from devleadhunter_receptionist.services.client_space_service import ai_assistant_client_space_service
 from models.prospect_db import ProspectDB
 from models.user import User
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.client_links import AiAssistantClientLinks
-from services.ai_assistant.client_space_service import ai_assistant_client_space_service
 from services.rate_limiter import SlidingWindowRateLimiter
-from tests.assistant_fakes import VISITOR_REQUEST
 
 _OPERATOR = SimpleNamespace(id=7, email="operateur@dibodev.fr")
 

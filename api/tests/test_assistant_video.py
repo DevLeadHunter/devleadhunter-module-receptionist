@@ -10,12 +10,12 @@ import pytest
 from sqlalchemy.orm import Session
 
 from core.config import settings
-from enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.assistant_space_chapter import AssistantSpaceChapter
+from devleadhunter_receptionist.services.assistant_widget_clip_service import AssistantWidgetClipService, CapturedFrames
+from devleadhunter_receptionist.services.assistant_widget_scene import EXAMPLE_SECONDS, AssistantWidgetScene
 from enums.demo_video_status import DemoVideoStatus
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.assistant_space_chapter import AssistantSpaceChapter
-from services.assistant_widget_clip_service import AssistantWidgetClipService, CapturedFrames
-from services.assistant_widget_scene import EXAMPLE_SECONDS, AssistantWidgetScene
 
 
 def test_the_space_chapter_takes_the_end_of_a_long_enough_segment() -> None:
@@ -92,7 +92,9 @@ def test_a_video_page_link_counts_as_the_assistant_link() -> None:
 def test_an_expired_demo_loses_its_video_and_a_live_one_keeps_it(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """The /va page closes with the demo: the expiry deletes the video files and resets the video state."""
     purged_slugs: list[str] = []
-    monkeypatch.setattr("services.assistant_video_service.delete_files_for_slug", purged_slugs.append)
+    monkeypatch.setattr(
+        "devleadhunter_receptionist.services.assistant_video_service.delete_files_for_slug", purged_slugs.append
+    )
     now = datetime.now(UTC)
     due, fresh = (
         ai_assistant_service.create(
@@ -114,10 +116,12 @@ def test_an_expired_demo_loses_its_video_and_a_live_one_keeps_it(db: Session, mo
 
 
 def test_deleting_an_assistant_deletes_its_video_files(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    from api.v1.routes.ai_assistants import delete_assistant
+    from devleadhunter_receptionist.routes.ai_assistants import delete_assistant
 
     purged_slugs: list[str] = []
-    monkeypatch.setattr("services.assistant_video_service.delete_files_for_slug", purged_slugs.append)
+    monkeypatch.setattr(
+        "devleadhunter_receptionist.services.assistant_video_service.delete_files_for_slug", purged_slugs.append
+    )
     assistant = ai_assistant_service.create(
         db, user_id=1, business_name="Toitures Morel", prospect_id=1, country="FR", use_brand_color=False
     )
@@ -132,9 +136,12 @@ def test_deleting_an_assistant_deletes_its_video_files(db: Session, monkeypatch:
 
 def test_the_owner_sees_the_thumbnail_of_a_ready_video_only(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """The detail page previews the thumbnail the emails show, cache-busted by the generation instant."""
-    from api.v1.routes.ai_assistants import get_assistant
+    from devleadhunter_receptionist.routes.ai_assistants import get_assistant
 
-    monkeypatch.setattr("services.assistant_video_service.r2_storage.public_url", lambda key: f"https://cdn/{key}")
+    monkeypatch.setattr(
+        "devleadhunter_receptionist.services.assistant_video_service.r2_storage.public_url",
+        lambda key: f"https://cdn/{key}",
+    )
     assistant = ai_assistant_service.create(
         db, user_id=1, business_name="Toitures Morel", prospect_id=1, country="FR", use_brand_color=False
     )

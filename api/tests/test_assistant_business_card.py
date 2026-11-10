@@ -17,11 +17,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from core.database import Base
+from devleadhunter_receptionist.services.appointment_texts import BusinessCard
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.business_card import AiAssistantBusinessCard
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
 from models.prospect_db import ProspectDB
-from services.ai_assistant.appointment_texts import BusinessCard
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.business_card import AiAssistantBusinessCard
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
 
 _HOURS: list[dict[str, str]] = [
     {"day": "lundi", "hours": "08:00–12:00, 14:00–18:00"},
@@ -137,7 +137,7 @@ def test_a_weekday_is_read_in_every_listing_language_and_through_annotations() -
 
 
 def test_the_public_config_carries_the_card_only_once_sold() -> None:
-    from api.v1.routes.ai_assistant_widget import get_public_assistant
+    from devleadhunter_receptionist.routes.ai_assistant_widget import get_public_assistant
 
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
@@ -176,7 +176,7 @@ def test_the_public_config_carries_the_card_only_once_sold() -> None:
 
 
 def test_the_public_config_says_whether_the_business_has_a_live_website() -> None:
-    from api.v1.routes.ai_assistant_widget import get_public_assistant
+    from devleadhunter_receptionist.routes.ai_assistant_widget import get_public_assistant
 
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)

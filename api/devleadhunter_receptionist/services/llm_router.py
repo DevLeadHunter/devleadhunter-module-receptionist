@@ -18,7 +18,8 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from core.config import settings
-from enums.ai_assistant_llm import AiAssistantLlmOutage, AiAssistantLlmUsage, LlmProvider
+from devleadhunter_receptionist.enums.ai_assistant_llm import AiAssistantLlmOutage, AiAssistantLlmUsage, LlmProvider
+from devleadhunter_receptionist.settings import receptionist_settings
 from services.llm_completion import LlmCompletion, LlmStreamUsage
 from services.llm_service import llm_service
 from services.mistral_service import MistralRequestRejectedError, mistral_service
@@ -61,9 +62,12 @@ def estimate_cost_eur(provider: LlmProvider, completion: LlmCompletion) -> float
         The cost in euros (0 when the provider reported no usage).
     """
     if provider is LlmProvider.MISTRAL:
-        price_in, price_out = settings.mistral_eur_per_mtok_in, settings.mistral_eur_per_mtok_out
+        price_in, price_out = (
+            receptionist_settings.mistral_eur_per_mtok_in,
+            receptionist_settings.mistral_eur_per_mtok_out,
+        )
     else:
-        price_in, price_out = settings.groq_eur_per_mtok_in, settings.groq_eur_per_mtok_out
+        price_in, price_out = receptionist_settings.groq_eur_per_mtok_in, receptionist_settings.groq_eur_per_mtok_out
     return ((completion.prompt_tokens or 0) * price_in + (completion.completion_tokens or 0) * price_out) / 1_000_000
 
 

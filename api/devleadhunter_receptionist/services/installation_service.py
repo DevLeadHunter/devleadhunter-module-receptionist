@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 from sqlalchemy.orm import Session
 
 from core.config import settings
-from models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
 
 # A hostname as a browser reads it: dotted labels of letters, digits and hyphens, a top-level domain of letters.
 _HOSTNAME = re.compile(r"^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")

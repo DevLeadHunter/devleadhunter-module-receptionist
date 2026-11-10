@@ -6,7 +6,11 @@ from sqlalchemy import JSON, Boolean, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.database import UTF8MB4_TABLE_OPTIONS, Base
-from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus, AiAssistantRequestType
+from devleadhunter_receptionist.enums.ai_assistant_request import (
+    AiAssistantRequestChannel,
+    AiAssistantRequestStatus,
+    AiAssistantRequestType,
+)
 
 
 class AiAssistantRequest(Base):

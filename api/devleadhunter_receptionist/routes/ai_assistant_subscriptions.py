@@ -8,24 +8,24 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from api.v1.routes.ai_assistant_common import (
+from core.database import get_db
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.routes.ai_assistant_common import (
     client_ip,
     owned_assistant_or_404,
 )
-from core.database import get_db
-from enums.ai_assistant_status import AiAssistantStatus
-from models.ai_assistant import AiAssistant
-from models.user import User
-from schemas.ai_assistant import (
+from devleadhunter_receptionist.schemas.ai_assistant import (
     AssistantSubscriptionItem,
     AssistantSubscriptionListResponse,
 )
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.assistant_subscription_service import assistant_subscription_service
-from services.auth_service import get_current_active_user
-from services.rate_limiter import (
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.assistant_subscription_service import assistant_subscription_service
+from devleadhunter_receptionist.services.rate_limits import (
     assistant_subscribe_limiter,
 )
+from models.user import User
+from services.auth_service import get_current_active_user
 
 logger = logging.getLogger(__name__)
 

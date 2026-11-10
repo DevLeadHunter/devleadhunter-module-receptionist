@@ -12,24 +12,25 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
+from assistant_fakes import VISITOR_REQUEST, AsyncCallRecorder
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-import api.v1.routes.ai_assistant_widget as routes
-import migrations.add_ai_assistant_message_cap_alerted_on as alert_column_migration
-import services.ai_assistant.daily_message_cap as cap_module
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_message import AiAssistantMessage
-from models.ai_assistant_request import AiAssistantRequest
+import devleadhunter_receptionist.migrations.add_ai_assistant_message_cap_alerted_on as alert_column_migration
+import devleadhunter_receptionist.routes.ai_assistant_widget as routes
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_message import AiAssistantMessage
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantChatMessage, AiAssistantChatRequest
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.chat_service import ChatAnswer
+from devleadhunter_receptionist.services.daily_message_cap import ai_assistant_daily_message_cap
+from devleadhunter_receptionist.services.receptionist_notifications import receptionist_notifications
+from devleadhunter_receptionist.settings import receptionist_settings
 from models.prospect_db import ProspectDB
-from schemas.ai_assistant import AiAssistantChatMessage, AiAssistantChatRequest
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.chat_service import ChatAnswer
-from services.ai_assistant.daily_message_cap import ai_assistant_daily_message_cap
 from services.rate_limiter import SlidingWindowRateLimiter
-from tests.assistant_fakes import VISITOR_REQUEST, AsyncCallRecorder
 
 _PARIS = ZoneInfo("Europe/Paris")
 # Tuesday 29 September 2026, 10:00 in Paris (summer time: UTC+2).
@@ -41,11 +42,11 @@ def capped_routes(monkeypatch: pytest.MonkeyPatch) -> dict[str, AsyncCallRecorde
     """A cap of two messages a day, fresh rate limits, the model and the operator's alert recorded."""
     model = AsyncCallRecorder(result=ChatAnswer(reply="Du lundi au vendredi."))
     alert = AsyncCallRecorder()
-    monkeypatch.setattr(cap_module.settings, "assistant_daily_visitor_message_cap", 2)
+    monkeypatch.setattr(receptionist_settings, "assistant_daily_visitor_message_cap", 2)
     monkeypatch.setattr(routes, "assistant_chat_limiter", SlidingWindowRateLimiter(30, 300))
     monkeypatch.setattr(routes.ai_assistant_chat_service, "answer", model)
     monkeypatch.setattr(routes.ai_assistant_request_follow_up, "schedule_follow_up", lambda request_id: None)
-    monkeypatch.setattr(cap_module.notification_service, "notify_assistant_daily_cap_reached", alert)
+    monkeypatch.setattr(receptionist_notifications, "notify_assistant_daily_cap_reached", alert)
     return {"model": model, "alert": alert}
 
 

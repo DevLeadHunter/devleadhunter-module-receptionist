@@ -11,8 +11,12 @@ from dataclasses import dataclass
 from itertools import groupby
 from typing import Any
 
-from enums.ai_assistant_knowledge_source import AiAssistantKnowledgeSource
-from services.ai_assistant.knowledge_budget import AiAssistantKnowledgeBudget, KnowledgePassage, KnowledgeSourceText
+from devleadhunter_receptionist.enums.ai_assistant_knowledge_source import AiAssistantKnowledgeSource
+from devleadhunter_receptionist.services.knowledge_budget import (
+    AiAssistantKnowledgeBudget,
+    KnowledgePassage,
+    KnowledgeSourceText,
+)
 
 # The marks around each website page or document in the prompt; the same runs inside a text are shortened so a
 # page cannot close its block and speak as the prompt.

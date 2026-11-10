@@ -16,21 +16,28 @@ from datetime import date, datetime, time, timedelta
 from typing import Literal
 
 from core.config import settings
-from enums.ai_assistant_request import (
+from devleadhunter_receptionist.enums.ai_assistant_request import (
     AiAssistantRequestOutcome,
     AiAssistantRequestStatus,
     AiAssistantRequestType,
 )
-from enums.ai_assistant_trade import AiAssistantTrade
-from models.ai_assistant import AiAssistant
-from schemas.ai_assistant import AiAssistantTranscriptLine
-from schemas.ai_assistant_demo_space import AiAssistantDemoSpaceReport, AiAssistantDemoSpaceRequestItem
-from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentDay, AppointmentSlot
-from services.ai_assistant.client_space_payload import ai_assistant_client_space_payload
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.photo_service import PHOTO_JOURNAL_MARKER
-from services.ai_assistant.report_email import LanguageShare, MonthlyStats
-from services.ai_assistant.trade_resolver import AiAssistantTradeResolver
+from devleadhunter_receptionist.enums.ai_assistant_trade import AiAssistantTrade
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantTranscriptLine
+from devleadhunter_receptionist.schemas.ai_assistant_demo_space import (
+    AiAssistantDemoSpaceReport,
+    AiAssistantDemoSpaceRequestItem,
+)
+from devleadhunter_receptionist.services.appointment_slots import (
+    AiAssistantAppointmentSlots,
+    AppointmentDay,
+    AppointmentSlot,
+)
+from devleadhunter_receptionist.services.client_space_payload import ai_assistant_client_space_payload
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.photo_service import PHOTO_JOURNAL_MARKER
+from devleadhunter_receptionist.services.report_email import LanguageShare, MonthlyStats
+from devleadhunter_receptionist.services.trade_resolver import AiAssistantTradeResolver
 from services.french_date_formatter import FrenchDateFormatter
 
 

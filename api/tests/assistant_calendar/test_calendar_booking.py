@@ -10,17 +10,9 @@ from datetime import datetime, timedelta
 import pytest
 from sqlalchemy.orm import Session
 
-import services.ai_assistant.calendar_access as access_module
-import services.ai_assistant.calendar_service as calendar_module
-from enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
-from enums.ai_assistant_request import AiAssistantRequestType
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_appointment import AiAssistantAppointment
-from models.ai_assistant_calendar import AiAssistantCalendar
-from models.ai_assistant_request import AiAssistantRequest
-from services.ai_assistant.calendar_booking import AiAssistantCalendarBooking, SlotTakenError
-from services.ai_assistant.google_calendar_client import BusyPeriod, GoogleCalendarError
-from tests.assistant_calendar.calendar_fakes import (
+import devleadhunter_receptionist.services.calendar_access as access_module
+import devleadhunter_receptionist.services.calendar_service as calendar_module
+from assistant_calendar.calendar_fakes import (
     MONDAY_10H,
     FakeGoogle,
     add_assistant,
@@ -29,6 +21,14 @@ from tests.assistant_calendar.calendar_fakes import (
     paris,
     utc,
 )
+from devleadhunter_receptionist.enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestType
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.services.calendar_booking import AiAssistantCalendarBooking, SlotTakenError
+from devleadhunter_receptionist.services.google_calendar_client import BusyPeriod, GoogleCalendarError
 
 
 def test_a_booking_creates_the_event_and_the_appointment(db: Session, google: FakeGoogle) -> None:

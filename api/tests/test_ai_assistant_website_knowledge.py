@@ -5,9 +5,9 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from services.ai_assistant import assistant_service as assistant_module
-from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
-from services.ai_assistant.website_crawler import MAX_PAGE_CHARS, AiAssistantWebsiteCrawler
+from devleadhunter_receptionist.services import assistant_service as assistant_module
+from devleadhunter_receptionist.services.knowledge_builder import ai_assistant_knowledge_builder
+from devleadhunter_receptionist.services.website_crawler import MAX_PAGE_CHARS, AiAssistantWebsiteCrawler
 
 _HOME = """<html><head><title>Toiture Martin</title></head><body>
 <header><a href="/">Accueil</a></header>

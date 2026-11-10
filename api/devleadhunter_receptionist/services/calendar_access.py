@@ -14,17 +14,22 @@ from typing import ClassVar
 
 from sqlalchemy.orm import Session
 
-from enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
-from enums.ai_assistant_status import AiAssistantStatus
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_calendar import AiAssistantCalendar
-from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
-from services.ai_assistant.calendar_settings import CalendarSettings
-from services.ai_assistant.calendar_slot_grid import AiAssistantCalendarSlotGrid
-from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
-from services.ai_assistant.google_calendar_client import BusyPeriod, GoogleCalendarError, google_calendar_client
-from services.ai_assistant.google_token_access import GoogleTokenAccess
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.activity import CATEGORY_ASSISTANT
+from devleadhunter_receptionist.enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.services.calendar_settings import CalendarSettings
+from devleadhunter_receptionist.services.calendar_slot_grid import AiAssistantCalendarSlotGrid
+from devleadhunter_receptionist.services.field_limits import SHORT_TEXT_MAX_CHARS
+from devleadhunter_receptionist.services.google_calendar_client import (
+    BusyPeriod,
+    GoogleCalendarError,
+    google_calendar_client,
+)
+from devleadhunter_receptionist.services.google_token_access import GoogleTokenAccess
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from services.activity_log_service import STATUS_WARNING, activity_log_service
 from services.google_oauth_client import GoogleTokens
 
 logger = logging.getLogger(__name__)

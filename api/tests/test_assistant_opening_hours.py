@@ -9,7 +9,7 @@ from datetime import datetime
 
 import pytest
 
-from services.ai_assistant.opening_hours import ClosedHoursEstimate, OpeningHoursCalendar
+from devleadhunter_receptionist.services.opening_hours import ClosedHoursEstimate, OpeningHoursCalendar
 
 _WEEK = [
     {"day": "lundi", "hours": "08:00–12:00, 14:00–18:00"},
@@ -71,7 +71,7 @@ def test_the_closed_hours_estimate_counts_the_closed_daytime_of_a_week_and_a_mon
 
 
 def test_the_estimate_counts_an_overnight_range_and_skips_a_holiday_week() -> None:
-    from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
+    from devleadhunter_receptionist.services.knowledge_builder import ai_assistant_knowledge_builder
 
     days = ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")
     night_shift = [{"day": day, "hours": "20:00–08:00"} for day in days]

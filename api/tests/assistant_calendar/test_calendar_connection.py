@@ -16,20 +16,10 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-import migrations.add_ai_assistant_calendars_tables as calendars_migration
-import services.ai_assistant.calendar_service as calendar_module
-import services.ai_assistant.google_calendar_client as google_module
-from enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
-from models.ai_assistant_calendar import AiAssistantCalendar
-from services.ai_assistant.calendar_service import AiAssistantCalendarService, AiAssistantCalendarState
-from services.ai_assistant.google_calendar_client import (
-    BusyPeriod,
-    CalendarEventDraft,
-    GoogleCalendarClient,
-    GoogleCalendarError,
-)
-from services.encryption_service import encryption_service
-from tests.assistant_calendar.calendar_fakes import (
+import devleadhunter_receptionist.migrations.add_ai_assistant_calendars_tables as calendars_migration
+import devleadhunter_receptionist.services.calendar_service as calendar_module
+import devleadhunter_receptionist.services.google_calendar_client as google_module
+from assistant_calendar.calendar_fakes import (
     GRANTED_SCOPES,
     MONDAY_10H,
     FakeGoogle,
@@ -37,6 +27,17 @@ from tests.assistant_calendar.calendar_fakes import (
     add_calendar,
     paris,
 )
+from core.config import settings
+from devleadhunter_receptionist.enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.services.calendar_service import AiAssistantCalendarService, AiAssistantCalendarState
+from devleadhunter_receptionist.services.google_calendar_client import (
+    BusyPeriod,
+    CalendarEventDraft,
+    GoogleCalendarClient,
+    GoogleCalendarError,
+)
+from services.encryption_service import encryption_service
 
 
 def test_the_oauth_state_names_its_assistant_and_expires() -> None:
@@ -59,8 +60,8 @@ def _client_with(handler: Any, monkeypatch: pytest.MonkeyPatch) -> GoogleCalenda
         return original(*args, **kwargs)
 
     monkeypatch.setattr(google_module.httpx, "AsyncClient", patched_client)
-    monkeypatch.setattr(google_module.settings, "google_client_id", "client-id")
-    monkeypatch.setattr(google_module.settings, "google_client_secret", "client-secret")
+    monkeypatch.setattr(settings, "google_client_id", "client-id")
+    monkeypatch.setattr(settings, "google_client_secret", "client-secret")
     return GoogleCalendarClient()
 
 

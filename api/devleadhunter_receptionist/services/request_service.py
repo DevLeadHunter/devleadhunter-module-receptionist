@@ -17,21 +17,25 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
-from enums.ai_assistant_request import (
+from devleadhunter_receptionist.enums.ai_assistant_request import (
     AiAssistantRequestChannel,
     AiAssistantRequestOutcome,
     AiAssistantRequestStatus,
     AiAssistantRequestType,
 )
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_request import AiAssistantRequest
-from services.ai_assistant.alert_settings import AlertSettings, QuietHours
-from services.ai_assistant.appointment_slots import AiAssistantAppointmentSlots, AppointmentSlot
-from services.ai_assistant.field_limits import LONG_TEXT_MAX_CHARS, SESSION_ID_MAX_CHARS, SHORT_TEXT_MAX_CHARS
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.photo_service import ai_assistant_photo_service
-from services.ai_assistant.request_attachments import AiAssistantRequestAttachments
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.services.alert_settings import AlertSettings, QuietHours
+from devleadhunter_receptionist.services.appointment_slots import AiAssistantAppointmentSlots, AppointmentSlot
+from devleadhunter_receptionist.services.field_limits import (
+    LONG_TEXT_MAX_CHARS,
+    SESSION_ID_MAX_CHARS,
+    SHORT_TEXT_MAX_CHARS,
+)
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.photo_service import ai_assistant_photo_service
+from devleadhunter_receptionist.services.request_attachments import AiAssistantRequestAttachments
 
 OWNER_LIST_LIMIT = 300
 # A resubmission within the same visit updates its request; after this, or once the request was

@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session, sessionmaker
 import models
 from core.config import settings
 from core.database import Base
-from enums.ai_assistant_status import AiAssistantStatus
-from models.ai_assistant import AiAssistant
-from services.ai_assistant.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
 
 # Load every model so SQLAlchemy can configure the mappers (relationships resolve across models).
 for _module in pkgutil.iter_modules(models.__path__):
@@ -23,7 +23,9 @@ for _module in pkgutil.iter_modules(models.__path__):
 @pytest.fixture(autouse=True)
 def _video_files_kept_off_the_bucket(monkeypatch: pytest.MonkeyPatch) -> None:
     """The expiry deletes the demo's video files: never on the real bucket."""
-    monkeypatch.setattr("services.assistant_video_service.delete_files_for_slug", lambda slug: None)
+    monkeypatch.setattr(
+        "devleadhunter_receptionist.services.assistant_video_service.delete_files_for_slug", lambda slug: None
+    )
 
 
 @pytest.fixture

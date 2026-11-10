@@ -1,13 +1,15 @@
 """The desktop build of the receptionist video: a calibration preview comes back as a bare mp4, a real build as a zip."""
 
 import asyncio
+import functools
 from pathlib import Path
 from typing import Any
 
 import pytest
-
 import scraper_sidecar as sidecar
-from services.assistant_widget_clip_service import assistant_widget_clip_service
+
+from devleadhunter_receptionist.services.assistant_widget_clip_service import assistant_widget_clip_service
+from devleadhunter_receptionist.sidecar import PIP_CORNER, THUMBNAIL_LABEL, capture_receptionist_widget
 
 
 def _run_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, slug: str, is_preview: bool) -> dict[str, Any]:
@@ -33,7 +35,16 @@ def _run_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, slug: str, is
         preview=is_preview,
     )
 
-    asyncio.run(sidecar._run_assistant_video_build(request, tmp_path))
+    asyncio.run(
+        sidecar._run_desktop_video_build(
+            request,
+            tmp_path,
+            None,
+            capture=functools.partial(capture_receptionist_widget, sidecar.SidecarVideoBuilds, request, tmp_path),
+            thumbnail_label=THUMBNAIL_LABEL,
+            pip_corner=PIP_CORNER,
+        )
+    )
 
     assert sidecar._VIDEO_BUILD_PROGRESS[slug]["step"] == "done"
     return sidecar._VIDEO_BUILD_RESULTS.pop(slug)

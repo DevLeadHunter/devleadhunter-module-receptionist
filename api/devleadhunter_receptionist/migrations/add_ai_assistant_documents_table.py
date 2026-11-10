@@ -2,17 +2,10 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-_ROOT = Path(__file__).resolve().parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
-
 from sqlalchemy import text
 
 from core.database import engine
-from models.ai_assistant_document import AiAssistantDocument
+from devleadhunter_receptionist.models.ai_assistant_document import AiAssistantDocument
 
 _TABLE = AiAssistantDocument.__tablename__
 

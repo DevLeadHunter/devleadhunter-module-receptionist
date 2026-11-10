@@ -9,16 +9,15 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from api.v1.routes.ai_assistant_common import owned_assistant_or_404
 from core.clock import naive_utc_now
 from core.database import get_db
-from enums.ai_assistant_request import AiAssistantRequestType
-from enums.ai_assistant_start_step import AiAssistantStartStep
-from enums.ai_assistant_status import AiAssistantStatus
-from models.ai_assistant import AiAssistant
-from models.prospect_db import ProspectDB
-from models.user import User
-from schemas.ai_assistant import (
+from devleadhunter_receptionist.activity import CATEGORY_ASSISTANT
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestType
+from devleadhunter_receptionist.enums.ai_assistant_start_step import AiAssistantStartStep
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.routes.ai_assistant_common import owned_assistant_or_404
+from devleadhunter_receptionist.schemas.ai_assistant import (
     AiAssistantAlertSettings,
     AiAssistantCreateRequest,
     AiAssistantDesktopVideoRequestResponse,
@@ -26,35 +25,47 @@ from schemas.ai_assistant import (
     AiAssistantResponse,
     AiAssistantUpdateRequest,
 )
-from schemas.ai_assistant_client_space import AiAssistantClientLinkRequest, AiAssistantClientLinkResponse
-from schemas.prospection_video import ProspectionVideoDesktopFailureRequest, ProspectionVideoStateResponse
-from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_SUCCESS, activity_log_service
-from services.ai_assistant.alert_settings import AlertSettings
-from services.ai_assistant.assistant_purge import ai_assistant_purge_service
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.avatar_service import AvatarRefusal, AvatarStorageError, ai_assistant_avatar_service
-from services.ai_assistant.client_space_service import ai_assistant_client_space_service
-from services.ai_assistant.config_builder import ai_assistant_config_builder
-from services.ai_assistant.conversation_service import ConversationCounts, ai_assistant_conversation_service
-from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
-from services.ai_assistant.faq_service import ai_assistant_faq_service
-from services.ai_assistant.mailbox_service import MailboxView, ai_assistant_mailbox_service
-from services.ai_assistant.report_service import ai_assistant_report_service
-from services.ai_assistant.request_service import RequestCounts, ai_assistant_request_service
-from services.ai_assistant.start_reminders import ai_assistant_start_reminders
-from services.assistant_subscription_service import assistant_subscription_service
-from services.assistant_video_service import (
+from devleadhunter_receptionist.schemas.ai_assistant_client_space import (
+    AiAssistantClientLinkRequest,
+    AiAssistantClientLinkResponse,
+)
+from devleadhunter_receptionist.services.alert_settings import AlertSettings
+from devleadhunter_receptionist.services.assistant_purge import ai_assistant_purge_service
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.assistant_subscription_service import assistant_subscription_service
+from devleadhunter_receptionist.services.assistant_video_service import (
     ASSISTANT_PRESENTER_MODULE,
+    assistant_video_desktop_relay,
     assistant_video_service,
     has_ready_video,
     public_thumbnail_url,
     video_page_url,
 )
+from devleadhunter_receptionist.services.avatar_service import (
+    AvatarRefusal,
+    AvatarStorageError,
+    ai_assistant_avatar_service,
+)
+from devleadhunter_receptionist.services.client_space_service import ai_assistant_client_space_service
+from devleadhunter_receptionist.services.config_builder import ai_assistant_config_builder
+from devleadhunter_receptionist.services.conversation_service import (
+    ConversationCounts,
+    ai_assistant_conversation_service,
+)
+from devleadhunter_receptionist.services.embed_snippet import AiAssistantEmbedSnippet
+from devleadhunter_receptionist.services.faq_service import ai_assistant_faq_service
+from devleadhunter_receptionist.services.mailbox_service import MailboxView, ai_assistant_mailbox_service
+from devleadhunter_receptionist.services.report_service import ai_assistant_report_service
+from devleadhunter_receptionist.services.request_service import RequestCounts, ai_assistant_request_service
+from devleadhunter_receptionist.services.start_reminders import ai_assistant_start_reminders
+from models.prospect_db import ProspectDB
+from models.user import User
+from schemas.prospection_video import ProspectionVideoDesktopFailureRequest, ProspectionVideoStateResponse
+from services.activity_log_service import STATUS_SUCCESS, activity_log_service
 from services.auth_service import get_current_active_user
 from services.email_variables import EmailVariables
 from services.presenter_video_service import presenter_video_service
 from services.prospect_search.desktop_app_presence import desktop_app_presence
-from services.prospection_video_desktop_relay import assistant_video_desktop_relay
 from services.prospection_video_service import ALREADY_BUILDING_MESSAGE
 from services.video_pipeline import VideoGenerationError
 

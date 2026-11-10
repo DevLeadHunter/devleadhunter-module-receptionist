@@ -15,10 +15,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import ClassVar
 
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from enums.ai_assistant_request import AiAssistantRequestType
-from services.ai_assistant.request_analyzer import TranscriptLine
-from services.ai_assistant.visitor_contact import VisitorContact
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestType
+from devleadhunter_receptionist.services.request_analyzer import TranscriptLine
+from devleadhunter_receptionist.services.visitor_contact import VisitorContact
 
 
 @dataclass(frozen=True)

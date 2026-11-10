@@ -10,8 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from enums.ai_assistant_request import AiAssistantRequestType
-from models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestType
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
 
 DEFAULT_SMS_TYPES: frozenset[AiAssistantRequestType] = frozenset(
     {AiAssistantRequestType.QUOTE, AiAssistantRequestType.APPOINTMENT, AiAssistantRequestType.URGENT}

@@ -14,9 +14,10 @@ from typing import ClassVar
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_document import AiAssistantDocument
-from services.ai_assistant.document_text import AiAssistantDocumentText
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_document import AiAssistantDocument
+from devleadhunter_receptionist.services.document_text import AiAssistantDocumentText
+from devleadhunter_receptionist.services.receptionist_storage import ReceptionistStorage
 from services.r2_storage_service import r2_storage
 
 logger = logging.getLogger(__name__)
@@ -71,7 +72,7 @@ class AiAssistantDocumentService:
         if not r2_storage.is_configured():
             raise RuntimeError("Stockage des fichiers indisponible")
         extracted = await AiAssistantDocumentText.read(pdf_bytes)
-        storage_key = r2_storage.assistant_document_key(assistant.id)
+        storage_key = ReceptionistStorage.assistant_document_key(assistant.id)
         try:
             await r2_storage.upload_bytes_async(storage_key, pdf_bytes, "application/pdf")
         except Exception as exc:

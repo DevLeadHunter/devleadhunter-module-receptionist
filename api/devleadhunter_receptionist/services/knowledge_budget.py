@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import ClassVar
 
-from enums.ai_assistant_knowledge_source import AiAssistantKnowledgeSource
+from devleadhunter_receptionist.enums.ai_assistant_knowledge_source import AiAssistantKnowledgeSource
 from services.text_normalizer import TextNormalizer
 
 

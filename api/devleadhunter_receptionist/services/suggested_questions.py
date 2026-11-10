@@ -15,13 +15,13 @@ from typing import Any, ClassVar
 
 from sqlalchemy.orm import Session
 
-from enums.ai_assistant_llm import AiAssistantLlmUsage
-from models.ai_assistant import AiAssistant
-from services.ai_assistant.chat_service import AiAssistantChatService
-from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
-from services.ai_assistant.llm_router import assistant_llm_router
-from services.ai_assistant.trade_openings import AiAssistantTradeOpenings, OpeningSuggestions
-from services.ai_assistant.trade_resolver import AiAssistantTradeResolver
+from devleadhunter_receptionist.enums.ai_assistant_llm import AiAssistantLlmUsage
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.chat_service import AiAssistantChatService
+from devleadhunter_receptionist.services.knowledge_builder import ai_assistant_knowledge_builder
+from devleadhunter_receptionist.services.llm_router import assistant_llm_router
+from devleadhunter_receptionist.services.trade_openings import AiAssistantTradeOpenings, OpeningSuggestions
+from devleadhunter_receptionist.services.trade_resolver import AiAssistantTradeResolver
 from services.text_normalizer import TextNormalizer
 
 logger = logging.getLogger(__name__)

@@ -14,15 +14,15 @@ from typing import ClassVar
 
 from sqlalchemy.orm import Session
 
-from enums.ai_assistant_trade import AiAssistantTrade
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.enums.ai_assistant_trade import AiAssistantTrade
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.services.calendar_access import ai_assistant_calendar_access
+from devleadhunter_receptionist.services.calendar_settings import CalendarSettings
+from devleadhunter_receptionist.services.google_calendar_client import GoogleCalendarError, google_calendar_client
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.trade_resolver import AiAssistantTradeResolver
 from models.prospect_db import ProspectDB
-from services.ai_assistant.calendar_access import ai_assistant_calendar_access
-from services.ai_assistant.calendar_settings import CalendarSettings
-from services.ai_assistant.google_calendar_client import GoogleCalendarError, google_calendar_client
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.trade_resolver import AiAssistantTradeResolver
 from services.french_date_formatter import FrenchDateFormatter
 
 logger = logging.getLogger(__name__)

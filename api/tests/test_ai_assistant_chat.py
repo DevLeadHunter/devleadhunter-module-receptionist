@@ -2,16 +2,16 @@
 
 import pytest
 
-from enums.ai_assistant_llm import AiAssistantLlmUsage
-from services.ai_assistant import chat_service as chat_module
-from services.ai_assistant.chat_service import (
+from devleadhunter_receptionist.enums.ai_assistant_llm import AiAssistantLlmUsage
+from devleadhunter_receptionist.services import chat_service as chat_module
+from devleadhunter_receptionist.services.chat_service import (
     CHARS_PER_TOKEN,
     GROQ_ANSWER_TOKENS,
     GROQ_PROMPT_MAX_CHARS,
     MAX_HISTORY_MESSAGES,
     ai_assistant_chat_service,
 )
-from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
+from devleadhunter_receptionist.services.knowledge_builder import ai_assistant_knowledge_builder
 
 _KB = {
     "identity": {"business_name": "LUMA Immobilier", "city": "Luxembourg"},
@@ -149,7 +149,7 @@ def test_the_public_chat_payload_is_bounded() -> None:
     """At most 100 turns of 4,000 characters, from the visitor or the assistant only."""
     from pydantic import ValidationError
 
-    from schemas.ai_assistant import AiAssistantChatRequest
+    from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantChatRequest
 
     turn = {"role": "user", "content": "Bonjour"}
 

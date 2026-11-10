@@ -10,10 +10,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from api.v1.routes.ai_assistant_common import client_ip, confirmation_response
 from core.database import get_db
-from models.ai_assistant import AiAssistant
-from schemas.ai_assistant_client_space import (
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.routes.ai_assistant_common import client_ip, confirmation_response
+from devleadhunter_receptionist.schemas.ai_assistant_client_space import (
     AiAssistantClientCalendar,
     AiAssistantClientCalendarConnect,
     AiAssistantClientCalendarUpdate,
@@ -32,33 +32,39 @@ from schemas.ai_assistant_client_space import (
     AiAssistantClientSpaceResponse,
     AiAssistantClientTestSms,
 )
-from schemas.ai_assistant_demo_space import AiAssistantDemoSpaceRequest, AiAssistantDemoSpaceResponse
-from schemas.ai_assistant_faq import AiAssistantFaqEntryRequest, AiAssistantFaqResponse
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.avatar_service import ai_assistant_avatar_service
-from services.ai_assistant.calendar_access import ai_assistant_calendar_access
-from services.ai_assistant.calendar_booking import ai_assistant_calendar_booking
-from services.ai_assistant.calendar_service import ai_assistant_calendar_service
-from services.ai_assistant.client_links import AiAssistantClientLinks, ClientLinkToken
-from services.ai_assistant.client_space_activity import AiAssistantClientActivity
-from services.ai_assistant.client_space_example import EXAMPLE_TOKEN, ai_assistant_client_space_example
-from services.ai_assistant.client_space_payload import ai_assistant_client_space_payload
-from services.ai_assistant.client_space_service import ClientSpaceAccessError, ai_assistant_client_space_service
-from services.ai_assistant.demo_space_service import ai_assistant_demo_space_service
-from services.ai_assistant.embed_snippet import AiAssistantEmbedSnippet
-from services.ai_assistant.faq_service import ai_assistant_faq_service
-from services.ai_assistant.gmail_client import GmailError
-from services.ai_assistant.google_calendar_client import GoogleCalendarError
-from services.ai_assistant.limits import AiAssistantLimits
-from services.ai_assistant.mailbox_service import ai_assistant_mailbox_service
-from services.ai_assistant.request_alerts import ai_assistant_request_alerts
-from services.rate_limiter import (
+from devleadhunter_receptionist.schemas.ai_assistant_demo_space import (
+    AiAssistantDemoSpaceRequest,
+    AiAssistantDemoSpaceResponse,
+)
+from devleadhunter_receptionist.schemas.ai_assistant_faq import AiAssistantFaqEntryRequest, AiAssistantFaqResponse
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.avatar_service import ai_assistant_avatar_service
+from devleadhunter_receptionist.services.calendar_access import ai_assistant_calendar_access
+from devleadhunter_receptionist.services.calendar_booking import ai_assistant_calendar_booking
+from devleadhunter_receptionist.services.calendar_service import ai_assistant_calendar_service
+from devleadhunter_receptionist.services.client_links import AiAssistantClientLinks, ClientLinkToken
+from devleadhunter_receptionist.services.client_space_activity import AiAssistantClientActivity
+from devleadhunter_receptionist.services.client_space_example import EXAMPLE_TOKEN, ai_assistant_client_space_example
+from devleadhunter_receptionist.services.client_space_payload import ai_assistant_client_space_payload
+from devleadhunter_receptionist.services.client_space_service import (
+    ClientSpaceAccessError,
+    ai_assistant_client_space_service,
+)
+from devleadhunter_receptionist.services.demo_space_service import ai_assistant_demo_space_service
+from devleadhunter_receptionist.services.embed_snippet import AiAssistantEmbedSnippet
+from devleadhunter_receptionist.services.faq_service import ai_assistant_faq_service
+from devleadhunter_receptionist.services.gmail_client import GmailError
+from devleadhunter_receptionist.services.google_calendar_client import GoogleCalendarError
+from devleadhunter_receptionist.services.limits import AiAssistantLimits
+from devleadhunter_receptionist.services.mailbox_service import ai_assistant_mailbox_service
+from devleadhunter_receptionist.services.rate_limits import (
     assistant_client_limiter,
     assistant_client_renew_daily_limiter,
     assistant_client_renew_limiter,
     assistant_client_test_sms_limiter,
     assistant_demo_space_limiter,
 )
+from devleadhunter_receptionist.services.request_alerts import ai_assistant_request_alerts
 
 logger = logging.getLogger(__name__)
 

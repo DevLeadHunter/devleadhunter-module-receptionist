@@ -14,10 +14,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from models.ai_assistant import AiAssistant
-from schemas.ai_assistant import AiAssistantOpeningHoursRow, AiAssistantPublicBusiness
-from services.ai_assistant.knowledge_sources import SourceToggles
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantOpeningHoursRow, AiAssistantPublicBusiness
+from devleadhunter_receptionist.services.knowledge_sources import SourceToggles
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
 
 
 @dataclass(frozen=True)

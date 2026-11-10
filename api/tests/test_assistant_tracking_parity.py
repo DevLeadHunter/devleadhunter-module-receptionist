@@ -11,11 +11,12 @@ from sqlalchemy.orm import Session
 
 import services.behavior_service as behavior_module
 import services.notification_service as notification_module
-from models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.offer import ReceptionistCampaignOffer
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
 from models.demo_site import DemoSite
 from models.prospect_db import ProspectDB
 from models.push_subscription import PushSubscription
-from services.ai_assistant.assistant_service import ai_assistant_service
 from services.behavior_service import behavior_service
 from services.email_variables import EmailVariables
 from services.notification_service import notification_service
@@ -46,8 +47,8 @@ def _stub_receptionist_pages(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(ai_assistant_service, "page_url", lambda slug: _DEMO_PAGE)
     monkeypatch.setattr(
-        EmailVariables,
-        "assistant_video_urls",
+        ReceptionistCampaignOffer,
+        "video_urls",
         staticmethod(lambda assistant: (_VIDEO_PAGE, "https://cdn.dibodev.fr/garage-martin.jpg")),
     )
 
@@ -69,7 +70,7 @@ def test_the_receptionist_sms_links_take_the_short_form_that_stamps_the_sms_chan
 ) -> None:
     _stub_receptionist_pages(monkeypatch)
 
-    variables = SmsVariables.build_for_prospect(db, user_id=7, prospect=_prospect(db), assistant=_RECEPTIONIST)
+    variables = SmsVariables.build_for_prospect(db, user_id=7, prospect=_prospect(db))
 
     assert variables["lien_assistant"] == "demo.dibodev.fr/s/ia/garage-martin"
     assert variables["lien_video_assistant"] == "demo.dibodev.fr/s/va/garage-martin"

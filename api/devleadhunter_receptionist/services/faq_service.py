@@ -15,8 +15,12 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from core.clock import naive_utc_now
-from models.ai_assistant import AiAssistant
-from schemas.ai_assistant_faq import AiAssistantFaqEntry, AiAssistantFaqResponse, AiAssistantUnansweredEntry
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.schemas.ai_assistant_faq import (
+    AiAssistantFaqEntry,
+    AiAssistantFaqResponse,
+    AiAssistantUnansweredEntry,
+)
 from services.text_normalizer import TextNormalizer
 
 MAX_FAQ_ENTRIES = 50

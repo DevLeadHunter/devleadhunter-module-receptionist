@@ -16,9 +16,9 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, ClassVar
 
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from services.ai_assistant.knowledge_builder import LANGUAGE_NAMES
-from services.ai_assistant.request_email import AiAssistantRequestEmail, RenderedEmail
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.services.knowledge_builder import LANGUAGE_NAMES
+from devleadhunter_receptionist.services.request_email import AiAssistantRequestEmail, RenderedEmail
 from services.french_date_formatter import FrenchDateFormatter
 
 

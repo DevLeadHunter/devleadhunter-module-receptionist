@@ -10,21 +10,21 @@ from datetime import datetime
 from typing import Any
 
 import pytest
+from assistant_fakes import AcceptingSmsProvider, AsyncCallRecorder
 from sqlalchemy.orm import Session
 
-import services.ai_assistant.message_delivery as delivery_module
+import devleadhunter_receptionist.services.message_delivery as delivery_module
 import services.sms_service as sms_module
-from enums.ai_assistant_request import AiAssistantRequestStatus
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_report import AiAssistantReport
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.message_delivery import AiAssistantMessageDelivery
 from enums.sms_message_kind import SmsMessageKind
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_report import AiAssistantReport
-from models.ai_assistant_request import AiAssistantRequest
 from models.prospect_db import ProspectDB
 from models.sms_config import SmsConfig
 from models.sms_message import SmsMessage
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.message_delivery import AiAssistantMessageDelivery
-from tests.assistant_fakes import AcceptingSmsProvider, AsyncCallRecorder
 
 _MOMENT = datetime(2026, 9, 22, 12, 0)
 

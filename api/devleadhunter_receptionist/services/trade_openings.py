@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
-from enums.ai_assistant_trade import AiAssistantTrade
+from devleadhunter_receptionist.enums.ai_assistant_trade import AiAssistantTrade
 
 
 @dataclass(frozen=True)

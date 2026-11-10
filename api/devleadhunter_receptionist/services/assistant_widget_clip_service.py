@@ -6,9 +6,9 @@ system ffmpeg, never Playwright's ``record_video`` (whose bundled ffmpeg the fro
 exactly like :mod:`services.storyblok_editor_clip_service`.
 
 Unlike the site background, this needs **no authenticated session**: the widget is public, so the capture is a
-plain headless visit of ``/ia/{slug}?internal=1`` playing the scene of :mod:`services.assistant_widget_scene`
+plain headless visit of ``/ia/{slug}?internal=1`` playing the scene of :mod:`devleadhunter_receptionist.services.assistant_widget_scene`
 (the scripted example, then the appointment slots); the last seconds switch to the example client space, where
-the requests land (:mod:`services.assistant_space_chapter`, shared with the VPS capture). The widget scene runs
+the requests land (:mod:`devleadhunter_receptionist.services.assistant_space_chapter`, shared with the VPS capture). The widget scene runs
 on the page's own clock (its replies are typed with timers), so its screenshots are timestamped and assembled
 at their real pace; the space chapter scrolls frame by frame. The VPS montage later overlays the webcam PiP and
 the « Bonjour {Prénom} » pill.
@@ -25,10 +25,15 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from devleadhunter_receptionist.services.assistant_space_chapter import AssistantSpaceChapter
+from devleadhunter_receptionist.services.assistant_widget_scene import (
+    EXAMPLE_NOT_PLAYED_MESSAGE,
+    AssistantSceneProgress,
+    AssistantWidgetScene,
+)
 from services import video_montage
-from services.assistant_space_chapter import AssistantSpaceChapter
-from services.assistant_widget_scene import EXAMPLE_NOT_PLAYED_MESSAGE, AssistantSceneProgress, AssistantWidgetScene
 from services.capture_page import CapturePage
+from services.video_pipeline import VideoCaptureError
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +42,7 @@ _JPEG_QUALITY = 90
 _LISTING_NAME = "frames.ffconcat"
 
 
-class AssistantWidgetClipError(Exception):
+class AssistantWidgetClipError(VideoCaptureError):
     """Raised when the assistant widget clip cannot be produced."""
 
 

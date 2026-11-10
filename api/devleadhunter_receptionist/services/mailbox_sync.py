@@ -24,26 +24,33 @@ from sqlalchemy.orm import Session
 
 from core.clock import naive_utc_now
 from core.database import SessionLocal
-from enums.ai_assistant_mailbox import AiAssistantMailboxMessageOutcome, AiAssistantMailboxStatus
-from enums.ai_assistant_request import AiAssistantRequestChannel, AiAssistantRequestStatus, AiAssistantRequestType
-from enums.ai_assistant_status import AiAssistantStatus
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_mailbox import AiAssistantMailbox
-from models.ai_assistant_mailbox_message import AiAssistantMailboxMessage
-from models.ai_assistant_request import AiAssistantRequest
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.daily_message_cap import AiAssistantDailyMessageCap
-from services.ai_assistant.gmail_client import GmailChanges, GmailError, GmailMessage, gmail_client
-from services.ai_assistant.limits import AiAssistantLimits, AssistantLimit
-from services.ai_assistant.mail_draft_builder import AiAssistantMailDraftBuilder, MailReplyDraft
-from services.ai_assistant.mail_filter import AiAssistantMailFilter
-from services.ai_assistant.mail_reply_writer import ai_assistant_mail_reply_writer
-from services.ai_assistant.mail_triage import MailTriageVerdict, ai_assistant_mail_triage
-from services.ai_assistant.mailbox_access import ai_assistant_mailbox_access
-from services.ai_assistant.message_delivery import AiAssistantMessageDelivery
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from services.ai_assistant.request_follow_up import ai_assistant_request_follow_up
-from services.ai_assistant.request_service import ai_assistant_request_service
+from devleadhunter_receptionist.enums.ai_assistant_mailbox import (
+    AiAssistantMailboxMessageOutcome,
+    AiAssistantMailboxStatus,
+)
+from devleadhunter_receptionist.enums.ai_assistant_request import (
+    AiAssistantRequestChannel,
+    AiAssistantRequestStatus,
+    AiAssistantRequestType,
+)
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_mailbox import AiAssistantMailbox
+from devleadhunter_receptionist.models.ai_assistant_mailbox_message import AiAssistantMailboxMessage
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.daily_message_cap import AiAssistantDailyMessageCap
+from devleadhunter_receptionist.services.gmail_client import GmailChanges, GmailError, GmailMessage, gmail_client
+from devleadhunter_receptionist.services.limits import AiAssistantLimits, AssistantLimit
+from devleadhunter_receptionist.services.mail_draft_builder import AiAssistantMailDraftBuilder, MailReplyDraft
+from devleadhunter_receptionist.services.mail_filter import AiAssistantMailFilter
+from devleadhunter_receptionist.services.mail_reply_writer import ai_assistant_mail_reply_writer
+from devleadhunter_receptionist.services.mail_triage import MailTriageVerdict, ai_assistant_mail_triage
+from devleadhunter_receptionist.services.mailbox_access import ai_assistant_mailbox_access
+from devleadhunter_receptionist.services.message_delivery import AiAssistantMessageDelivery
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.services.request_follow_up import ai_assistant_request_follow_up
+from devleadhunter_receptionist.services.request_service import ai_assistant_request_service
 from services.conversation_service import strip_quoted_reply
 
 logger = logging.getLogger(__name__)

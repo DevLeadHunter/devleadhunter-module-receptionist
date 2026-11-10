@@ -13,21 +13,21 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from core.config import settings
-from enums.ai_assistant_request import AiAssistantRequestType
-from enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestType
+from devleadhunter_receptionist.enums.ai_assistant_status import AiAssistantStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.avatar_service import ai_assistant_avatar_service
+from devleadhunter_receptionist.services.config_builder import ai_assistant_config_builder
+from devleadhunter_receptionist.services.field_limits import SHORT_TEXT_MAX_CHARS
+from devleadhunter_receptionist.services.gmail_client import gmail_client
+from devleadhunter_receptionist.services.knowledge_builder import ai_assistant_knowledge_builder
+from devleadhunter_receptionist.services.suggested_questions import ai_assistant_suggested_questions
+from devleadhunter_receptionist.services.website_crawler import ai_assistant_website_crawler
+from devleadhunter_receptionist.services.website_sync import AiAssistantWebsiteSync
 from enums.demo_site_status import DemoSiteStatus
 from enums.website_status import WebsiteStatus
-from models.ai_assistant import AiAssistant
 from models.demo_site import DemoSite
 from models.prospect_db import ProspectDB
-from services.ai_assistant.avatar_service import ai_assistant_avatar_service
-from services.ai_assistant.config_builder import ai_assistant_config_builder
-from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
-from services.ai_assistant.gmail_client import gmail_client
-from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
-from services.ai_assistant.suggested_questions import ai_assistant_suggested_questions
-from services.ai_assistant.website_crawler import ai_assistant_website_crawler
-from services.ai_assistant.website_sync import AiAssistantWebsiteSync
 from services.demo_slug_guard import DemoSlugGuard
 from services.enrichment_service import enrichment_service
 from services.mistral_service import mistral_service
@@ -264,7 +264,7 @@ class AiAssistantService:
         # Prospection video: asked from the owner's PC as soon as the assistant is active, if the
         # user configured their « assistant » webcam clip with the option on (covers single + bulk).
         if assistant.status == AiAssistantStatus.ACTIVE.value:
-            from services.prospection_video_desktop_relay import assistant_video_desktop_relay
+            from devleadhunter_receptionist.services.assistant_video_service import assistant_video_desktop_relay
 
             assistant_video_desktop_relay.request_if_auto_generating(db, assistant, user_id)
 
@@ -489,7 +489,7 @@ class AiAssistantService:
         Returns:
             The number of assistants expired.
         """
-        from services.assistant_video_service import assistant_video_service
+        from devleadhunter_receptionist.services.assistant_video_service import assistant_video_service
 
         due: list[AiAssistant] = (
             db.query(AiAssistant)

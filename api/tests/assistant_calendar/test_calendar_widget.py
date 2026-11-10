@@ -7,20 +7,20 @@ Google is a fake client; the database is an in-memory SQLite. Routes are called 
 import asyncio
 
 import pytest
+from assistant_fakes import VISITOR_REQUEST
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-import api.v1.routes.ai_assistant_widget as routes
-import services.ai_assistant.calendar_access as access_module
-from enums.ai_assistant_booking_mode import AiAssistantBookingMode
-from enums.ai_assistant_visitor_channel import AiAssistantVisitorChannel
-from models.ai_assistant_appointment import AiAssistantAppointment
-from schemas.ai_assistant import AiAssistantBookingChoice, AiAssistantLeadRequest
-from services.ai_assistant.chat_service import AiAssistantChatService
-from services.ai_assistant.google_calendar_client import GoogleCalendarError
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
-from tests.assistant_calendar.calendar_fakes import MONDAY_10H, FakeGoogle, add_assistant, add_calendar, paris
-from tests.assistant_fakes import VISITOR_REQUEST
+import devleadhunter_receptionist.routes.ai_assistant_widget as routes
+import devleadhunter_receptionist.services.calendar_access as access_module
+from assistant_calendar.calendar_fakes import MONDAY_10H, FakeGoogle, add_assistant, add_calendar, paris
+from devleadhunter_receptionist.enums.ai_assistant_booking_mode import AiAssistantBookingMode
+from devleadhunter_receptionist.enums.ai_assistant_visitor_channel import AiAssistantVisitorChannel
+from devleadhunter_receptionist.models.ai_assistant_appointment import AiAssistantAppointment
+from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantBookingChoice, AiAssistantLeadRequest
+from devleadhunter_receptionist.services.chat_service import AiAssistantChatService
+from devleadhunter_receptionist.services.google_calendar_client import GoogleCalendarError
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
 
 
 @pytest.fixture

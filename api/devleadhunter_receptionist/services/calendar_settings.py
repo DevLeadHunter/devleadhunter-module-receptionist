@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
 
 DEFAULT_DURATION_MINUTES = 60
 DEFAULT_MIN_NOTICE_HOURS = 24

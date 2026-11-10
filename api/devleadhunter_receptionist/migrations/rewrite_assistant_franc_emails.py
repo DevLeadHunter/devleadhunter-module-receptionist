@@ -10,18 +10,12 @@ from __future__ import annotations
 
 import json
 import re
-import sys
-from pathlib import Path
 
 from sqlalchemy import text
 
-_ROOT = Path(__file__).resolve().parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
-
 from core.config import settings
 from core.database import engine
-from seeders.email_template_seeder import EMAIL_TEMPLATE_LIBRARY
+from devleadhunter_receptionist.email_templates import RECEPTIONIST_EMAIL_TEMPLATES as EMAIL_TEMPLATE_LIBRARY
 
 _VARIABLE_RE = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
 

@@ -8,18 +8,18 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from api.v1.routes.ai_assistant_requests import list_assistant_conversations
 from core.database import Base
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_conversation import AiAssistantConversation
-from models.ai_assistant_message import AiAssistantMessage
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.conversation_service import (
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_conversation import AiAssistantConversation
+from devleadhunter_receptionist.models.ai_assistant_message import AiAssistantMessage
+from devleadhunter_receptionist.routes.ai_assistant_requests import list_assistant_conversations
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.conversation_service import (
     RECENT_CONVERSATIONS_LIMIT,
     RETENTION_DAYS,
     ai_assistant_conversation_service,
 )
-from services.ai_assistant.field_limits import LONG_TEXT_MAX_CHARS
+from devleadhunter_receptionist.services.field_limits import LONG_TEXT_MAX_CHARS
 
 
 @pytest.fixture

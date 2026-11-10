@@ -11,14 +11,7 @@ Run with:
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 from sqlalchemy import text
-
-_ROOT = Path(__file__).resolve().parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
 
 from core.database import engine
 

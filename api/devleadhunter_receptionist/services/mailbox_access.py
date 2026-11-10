@@ -11,14 +11,15 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from enums.ai_assistant_mailbox import AiAssistantMailboxStatus
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_mailbox import AiAssistantMailbox
-from services.activity_log_service import CATEGORY_ASSISTANT, STATUS_WARNING, activity_log_service
-from services.ai_assistant.field_limits import SHORT_TEXT_MAX_CHARS
-from services.ai_assistant.gmail_client import GmailError, gmail_client
-from services.ai_assistant.google_token_access import GoogleTokenAccess
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.activity import CATEGORY_ASSISTANT
+from devleadhunter_receptionist.enums.ai_assistant_mailbox import AiAssistantMailboxStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_mailbox import AiAssistantMailbox
+from devleadhunter_receptionist.services.field_limits import SHORT_TEXT_MAX_CHARS
+from devleadhunter_receptionist.services.gmail_client import GmailError, gmail_client
+from devleadhunter_receptionist.services.google_token_access import GoogleTokenAccess
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
+from services.activity_log_service import STATUS_WARNING, activity_log_service
 from services.google_oauth_client import GoogleTokens
 
 logger = logging.getLogger(__name__)

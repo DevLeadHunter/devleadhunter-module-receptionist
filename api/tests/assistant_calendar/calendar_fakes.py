@@ -10,20 +10,20 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
-import services.ai_assistant.google_calendar_client as google_module
-from enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_calendar import AiAssistantCalendar
-from models.ai_assistant_request import AiAssistantRequest
-from models.prospect_db import ProspectDB
-from models.sms_config import SmsConfig
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.google_calendar_client import (
+import devleadhunter_receptionist.services.google_calendar_client as google_module
+from devleadhunter_receptionist.enums.ai_assistant_calendar_status import AiAssistantCalendarStatus
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_calendar import AiAssistantCalendar
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.google_calendar_client import (
     BusyPeriod,
     CalendarEventDraft,
     CalendarEventState,
     GoogleCalendarError,
 )
+from models.prospect_db import ProspectDB
+from models.sms_config import SmsConfig
 from services.encryption_service import encryption_service
 from services.google_oauth_client import GoogleTokens
 

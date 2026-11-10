@@ -13,9 +13,11 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 
-import services.ai_assistant.gmail_client as gmail_module
+import devleadhunter_receptionist.services.gmail_client as gmail_module
 import services.google_oauth_client as oauth_module
-from services.ai_assistant.gmail_client import GmailClient, GmailError
+from core.config import settings
+from devleadhunter_receptionist.services.gmail_client import GmailClient, GmailError
+from devleadhunter_receptionist.settings import receptionist_settings
 
 
 def _client_with(handler: Any, monkeypatch: pytest.MonkeyPatch) -> GmailClient:
@@ -29,10 +31,10 @@ def _client_with(handler: Any, monkeypatch: pytest.MonkeyPatch) -> GmailClient:
 
     monkeypatch.setattr(gmail_module.httpx, "AsyncClient", patched_client)
     monkeypatch.setattr(oauth_module.httpx, "AsyncClient", patched_client)
-    monkeypatch.setattr(gmail_module.settings, "google_client_id", "client-id")
-    monkeypatch.setattr(gmail_module.settings, "google_client_secret", "client-secret")
+    monkeypatch.setattr(settings, "google_client_id", "client-id")
+    monkeypatch.setattr(settings, "google_client_secret", "client-secret")
     monkeypatch.setattr(
-        gmail_module.settings, "google_mailbox_redirect_uri", "https://api.example.fr/ai-assistants/mailbox/cb"
+        receptionist_settings, "google_mailbox_redirect_uri", "https://api.example.fr/ai-assistants/mailbox/cb"
     )
     return GmailClient()
 
@@ -47,7 +49,7 @@ def _error(status: int, reason: str) -> httpx.Response:
 def test_the_mailbox_is_configured_only_with_google_and_its_redirect_address(monkeypatch: pytest.MonkeyPatch) -> None:
     client = _client_with(lambda request: httpx.Response(200), monkeypatch)
     configured = client.is_configured
-    monkeypatch.setattr(gmail_module.settings, "google_mailbox_redirect_uri", " ")
+    monkeypatch.setattr(receptionist_settings, "google_mailbox_redirect_uri", " ")
 
     assert configured is True
     assert client.is_configured is False

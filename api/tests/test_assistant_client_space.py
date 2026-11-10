@@ -12,29 +12,28 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from assistant_fakes import VISITOR_REQUEST, AsyncCallRecorder
 from fastapi import HTTPException
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-import api.v1.routes.ai_assistant_client_space as routes
-import api.v1.routes.ai_assistant_widget as widget_routes
-import api.v1.routes.ai_assistants as owner_routes
-import services.ai_assistant.client_space_service as client_space_module
-import services.ai_assistant.message_delivery as delivery_module
-import services.ai_assistant.start_reminders as start_reminders_module
+import devleadhunter_receptionist.routes.ai_assistant_client_space as routes
+import devleadhunter_receptionist.routes.ai_assistant_widget as widget_routes
+import devleadhunter_receptionist.routes.ai_assistants as owner_routes
+import devleadhunter_receptionist.services.client_space_service as client_space_module
+import devleadhunter_receptionist.services.message_delivery as delivery_module
+import devleadhunter_receptionist.services.start_reminders as start_reminders_module
 import services.email_sending_service as email_sending_module
 from core.config import settings
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestType
-from enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
-from models.ai_assistant import AiAssistant
-from models.ai_assistant_report import AiAssistantReport
-from models.ai_assistant_request import AiAssistantRequest
-from models.ai_assistant_subscription import AiAssistantSubscription
-from models.prospect_db import ProspectDB
-from models.user import User
-from schemas.ai_assistant import AiAssistantInstalledPing
-from schemas.ai_assistant_client_space import (
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.enums.ai_assistant_request import AiAssistantRequestOutcome, AiAssistantRequestType
+from devleadhunter_receptionist.enums.ai_assistant_widget_language import AiAssistantWidgetLanguage
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.models.ai_assistant_report import AiAssistantReport
+from devleadhunter_receptionist.models.ai_assistant_request import AiAssistantRequest
+from devleadhunter_receptionist.models.ai_assistant_subscription import AiAssistantSubscription
+from devleadhunter_receptionist.schemas.ai_assistant import AiAssistantInstalledPing
+from devleadhunter_receptionist.schemas.ai_assistant_client_space import (
     AiAssistantClientGoogleProfileUpdate,
     AiAssistantClientLimitsUpdate,
     AiAssistantClientLimitUpdate,
@@ -42,20 +41,21 @@ from schemas.ai_assistant_client_space import (
     AiAssistantClientRequestOutcomeUpdate,
     AiAssistantClientSettingsUpdate,
 )
-from services.ai_assistant.alert_sms import AlertSms
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.client_links import AiAssistantClientLinks
-from services.ai_assistant.client_space_payload import ai_assistant_client_space_payload
-from services.ai_assistant.event_intake import AiAssistantEventIntake, EventIntakeContext
-from services.ai_assistant.knowledge_builder import ai_assistant_knowledge_builder
-from services.ai_assistant.limits import AiAssistantLimits
-from services.ai_assistant.report_email import AiAssistantReportEmail
-from services.ai_assistant.report_stats import AiAssistantReportStats
-from services.ai_assistant.request_analyzer import ai_assistant_request_analyzer
-from services.ai_assistant.request_email import AiAssistantRequestEmail, RequestEmailContent
+from devleadhunter_receptionist.services.alert_sms import AlertSms
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.client_links import AiAssistantClientLinks
+from devleadhunter_receptionist.services.client_space_payload import ai_assistant_client_space_payload
+from devleadhunter_receptionist.services.event_intake import AiAssistantEventIntake, EventIntakeContext
+from devleadhunter_receptionist.services.knowledge_builder import ai_assistant_knowledge_builder
+from devleadhunter_receptionist.services.limits import AiAssistantLimits
+from devleadhunter_receptionist.services.report_email import AiAssistantReportEmail
+from devleadhunter_receptionist.services.report_stats import AiAssistantReportStats
+from devleadhunter_receptionist.services.request_analyzer import ai_assistant_request_analyzer
+from devleadhunter_receptionist.services.request_email import AiAssistantRequestEmail, RequestEmailContent
+from models.prospect_db import ProspectDB
+from models.user import User
 from services.rate_limiter import SlidingWindowRateLimiter
 from services.sms.gsm_segments import segment_count
-from tests.assistant_fakes import VISITOR_REQUEST, AsyncCallRecorder
 
 _LINK = "demo.dibodev.fr/client/1234.tneuo0.K4lzdHZLLanlAxWK"
 
@@ -359,7 +359,7 @@ def test_a_new_alert_mobile_is_announced_to_the_business_and_the_operator(db: Se
 
 
 def test_the_billing_portal_returns_to_the_client_space(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    import services.assistant_subscription_service as subscription_module
+    import devleadhunter_receptionist.services.assistant_subscription_service as subscription_module
 
     assistant = _assistant(db)
     token = _token(assistant)
@@ -369,7 +369,7 @@ def test_the_billing_portal_returns_to_the_client_space(db: Session, monkeypatch
         sessions.append(kwargs)
         return SimpleNamespace(url="https://billing.stripe.com/p/session_1")
 
-    monkeypatch.setattr(subscription_module.settings, "stripe_secret_key", "sk_test_x", raising=False)
+    monkeypatch.setattr(settings, "stripe_secret_key", "sk_test_x", raising=False)
     monkeypatch.setattr(
         subscription_module.assistant_subscription_service._stripe.billing_portal.Session, "create", create
     )
@@ -468,7 +468,7 @@ def test_the_operator_issues_the_link_of_a_sold_assistant_only(db: Session, outb
 
 
 def test_the_link_email_gives_the_expiry_in_business_time(db: Session, outbox: dict[str, Any]) -> None:
-    from services.ai_assistant.client_space_service import ai_assistant_client_space_service
+    from devleadhunter_receptionist.services.client_space_service import ai_assistant_client_space_service
 
     assistant = _assistant(db)
     # 22:30 UTC on 24 September is already the 25th in Paris: the link lasts until the 25th of October.
@@ -527,7 +527,7 @@ def test_the_summary_email_opens_the_client_space_and_warns_against_forwarding()
 
 
 def test_the_scheduled_cancellation_is_read_from_stripe(db: Session) -> None:
-    from services.assistant_subscription_service import AssistantSubscriptionService
+    from devleadhunter_receptionist.services.assistant_subscription_service import AssistantSubscriptionService
 
     assistant = _assistant(db)
     row = AiAssistantSubscription(

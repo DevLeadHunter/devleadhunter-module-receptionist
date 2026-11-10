@@ -12,13 +12,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from enums.ai_assistant_persona_gender import AiAssistantPersonaGender
-from services.ai_assistant.config_builder import ai_assistant_config_builder
-from services.ai_assistant.event_intake import AiAssistantEventIntake, EventIntakeContext
-from services.ai_assistant.faq_service import FaqEntry, ai_assistant_faq_service
-from services.ai_assistant.knowledge_sources import AiAssistantKnowledgeSources, SourceToggles
-from services.ai_assistant.limits import AiAssistantLimits, AssistantLimit
-from services.ai_assistant.opening_hours import OpeningHoursCalendar
+from devleadhunter_receptionist.enums.ai_assistant_persona_gender import AiAssistantPersonaGender
+from devleadhunter_receptionist.services.config_builder import ai_assistant_config_builder
+from devleadhunter_receptionist.services.event_intake import AiAssistantEventIntake, EventIntakeContext
+from devleadhunter_receptionist.services.faq_service import FaqEntry, ai_assistant_faq_service
+from devleadhunter_receptionist.services.knowledge_sources import AiAssistantKnowledgeSources, SourceToggles
+from devleadhunter_receptionist.services.limits import AiAssistantLimits, AssistantLimit
+from devleadhunter_receptionist.services.opening_hours import OpeningHoursCalendar
 from services.french_date_formatter import FrenchDateFormatter
 from services.templates.site_content import (
     _DAY_ANNOTATION_RE,

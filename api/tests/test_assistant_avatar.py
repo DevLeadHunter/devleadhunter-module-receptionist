@@ -15,14 +15,17 @@ from sqlalchemy.orm import Session
 from starlette.datastructures import Headers
 
 import api.v1.routes.admin_storage as storage_routes
-import services.ai_assistant.avatar_service as avatar_module
-from enums.storage_object_kind import StorageObjectKind
-from models.ai_assistant import AiAssistant
+import devleadhunter_receptionist.services.avatar_service as avatar_module
+from devleadhunter_receptionist.models.ai_assistant import AiAssistant
+from devleadhunter_receptionist.services.assistant_purge import AiAssistantPurgeService
+from devleadhunter_receptionist.services.assistant_service import ai_assistant_service
+from devleadhunter_receptionist.services.avatar_service import (
+    AiAssistantAvatarService,
+    AvatarRefusal,
+    ai_assistant_avatar_service,
+)
 from models.prospect_db import ProspectDB
 from models.user import User
-from services.ai_assistant.assistant_purge import AiAssistantPurgeService
-from services.ai_assistant.assistant_service import ai_assistant_service
-from services.ai_assistant.avatar_service import AiAssistantAvatarService, AvatarRefusal, ai_assistant_avatar_service
 
 
 class _FakeStorage:
@@ -247,5 +250,5 @@ def test_the_portrait_goes_with_the_deleted_assistant_and_files_under_its_own_ki
     keys: list[Any] = AiAssistantPurgeService._file_keys(assistant, [], [])
 
     assert "images/assistant-avatars/3/abc.webp" in keys
-    assert storage_routes._classify("images/assistant-avatars/3/abc.webp") is StorageObjectKind.ASSISTANT_AVATAR
-    assert storage_routes._classify("images/assistant-photos/2026/10/abc.jpg") is StorageObjectKind.ASSISTANT_PHOTO
+    assert storage_routes._classify("images/assistant-avatars/3/abc.webp") == "assistant_avatar"
+    assert storage_routes._classify("images/assistant-photos/2026/10/abc.jpg") == "assistant_photo"
