@@ -59,7 +59,9 @@ def _offer_state(monkeypatch: pytest.MonkeyPatch, *, has_assistant: bool, has_vi
     monkeypatch.setattr(
         ReceptionistCampaignOffer, "has_active_offer", lambda _self, _db, *, prospect_id, user_id: has_assistant
     )
-    monkeypatch.setattr(ReceptionistCampaignOffer, "has_ready_video", lambda _self, _db, *, prospect_id, user_id: has_video)
+    monkeypatch.setattr(
+        ReceptionistCampaignOffer, "has_ready_video", lambda _self, _db, *, prospect_id, user_id: has_video
+    )
 
 
 def test_the_send_guards_of_the_receptionist_templates(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
