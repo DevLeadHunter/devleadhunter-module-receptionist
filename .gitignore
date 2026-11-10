@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+.venv/
+
+# Nuxt layers: their node_modules are junctions to the core app's, the build output stays local
+node_modules
+.nuxt/
+.output/
+.data/
+dist/
+
+# Local environment
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
