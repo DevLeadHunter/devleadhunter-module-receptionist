@@ -33,6 +33,7 @@ export default defineNuxtConfig({
       cors: true,
       headers: {
         'Content-Security-Policy': 'frame-ancestors *',
+        'X-Robots-Tag': 'noindex',
       },
     },
   },

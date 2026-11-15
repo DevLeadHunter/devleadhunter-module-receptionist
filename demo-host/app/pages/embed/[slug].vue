@@ -59,6 +59,8 @@ onMounted((): void => {
     ASSISTANT_TRACKING_SURFACE,
   )
 })
+
+useSeoMeta({ robots: 'noindex' })
 </script>
 
 <style>

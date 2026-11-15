@@ -372,7 +372,10 @@ Une seule ligne chez le client :
 ```
 
 La route `/embed/**` du demo-host répond `frame-ancestors *` : n'importe quel site client peut encadrer le
-widget (les autres pages restent réservées au dashboard et à Storyblok). Le script monte un iframe transparent (bas-droite) vers `/embed/{slug}?embed=1` (+ `internal=1`
+widget (les autres pages restent réservées au dashboard et à Storyblok). Elle répond aussi `X-Robots-Tag: noindex`
+et la page porte la balise `robots` `noindex` : le script crée une adresse par page du site client, qu'un moteur de
+recherche ne doit pas indexer. Le `robots.txt` du demo-host ne doit jamais interdire `/embed/` : un moteur qui ne
+peut pas lire la page ne voit pas le `noindex`. Le script monte un iframe transparent (bas-droite) vers `/embed/{slug}?embed=1` (+ `internal=1`
 repris de la page hôte), ne touche à aucun style de la page hôte, sans dépendance. Dialogue par
 `postMessage` : le widget annonce `dlh-assistant-ready`, le loader répond `dlh-assistant-host`
 (largeur du viewport hôte, rejouée au resize) qui pilote le rendu mobile (`.ai-panel--mobile`,
